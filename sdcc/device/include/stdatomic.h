@@ -33,7 +33,7 @@ inline void atomic_flag_clear(volatile atomic_flag object[static 1])
 	object->flag = 0;
 }
 
-#elif defined(__SDCC_z80) || defined(__SDCC_z180) || defined(__SDCC_ez80) || defined(__SDCC_z80n) || defined(__SDCC_sm83) || defined(__SDCC_r2k) || defined(__SDCC_r2ka) || defined(__SDCC_r3ka) || defined(__SDCC_r4k) || defined(__SDCC_r5k) || defined(__SDCC_r6k) || defined(__SDCC_r800)
+#elif defined(__SDCC_z80) || defined(__SDCC_z180) || defined(__SDCC_ez80) || defined(__SDCC_z80n) || defined(__SDCC_sm83) || defined(__SDCC_r2k) || defined(__SDCC_r2ka) || defined(__SDCC_r3ka) || defined(__SDCC_r4k) || defined(__SDCC_r5k) || defined(__SDCC_r6k) || defined(__SDCC_r800) || defined(__SDCC_i8080) || defined(__SDCC_i8085)
 
 #define ATOMIC_FLAG_INIT {0xfe}
 

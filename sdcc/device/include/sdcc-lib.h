@@ -30,7 +30,7 @@
 #ifndef __SDCC_SDCC_LIB_H
 #define __SDCC_SDCC_LIB_H	1
 
-#if defined(__SDCC_z80) || defined(__SDCC_z180) || defined(__SDCC_ez80) || defined(__SDCC_z80n) || defined(__SDCC_r800)
+#if defined(__SDCC_z80) || defined(__SDCC_z180) || defined(__SDCC_ez80) || defined(__SDCC_z80n) || defined(__SDCC_r800) || defined(__SDCC_i8080) || defined(__SDCC_i8085)
 #include <asm/z80/features.h>
 
 #elif defined(__SDCC_r2k) || defined(__SDCC_r2ka) || defined(__SDCC_r3ka) || defined(__SDCC_r4k) || defined(__SDCC_r5k) || defined(__SDCC_r6k)

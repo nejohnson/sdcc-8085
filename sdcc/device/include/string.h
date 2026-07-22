@@ -85,7 +85,7 @@ extern void *memmove (void *dest, const void *src, size_t n) __preserves_regs(iy
 extern void *memmove (void *dest, const void *src, size_t n);
 #endif
 
-#if defined(__SDCC_z80) || defined (__SDCC_z80n) || defined(__SDCC_z180) || defined(__SDCC_r2k) || defined(__SDCC_r2ka) || defined(__SDCC_r3ka) || defined(__SDCC_r4k) || defined(__SDCC_r5k) || defined(__SDCC_r6k) || defined(__SDCC_tlcs90) || defined (__SDCC_ez80) || defined(__SDCC_r800)
+#if defined(__SDCC_z80) || defined (__SDCC_z80n) || defined(__SDCC_z180) || defined(__SDCC_r2k) || defined(__SDCC_r2ka) || defined(__SDCC_r3ka) || defined(__SDCC_r4k) || defined(__SDCC_r5k) || defined(__SDCC_r6k) || defined(__SDCC_tlcs90) || defined (__SDCC_ez80) || defined(__SDCC_r800) || defined(__SDCC_i8080) || defined(__SDCC_i8085)
 #if __STDC_VERSION__ >= 199901L
 extern char *strcpy (char dest[restrict static 1], const char src[restrict static 1]) __preserves_regs(iyl, iyh);
 #else
@@ -212,7 +212,7 @@ extern void *memset (void *s, int c, size_t n);
 extern void *memset_explicit (void *s, int c, size_t n);
 
 /* extern char *strerror(int errnum); */
-#if defined(__SDCC_z80) || defined (__SDCC_z80n) || defined(__SDCC_z180) || defined(__SDCC_tlcs90) || defined(__SDCC_ez80) || defined(__SDCC_r800)
+#if defined(__SDCC_z80) || defined (__SDCC_z80n) || defined(__SDCC_z180) || defined(__SDCC_tlcs90) || defined(__SDCC_ez80) || defined(__SDCC_r800) || defined(__SDCC_i8080) || defined(__SDCC_i8085)
 #if __STDC_VERSION__ >= 199901L
 extern size_t strlen (const char s[static 1]) __preserves_regs(iyl, iyh);
 #else
@@ -287,7 +287,7 @@ char *strsep(char **restrict sp, const char *restrict delim);
 extern void __xdata *memcpyx(void __xdata *, void __xdata *, int) __naked;
 #endif
 
-#if defined(__SDCC_z80) || defined (__SDCC_z80n) || defined(__SDCC_z180) || defined(__SDCC_r2k) || defined(__SDCC_r2ka) || defined(__SDCC_r3ka) || defined(__SDCC_r4k) || defined(__SDCC_r5k) || defined(__SDCC_r6k) || defined (__SDCC_ez80) || defined(__SDCC_r800)
+#if defined(__SDCC_z80) || defined (__SDCC_z80n) || defined(__SDCC_z180) || defined(__SDCC_r2k) || defined(__SDCC_r2ka) || defined(__SDCC_r3ka) || defined(__SDCC_r4k) || defined(__SDCC_r5k) || defined(__SDCC_r6k) || defined (__SDCC_ez80) || defined(__SDCC_r800) || defined(__SDCC_i8080) || defined(__SDCC_i8085)
 #define memcpy(dst, src, n) __builtin_memcpy(dst, src, n)
 #define strcpy(dst, src) __builtin_strcpy(dst, src)
 #define strncpy(dst, src, n) __builtin_strncpy(dst, src, n)
