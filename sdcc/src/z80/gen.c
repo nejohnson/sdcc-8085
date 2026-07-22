@@ -13137,7 +13137,7 @@ gencjneshort (operand *left, operand *right, symbol *lbl, const iCode *ic)
               offset += 2;
               a_result = false;
             }
-          else if (!IS_SM83 && size >= 2 && skipbyte != offset + 1 && aopInReg (left->aop, offset, HL_IDX) && isRegDead (HL_IDX, ic) && !next_zero && (de_dead || bc_dead))
+          else if (!IS_SM83 && !IS_8080LIKE && size >= 2 && skipbyte != offset + 1 && aopInReg (left->aop, offset, HL_IDX) && isRegDead (HL_IDX, ic) && !next_zero && (de_dead || bc_dead))
             {
               asmop *rightpairaop = de_dead ? ASMOP_DE : ASMOP_BC;
               emit3w_o (A_LD, rightpairaop, 0, right->aop, offset);
@@ -13653,7 +13653,7 @@ genAnd (const iCode *ic, iCode *ifx)
           /* Testing for the inverse of the border bits of some 16-bit registers destructively is cheap. */
           /* More combinations would be possible, but these are the common ones. */
           else if (left->aop->type == AOP_REG && sizel >= 2 && ((lit >> (offset * 8)) & 0xffffull) == 0x7fffull &&
-            (!IS_SM83 && aopInReg (left->aop, offset, HL_IDX) && isPairDead (PAIR_HL, ic) ||
+            (!IS_SM83 && !IS_8080LIKE && aopInReg (left->aop, offset, HL_IDX) && isPairDead (PAIR_HL, ic) ||
             IS_RAB && aopInReg (left->aop, offset, DE_IDX) && isPairDead (PAIR_DE, ic)))
             {
               emit3 (A_CP, ASMOP_A, ASMOP_A); // Clear carry.
@@ -15540,7 +15540,7 @@ genRotW (const iCode *ic)
             }
           for (int i = 0; i < size;)
             {
-              if (!IS_SM83 && i + 1 < size && aopInReg (rotaop, i, HL_IDX))
+              if (!IS_SM83 && !IS_8080LIKE && i + 1 < size && aopInReg (rotaop, i, HL_IDX))
                 {
                   emit3w (A_ADC, ASMOP_HL, ASMOP_HL);
                   i += 2;
@@ -16550,7 +16550,7 @@ genUnpackBits (operand *result, int offset, int blen, int bstr)
           // signed bit-field: sign extension with 0x00 or 0xff
           emit3 (A_RLA, 0, 0);
 
-          if (!IS_SM83 && !IS_TLCS870 && rsize == 2 && aopInReg (result->aop, offset, HL_IDX))
+          if (!IS_SM83 && !IS_8080LIKE && !IS_TLCS870 && rsize == 2 && aopInReg (result->aop, offset, HL_IDX))
             emit3w (A_SBC, ASMOP_HL, ASMOP_HL);
           else
             {
@@ -19285,7 +19285,7 @@ genCast (const iCode *ic)
       /* we need to extend the sign */
       emit3 (A_RLCA, 0, 0);
 
-      if (!IS_SM83 && !maskedtopbyte && hl_dead &&
+      if (!IS_SM83 && !IS_8080LIKE && !maskedtopbyte && hl_dead &&
         (size == 2 && (aopInReg (result->aop, offset, HL_IDX) || aopInReg (result->aop, offset, DE_IDX) || result->aop->type == AOP_IY) ||
         (IS_RAB || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1 || IS_EZ80) && size >= 2 && result->aop->type == AOP_STK)) // Rabbit, most TLCS and eZ80 have efficient hl-to-stack store.
         {
