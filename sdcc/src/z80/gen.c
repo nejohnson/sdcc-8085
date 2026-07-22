@@ -459,6 +459,7 @@ cost2old (unsigned int bytes, unsigned int z80_states /* also z80n */, unsigned 
    which are used earlier in the file than they are defined. */
 static void emit8080Bit (asmop *aop, int offset, int bit);
 static void emit8080SetRes (asmop *aop, int offset, int bit, bool set, bool a_dead);
+static void emit8080Ldir (void);
 
 /*-----------------------------------------------------------------*/
 /* isRegIdxPair - true, if specified index is register pair,       */
@@ -6681,7 +6682,7 @@ _castBoolean (const operand *right)
   else
     {
       _toBoolean (right, false);
-      if (IS_Z80 || IS_SM83 || IS_TLCS870 || IS_TLCS870C || IS_TLCS870C1) // Only for the original Z80 is the addition faster than neg. SM83 and TLCS-870(C)(C1) don't have neg.
+      if (IS_Z80 || IS_SM83 || IS_8080LIKE || IS_TLCS870 || IS_TLCS870C || IS_TLCS870C1) // Only for the original Z80 is the addition faster than neg. SM83, 8080/8085 and TLCS-870(C)(C1) don't have neg.
         emit3 (A_ADD, ASMOP_A, ASMOP_MONE);
       else
         emit3 (A_NEG, /*ASMOP_A*/0, 0); // Todo: Make eZ80 assembler support "neg a" instead of just "neg"!
@@ -8426,7 +8427,8 @@ genCall (const iCode *ic)
         }
       else
         {
-          emit2 ("ldir");
+          if (IS_8080LIKE) emit8080Ldir (); else
+      emit2 ("ldir");
           cost2 (2, 2, -1, -1, 21 * size -5, 14 * size - 2, 7 * size - 1, 7 * size - 1, -1, 18 * size - 4, -1, -1, -1, 2 * size - 1, 4 * size);
         }
       updatePair (PAIR_HL, size);
@@ -9275,6 +9277,7 @@ genRet (const iCode *ic)
         fetchLitPair (PAIR_HL, IC_LEFT (ic)->aop, 0, true, false);
       emit2 ("ld bc, !immed%d", size);
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
+      if (IS_8080LIKE) emit8080Ldir (); else
       emit2 ("ldir");
       cost2 (2, 2, -1, -1, 21 * size -5, 14 * size - 2, 7 * size - 1, 7* size - 1, -1, 18 * size - 4, -1, -1, -1, 2 * size - 1, 4 * size);
       updatePair (PAIR_HL, size);
@@ -11001,7 +11004,7 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
             }
           else if (!offset)
             {
-              if (!IS_SM83 && aopIsLitVal (left, offset, 1, 0x00) && aopInReg (right, offset, A_IDX))
+              if (!IS_SM83 && !IS_8080LIKE && aopIsLitVal (left, offset, 1, 0x00) && aopInReg (right, offset, A_IDX))
                 emit3 (A_NEG, /*ASMOP_A*/0, 0); // Todo: Make eZ80 assembler support "neg a" instead of just "neg"!
               else
                 {
@@ -14712,6 +14715,28 @@ emit8080Lsh1 (asmop *aop, int offset, bool rotate)
     emit3_o (A_LD, aop, offset, ASMOP_A, 0);
 }
 
+/* 8080/8085 have no block-copy (ldir).  Emit the equivalent byte loop with
+   the same register contract: HL = source, DE = dest, BC = count. Clobbers A
+   (as the existing SM83/Rabbit byte-loop fallbacks do). */
+static void
+emit8080Ldir (void)
+{
+  symbol *tlbl = regalloc_dry_run ? 0 : newiTempLabel (NULL);
+  emitLabel (tlbl);
+  if (!regalloc_dry_run)
+    {
+      emit2 ("ld a, (hl)");
+      emit2 ("ld (de), a");
+    }
+  cost2 (2, 2, 2, 2, 11, 8, 4, 4, 16, 8, 5, 5, 5, 4, 4);
+  emit3w (A_INC, ASMOP_HL, 0);
+  emit3w (A_INC, ASMOP_DE, 0);
+  emit3w (A_DEC, ASMOP_BC, 0);
+  emit3 (A_LD, ASMOP_A, ASMOP_B);
+  emit3 (A_OR, ASMOP_A, ASMOP_C);
+  emitJP (tlbl, "nz", 0.9f, true);
+}
+
 /* 8080/8085 have no CB-prefix bit/set/res.  Synthesise them through the
    accumulator and an immediate mask.  The accumulator is used as scratch;
    the cost is accounted so the register allocator keeps/spills A as needed. */
@@ -17014,6 +17039,7 @@ genPointerGet (const iCode *ic)
 
       emit2 ("ld bc, !immedword", (unsigned)size);
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
+      if (IS_8080LIKE) emit8080Ldir (); else
       emit2 ("ldir");
       cost2 (2, 2, -1, -1, 21 * size -5, 14 * size - 2, 7 * size - 1, 7* size - 1, -1, 18 * size - 4, -1, -1, -1, 2 * size - 1, 4 * size);
       spillPair (PAIR_HL);
@@ -17882,6 +17908,7 @@ genPointerSet (iCode *ic)
       regalloc_dry_run_cost += 4;
       emit2 ("ld bc, !immedword", (unsigned)size);
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
+      if (IS_8080LIKE) emit8080Ldir (); else
       emit2 ("ldir");
       cost2 (2, 2, -1, -1, 21 * size -5, 14 * size - 2, 7 * size - 1, 7* size - 1, -1, 18 * size - 4, -1, -1, -1, 2 * size - 1, 4 * size);
       spillPair (PAIR_HL);
@@ -19052,7 +19079,8 @@ genAssign (const iCode *ic)
               else
                 {
                   emit2 ("ld bc, !immed%d", size);
-                  emit2 ("ldir");
+                  if (IS_8080LIKE) emit8080Ldir (); else
+      emit2 ("ldir");
                   regalloc_dry_run_cost += 5;
                 }
               spillPair (PAIR_HL);
@@ -20092,7 +20120,8 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
         }
       else
         {
-          emit2 ("ldir");
+          if (IS_8080LIKE) emit8080Ldir (); else
+      emit2 ("ldir");
           regalloc_dry_run_cost += 2;
         }
       emitLabel (tlbl);
