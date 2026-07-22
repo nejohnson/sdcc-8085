@@ -455,6 +455,11 @@ cost2old (unsigned int bytes, unsigned int z80_states /* also z80n */, unsigned 
   cost2 (bytes, bytes, bytes, bytes, z80_states, z180_states, r2k_clocks, r2k_clocks, sm83_cycles, tlcs90_states, -1, -1, -1, ez80_cycles, r800_cycles);
 }
 
+/* Forward declarations for the 8080/8085 CB-instruction synthesis helpers,
+   which are used earlier in the file than they are defined. */
+static void emit8080Bit (asmop *aop, int offset, int bit);
+static void emit8080SetRes (asmop *aop, int offset, int bit, bool set, bool a_dead);
+
 /*-----------------------------------------------------------------*/
 /* isRegIdxPair - true, if specified index is register pair,       */
 /*                rIdx changed to index of lower register          */
@@ -6637,8 +6642,13 @@ _toBoolean (const operand *oper, bool needflag)
     {
       if (skipbyte != size - 1)
         UNIMPLEMENTED;
-      emit2 ("res 7, a");   // clear sign bit
-      cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 3, 3, 3, 2, 2);
+      if (IS_8080LIKE)
+        emit8080SetRes (ASMOP_A, 0, 7, false, true);   // clear sign bit
+      else
+        {
+          emit2 ("res 7, a");   // clear sign bit
+          cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 3, 3, 3, 2, 2);
+        }
       skipbyte = size - 1;
     }
   while (size--)
@@ -12451,12 +12461,16 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
               if (!(result->aop->type == AOP_CRY && result->aop->size) && ifx &&
                 (left->aop->type == AOP_REG || left->aop->type == AOP_STK))
                 {
+                  if (IS_8080LIKE)
+                    emit8080Bit (left->aop, left->aop->size - 1, 7);
+                  else {
                   if (!regalloc_dry_run)
                     emit2 ("bit 7, %s", aopGet (left->aop, left->aop->size - 1, FALSE));
                   if (left->aop->type == AOP_REG)
                     cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
                   else
                     cost2 (4, 3, -1, 3, 20, 15, 10, 11, -1, 10, -1, 5, 5, 5 , 5);
+                  }
                   genIfxJump (ifx, "nz");
                   return;
                 }
@@ -13871,6 +13885,9 @@ genAnd (const iCode *ic, iCode *ifx)
             (result->aop->type == AOP_STK || result->aop->type == AOP_DIR || result->aop->type == AOP_REG && !aopInReg (result->aop, i, IYL_IDX) && !aopInReg (result->aop, i, IYH_IDX)))
             {
               cheapMove (result->aop, i, left->aop, i, a_free);
+              if (IS_8080LIKE)
+                emit8080SetRes (result->aop, i, isLiteralBit (~bytelit & 0xffu), false, a_free);
+              else {
               if (!regalloc_dry_run)
                 emit2 ("res %d, %s", isLiteralBit (~bytelit & 0xffu), aopGet (result->aop, i, false));
               if (result->aop->type == AOP_STK)
@@ -13879,6 +13896,7 @@ genAnd (const iCode *ic, iCode *ifx)
                 cost2 (2, 2, 2, 2, 15, 13, 10, 10, 16, 10, 4, 4, 4, 3, 5); // res b, (hl)
               else
                 cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 3, 3, 3, 2, 2);
+              }
               if (aopInReg (result->aop, i, A_IDX))
                 a_free = false;
               i++;
@@ -14267,6 +14285,9 @@ genOr (const iCode * ic, iCode * ifx)
             (result->aop->type == AOP_STK || result->aop->type == AOP_DIR || result->aop->type == AOP_REG && !aopInReg (result->aop, i, IYL_IDX) && !aopInReg (result->aop, i, IYH_IDX)))
             {
               cheapMove (result->aop, i, left->aop, i, a_free);
+              if (IS_8080LIKE)
+                emit8080SetRes (result->aop, i, isLiteralBit (bytelit), true, a_free);
+              else {
               if (!regalloc_dry_run)
                 emit2 ("set %d, %s", isLiteralBit (bytelit), aopGet (result->aop, i, false));
               if (result->aop->type == AOP_STK)
@@ -14275,6 +14296,7 @@ genOr (const iCode * ic, iCode * ifx)
                 cost2 (2, 2, 2, 2, 15, 13, 10, 10, 16, 10, 4, 4, 4, 3, 5); // set b, (hl)
               else
                 cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 3, 3, 3, 2, 2); // set b, r
+              }
               if (aopInReg (result->aop, i, A_IDX))
                 a_free = false;
               i++;
@@ -14664,6 +14686,39 @@ emit8080Lsh1 (asmop *aop, int offset, bool rotate)
     emit3 (A_ADD, ASMOP_A, ASMOP_A);
   if (!inA)
     emit3_o (A_LD, aop, offset, ASMOP_A, 0);
+}
+
+/* 8080/8085 have no CB-prefix bit/set/res.  Synthesise them through the
+   accumulator and an immediate mask.  The accumulator is used as scratch;
+   the cost is accounted so the register allocator keeps/spills A as needed. */
+static void
+emit8080Bit (asmop *aop, int offset, int bit)  /* test: sets Z = !(bit set) */
+{
+  if (!aopInReg (aop, offset, A_IDX))
+    cheapMove (ASMOP_A, 0, aop, offset, true);
+  if (!regalloc_dry_run)
+    emit2 ("and a, !immedbyte", (unsigned)(1u << bit));
+  cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
+}
+
+static void
+emit8080SetRes (asmop *aop, int offset, int bit, bool set, bool a_dead)  /* set/clear a bit */
+{
+  unsigned mask = set ? (1u << bit) : (~(1u << bit) & 0xffu);
+  bool inA = aopInReg (aop, offset, A_IDX);
+  /* set/res yields a value (not a flag result), so A can be preserved with
+     push/pop af when it is live. */
+  if (!inA && !a_dead)
+    _push (PAIR_AF);
+  if (!inA)
+    cheapMove (ASMOP_A, 0, aop, offset, true);
+  if (!regalloc_dry_run)
+    emit2 (set ? "or a, !immedbyte" : "and a, !immedbyte", mask);
+  cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
+  if (!inA)
+    cheapMove (aop, offset, ASMOP_A, 0, true);
+  if (!inA && !a_dead)
+    _pop (PAIR_AF);
 }
 
 /*-----------------------------------------------------------------*/
@@ -18423,12 +18478,20 @@ genIfx (iCode *ic, iCode *popIc)
     }
   else if (IS_BOOL (operandType (cond)) && !aopInReg (cond->aop, 0, IYL_IDX) && !aopInReg (cond->aop, 0, IYH_IDX))
     {
-      if (!regalloc_dry_run)
+      if (IS_8080LIKE)
         {
-          emit2 ("bit 0, %s", aopGet (cond->aop, 0, FALSE));
+          emit8080Bit (cond->aop, 0, 0);
           genIfxJump (ic, "nz");
         }
-      bit8_cost (cond->aop); // todo: fix, bit has different cost!
+      else
+        {
+          if (!regalloc_dry_run)
+            {
+              emit2 ("bit 0, %s", aopGet (cond->aop, 0, FALSE));
+              genIfxJump (ic, "nz");
+            }
+          bit8_cost (cond->aop); // todo: fix, bit has different cost!
+        }
       goto release;
     }
   else if (cond->aop->size == 1 && !isRegDead (A_IDX, ic) &&
