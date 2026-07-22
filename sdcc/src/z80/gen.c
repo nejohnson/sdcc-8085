@@ -3226,7 +3226,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
           _pop (PAIR_HL);
           return;
         }
-      else if (pairId == PAIR_IY)
+      else if (!IS_8080LIKE && pairId == PAIR_IY)
         {
           emit2 ("ld iy, !immed%d", spOffset(aop->aopu.aop_stk));
           cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
@@ -3360,7 +3360,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
               break;
             }
         }
-      else if (pairId == PAIR_IY)
+      else if (!IS_8080LIKE && pairId == PAIR_IY)
         {
           /* The Rabbit has the ld iy, n (sp) instruction. */
           int fp_offset = aop->aopu.aop_stk + offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
@@ -6039,7 +6039,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           i += 2;
           continue;
         }
-      else if (source->type == AOP_STL && !(soffset + i) && getPairId_o(result, roffset) == PAIR_IY)
+      else if (!IS_8080LIKE && source->type == AOP_STL && !(soffset + i) && getPairId_o(result, roffset) == PAIR_IY)
         {
           int abso = source->aopu.aop_stk + _G.stack.offset + (source->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
           if (!f_dead)
@@ -6403,7 +6403,7 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
     emitDebug("; adjustStack by %d", n);
   _G.stack.pushed -= n;
   
-  iy_free &= !IS_SM83;
+  iy_free &= !IS_SM83 && !IS_8080LIKE;
 
   int loop_bytes, loop_cycles;
   if (abs(n) > 0 && (IS_RAB || IS_SM83)) // Assume sequence of add sp, #d
