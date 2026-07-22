@@ -14742,6 +14742,21 @@ emit8080Ldir (void)
   emitJP (tlbl, "nz", 0.9f, true);
 }
 
+/* 8080/8085: single ldi step - (de) = (hl); hl++; de++; bc--.  Clobbers A. */
+static void
+emit8080Ldi (void)
+{
+  if (!regalloc_dry_run)
+    {
+      emit2 ("ld a, (hl)");
+      emit2 ("ld (de), a");
+    }
+  cost2 (2, 2, 2, 2, 11, 8, 4, 4, 16, 8, 5, 5, 5, 4, 4);
+  emit3w (A_INC, ASMOP_HL, 0);
+  emit3w (A_INC, ASMOP_DE, 0);
+  emit3w (A_DEC, ASMOP_BC, 0);
+}
+
 /* 8080/8085 have no CB-prefix bit/set/res.  Synthesise them through the
    accumulator and an immediate mask.  The accumulator is used as scratch;
    the cost is accounted so the register allocator keeps/spills A as needed. */
@@ -19114,7 +19129,7 @@ genAssign (const iCode *ic)
                 // Early Rabbits (up to Rabbit 3000) have a wait state bug when ldir copies between different types of memory.
                 (IS_R2K || IS_R2KA) && !((right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK) && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK)))
                 for(int i = 0; i < size; i++)
-                  emit3 (A_LDI, 0, 0);
+                  IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
               else
                 {
                   emit2 ("ld bc, !immed%d", size);
@@ -20101,7 +20116,7 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
     }
   else if (n == 2)
     {
-      emit3 (A_LDI, 0, 0);
+      IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
       emit2 ("ld a, !*hl");
       cost2 (1, 2, 1, 1, 7, 6, 5, 5, 8, 6, 2, 2, 2, 2, 2);
       emit2 ("ld !mems, a", "de");
@@ -20112,7 +20127,7 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
   else if (n <= 4 && IS_Z80 && optimize.codeSpeed || (IS_R2K || IS_R2KA) && n <= 5)
     {
       for(unsigned int i = 0; i < n; i++)
-        emit3 (A_LDI, 0, 0);
+        IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
     }
   else
     {
@@ -20131,12 +20146,12 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
         {
           wassert (n > 3);
           if (n % 2)
-            emit3 (A_LDI, 0, 0);
+            IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
           const symbol *tlbl2 = regalloc_dry_run ? NULL : newiTempLabel (NULL);
           emitLabel (tlbl2);
           regalloc_dry_run_state_scale = n / 2;
-          emit3 (A_LDI, 0, 0);
-          emit3 (A_LDI, 0, 0);
+          IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
+          IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
           regalloc_dry_run_state_scale = 1.0f;
           emitJP (tlbl2, "lo", (float)((n / 2) - 1) / (n / 2), true);      
         }
@@ -20152,7 +20167,7 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
           const symbol *tlbl2 = regalloc_dry_run ? NULL : newiTempLabel (NULL);
           emitLabel (tlbl2);
           regalloc_dry_run_state_scale = n;
-          emit3 (A_LDI, 0, 0);
+          IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
           regalloc_dry_run_state_scale = 1.0f;
           emitJP (tlbl2, "lo", (float)(n - 1) / n, true);
           regalloc_dry_run_cost += 3;
@@ -20462,11 +20477,23 @@ genBuiltInStrcpy (const iCode *ic, int nParams, operand **pparams)
     {
       symbol *tlbl = newiTempLabel (NULL);
       emitLabel (tlbl);
-      emit2 ("cp a, !*hl");
-      emit2 ("ldi");
-      emit2 ("jr nz, !tlabel", labelKey2num (tlbl->key));
+      if (IS_8080LIKE) // No ldi: copy through A (sentinel is 0, so "or a,a" tests for NUL).
+        {
+          emit2 ("ld a, (hl)");
+          emit2 ("ld (de), a");
+          emit2 ("inc hl");
+          emit2 ("inc de");
+          emit2 ("or a, a");
+          emit2 ("jp NZ, !tlabel", labelKey2num (tlbl->key));
+        }
+      else
+        {
+          emit2 ("cp a, !*hl");
+          emit2 ("ldi");
+          emit2 ("jr nz, !tlabel", labelKey2num (tlbl->key));
+        }
     }
-  regalloc_dry_run_cost += 5;
+  regalloc_dry_run_cost += (IS_8080LIKE ? 8 : 5);
 
   spillPair (PAIR_HL);
 
@@ -20547,6 +20574,31 @@ genBuiltInStrncpy (const iCode *ic, int nparams, operand **pparams)
       symbol *tlbl1 = newiTempLabel (0);
       symbol *tlbl2 = newiTempLabel (0);
       symbol *tlbl3 = newiTempLabel (0);
+      if (IS_8080LIKE) // No ldi / P-V-from-bc: test bc explicitly, copy through A, then pad.
+        {
+          emitLabel (tlbl2);            // copy phase: while bc, copy; stop at NUL
+          emit2 ("ld a, b");
+          emit2 ("or a, c");
+          emit2 ("jp Z, !tlabel", labelKey2num (tlbl1->key));
+          emit2 ("ld a, (hl)");
+          emit2 ("ld (de), a");
+          emit2 ("inc hl");
+          emit2 ("inc de");
+          emit2 ("dec bc");
+          emit2 ("or a, a");
+          emit2 ("jp NZ, !tlabel", labelKey2num (tlbl2->key));
+          emitLabel (tlbl3);            // pad phase: while bc, store 0
+          emit2 ("ld a, b");
+          emit2 ("or a, c");
+          emit2 ("jp Z, !tlabel", labelKey2num (tlbl1->key));
+          emit2 ("xor a, a");
+          emit2 ("ld (de), a");
+          emit2 ("inc de");
+          emit2 ("dec bc");
+          emit2 ("jp !tlabel", labelKey2num (tlbl3->key));
+          emitLabel (tlbl1);
+        }
+      else {
       emitLabel (tlbl2);
       emit2 ("cp a, !*hl");
       emit2 ("ldi");
@@ -20563,6 +20615,7 @@ genBuiltInStrncpy (const iCode *ic, int nparams, operand **pparams)
       else
         emit2 (IS_RAB ? "jp LO, !tlabel" : "jp PE, !tlabel", labelKey2num (tlbl3->key));
       emitLabel (tlbl1);
+      }
     }
   regalloc_dry_run_cost += 14; // todo: fix cycle costs
 
