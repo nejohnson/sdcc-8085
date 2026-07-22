@@ -287,6 +287,14 @@ ifeq ($(OPT_DISABLE_R800), 0)
 TARGETS        += model-r800
 endif
 
+ifeq ($(OPT_DISABLE_I8085), 0)
+TARGETS        += model-i8085 model-i8085-undoc
+endif
+
+ifeq ($(OPT_DISABLE_I8080), 0)
+TARGETS        += model-i8080
+endif
+
 ifeq ($(OPT_DISABLE_STM8), 0)
 TARGETS        += model-stm8
 TARGETS        += model-stm8-large
@@ -464,6 +472,21 @@ model-sm83:
 model-r800:
 	if grep '^z80$$' $(top_builddir)/ports.build > /dev/null; then \
 	  $(MAKE) MODELFLAGS="-mr800" PORT=r800 objects-z80 OEXT=.o || exit 1; \
+	fi
+
+model-i8080:
+	if grep '^z80$$' $(top_builddir)/ports.build > /dev/null; then \
+	  $(MAKE) MODELFLAGS="-mi8080" PORT=i8080 objects-z80 OEXT=.o || exit 1; \
+	fi
+
+model-i8085:
+	if grep '^z80$$' $(top_builddir)/ports.build > /dev/null; then \
+	  $(MAKE) MODELFLAGS="-mi8085" PORT=i8085 objects-z80 OEXT=.o || exit 1; \
+	fi
+
+model-i8085-undoc:
+	if grep '^z80$$' $(top_builddir)/ports.build > /dev/null; then \
+	  $(MAKE) MODELFLAGS="-mi8085 --allow-undocumented-instructions" PORT=i8085-undoc objects-z80 OEXT=.o || exit 1; \
 	fi
 
 objects-z80:

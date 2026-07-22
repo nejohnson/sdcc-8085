@@ -733,6 +733,8 @@ AC_DO_PORT(tlcs90,   z80,    TLCS90,   [Excludes the TLCS-90 port])
 AC_DO_PORT(ez80,     z80,    EZ80,     [Excludes the eZ80 port])
 AC_DO_PORT(z80n,     z80,    Z80N,     [Excludes the Z80N port])
 AC_DO_PORT(r800,     z80,    R800,     [Excludes the R800 port])
+AC_DO_PORT(i8080,    z80,    I8080,    [Excludes the Intel 8080 port])
+AC_DO_PORT(i8085,    z80,    I8085,    [Excludes the Intel 8085 port])
 AC_DO_PORT(ds390,    ds390,  DS390,    [Excludes the DS390 port])
 AC_DEFINE_UNQUOTED(OPT_DISABLE_TININative, $OPT_DISABLE_DS390, [XXX])
 AC_DO_PORT(ds400,    ds390,  DS400,    [Excludes the DS400 port])
@@ -859,6 +861,9 @@ if test $OPT_DISABLE_Z80 = 0 || test $OPT_DISABLE_Z180 = 0 || test $OPT_DISABLE_
                                                        device/lib/ez80/Makefile
                                                        device/lib/z80n/Makefile
                                                        device/lib/r800/Makefile])
+  test $OPT_DISABLE_DEVICE_LIB = 0 && test $OPT_DISABLE_I8085 = 0 && AC_CONFIG_FILES([device/lib/i8085/Makefile
+                                                       device/lib/i8085-undoc/Makefile])
+  test $OPT_DISABLE_DEVICE_LIB = 0 && test $OPT_DISABLE_I8080 = 0 && AC_CONFIG_FILES([device/lib/i8080/Makefile])
 fi
 
 if test $OPT_DISABLE_R2K = 0 || test $OPT_DISABLE_R2KA = 0 || test $OPT_DISABLE_R3KA = 0 || test $OPT_DISABLE_R4K = 0 || test $OPT_DISABLE_R5K = 0 || test $OPT_DISABLE_R6K = 0; then
