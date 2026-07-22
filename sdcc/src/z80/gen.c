@@ -9641,7 +9641,7 @@ setupToPreserveCarry (asmop *result, asmop *left, asmop *right)
               if (couldDestroyCarry (left))
                 shiftIntoPair (PAIR_DE, result);
               else
-                shiftIntoPair (PAIR_IY, result);
+                shiftIntoPair (IS_8080LIKE ? PAIR_DE : PAIR_IY, result); // 8080/8085 have no IY
             }
         }
       else if (couldDestroyCarry (right))
