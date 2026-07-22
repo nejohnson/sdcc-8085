@@ -11776,9 +11776,17 @@ genMultOneChar (const iCode * ic)
       regalloc_dry_run_state_scale = 4.0f;
       emit3w (A_ADD, ASMOP_HL, ASMOP_DE);
       emitLabel (tlbl2);
-      if (!regalloc_dry_run)
-        emit2 ("djnz !tlabel", labelKey2num (tlbl1->key));
-      cost2 (2, 2, -1, -1, 12.375f, 8.75f, 5.0f, 6.0f, -1.0f, 10.0f, -1.0f, -1.0f, -1.0f, 3.75f, 2.0f);
+      if (IS_8080LIKE)
+        {
+          emit3 (A_DEC, ASMOP_B, 0);
+          emitJP (tlbl1, "nz", 1.0f, true);
+        }
+      else
+        {
+          if (!regalloc_dry_run)
+            emit2 ("djnz !tlabel", labelKey2num (tlbl1->key));
+          cost2 (2, 2, -1, -1, 12.375f, 8.75f, 5.0f, 6.0f, -1.0f, 10.0f, -1.0f, -1.0f, -1.0f, 3.75f, 2.0f);
+        }
       regalloc_dry_run_state_scale = 1.0f;
     }
 
@@ -14598,6 +14606,35 @@ emitRsh2 (asmop * aop, int size, int is_signed)
 {
   int offset = 0;
 
+  /* The 8080/8085 has no CB-prefix shifts.  Synthesise the right shift by
+     rotating each byte right through carry (rra), most-significant first.
+     For the top byte we first establish the incoming carry: 0 for a logical
+     shift, or the sign bit for an arithmetic shift.  "rlca; rrca" sets
+     carry = bit 7 while leaving A unchanged (and needs no scratch register). */
+  if (IS_8080LIKE)
+    {
+      for (int off = size - 1; off >= 0; off--)
+        {
+          bool inA = aopInReg (aop, off, A_IDX);
+          if (!inA)
+            emit3_o (A_LD, ASMOP_A, 0, aop, off);
+          if (off == size - 1)
+            {
+              if (is_signed)
+                {
+                  emit3 (A_RLCA, 0, 0);
+                  emit3 (A_RRCA, 0, 0);
+                }
+              else
+                emit3 (A_OR, ASMOP_A, ASMOP_A);
+            }
+          emit3 (A_RRA, 0, 0);
+          if (!inA)
+            emit3_o (A_LD, aop, off, ASMOP_A, 0);
+        }
+      return;
+    }
+
   while (size--)
     {
       if (offset == 0)
@@ -14606,6 +14643,24 @@ emitRsh2 (asmop * aop, int size, int is_signed)
         emit3_o (A_RR, aop, size, 0, 0);
       offset++;
     }
+}
+
+/* 8080/8085: shift one byte of aop left by 1 through the accumulator (no CB
+   shifts exist).  rotate==false -> sla (0 into bit 0); rotate==true -> rl
+   (incoming carry into bit 0, i.e. continue a multi-byte shift).  The
+   accumulator must be free (the shift loops keep the count in B for this). */
+static void
+emit8080Lsh1 (asmop *aop, int offset, bool rotate)
+{
+  bool inA = aopInReg (aop, offset, A_IDX);
+  if (!inA)
+    emit3_o (A_LD, ASMOP_A, 0, aop, offset);
+  if (rotate)
+    emit3 (A_RLA, 0, 0);
+  else
+    emit3 (A_ADD, ASMOP_A, ASMOP_A);
+  if (!inA)
+    emit3_o (A_LD, aop, offset, ASMOP_A, 0);
 }
 
 /*-----------------------------------------------------------------*/
@@ -14759,7 +14814,7 @@ shiftR2Left2Result (const iCode *ic, operand *left, int offl, operand *result, i
 
       emitRsh2 (result->aop, size, is_signed);
 
-      if (aopInReg (caop, 0, B_IDX) && !IS_SM83 && !IS_TLCS870 && !IS_TLCS870C && !IS_TLCS870C1)
+      if (aopInReg (caop, 0, B_IDX) && !IS_SM83 && !IS_8080LIKE && !IS_TLCS870 && !IS_TLCS870C && !IS_TLCS870C1)
         {
           if (!regalloc_dry_run)
             emit2 ("djnz !tlabel", labelKey2num (tlbl->key));
@@ -14879,7 +14934,10 @@ shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic
                 if (aopInReg (shiftaop, offset, A_IDX))
                   emit3 (offset ? A_ADC : A_ADD, ASMOP_A, ASMOP_A);
                 else
-                  emit3_o (offset ? A_RL : A_SLA, shiftaop, offset, 0, 0);
+                  if (IS_8080LIKE)
+                    emit8080Lsh1 (shiftaop, offset, offset != 0);
+                  else
+                    emit3_o (offset ? A_RL : A_SLA, shiftaop, offset, 0, 0);
             }
         }
       else
@@ -14909,7 +14967,7 @@ shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic
             }
           if (shCount > 1)
             {
-              if (use_b)
+              if (use_b && !IS_8080LIKE)
                 {
                   if (!regalloc_dry_run)
                     emit2 ("djnz !tlabel", labelKey2num (tlbl->key));
@@ -14917,7 +14975,7 @@ shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic
                 }
               else
                 {
-                  emit3 (A_DEC, ASMOP_A, 0);
+                  emit3 (A_DEC, use_b ? ASMOP_B : ASMOP_A, 0);
                   emitJP (tlbl, "nz", 1.0f, true);
                 }
             }
@@ -15841,7 +15899,10 @@ genLeftShift (const iCode *ic)
               if (aopInReg (shiftop, offset, A_IDX))
                 emit3 (started ? A_ADC : A_ADD, ASMOP_A, ASMOP_A);
               else
-                emit3_o (started ? A_RL : A_SLA, shiftop, offset, 0, 0);
+                if (IS_8080LIKE)
+                  emit8080Lsh1 (shiftop, offset, started);
+                else
+                  emit3_o (started ? A_RL : A_SLA, shiftop, offset, 0, 0);
               started = true;
             }
           size--, offset++;
@@ -15851,7 +15912,7 @@ genLeftShift (const iCode *ic)
   if (!(shift_by_lit && shiftcount == 1))
     {
       emitLabel (tlbl1);
-      if (!IS_SM83 && countreg == B_IDX)
+      if (!IS_SM83 && !IS_8080LIKE && countreg == B_IDX)
         {
           if (!regalloc_dry_run)
             emit2 ("djnz !tlabel", labelKey2num (tlbl->key));
@@ -15917,7 +15978,12 @@ AccRsh (int shCount)
       cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
     }
   else if(shCount)
-    emit3 (A_SRL, ASMOP_A, 0);
+    {
+      if (IS_8080LIKE)
+        emitRsh2 (ASMOP_A, 1, false);
+      else
+        emit3 (A_SRL, ASMOP_A, 0);
+    }
 }
 
 /*-----------------------------------------------------------------*/
@@ -15971,7 +16037,12 @@ genrshOne (operand *result, operand *left, int shCount, int is_signed, const iCo
       cheapMove (result->aop, 0, left->aop, 0, a_dead);
 
       while (shCount--)
-        emit3 (is_signed ? A_SRA : A_SRL, result->aop, 0);
+        {
+          if (IS_8080LIKE)
+            emitRsh2 (result->aop, 1, is_signed);
+          else
+            emit3 (is_signed ? A_SRA : A_SRL, result->aop, 0);
+        }
     }
   else
     {
@@ -15979,7 +16050,12 @@ genrshOne (operand *result, operand *left, int shCount, int is_signed, const iCo
         _push (PAIR_AF);
       cheapMove (ASMOP_A, 0, left->aop, 0, true);
       while (shCount--)
-        emit3 (is_signed ? A_SRA : A_SRL, ASMOP_A, 0);
+        {
+          if (IS_8080LIKE)
+            emitRsh2 (ASMOP_A, 1, is_signed);
+          else
+            emit3 (is_signed ? A_SRA : A_SRL, ASMOP_A, 0);
+        }
       cheapMove (result->aop, 0, ASMOP_A, 0, true);
       if (!a_dead)
         _pop (PAIR_AF);
@@ -15996,7 +16072,12 @@ shiftR1Left2Result (operand *left, int offl, operand *result, int offr, int shCo
   if (sign)
     {
       while (shCount--)
-        emit3 (sign ? A_SRA : A_SRL, ASMOP_A, 0);
+        {
+          if (IS_8080LIKE)
+            emitRsh2 (ASMOP_A, 1, true);
+          else
+            emit3 (sign ? A_SRA : A_SRL, ASMOP_A, 0);
+        }
     }
   else
     AccRsh (shCount);
@@ -16309,7 +16390,13 @@ genRightShift (const iCode * ic)
   else
     while (size)
       {
-        if (IS_RAB && !(is_signed && first) && size >= 2 && byteoffset < 2 && shiftop->type == AOP_REG &&
+        if (IS_8080LIKE)
+          {
+            emitRsh2 (shiftop, size, is_signed);
+            offset -= size;
+            size = 0;
+          }
+        else if (IS_RAB && !(is_signed && first) && size >= 2 && byteoffset < 2 && shiftop->type == AOP_REG &&
         (getPairId_o (shiftop, offset - 1) == PAIR_HL || getPairId_o (shiftop, offset - 1) == PAIR_DE || getPairId_o (shiftop, offset - 1) == PAIR_IY ||
           ((IS_R4K || IS_R5K || IS_R6K) && getPairId_o (shiftop, offset - 1) == PAIR_BC)))
         {
@@ -16351,7 +16438,7 @@ genRightShift (const iCode * ic)
   if (!shift_by_one)
     {
       emitLabel (tlbl1);
-      if (!IS_SM83 && countreg == B_IDX)
+      if (!IS_SM83 && !IS_8080LIKE && countreg == B_IDX)
         {
           if (!regalloc_dry_run)
             emit2 ("djnz !tlabel", labelKey2num (tlbl->key));
@@ -20092,7 +20179,13 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
               emit2 ("ld !*hl, %s", aopGet (direct_cl ? c->aop : ASMOP_A, 0, FALSE));
               emit2 ("inc hl");
             }
-          emit2 ("djnz !tlabel", labelKey2num (tlbl1->key));
+          if (IS_8080LIKE)
+            {
+              emit2 ("dec b");
+              emit2 ("jp NZ, !tlabel", labelKey2num (tlbl1->key));
+            }
+          else
+            emit2 ("djnz !tlabel", labelKey2num (tlbl1->key));
         }
       regalloc_dry_run_cost += (double_loop ? 6 : 4);
     }
