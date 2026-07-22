@@ -5,7 +5,10 @@
 # support routines, memcpy/strcpy etc. that the z80 port supplies as optimised
 # assembly are taken from their C equivalents here.
 
-VPATH  = @srcdir@ @srcdir@/../i8085
+# NOTE: do not add ../i8085 to VPATH - make would then pick up the i8085
+# port's already-built *.rel objects instead of compiling ours for -mi8080.
+# crt0.s / heap.s / setjmp.s have their own copies in this directory.
+VPATH  = @srcdir@
 srcdir = @srcdir@
 top_builddir = @top_builddir@
 abs_top_builddir = @abs_top_builddir@
@@ -45,7 +48,7 @@ I8085_SUPPORT = \
   _mulint.c _mulschar.c _muluchar.c \
   _divsint.c _divuint.c _divschar.c _divuchar.c \
   _modsint.c _moduint.c _modschar.c _moduchar.c \
-  memcpy.c _memmove.c _strcpy.c strlen.c _setjmp.c _heap.c \
+  memcpy.c _memmove.c _strcpy.c strlen.c \
   __itoa.c __ltoa.c
 
 I8085_SDCC = $(COMMON_SDCC) \
@@ -59,10 +62,15 @@ I8085_SDCC = $(COMMON_SDCC) \
   _strcmp.c \
   atomic_flag_clear.c
 
-I8085SOURCES = $(addprefix ../,$(I8085_FLOAT) $(I8085_LONG) $(I8085_LONGLONG) $(I8085_SUPPORT) $(I8085_SDCC))
-I8085OBJECTS = $(patsubst %.c,%.rel,$(I8085_FLOAT) $(I8085_LONG) $(I8085_LONGLONG) $(I8085_SUPPORT) $(I8085_SDCC))
+# Hand-written 8080/8085 assembler routines that live in this port directory:
+#   heap.s   - the _HEAP storage + heap-init hook required by malloc/free/etc.
+#   setjmp.s - setjmp/longjmp (no frame pointer, so jmp_buf is 4 bytes)
+I8085_ASMOBJ = heap.rel setjmp.rel
 
-LIB = i8085.lib
+I8085SOURCES = $(addprefix ../,$(I8085_FLOAT) $(I8085_LONG) $(I8085_LONGLONG) $(I8085_SUPPORT) $(I8085_SDCC))
+I8085OBJECTS = $(patsubst %.c,%.rel,$(I8085_FLOAT) $(I8085_LONG) $(I8085_LONGLONG) $(I8085_SUPPORT) $(I8085_SDCC)) $(I8085_ASMOBJ)
+
+LIB = i8080.lib
 AS = $(SAS)
 ASFLAGS = -plosgff
 
