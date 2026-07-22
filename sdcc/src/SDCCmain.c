@@ -353,6 +353,12 @@ static PORT *_ports[] = {
 #if !OPT_DISABLE_R800
   &r800_port,
 #endif
+#if !OPT_DISABLE_I8080
+  &i8080_port,
+#endif
+#if !OPT_DISABLE_I8085
+  &i8085_port,
+#endif
 #if !OPT_DISABLE_DS390
   &ds390_port,
 #endif

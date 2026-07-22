@@ -27,6 +27,8 @@ enum target {
   TARGET_ID_R5K,
   TARGET_ID_R6K,
   TARGET_ID_R800,
+  TARGET_ID_I8080,
+  TARGET_ID_I8085,
   TARGET_ID_HC08,
   TARGET_ID_S08,
   TARGET_ID_STM8,
@@ -61,6 +63,8 @@ enum target {
 #define TARGET_IS_EZ80     (port->id == TARGET_ID_EZ80)
 #define TARGET_IS_Z80N     (port->id == TARGET_ID_Z80N)
 #define TARGET_IS_R800     (port->id == TARGET_ID_R800)
+#define TARGET_IS_I8080    (port->id == TARGET_ID_I8080)
+#define TARGET_IS_I8085    (port->id == TARGET_ID_I8085)
 #define TARGET_IS_HC08     (port->id == TARGET_ID_HC08)
 #define TARGET_IS_S08      (port->id == TARGET_ID_S08)
 #define TARGET_IS_STM8     (port->id == TARGET_ID_STM8)
@@ -487,6 +491,12 @@ extern PORT z80n_port;
 #endif
 #if !OPT_DISABLE_R800
 extern PORT r800_port;
+#endif
+#if !OPT_DISABLE_I8080
+extern PORT i8080_port; // Intel 8080
+#endif
+#if !OPT_DISABLE_I8085
+extern PORT i8085_port; // Intel 8085
 #endif
 #if !OPT_DISABLE_DS390
 extern PORT ds390_port;
