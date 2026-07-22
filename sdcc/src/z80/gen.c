@@ -15096,7 +15096,10 @@ shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic
 
           while (size--)
             {
-              emit3_o (offset ? A_RL : A_SLA, shiftaop, offset, 0, 0);
+              if (IS_8080LIKE)
+                emit8080Lsh1 (shiftaop, offset, offset != 0);
+              else
+                emit3_o (offset ? A_RL : A_SLA, shiftaop, offset, 0, 0);
 
               offset++;
             }
@@ -15247,7 +15250,12 @@ shiftL1Left2Result (operand *left, int offl, operand *result, int offr, unsigned
   else if (!aopInReg(result->aop, offr, A_IDX) && sameRegs (left->aop, result->aop) && shCount <= (2 + 2 * !isRegDead (A_IDX, ic)) && offr == offl)
     {
       while (shCount--)
-        emit3_o (A_SLA, result->aop, offr, 0, 0);
+        {
+          if (IS_8080LIKE)
+            emit8080Lsh1 (result->aop, offr, false);
+          else
+            emit3_o (A_SLA, result->aop, offr, 0, 0);
+        }
     }
   else if ((IS_Z180 && !optimize.codeSpeed || IS_EZ80 || IS_Z80N) && // Try to use mlt
     (!IS_Z80N && aopInReg (result->aop, offr, C_IDX) && isPairDead(PAIR_BC, ic) || aopInReg (result->aop, offr, E_IDX) && isPairDead(PAIR_DE, ic) || !IS_Z80N && aopInReg (result->aop, offr, L_IDX) && isPairDead(PAIR_HL, ic)))
@@ -15269,7 +15277,10 @@ shiftL1Left2Result (operand *left, int offl, operand *result, int offr, unsigned
     {
       if (!aopSame (result->aop, offr, left->aop, offl, 1))
         emit3_o (A_LD, result->aop, offr, left->aop, offl);
-      emit3_o (A_SLA, result->aop, offr, 0, 0);
+      if (IS_8080LIKE)
+        emit8080Lsh1 (result->aop, offr, false);
+      else
+        emit3_o (A_SLA, result->aop, offr, 0, 0);
     }
   else
     {
