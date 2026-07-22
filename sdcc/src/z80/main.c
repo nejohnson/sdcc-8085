@@ -3130,6 +3130,17 @@ PORT i8080_port =
   PORT_MAGIC
 };
 
+/* The i8085 ships two library variants: the default (documented-only) in
+   lib/i8085, and one built with the undocumented instructions/flags enabled
+   in lib/i8085-undoc. Selecting the model string here makes the driver look
+   in the matching directory when --allow-undocumented-instructions is given
+   (mirrors the stm8 / stm8-large split). */
+static const char *
+_i8085_getModel (void)
+{
+  return options.allow_undoc_inst ? "i8085-undoc" : "i8085";
+}
+
 PORT i8085_port =
 {
   TARGET_ID_I8085,
@@ -3141,7 +3152,7 @@ PORT i8085_port =
     FALSE,
     NO_MODEL,
     NO_MODEL,
-    NULL,                       /* model == target */
+    _i8085_getModel,            /* lib/i8085 or lib/i8085-undoc */
   },
   {                             /* Assembler */
     _z80AsmCmd,
