@@ -194,6 +194,12 @@
 #define X_R800  14
 
 /*
+ * True when assembling for the Intel 8080/8085 family (a subset of the Z80).
+ * mchtyp is the current CPU selected by the .8080/.8085/.8085x directives.
+ */
+#define	IS_I8080_FAMILY	(mchtyp == X_8080 || mchtyp == X_8085 || mchtyp == X_8085X)
+
+/*
  * Z80-ZX Next Instructions
  */
 #define X_ZXN_INH2	100
@@ -230,6 +236,13 @@
 #define M_LIS		(M_L | M_IS)
 #define	M_SIL		(M_S | M_IL)
 #define	M_SIS		(M_S | M_IS)
+
+/*
+ * mne m_flag bit marking an undocumented 8085 instruction.  Must sit above the
+ * eZ80 M_L/M_S/M_IL/M_IS bits (0x01..0x08), which machine() masks and rejects
+ * outside eZ80 mode.
+ */
+#define	M_UNDOC85	0x10
 
 /*
  * Extended Addressing Modes

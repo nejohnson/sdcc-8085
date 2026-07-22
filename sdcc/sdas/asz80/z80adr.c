@@ -70,14 +70,14 @@ addr(struct expr *esp)
 			mode = S_INDB;
 		} else
 		if ((indx = admode(R16)) != 0) {
-			if (((mchtyp == X_8080) && ((indx & 0xFF) == IX)) ||
-			    ((mchtyp == X_8080) && ((indx & 0xFF) == IY)))
-				xerr('a', "8080: No IX or IY.");
+			if (((IS_I8080_FAMILY) && ((indx & 0xFF) == IX)) ||
+			    ((IS_I8080_FAMILY) && ((indx & 0xFF) == IY)))
+				xerr('a', "8080/8085: No IX or IY.");
 			mode = S_INDR;
 		} else	
 		if ((indx = admode(R8X)) != 0) {
-			if (mchtyp == X_8080)
-				xerr('a', "8080: No I or R.");
+			if (IS_I8080_FAMILY)
+				xerr('a', "8080/8085: No I or R.");
 			mode = S_R8X;
 		} else
 		if ((indx = admode(R16X)) != 0) {
@@ -95,8 +95,8 @@ addr(struct expr *esp)
 		if ((c = getnb()) != RTIND) {
 			unget(c);
 			if (indx && ((indx & 0xFF)==IX || (indx & 0xFF)==IY)) {
-				if (mchtyp == X_8080)
-					xerr('a', "8080: No IX or IY.");
+				if (IS_I8080_FAMILY)
+					xerr('a', "8080/8085: No IX or IY.");
 				expr(esp, 0);
 				esp->e_mode = S_INDR + (indx&0xFF);
 			}
@@ -109,14 +109,14 @@ addr(struct expr *esp)
 			mode = S_R8;
 		} else
 		if ((indx = admode(R16)) != 0) {
-			if (((mchtyp == X_8080) && ((indx & 0xFF) == IX)) ||
-			    ((mchtyp == X_8080) && ((indx & 0xFF) == IY)))
-				xerr('a', "8080: No IX or IY.");
+			if (((IS_I8080_FAMILY) && ((indx & 0xFF) == IX)) ||
+			    ((IS_I8080_FAMILY) && ((indx & 0xFF) == IY)))
+				xerr('a', "8080/8085: No IX or IY.");
 			mode = S_R16;
 		} else	
 		if ((indx = admode(R8X)) != 0) {
-			if (mchtyp == X_8080)
-				xerr('a', "8080: No I or R.");
+			if (IS_I8080_FAMILY)
+				xerr('a', "8080/8085: No I or R.");
 			mode = S_R8X;
 		} else
                 if ((indx = admode(R8U1)) != 0) {
@@ -143,9 +143,9 @@ addr(struct expr *esp)
 		if ((c = getnb()) == LFIND) {
 			if ((indx=admode(R16))!=0
 				&& ((indx&0xFF)==IX || (indx&0xFF)==IY)) {
-				if (((mchtyp == X_8080) && ((indx & 0xFF) == IX)) ||
-				    ((mchtyp == X_8080) && ((indx & 0xFF) == IY)))
-					xerr('a', "8080: No IX or IY.");
+				if (((IS_I8080_FAMILY) && ((indx & 0xFF) == IX)) ||
+				    ((IS_I8080_FAMILY) && ((indx & 0xFF) == IY)))
+					xerr('a', "8080/8085: No IX or IY.");
 				esp->e_mode = S_INDR + (indx&0xFF);
 			} else {
 				xerr('a', "Register IX or IY required.");

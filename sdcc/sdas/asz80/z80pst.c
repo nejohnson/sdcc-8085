@@ -196,6 +196,9 @@ struct	mne	mne[] = {
     {   NULL,   ".zxn",         S_CPU,          0,      X_ZXN   },
     {   NULL,   ".ez80",        S_CPU,          0,      X_EZ80  },
     {   NULL,   ".r800",        S_CPU,          0,      X_R800  },
+    {	NULL,	".8080",	S_CPU,		0,	X_8080	},
+    {	NULL,	".8085",	S_CPU,		0,	X_8085	},
+    {	NULL,	".8085x",	S_CPU,		0,	X_8085X	},
 
 	/* z80 / hd64180 */
 
@@ -282,6 +285,28 @@ struct	mne	mne[] = {
     {	NULL,	"rrd",		S_INH2,		0,	0x67	},
 
     {   NULL,   ".allow_undocumented", X_UNDOCD, 0,     0       },
+
+	/* Intel 8085 documented (not present on the 8080) */
+
+    {	NULL,	"rim",		X_INH1,		0,		0x20	},
+    {	NULL,	"sim",		X_INH1,		0,		0x30	},
+
+	/*
+	 * Intel 8085 undocumented instructions and flags (enabled by .8085x).
+	 * These reuse opcodes that are Z80 prefix/relative-jump bytes, so they
+	 * are only legal in 8085 mode.
+	 */
+
+    {	NULL,	"dsub",		X_INH1,		M_UNDOC85,	0x08	},	/* HL = HL - BC        */
+    {	NULL,	"arhl",		X_INH1,		M_UNDOC85,	0x10	},	/* HL = HL >> 1, signed */
+    {	NULL,	"rdel",		X_INH1,		M_UNDOC85,	0x18	},	/* DE rotated left thru CY */
+    {	NULL,	"rstv",		X_INH1,		M_UNDOC85,	0xCB	},	/* RST 0x40 if V (overflow) */
+    {	NULL,	"shlx",		X_INH1,		M_UNDOC85,	0xD9	},	/* (DE) = HL           */
+    {	NULL,	"lhlx",		X_INH1,		M_UNDOC85,	0xED	},	/* HL = (DE)           */
+    {	NULL,	"ldhi",		X_ADI,		M_UNDOC85,	0x28	},	/* DE = HL + imm8      */
+    {	NULL,	"ldsi",		X_ADI,		M_UNDOC85,	0x38	},	/* DE = SP + imm8      */
+    {	NULL,	"jnx5",		X_JP,		M_UNDOC85,	0xDD	},	/* jump if X5/K reset  */
+    {	NULL,	"jx5",		X_JP,		M_UNDOC85,	0xFD	},	/* jump if X5/K set    */
 
 	/* 64180 */
 

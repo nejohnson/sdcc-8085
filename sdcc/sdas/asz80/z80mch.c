@@ -30,7 +30,7 @@
 #include "asxxxx.h"
 #include "z80.h"
 
-char    *cpu    = "Zilog Z80 / Hitachi HD64180 / ZX-Next / eZ80 / R800";
+char    *cpu    = "Zilog Z80 / Hitachi HD64180 / ZX-Next / eZ80 / R800 / Intel 8080 / Intel 8085";
 char	*dsft	= "asm";
 
 char	imtab[3] = { 0x46, 0x56, 0x5E };
@@ -517,6 +517,32 @@ static const char *ez80Page[7] = {
 };
 
 /*
+ * Return non-zero when instruction category rf (base opcode op) is NOT part of
+ * the documented Intel 8080 instruction set.  The 8080/8085 is a subset of the
+ * Z80: no relative jumps, no CB-prefix bit/shift group, no interrupt-mode
+ * select, no ED-prefix block/misc ops, and no EXX alternate-register exchange.
+ */
+static int
+not_8080(int rf, int op)
+{
+	switch (rf) {
+	case S_JR:		/* jr        */
+	case S_DJNZ:		/* djnz      */
+	case S_BIT:		/* bit/res/set (CB)   */
+	case S_RL:		/* rl/rlc/rr/rrc/sla/sra/srl (CB) */
+	case S_RL_UNDOCD:	/* sll (CB, undoc z80) */
+	case S_IM:		/* im        */
+	case S_INH2:		/* ED-prefix block/misc ops */
+		return 1;
+	case S_INH1:
+		if (op == 0xD9)	/* exx */
+			return 1;
+		break;
+	}
+	return 0;
+}
+
+/*
  * Process a machine op.
  */
 void
@@ -605,6 +631,32 @@ machine(struct mne *mp)
         case X_R800:
                 if (rf > S_CPU && rf < X_Z280_MULTU)
                         rf = 0;
+		break;
+
+        case X_8080:
+                /* Intel 8080: documented 8080 subset of the Z80 set. */
+                if (rf > S_CPU || not_8080(rf, op))
+                        rf = 0;
+		break;
+
+        case X_8085:
+                /* Intel 8085: 8080 subset plus documented rim/sim. */
+                if (rf > S_CPU) {
+                        if (!((rf == X_INH1 || rf == X_ADI || rf == X_JP) && !(sf & M_UNDOC85)))
+                                rf = 0;
+                } else if (not_8080(rf, op)) {
+                        rf = 0;
+                }
+		break;
+
+        case X_8085X:
+                /* Intel 8085 with undocumented instructions/flags enabled. */
+                if (rf > S_CPU) {
+                        if (rf != X_INH1 && rf != X_ADI && rf != X_JP)
+                                rf = 0;
+                } else if (not_8080(rf, op)) {
+                        rf = 0;
+                }
 		break;
 
 	default:
@@ -1358,7 +1410,10 @@ machine(struct mne *mp)
                  * ex  af,af'
 		 */
 		if ((t1 == S_R16X) && (t2 == S_R16X)) {
-			outab(0x08);
+			if (IS_I8080_FAMILY)	/* 0x08 is dsub on the 8085 */
+				xerr('a', "Not an 8080/8085 instruction.");
+			else
+				outab(0x08);
 			break;
 		}
 		xerr('a', "Invalid Addressing Mode.");
@@ -1562,6 +1617,35 @@ machine(struct mne *mp)
 		sym[2].s_addr = op;
 		lmode = SLIST;
                 allow_undoc = (mchtyp == X_EZ80 || mchtyp == X_ZXN || mchtyp == X_R800);
+		break;
+
+	case X_INH1:
+		/*
+		 * Single-byte Intel 8085 instruction (rim/sim; or, with .8085x,
+		 * dsub/arhl/rdel/rstv/shlx/lhlx).
+		 */
+		outab(op);
+		break;
+
+	case X_ADI:
+		/*
+		 * ldhi #n / ldsi #n  (8085 undocumented): opcode + immediate byte.
+		 */
+		if (addr(&e1) == S_IMMED) {
+			outab(op);
+			outrb(&e1, 0);
+		} else {
+			xerr('a', "Invalid Addressing Mode.");
+		}
+		break;
+
+	case X_JP:
+		/*
+		 * jx5 mn / jnx5 mn  (8085 undocumented): opcode + 16-bit address.
+		 */
+		expr(&e1, 0);
+		outab(op);
+		outrw(&e1, 0);
 		break;
 
 	case X_INH2:
@@ -2027,8 +2111,8 @@ genop(int pop, int op, struct expr *esp, int f)
 {
 	int t1;
 
-	if ((mchtyp == X_8080) && pop)
-		xerr('a', "Not an 8080 instruction or an invalid argument.");
+	if (IS_I8080_FAMILY && pop)
+		xerr('a', "Not an 8080/8085 instruction or an invalid argument.");
 	if ((t1 = esp->e_mode) == S_R8) {
 		if (pop)
 			outab(pop);
