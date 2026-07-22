@@ -8399,7 +8399,7 @@ genCall (const iCode *ic)
       setupPairFromSP (PAIR_HL, ic->parmBytes);
       emit2 ("ld bc, !immed%d", size);
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-      if (IS_R2K || IS_SM83 || IS_TLCS870 || IS_TLCS870C || IS_TLCS870C1) // No useable ldir
+      if (IS_R2K || IS_SM83 || IS_8080LIKE || IS_TLCS870 || IS_TLCS870C || IS_TLCS870C1) // No useable ldir
         {
           // todo: scale cost.
           wassert (size <= 256);
@@ -9222,8 +9222,8 @@ genRet (const iCode *ic)
       while (--size);
     }
   // gbz80 doesn't have have ldir. Rabbit 2000 to Rabbit 3000 (i.e. r2k and r2ka port) have an ldir wait state bug that affects copies between different types of memory.
-  else if (!IS_SM83 && (ic->left->aop->type == AOP_STK || ic->left->aop->type == AOP_EXSTK) ||
-    !IS_SM83 && !IS_R2K && !IS_R2KA && (ic->left->aop->type == AOP_DIR || ic->left->aop->type == AOP_IY))
+  else if (!IS_8080LIKE && (!IS_SM83 && (ic->left->aop->type == AOP_STK || ic->left->aop->type == AOP_EXSTK) ||
+    !IS_SM83 && !IS_R2K && !IS_R2KA && (ic->left->aop->type == AOP_DIR || ic->left->aop->type == AOP_IY)))
     {
       if (IFFUNC_ISDYNAMICC (currFunc->type))
         {
@@ -16874,7 +16874,7 @@ genPointerGet (const iCode *ic)
 
   // Using ldir is cheapest for large memory-to-memory transfers.
   // sm83 doesn't have ldir. Rabbit 2000 to Rabbit 3000 (i.e. r2k and r2ka ports) have a wait-state bug breaking ldir between different types of memory.
-  if (!IS_SM83 && !from_far && (!IS_R2K && !IS_R2KA || left->aop->type == AOP_STL) && !bit_field && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) && size > 2)
+  if (!IS_SM83 && !IS_8080LIKE && !from_far && (!IS_R2K && !IS_R2KA || left->aop->type == AOP_STL) && !bit_field && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) && size > 2)
     {
       int fp_offset, sp_offset;
 
@@ -17781,7 +17781,7 @@ genPointerSet (iCode *ic)
 
   // Using ldir is cheapest for large memory-to-memory transfers.
   // SM83 doesn't have ldir. Rabbit 2000 to Rabbit 3000 (i.e. r2k and r2ka ports) have a wait-state bug breaking ldir between different types of memory.
-  if (!to_far && !bit_field && !IS_SM83 && (!IS_R2K && !IS_R2KA || result->aop->type == AOP_STL) && (right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK) && size > 2)
+  if (!to_far && !bit_field && !IS_SM83 && !IS_8080LIKE && (!IS_R2K && !IS_R2KA || result->aop->type == AOP_STL) && (right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK) && size > 2)
     {
       int fp_offset, sp_offset;
 

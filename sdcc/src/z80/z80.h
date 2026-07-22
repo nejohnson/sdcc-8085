@@ -74,7 +74,9 @@ extern Z80_OPTS z80_opts;
 #define IS_8080LIKE (IS_8080 || IS_8085)
 #define HAS_IYL_INST (IS_Z80N || IS_EZ80 || IS_R800 || IS_Z80 && options.allow_undoc_inst)
 
-#define IY_RESERVED (z80_opts.reserveIY)
+/* The 8080/8085 have no IY (or IX) at all, so treat IY as permanently
+   reserved: every "IY not usable" fallback then applies to them too. */
+#define IY_RESERVED (z80_opts.reserveIY || IS_8080LIKE)
 
 #define OPTRALLOC_IY !(IY_RESERVED || IS_SM83 || IS_TLCS870 || IS_8080LIKE)
 
