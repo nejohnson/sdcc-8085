@@ -10114,8 +10114,11 @@ genPlus (iCode * ic)
           i += 2;
           continue;
         }
-      // Addition of interleaved pairs.
+      // Addition of interleaved pairs. The 8080/8085 have no adc hl, so they
+      // may only use this (add hl) for the first 16 bits; wider additions fall
+      // through to the byte-wise path once carry propagation has started.
       else if (!maskedword && (!premoved || i) && leftop->size - i >= 2 && rightop->size - i >= 2 &&
+        !(IS_8080LIKE && started) &&
         (aopInReg (IC_RESULT (ic)->aop, i, HL_IDX) || aopInReg (IC_RESULT (ic)->aop, i, IY_IDX) && !started))
         {
           const bool iy = aopInReg (IC_RESULT (ic)->aop, i, IY_IDX);
@@ -10841,7 +10844,7 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
               continue;
             }
         }
-      else if (!IS_SM83 && size >= 2 && aopInReg (result, offset, HL_IDX) && (left->type == AOP_STK || left->type == AOP_DIR) &&
+      else if (!IS_SM83 && !IS_8080LIKE && size >= 2 && aopInReg (result, offset, HL_IDX) && (left->type == AOP_STK || left->type == AOP_DIR) &&
         (aopInReg (right, offset, BC_IDX) || aopInReg (right, offset, DE_IDX) || (IS_R4K || IS_R5K || IS_R6K) && aopInReg (right, offset, JK_IDX) || IS_TLCS90 && aopInReg (right, offset, IY_IDX)))
         {
           genMove_o (ASMOP_HL, 0, left, offset, 2, a_dead, true, false, false, !offset);
@@ -10860,7 +10863,7 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
           _G.preserveCarry = !!size;
           continue;
         }
-      else if (!IS_SM83 && !maskedword && size >= 2 &&
+      else if (!IS_SM83 && !IS_8080LIKE && !maskedword && size >= 2 &&
         isPairDead (PAIR_HL, ic) &&
         (aopInReg (result, offset, HL_IDX) || aopInReg (result, offset, DE_IDX) || IS_RAB && result->type == AOP_STK) &&
         (result->regs[L_IDX] < 0 || result->regs[L_IDX] >= offset) && (result->regs[H_IDX] < 0 || result->regs[H_IDX] >= offset) &&
