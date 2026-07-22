@@ -12815,19 +12815,31 @@ fix:
               symbol *tlbl1 = regalloc_dry_run ? 0 : newiTempLabel (0);
               symbol *tlbl2 = regalloc_dry_run ? 0 : newiTempLabel (0);
               // TODO: Fix all the cycle costs in here.
+              if (IS_8080LIKE)
+                emit8080Bit (ASMOP_DE, 0, 7);
+              else {
               emit2 ("bit 7, e");
               regalloc_dry_run_cost += 2;
               cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
+              }
               emitJP (tlbl1, "z", 0.5f, true);
+              if (IS_8080LIKE)
+                emit8080Bit (ASMOP_DE, 1, 7);
+              else {
               emit2 ("bit 7, d");
               regalloc_dry_run_cost += 2;
+              }
               emitJP (tlbl2, "nz", 0.5f, true);
               emit2 ("cp a, a");
               regalloc_dry_run_cost += 1;
               emitJP (tlbl2, NULL, 1.0f, true);
               emitLabelSpill (tlbl1);
+              if (IS_8080LIKE)
+                emit8080Bit (ASMOP_DE, 1, 7);
+              else {
               emit2 ("bit 7, d");
               regalloc_dry_run_cost += 2;
+              }
               emitJP (tlbl2, "z", 0.5f, true);
               emit2 ("scf");
               emitLabelSpill (tlbl2);
@@ -13739,6 +13751,9 @@ genAnd (const iCode *ic, iCode *ifx)
             {
               if (requiresHL (left->aop) && left->aop->type != AOP_REG)
                 _push (PAIR_HL);
+              if (IS_8080LIKE)
+                emit8080Bit (left->aop, offset, isLiteralBit (bytelit));
+              else {
               if (!regalloc_dry_run)
                 emit2 ("bit %d, %s", isLiteralBit (bytelit), aopGet (left->aop, offset, FALSE));
               if (left->aop->type == AOP_REG)
@@ -13747,6 +13762,7 @@ genAnd (const iCode *ic, iCode *ifx)
                 cost2 (2, 2, 2, 2, 12, 9, 7, 7, 16, 6, 3, 3, 3, 3, 3);
               else
                 cost2 (4, 3, -1, 3, 20, 15, 10, 11, -1, 10, -1, 5, 5, 5 , 5);
+              }
               if (requiresHL (left->aop) && left->aop->type != AOP_REG)
                 _pop (PAIR_HL);
               sizel--;
