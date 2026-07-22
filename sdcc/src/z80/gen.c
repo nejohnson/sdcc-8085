@@ -14781,6 +14781,16 @@ shiftR2Left2Result (const iCode *ic, operand *left, int offl, operand *result, i
 
   wassert (shCount >= 0 && shCount <= 16);
 
+  /* 8080/8085: no CB shifts. Move into place and shift byte-wise via rra. */
+  if (IS_8080LIKE)
+    {
+      if (result->aop != left->aop || offr != offl)
+        genMove_o (result->aop, offr, left->aop, offl, 2, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true, true);
+      while (shCount-- > 0)
+        emitRsh2 (result->aop, 2, is_signed);
+      return;
+    }
+
   if (IS_RAB && !is_signed && shCount < 4 && (aopInReg (result->aop, 0, HL_IDX) || aopInReg (result->aop, 0, DE_IDX)))
     {
       genMove (ic->result->aop, left->aop, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
@@ -14945,6 +14955,19 @@ static void
 shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic)
 {
   asmop *shiftaop = result->aop;
+
+  /* 8080/8085: no CB shifts. Move into place and shift byte-wise via add a,a / rla. */
+  if (IS_8080LIKE)
+    {
+      if (result->aop != left->aop)
+        genMove_o (result->aop, 0, left->aop, 0, 2, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true, true);
+      while (shCount-- > 0)
+        {
+          emit8080Lsh1 (result->aop, 0, false);  /* sla low byte  */
+          emit8080Lsh1 (result->aop, 1, true);   /* rl  high byte */
+        }
+      return;
+    }
 
   if (shCount == 7 && aopIsLitVal (left->aop, 1, 1, 0x00) && result->aop->type == AOP_REG &&
     result->aop->aopu.aop_reg[0]->rIdx != IYL_IDX && result->aop->aopu.aop_reg[1]->rIdx != IYL_IDX && result->aop->aopu.aop_reg[0]->rIdx != IYH_IDX && result->aop->aopu.aop_reg[1]->rIdx != IYH_IDX)
