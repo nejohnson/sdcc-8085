@@ -1,0 +1,596 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <link rel="stylesheet" href="ucsim.css">
+    <title>Execution commands of &micro;Csim</title>
+  </head>
+
+  <body>
+    <h2>Execution commands of <i>&micro;Csim</i></h2>
+    
+    <a name="run">
+      <h3>r,run,go [start [stop]]</h3>
+    </a>
+
+    This command starts the execution of the simulated program.
+
+    <p>Parameters are optional. First parameter specifies the start
+      address for execution. By default, execution starts at the
+      address specified by the PC's actual value. This can be
+      overridden by the first parameter. </p>
+    
+    <p>If second parameter is specified, it places a dynamic
+      breakpoint at the specified address, which stops the execution
+      at that address. If a stop address is not given the simulator
+      stops if it reaches a breakpoint that was previously set, or the
+      CPU accepts an interrupt and <b>stopit</b> option is TRUE, or
+      fatal error occurs or <a href="#stop">stop</a> command is used
+      on an other console, or ENTER key is pressed on the console
+      where the run command was issued. </p>
+    
+    <p>When program execution is started, the console
+      becomes <i>frozen</i>; it is not possible to give commands on
+      this console to the simulator while execution is running. If it
+      is needed to control the simulator during program execution then
+      more consoles can be used. See
+      using <a href="mulcons.html">multiple consoles</a> for more
+      information. Meanwhile, simulation can be stopped by pressing
+      the ENTER key on the frozen console (where the run command was
+      issued). </p>
+
+    <p>However, it is possible to start the simulation in the
+    background by setting the <b>sim_run</b> variable to a logical
+    TRUE (i.e. non-zero) value, like:</p>
+
+<!-- @BLOCK@ sim_run f890d2d02a551f3e48eef208b1ad7a20 -->
+<pre class="eg">$ ucsim_51
+<span style="color: #F5F1DE; background-color: #000316">uCsim 0.9.8, Copyright (C) 1997 Daniel Drotos.
+uCsim comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type `show c' for details.
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">load "remo.hex"
+</span><span style="color: #ffffff; background-color: #000316">Loading from remo.hex
+55755 words read from remo.hex
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">sim_run=1
+</span><span style="color: #ffff00; background-color: #000316">1
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">info reg
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 18</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 46</span><span style="color: #F5F1DE; background-color: #000316"> 83</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 00</span>
+<span style="color: #ffffff; background-color: #000316">@R0 c2 .  ACC= 0x00   0 .  B= 0x00
+@R1 18 .  PSW= 0x00 CY=0 AC=0 OV=0 P=0
+SP </span><span style="color: #ffff00; background-color: #000316">0x2e</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 77</span><span style="color: #F5F1DE; background-color: #000316"> f3</span><span style="color: #F5F1DE; background-color: #000316"> 79</span><span style="color: #F5F1DE; background-color: #000316"> 84</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 28</span><span style="color: #F5F1DE; background-color: #000316"> 24</span><span style="color: #F5F1DE; background-color: #000316"> e4</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x000e @DPTR= 0x00   0 .
+</span><span style="color: #ffff00; background-color: #000316">0x7057</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">ff</span>      <span style="color: #00aa00; background-color: #000316"> MOV    R7,A</span>
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span>
+</pre>
+    <!-- @END@ -->
+    
+    <p>Note that the first instruction is executed without the effect
+      of breakpoints and simulation will be started afterwards. It
+      means that if there is a breakpoint at start address then it
+      will not be hit. See following example: </p>
+
+<!-- @BLOCK@ run 361de89142d9629a54943bda9f3873bb -->
+<pre class="eg">$ ucsim_51
+<span style="color: #F5F1DE; background-color: #000316">uCsim 0.9.8, Copyright (C) 1997 Daniel Drotos.
+uCsim comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type `show c' for details.
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">b 0x10
+</span><span style="color: #ffffff; background-color: #000316">Breakpoint 1 at 0x000010 (cond="")
+</span><span style="color: #ffff00; background-color: #000316">0x0010</span><span style="color: #ffffff; background-color: #000316"> F</span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">ff</span>      <span style="color: #00aa00; background-color: #000316"> MOV    R7,A</span>
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">b 0x20
+</span><span style="color: #ffffff; background-color: #000316">Breakpoint 2 at 0x000020 (cond="")
+</span><span style="color: #ffff00; background-color: #000316">0x0020</span><span style="color: #ffffff; background-color: #000316"> F</span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">ff</span>      <span style="color: #00aa00; background-color: #000316"> MOV    R7,A</span>
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">run 0x10
+</span><span style="color: #ffffff; background-color: #000316">Simulation started, PC=0x000010
+</span><span style="color: #E850A8; background-color: #000316">
+Stop at 0x000020: (104) Breakpoint
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 41</span><span style="color: #F5F1DE; background-color: #000316"> 58</span><span style="color: #F5F1DE; background-color: #000316"> fc</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 8b</span><span style="color: #F5F1DE; background-color: #000316"> bc</span><span style="color: #F5F1DE; background-color: #000316"> 95</span><span style="color: #F5F1DE; background-color: #000316"> 00</span>
+<span style="color: #ffffff; background-color: #000316">@R0 76 v  ACC= 0x00   0 .  B= 0x00
+@R1 73 s  PSW= 0x00 CY=0 AC=0 OV=0 P=0
+SP </span><span style="color: #ffff00; background-color: #000316">0x07</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 95</span><span style="color: #F5F1DE; background-color: #000316"> bc</span><span style="color: #F5F1DE; background-color: #000316"> 8b</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> fc</span><span style="color: #F5F1DE; background-color: #000316"> 58</span><span style="color: #F5F1DE; background-color: #000316"> 41</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x0000 @DPTR= 0x83 131 .
+</span><span style="color: #ffff00; background-color: #000316">0x0020</span><span style="color: #ffffff; background-color: #000316"> F</span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">ff</span>      <span style="color: #00aa00; background-color: #000316"> MOV    R7,A</span>
+<span style="color: #ffffff; background-color: #000316">F 0x000020
+</span>Simulated 192 ticks (1.736e-05 sec)
+Host usage: 0.000007 sec, rate=2.427259
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span>
+</pre>
+    <!-- @END@ -->
+    
+
+    <hr>
+
+    
+    <a name="emulation">
+      <h3>emulation</h3>
+    </a>
+
+    It starts simulation in so called "emulation" mode. In this mode
+    <i>&micro;Csim</i> does not handle any user input, which means
+    that all consoles will be frozen and inputs for UARTs will be
+    skipped.
+
+    <p>In emulation mode the simulation cannot be stopped by any user
+    interaction. Breakpoints or the <a href="simif.html">simulator
+    interface</a> must be used to stop the simulation.
+      
+      <hr>
+
+      <a name="stop">
+	<h3>stop</h3>
+      </a>
+
+      This command stops the simulation; it freezes the CPU and all
+      the peripherals.
+
+<!-- @BLOCK@ stop eb22c28693bd8892054aaf6ee082e079 -->
+<pre class="eg">$ ucsim_51
+<span style="color: #F5F1DE; background-color: #000316">uCsim 0.9.8, Copyright (C) 1997 Daniel Drotos.
+uCsim comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type `show c' for details.
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">load "remo.hex"
+</span><span style="color: #ffffff; background-color: #000316">Loading from remo.hex
+55755 words read from remo.hex
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">sim_run=1
+</span><span style="color: #ffff00; background-color: #000316">1
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">info reg
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 18</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 46</span><span style="color: #F5F1DE; background-color: #000316"> 83</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 00</span>
+<span style="color: #ffffff; background-color: #000316">@R0 c2 .  ACC= 0x00   0 .  B= 0x00
+@R1 18 .  PSW= 0x00 CY=0 AC=0 OV=0 P=0
+SP </span><span style="color: #ffff00; background-color: #000316">0x2e</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 77</span><span style="color: #F5F1DE; background-color: #000316"> f3</span><span style="color: #F5F1DE; background-color: #000316"> 79</span><span style="color: #F5F1DE; background-color: #000316"> 84</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 28</span><span style="color: #F5F1DE; background-color: #000316"> 24</span><span style="color: #F5F1DE; background-color: #000316"> e4</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x000e @DPTR= 0x00   0 .
+</span><span style="color: #ffff00; background-color: #000316">0x7057</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">ff</span>      <span style="color: #00aa00; background-color: #000316"> MOV    R7,A</span>
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">info reg
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 18</span><span style="color: #F5F1DE; background-color: #000316"> 01</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> d2</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 01</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 31</span>
+<span style="color: #ffffff; background-color: #000316">@R0 67 g  ACC= 0x31  49 1  B= 0x00
+@R1 01 .  PSW= 0x01 CY=0 AC=0 OV=0 P=1
+SP </span><span style="color: #ffff00; background-color: #000316">0x28</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 25</span><span style="color: #F5F1DE; background-color: #000316"> d7</span><span style="color: #F5F1DE; background-color: #000316"> 29</span><span style="color: #F5F1DE; background-color: #000316"> 81</span><span style="color: #F5F1DE; background-color: #000316"> 02</span><span style="color: #F5F1DE; background-color: #000316"> 2d</span><span style="color: #F5F1DE; background-color: #000316"> 06</span><span style="color: #F5F1DE; background-color: #000316"> 27</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x00d2 @DPTR= 0x31  49 1
+</span><span style="color: #ffff00; background-color: #000316">0x367d</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">20</span> <span style="color: #F5F1DE; background-color: #000316">0c</span> <span style="color: #F5F1DE; background-color: #000316">02</span><span style="color: #00aa00; background-color: #000316"> JB     0x0c,0x3682</span>
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">stop
+</span><span style="color: #ffff00; background-color: #000316">0x93c7</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">90</span> <span style="color: #F5F1DE; background-color: #000316">09</span> <span style="color: #F5F1DE; background-color: #000316">30</span><span style="color: #00aa00; background-color: #000316"> MOV    DPTR,#0x0930</span>
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span>
+</pre>
+      <!-- @END@ -->
+
+
+      After using the stop command, the instruction pointed by PC is
+      disassembled, see the <a href="#dis"><b>dis</b></a> command for
+      description of disassembled form.
+
+      <hr>
+
+      <a name="step">
+	<h3>s,step [steps]</h3>
+      </a>
+
+      The Step command. It executes one instruction without the effect
+      of breakpoints.
+      
+      <p>The optional parameter can be used to specify the number of
+	instructions to execute. Note that breakpoints will stop the
+	execution after the first instruction. </p>
+
+<!-- @BLOCK@ step 655f4979665e962284ffbeef401a5915 -->
+<pre class="eg">$ ucsim_51
+<span style="color: #F5F1DE; background-color: #000316">uCsim 0.9.8, Copyright (C) 1997 Daniel Drotos.
+uCsim comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type `show c' for details.
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">load "remo.hex"
+</span><span style="color: #ffffff; background-color: #000316">Loading from remo.hex
+55755 words read from remo.hex
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">step
+</span><span style="color: #E850A8; background-color: #000316">
+Stop at 0x000160: (109) stepped 24 ticks
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 41</span><span style="color: #F5F1DE; background-color: #000316"> 58</span><span style="color: #F5F1DE; background-color: #000316"> fc</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 8b</span><span style="color: #F5F1DE; background-color: #000316"> bc</span><span style="color: #F5F1DE; background-color: #000316"> 95</span><span style="color: #F5F1DE; background-color: #000316"> 6b</span>
+<span style="color: #ffffff; background-color: #000316">@R0 76 v  ACC= 0x00   0 .  B= 0x00
+@R1 73 s  PSW= 0x00 CY=0 AC=0 OV=0 P=0
+SP </span><span style="color: #ffff00; background-color: #000316">0x07</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 6b</span><span style="color: #F5F1DE; background-color: #000316"> 95</span><span style="color: #F5F1DE; background-color: #000316"> bc</span><span style="color: #F5F1DE; background-color: #000316"> 8b</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> fc</span><span style="color: #F5F1DE; background-color: #000316"> 58</span><span style="color: #F5F1DE; background-color: #000316"> 41</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x0000 @DPTR= 0x83 131 .
+</span><span style="color: #ffff00; background-color: #000316">0x0160</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">c2</span> <span style="color: #F5F1DE; background-color: #000316">90</span>   <span style="color: #00aa00; background-color: #000316"> CLR    0x900x90 &lt;P1&gt;.0</span>
+<span style="color: #ffffff; background-color: #000316">F 0x000160
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">step 1 s
+</span><span style="color: #E850A8; background-color: #000316">
+Stop at 0x004366: (104) Breakpoint
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 0c</span><span style="color: #F5F1DE; background-color: #000316"> 01</span><span style="color: #F5F1DE; background-color: #000316"> 0b</span><span style="color: #F5F1DE; background-color: #000316"> 8f</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 86</span><span style="color: #F5F1DE; background-color: #000316"> 0c</span><span style="color: #F5F1DE; background-color: #000316"> 00</span>
+<span style="color: #ffffff; background-color: #000316">@R0 00 .  ACC= 0x00   0 .  B= 0x00
+@R1 01 .  PSW= 0xc0 CY=1 AC=1 OV=0 P=0
+SP </span><span style="color: #ffff00; background-color: #000316">0x26</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 2a</span><span style="color: #F5F1DE; background-color: #000316"> ae</span><span style="color: #F5F1DE; background-color: #000316"> 02</span><span style="color: #F5F1DE; background-color: #000316"> 2d</span><span style="color: #F5F1DE; background-color: #000316"> 3e</span><span style="color: #F5F1DE; background-color: #000316"> 37</span><span style="color: #F5F1DE; background-color: #000316"> bc</span><span style="color: #F5F1DE; background-color: #000316"> 00</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x000e @DPTR= 0x00   0 .
+</span><span style="color: #ffff00; background-color: #000316">0x4366</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">90</span> <span style="color: #F5F1DE; background-color: #000316">00</span> <span style="color: #F5F1DE; background-color: #000316">0a</span><span style="color: #00aa00; background-color: #000316"> MOV    DPTR,#0x000a</span>
+<span style="color: #ffffff; background-color: #000316">F 0x004366
+</span>Simulated 11059212 ticks (1.000e+00 sec)
+Host usage: 0.206030 sec, rate=4.853670
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">step 100 vclk
+</span><span style="color: #E850A8; background-color: #000316">
+Stop at 0x004396: (104) Breakpoint
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 0c</span><span style="color: #F5F1DE; background-color: #000316"> 01</span><span style="color: #F5F1DE; background-color: #000316"> 0b</span><span style="color: #F5F1DE; background-color: #000316"> 8f</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 86</span><span style="color: #F5F1DE; background-color: #000316"> 0c</span><span style="color: #F5F1DE; background-color: #000316"> 00</span>
+<span style="color: #ffffff; background-color: #000316">@R0 00 .  ACC= 0x00   0 .  B= 0x00
+@R1 01 .  PSW= 0xc0 CY=1 AC=1 OV=0 P=0
+SP </span><span style="color: #ffff00; background-color: #000316">0x26</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 2a</span><span style="color: #F5F1DE; background-color: #000316"> ae</span><span style="color: #F5F1DE; background-color: #000316"> 02</span><span style="color: #F5F1DE; background-color: #000316"> 2d</span><span style="color: #F5F1DE; background-color: #000316"> 3e</span><span style="color: #F5F1DE; background-color: #000316"> 37</span><span style="color: #F5F1DE; background-color: #000316"> bc</span><span style="color: #F5F1DE; background-color: #000316"> 00</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x000b @DPTR= 0x00   0 .
+</span><span style="color: #ffff00; background-color: #000316">0x4396</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">ff</span>      <span style="color: #00aa00; background-color: #000316"> MOV    R7,A</span>
+<span style="color: #ffffff; background-color: #000316">F 0x004396
+</span>Simulated 672 ticks (6.076e-05 sec)
+Host usage: 0.000016 sec, rate=3.803914
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span>
+</pre>
+<!-- @END@ -->
+
+
+      <p>After execution of the actual instruction pointed by PC (or
+	all instructions specified by the optional parameter)
+	the <b>step</b> command dumps out the register set.</p>
+      
+      <p>The number of steps can be specified in different units. If
+	no unit is appended to step number then it will be interpreted
+	as the number of instruction. Other know units are:</p>
+      
+      <dl>
+	<dt>s, sec</dt>
+	<dd>Simulated execution time in seconds.</dd>
+	<dt>ms, msec</dt>
+	<dd>Simulated execution time in milliseconds.</dd>
+	<dt>us, usec</dt>
+	<dd>Simulated execution time in microseconds.</dd>
+	<dt>ns, nsec</dt>
+	<dd>Simulated execution time in nanoseconds.</dd>
+	<dt>vclk</dt>
+	<dd>Number of virtual clock counts.</dd>
+	<dt>fclk, fetch</dt>
+	<dd>Number of fetches.</dd>
+	<dt>rclk, read</dt>
+	<dd>Number of memory read operations.</dd>
+	<dt>wclk, write</dt>
+	<dd>Number of memory write operations.</dd>
+      </dl>
+      
+      <br>
+
+      <hr>
+
+      <a name="n">
+	<h3>n,next</h3>
+      </a>
+
+      It executes until the next instruction is reached. This command
+      is similar to the <a href="#s"><b>step</b></a> command described
+      above but if the actual instruction to execute is a subroutine
+      call the <b>next</b> command places a dynamic breakpoint after
+      the call instruction and starts to execute the subroutine. If
+      the subroutine is infinite, the breakpoint set by <b>next</b>
+      will never be reached. This can be a dangerous situation because
+      the execution started by the <b>next</b> command cannot be
+      stopped interactively. But it can be stopped by other
+      breakpoints.
+
+<!-- @BLOCK@ next b7896121f81eef6fb1e2dfbc56021f60 -->
+<pre class="eg">$ ucsim_51
+<span style="color: #F5F1DE; background-color: #000316">uCsim 0.9.8, Copyright (C) 1997 Daniel Drotos.
+uCsim comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type `show c' for details.
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">load "remo.hex"
+</span><span style="color: #ffffff; background-color: #000316">Loading from remo.hex
+55755 words read from remo.hex
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">run 0 0x172
+</span><span style="color: #ffffff; background-color: #000316">Simulation started, PC=0x000000
+</span><span style="color: #E850A8; background-color: #000316">
+Stop at 0x000172: (104) Breakpoint
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 41</span><span style="color: #F5F1DE; background-color: #000316"> 58</span><span style="color: #F5F1DE; background-color: #000316"> fc</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 8b</span><span style="color: #F5F1DE; background-color: #000316"> bc</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 00</span>
+<span style="color: #ffffff; background-color: #000316">@R0 76 v  ACC= 0x00   0 .  B= 0x00
+@R1 73 s  PSW= 0x00 CY=0 AC=0 OV=0 P=0
+SP </span><span style="color: #ffff00; background-color: #000316">0x22</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 1d</span><span style="color: #F5F1DE; background-color: #000316"> 84</span><span style="color: #F5F1DE; background-color: #000316"> 43</span><span style="color: #F5F1DE; background-color: #000316"> 31</span><span style="color: #F5F1DE; background-color: #000316"> 94</span><span style="color: #F5F1DE; background-color: #000316"> d0</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 03</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x0000 @DPTR= 0x83 131 .
+</span><span style="color: #ffff00; background-color: #000316">0x0172</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">79</span> <span style="color: #F5F1DE; background-color: #000316">04</span>   <span style="color: #00aa00; background-color: #000316"> MOV    R1,#0x04</span>
+<span style="color: #ffffff; background-color: #000316">F 0x000172
+</span>Simulated 144 ticks (1.302e-05 sec)
+Host usage: 0.000015 sec, rate=0.866878
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">disass 0x172 0 5
+</span><span style="color: #ffffff; background-color: #000316">Removed command, use "dc" instead
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">next
+</span><span style="color: #E850A8; background-color: #000316">
+Stop at 0x000174: (109) stepped 12 ticks
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 41</span><span style="color: #F5F1DE; background-color: #000316"> 04</span><span style="color: #F5F1DE; background-color: #000316"> fc</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 8b</span><span style="color: #F5F1DE; background-color: #000316"> bc</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 00</span>
+<span style="color: #ffffff; background-color: #000316">@R0 76 v  ACC= 0x00   0 .  B= 0x00
+@R1 8b .  PSW= 0x00 CY=0 AC=0 OV=0 P=0
+SP </span><span style="color: #ffff00; background-color: #000316">0x22</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 1d</span><span style="color: #F5F1DE; background-color: #000316"> 84</span><span style="color: #F5F1DE; background-color: #000316"> 43</span><span style="color: #F5F1DE; background-color: #000316"> 31</span><span style="color: #F5F1DE; background-color: #000316"> 94</span><span style="color: #F5F1DE; background-color: #000316"> d0</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 03</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x0000 @DPTR= 0x83 131 .
+</span><span style="color: #ffff00; background-color: #000316">0x0174</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">12</span> <span style="color: #F5F1DE; background-color: #000316">09</span> <span style="color: #F5F1DE; background-color: #000316">f9</span><span style="color: #00aa00; background-color: #000316"> LCALL  0x09f9</span>
+<span style="color: #ffffff; background-color: #000316">F 0x000174
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">n
+</span><span style="color: #E850A8; background-color: #000316">
+Stop at 0x000177: (104) Breakpoint
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 41</span><span style="color: #F5F1DE; background-color: #000316"> 04</span><span style="color: #F5F1DE; background-color: #000316"> fc</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 8b</span><span style="color: #F5F1DE; background-color: #000316"> bc</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 00</span>
+<span style="color: #ffffff; background-color: #000316">@R0 76 v  ACC= 0x00   0 .  B= 0x00
+@R1 8b .  PSW= 0x00 CY=0 AC=0 OV=0 P=0
+SP </span><span style="color: #ffff00; background-color: #000316">0x22</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 1d</span><span style="color: #F5F1DE; background-color: #000316"> 84</span><span style="color: #F5F1DE; background-color: #000316"> 43</span><span style="color: #F5F1DE; background-color: #000316"> 31</span><span style="color: #F5F1DE; background-color: #000316"> 94</span><span style="color: #F5F1DE; background-color: #000316"> d0</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 03</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x0149 @DPTR= 0x00   0 .
+</span><span style="color: #ffff00; background-color: #000316">0x0177</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">0f</span>      <span style="color: #00aa00; background-color: #000316"> INC    R7</span>
+<span style="color: #ffffff; background-color: #000316">F 0x000177
+</span>Simulated 492 ticks (4.449e-05 sec)
+Host usage: 0.000019 sec, rate=2.332444
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span>
+</pre>
+      <!-- @END@ -->
+      
+      
+      <hr> <a name="pc">
+	<h3>pc [address]</h3>
+      </a>
+
+      Using this command without any parameter it simply dumps out the
+      instruction pointed by the PC. Specify the address if you want
+      to set the PC.
+
+<!-- @BLOCK@ pc 679e6f2818aacb03618d7b040ac10320 -->
+<pre class="eg">$ ucsim_51
+<span style="color: #F5F1DE; background-color: #000316">uCsim 0.9.8, Copyright (C) 1997 Daniel Drotos.
+uCsim comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type `show c' for details.
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">pc
+</span><span style="color: #ffff00; background-color: #000316">0x0000</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">ff</span>      <span style="color: #00aa00; background-color: #000316"> MOV    R7,A</span>
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">pc 123
+</span><span style="color: #ffff00; background-color: #000316">0x007b</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">ff</span>      <span style="color: #00aa00; background-color: #000316"> MOV    R7,A</span>
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">info reg
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 41</span><span style="color: #F5F1DE; background-color: #000316"> 58</span><span style="color: #F5F1DE; background-color: #000316"> fc</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 8b</span><span style="color: #F5F1DE; background-color: #000316"> bc</span><span style="color: #F5F1DE; background-color: #000316"> 95</span><span style="color: #F5F1DE; background-color: #000316"> 6b</span>
+<span style="color: #ffffff; background-color: #000316">@R0 76 v  ACC= 0x00   0 .  B= 0x00
+@R1 73 s  PSW= 0x00 CY=0 AC=0 OV=0 P=0
+SP </span><span style="color: #ffff00; background-color: #000316">0x07</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 6b</span><span style="color: #F5F1DE; background-color: #000316"> 95</span><span style="color: #F5F1DE; background-color: #000316"> bc</span><span style="color: #F5F1DE; background-color: #000316"> 8b</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> fc</span><span style="color: #F5F1DE; background-color: #000316"> 58</span><span style="color: #F5F1DE; background-color: #000316"> 41</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x0000 @DPTR= 0x83 131 .
+</span><span style="color: #ffff00; background-color: #000316">0x007b</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">ff</span>      <span style="color: #00aa00; background-color: #000316"> MOV    R7,A</span>
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span>
+</pre>
+      <!-- @END@ -->
+
+
+      <hr>
+
+      <h3><a name="history">history</a></h3>
+      
+      The History command can be used to inspect and manipulate
+      the history of executed instructions. It accepts the following
+      subcommands:
+      
+      <p><a href="#history_">history</a> <br>
+	history <a href="#history_information">information</a> <br>
+	history <a href="#history_list">list</a> <br>
+	history <a href="#history_clear">clear</a> </p>
+      <blockquote>
+	
+	<h4><a name="history_">history</a></h4>
+	
+	This command (without a subcommand) prints out the last 10
+	elements of the command history in disassembled form.
+	
+<!-- @BLOCK@ history 6ccf13468f0de8dbcd30a8064d3faab2 -->
+<pre class="eg">$ ucsim_51
+<span style="color: #F5F1DE; background-color: #000316">uCsim 0.9.8, Copyright (C) 1997 Daniel Drotos.
+uCsim comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type `show c' for details.
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">load "remo.hex"
+</span><span style="color: #ffffff; background-color: #000316">Loading from remo.hex
+55755 words read from remo.hex
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">step 10
+</span><span style="color: #E850A8; background-color: #000316">
+Stop at 0x000174: (109) stepped 156 ticks
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 41</span><span style="color: #F5F1DE; background-color: #000316"> 04</span><span style="color: #F5F1DE; background-color: #000316"> fc</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 8b</span><span style="color: #F5F1DE; background-color: #000316"> bc</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 00</span>
+<span style="color: #ffffff; background-color: #000316">@R0 76 v  ACC= 0x00   0 .  B= 0x00
+@R1 8b .  PSW= 0x00 CY=0 AC=0 OV=0 P=0
+SP </span><span style="color: #ffff00; background-color: #000316">0x22</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 1d</span><span style="color: #F5F1DE; background-color: #000316"> 84</span><span style="color: #F5F1DE; background-color: #000316"> 43</span><span style="color: #F5F1DE; background-color: #000316"> 31</span><span style="color: #F5F1DE; background-color: #000316"> 94</span><span style="color: #F5F1DE; background-color: #000316"> d0</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 03</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x0000 @DPTR= 0x83 131 .
+</span><span style="color: #ffff00; background-color: #000316">0x0174</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">12</span> <span style="color: #F5F1DE; background-color: #000316">09</span> <span style="color: #F5F1DE; background-color: #000316">f9</span><span style="color: #00aa00; background-color: #000316"> LCALL  0x09f9</span>
+<span style="color: #ffffff; background-color: #000316">F 0x000174
+</span>Simulated 156 ticks (1.411e-05 sec)
+Host usage: 0.000016 sec, rate=0.883051
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">history
+</span><span style="color: #ffff00; background-color: #000316">0x0000</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">02</span> <span style="color: #F5F1DE; background-color: #000316">01</span> <span style="color: #F5F1DE; background-color: #000316">60</span><span style="color: #00aa00; background-color: #000316"> LJMP   0x0160</span>
+<span style="color: #ffff00; background-color: #000316">0x0160</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">c2</span> <span style="color: #F5F1DE; background-color: #000316">90</span>   <span style="color: #00aa00; background-color: #000316"> CLR    0x900x90 &lt;P1&gt;.0</span>
+<span style="color: #ffff00; background-color: #000316">0x0162</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">c2</span> <span style="color: #F5F1DE; background-color: #000316">97</span>   <span style="color: #00aa00; background-color: #000316"> CLR    0x970x90 &lt;P1&gt;.7</span>
+<span style="color: #ffff00; background-color: #000316">0x0164</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">d2</span> <span style="color: #F5F1DE; background-color: #000316">b5</span>   <span style="color: #00aa00; background-color: #000316"> SETB   0xb50xb0 &lt;P3&gt;.5</span>
+<span style="color: #ffff00; background-color: #000316">0x0166</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">d2</span> <span style="color: #F5F1DE; background-color: #000316">b4</span>   <span style="color: #00aa00; background-color: #000316"> SETB   0xb40xb0 &lt;P3&gt;.4</span>
+<span style="color: #ffff00; background-color: #000316">0x0168</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">75</span> <span style="color: #F5F1DE; background-color: #000316">81</span> <span style="color: #F5F1DE; background-color: #000316">22</span><span style="color: #00aa00; background-color: #000316"> MOV    0x81 &lt;SP&gt;,#0x22</span>
+<span style="color: #ffff00; background-color: #000316">0x016b</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">75</span> <span style="color: #F5F1DE; background-color: #000316">d0</span> <span style="color: #F5F1DE; background-color: #000316">00</span><span style="color: #00aa00; background-color: #000316"> MOV    0xd0 &lt;PSW&gt;,#0x00</span>
+<span style="color: #ffff00; background-color: #000316">0x016e</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">7e</span> <span style="color: #F5F1DE; background-color: #000316">00</span>   <span style="color: #00aa00; background-color: #000316"> MOV    R6,#0x00</span>
+<span style="color: #ffff00; background-color: #000316">0x0170</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">7f</span> <span style="color: #F5F1DE; background-color: #000316">00</span>   <span style="color: #00aa00; background-color: #000316"> MOV    R7,#0x00</span>
+<span style="color: #ffff00; background-color: #000316">0x0172</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">79</span> <span style="color: #F5F1DE; background-color: #000316">04</span>   <span style="color: #00aa00; background-color: #000316"> MOV    R1,#0x04</span>
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span>
+</pre>
+	<!-- @END@ -->
+
+	
+	<hr>
+	
+	<h4><a name="history_information">history information</a></h4>
+	
+	Print out information about execution history.
+
+<!-- @BLOCK@ history_info 1aae8e101b3e39cc44623e9b24a6e172 -->
+<pre class="eg">$ ucsim_51
+<span style="color: #F5F1DE; background-color: #000316">uCsim 0.9.8, Copyright (C) 1997 Daniel Drotos.
+uCsim comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type `show c' for details.
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">load "remo.hex"
+</span><span style="color: #ffffff; background-color: #000316">Loading from remo.hex
+55755 words read from remo.hex
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">step 20
+</span><span style="color: #E850A8; background-color: #000316">
+Stop at 0x000a13: (109) stepped 324 ticks
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 41</span><span style="color: #F5F1DE; background-color: #000316"> 04</span><span style="color: #F5F1DE; background-color: #000316"> fc</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 8b</span><span style="color: #F5F1DE; background-color: #000316"> bc</span><span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 00</span>
+<span style="color: #ffffff; background-color: #000316">@R0 76 v  ACC= 0x80 128 .  B= 0x00
+@R1 8b .  PSW= 0x01 CY=0 AC=0 OV=0 P=1
+SP </span><span style="color: #ffff00; background-color: #000316">0x27</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 00</span><span style="color: #F5F1DE; background-color: #000316"> 09</span><span style="color: #F5F1DE; background-color: #000316"> fe</span><span style="color: #F5F1DE; background-color: #000316"> 01</span><span style="color: #F5F1DE; background-color: #000316"> 77</span><span style="color: #F5F1DE; background-color: #000316"> 1d</span><span style="color: #F5F1DE; background-color: #000316"> 84</span><span style="color: #F5F1DE; background-color: #000316"> 43</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0xff00 @DPTR= 0x04   4 .
+</span><span style="color: #ffff00; background-color: #000316">0x0a13</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">2f</span>      <span style="color: #00aa00; background-color: #000316"> ADD    A,R7</span>
+<span style="color: #ffffff; background-color: #000316">F 0x000a13
+</span>Simulated 324 ticks (2.930e-05 sec)
+Host usage: 0.000035 sec, rate=0.835918
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">history info
+</span><span style="color: #ffffff; background-color: #000316">len: 10000
+used: 20
+insts: 20
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span>
+</pre>
+	<!-- @END@ -->
+	
+
+
+	<b>Len</b> is the size of the history, <b>used</b> shows how
+	many slots are filled, and <b>insts</b> is the number of the
+	instructions recorded by the history.
+	
+	<hr>
+	
+	<h4><a name="history_list">history list [nr]</a>
+	  <br>
+	  history print [nr]</h4>
+	  
+	  This command is the same as
+	  the <a href="#history_">history</a> command, but it accepts a
+	  parameter that specifies how many records to print
+	  (defaults to 10):
+
+<!-- @BLOCK@ history_list 432a82f28dffab346e51d4f3cd507313 -->
+<pre class="eg">$ ucsim_51
+<span style="color: #F5F1DE; background-color: #000316">uCsim 0.9.8, Copyright (C) 1997 Daniel Drotos.
+uCsim comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type `show c' for details.
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">load "remo.hex"
+</span><span style="color: #ffffff; background-color: #000316">Loading from remo.hex
+55755 words read from remo.hex
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">step 1000
+</span><span style="color: #E850A8; background-color: #000316">
+Stop at 0x000201: (109) stepped 20568 ticks
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 12</span><span style="color: #F5F1DE; background-color: #000316"> 57</span><span style="color: #F5F1DE; background-color: #000316"> fc</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 09</span><span style="color: #F5F1DE; background-color: #000316"> f0</span><span style="color: #F5F1DE; background-color: #000316"> 12</span><span style="color: #F5F1DE; background-color: #000316"> bd</span>
+<span style="color: #ffffff; background-color: #000316">@R0 df .  ACC= 0x14  20 .  B= 0x00
+@R1 41 A  PSW= 0x00 CY=0 AC=0 OV=0 P=0
+SP </span><span style="color: #ffff00; background-color: #000316">0x2a</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 01</span><span style="color: #F5F1DE; background-color: #000316"> ba</span><span style="color: #F5F1DE; background-color: #000316"> 23</span><span style="color: #F5F1DE; background-color: #000316"> 87</span><span style="color: #F5F1DE; background-color: #000316"> 29</span><span style="color: #F5F1DE; background-color: #000316"> 81</span><span style="color: #F5F1DE; background-color: #000316"> 02</span><span style="color: #F5F1DE; background-color: #000316"> 2d</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x1257 @DPTR= 0x1f  31 .
+</span><span style="color: #ffff00; background-color: #000316">0x0201</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">a3</span>      <span style="color: #00aa00; background-color: #000316"> INC    DPTR</span>
+<span style="color: #ffffff; background-color: #000316">F 0x000201
+</span>Simulated 20568 ticks (1.860e-03 sec)
+Host usage: 0.000347 sec, rate=5.357558
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">history info
+</span><span style="color: #ffffff; background-color: #000316">len: 10000
+used: 1000
+insts: 1000
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">history list 3
+</span><span style="color: #ffff00; background-color: #000316">0x01fc</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">70</span> <span style="color: #F5F1DE; background-color: #000316">01</span>   <span style="color: #00aa00; background-color: #000316"> JNZ    0x01ff</span>
+<span style="color: #ffff00; background-color: #000316">0x01ff</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">e4</span>      <span style="color: #00aa00; background-color: #000316"> CLR    A</span>
+<span style="color: #ffff00; background-color: #000316">0x0200</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">93</span>      <span style="color: #00aa00; background-color: #000316"> MOVC   A,@A+DPTR</span>
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">history list
+</span><span style="color: #ffff00; background-color: #000316">0x0212</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">89</span> <span style="color: #F5F1DE; background-color: #000316">82</span>   <span style="color: #00aa00; background-color: #000316"> MOV    0x82 &lt;DPL&gt;,R1</span>
+<span style="color: #ffff00; background-color: #000316">0x0214</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">80</span> <span style="color: #F5F1DE; background-color: #000316">e3</span>   <span style="color: #00aa00; background-color: #000316"> SJMP   0x01f9</span>
+<span style="color: #ffff00; background-color: #000316">0x01f9</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">12</span> <span style="color: #F5F1DE; background-color: #000316">01</span> <span style="color: #F5F1DE; background-color: #000316">9f</span><span style="color: #00aa00; background-color: #000316"> LCALL  0x019f</span>
+<span style="color: #ffff00; background-color: #000316">0x019f</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">ef</span>      <span style="color: #00aa00; background-color: #000316"> MOV    A,R7</span>
+<span style="color: #ffff00; background-color: #000316">0x01a0</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">65</span> <span style="color: #F5F1DE; background-color: #000316">82</span>   <span style="color: #00aa00; background-color: #000316"> XRL    A,0x82 &lt;DPL&gt;</span>
+<span style="color: #ffff00; background-color: #000316">0x01a2</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">70</span> <span style="color: #F5F1DE; background-color: #000316">03</span>   <span style="color: #00aa00; background-color: #000316"> JNZ    0x01a7</span>
+<span style="color: #ffff00; background-color: #000316">0x01a7</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">22</span>      <span style="color: #00aa00; background-color: #000316"> RET</span>
+<span style="color: #ffff00; background-color: #000316">0x01fc</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">70</span> <span style="color: #F5F1DE; background-color: #000316">01</span>   <span style="color: #00aa00; background-color: #000316"> JNZ    0x01ff</span>
+<span style="color: #ffff00; background-color: #000316">0x01ff</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">e4</span>      <span style="color: #00aa00; background-color: #000316"> CLR    A</span>
+<span style="color: #ffff00; background-color: #000316">0x0200</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">93</span>      <span style="color: #00aa00; background-color: #000316"> MOVC   A,@A+DPTR</span>
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span>
+</pre>
+      <!-- @END@ -->
+
+	  
+	  <hr>
+	  
+	  <h4><a name="history_clear">history clear</a></h4>
+	  
+	  This command clears the history; it deletes all recorded
+	  elements.
+
+<!-- @BLOCK@ history_clear 6df454024b0b5c4a60b2e2ca43251141 -->
+<pre class="eg">$ ucsim_51
+<span style="color: #F5F1DE; background-color: #000316">uCsim 0.9.8, Copyright (C) 1997 Daniel Drotos.
+uCsim comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type `show c' for details.
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">load "remo.hex"
+</span><span style="color: #ffffff; background-color: #000316">Loading from remo.hex
+55755 words read from remo.hex
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">step 1000
+</span><span style="color: #E850A8; background-color: #000316">
+Stop at 0x000201: (109) stepped 20568 ticks
+</span><span style="color: #ffffff; background-color: #000316">     R0 R1 R2 R3 R4 R5 R6 R7
+    </span><span style="color: #F5F1DE; background-color: #000316"> 12</span><span style="color: #F5F1DE; background-color: #000316"> 57</span><span style="color: #F5F1DE; background-color: #000316"> fc</span><span style="color: #F5F1DE; background-color: #000316"> c9</span><span style="color: #F5F1DE; background-color: #000316"> 09</span><span style="color: #F5F1DE; background-color: #000316"> f0</span><span style="color: #F5F1DE; background-color: #000316"> 12</span><span style="color: #F5F1DE; background-color: #000316"> bd</span>
+<span style="color: #ffffff; background-color: #000316">@R0 df .  ACC= 0x14  20 .  B= 0x00
+@R1 41 A  PSW= 0x00 CY=0 AC=0 OV=0 P=0
+SP </span><span style="color: #ffff00; background-color: #000316">0x2a</span> -&gt;<span style="color: #F5F1DE; background-color: #000316"> 01</span><span style="color: #F5F1DE; background-color: #000316"> ba</span><span style="color: #F5F1DE; background-color: #000316"> 23</span><span style="color: #F5F1DE; background-color: #000316"> 87</span><span style="color: #F5F1DE; background-color: #000316"> 29</span><span style="color: #F5F1DE; background-color: #000316"> 81</span><span style="color: #F5F1DE; background-color: #000316"> 02</span><span style="color: #F5F1DE; background-color: #000316"> 2d</span>
+<span style="color: #ffffff; background-color: #000316">   DPTR= 0x1257 @DPTR= 0x1f  31 .
+</span><span style="color: #ffff00; background-color: #000316">0x0201</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">a3</span>      <span style="color: #00aa00; background-color: #000316"> INC    DPTR</span>
+<span style="color: #ffffff; background-color: #000316">F 0x000201
+</span>Simulated 20568 ticks (1.860e-03 sec)
+Host usage: 0.000415 sec, rate=4.483106
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">history list 5
+</span><span style="color: #ffff00; background-color: #000316">0x01a2</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">70</span> <span style="color: #F5F1DE; background-color: #000316">03</span>   <span style="color: #00aa00; background-color: #000316"> JNZ    0x01a7</span>
+<span style="color: #ffff00; background-color: #000316">0x01a7</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">22</span>      <span style="color: #00aa00; background-color: #000316"> RET</span>
+<span style="color: #ffff00; background-color: #000316">0x01fc</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">70</span> <span style="color: #F5F1DE; background-color: #000316">01</span>   <span style="color: #00aa00; background-color: #000316"> JNZ    0x01ff</span>
+<span style="color: #ffff00; background-color: #000316">0x01ff</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">e4</span>      <span style="color: #00aa00; background-color: #000316"> CLR    A</span>
+<span style="color: #ffff00; background-color: #000316">0x0200</span><span style="color: #ffffff; background-color: #000316">  </span><span style="color: #ffffff; background-color: #000316"> </span> <span style="color: #F5F1DE; background-color: #000316">93</span>      <span style="color: #00aa00; background-color: #000316"> MOVC   A,@A+DPTR</span>
+<span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">history clear
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span><span style="color: #00aa00; background-color: #000316">history info
+</span><span style="color: #ffffff; background-color: #000316">len: 10000
+used: 0
+insts: 0
+</span><span style="color: #aa5500; background-color: #000316">0</span><span style="color: #ffffff; background-color: #000316">&gt; </span>
+</pre>
+      <!-- @END@ -->
+
+      </blockquote>
+      
+      <!--OK-->
+  </body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
