@@ -12268,8 +12268,12 @@ genIfxJump (iCode *ic, const char *jval)
       else
         {
           /* The buffer contains the bit on A that we should test */
+          if (IS_8080LIKE)
+            emit8080Bit (ASMOP_A, 0, atoi (jval));
+          else {
           emit2 ("bit %s, a", jval);
           cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
+          }
           inst = "nz";
         }
     }
@@ -12329,8 +12333,12 @@ genIfxJump (iCode *ic, const char *jval)
       else
         {
           /* The buffer contains the bit on A that we should test */
+          if (IS_8080LIKE)
+            emit8080Bit (ASMOP_A, 0, atoi (jval));
+          else {
           emit2 ("bit %s, a", jval);
           cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
+          }
           inst = "z";
         }
     }
