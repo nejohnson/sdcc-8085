@@ -314,6 +314,7 @@ static const char z80_builtins_c90[] =
   "extern void *__builtin_memset (void *s, int c, unsigned int n) __builtin__;\n";
 
 extern reg_info sm83_regs[];
+extern reg_info i8080_regs[];
 extern reg_info z80_regs[];
 extern reg_info r4k_regs[];
 extern void z80_init_asmops (void);
@@ -478,7 +479,7 @@ _i8080_init (void)
   z80_opts.sub = SUB_8080;
   asm_addTree (&_asxxxx_z80);
 
-  regsZ80 = z80_regs;
+  regsZ80 = i8080_regs;
   z80_init_asmops ();
 }
 
@@ -488,7 +489,7 @@ _i8085_init (void)
   z80_opts.sub = SUB_8085;
   asm_addTree (&_asxxxx_z80);
 
-  regsZ80 = z80_regs;
+  regsZ80 = i8080_regs;
   z80_init_asmops ();
 }
 
@@ -3125,7 +3126,7 @@ PORT i8080_port =
   false,                        // there is no __far, and thus no pointers into it.
   1,                            /* reset labelKey to 1 */
   1,                            /* globals & local statics allowed */
-  9,                            /* Number of registers handled in the tree-decomposition-based register allocator in SDCCralloc.hpp */
+  7,                            /* Number of registers handled in the tree-decomposition-based register allocator in SDCCralloc.hpp */
   PORT_MAGIC
 };
 
@@ -3262,7 +3263,7 @@ PORT i8085_port =
   false,                        // there is no __far, and thus no pointers into it.
   1,                            /* reset labelKey to 1 */
   1,                            /* globals & local statics allowed */
-  9,                            /* Number of registers handled in the tree-decomposition-based register allocator in SDCCralloc.hpp */
+  7,                            /* Number of registers handled in the tree-decomposition-based register allocator in SDCCralloc.hpp */
   PORT_MAGIC
 };
 

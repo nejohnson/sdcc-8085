@@ -441,6 +441,8 @@ cost2 (int z80_bytes /* also most other ports */, int tlcs90_bytes, int tlcs870_
     states = ez80_cycles;
   else if(IS_R800)
     states = r800_cycles;
+  else if(IS_8080LIKE)   /* reuse the z80 cost column for now; refine later */
+    states = z80n_states;
 
   wassert (bytes >= 0 && states >= 0.0f);
   regalloc_dry_run_cost_bytes += bytes;
@@ -3804,7 +3806,7 @@ aopGet (asmop *aop, int offset, bool bit16)
               break;
             }
             
-          if (aop->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870)
+          if (aop->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE)
             {
               if (IS_TLCS90 && sp_offset <= 127)
                 {
@@ -4058,7 +4060,7 @@ aopPut (asmop *aop, const char *s, int offset)
             emit2 ("ld (sp), %s", s);
           break;
         }
-      if(aop->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870)
+      if(aop->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE)
         {
           if (!canAssignToPtr (s))
             {
@@ -5028,7 +5030,7 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
           size -= 2;
           i += 2;
         }
-      else if (result->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870)
+      else if (result->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE)
         {
           if (!iy_free)
             _push (PAIR_IY);
@@ -5053,7 +5055,7 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
       else if (aopRS (source) && !aopOnStack (source, soffset + i, 1) && aopOnStack (result, roffset + i, 1))
         {
           bool pushed_iy = false;
-          if (result->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !iy_free)
+          if (result->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE && !iy_free)
             {
               _push (PAIR_IY);
               pushed_iy = true;
@@ -5704,7 +5706,7 @@ skip_byte:
         }
       else if (aopRS (result) && aopOnStack (source, soffset + i, 1) && !aopOnStack (result, roffset + i, 1))
         {
-          if (source->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870)
+          if (source->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE)
             {
               if (!iy_free)
                 _push (PAIR_IY);

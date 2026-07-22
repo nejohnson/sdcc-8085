@@ -1542,7 +1542,7 @@ template <class G_t>
 static bool omit_frame_ptr(const G_t &G)
 {
   // We have to omit the frame poitner if there is no useable ix.
-  if(IS_SM83 || IS_TLCS870 || options.omitFramePtr)
+  if(IS_SM83 || IS_TLCS870 || IS_8080LIKE || options.omitFramePtr)
     return(true);
 
   if(IY_RESERVED || z80_opts.noOmitFramePtr)
