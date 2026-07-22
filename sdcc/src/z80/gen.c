@@ -9603,9 +9603,14 @@ shiftIntoPair (PAIR_ID id, asmop *aop)
       break;
     case PAIR_DE:
       _push (PAIR_DE);
-      setupPair (PAIR_IY, aop, 0);
-      emit2 ("push iy");
-      emit2 ("pop %s", _pairs[id].name);
+      if (IS_8080LIKE) // No IY: set DE up directly (setupPairFromSP preserves HL via ex de, hl).
+        setupPair (PAIR_DE, aop, 0);
+      else
+        {
+          setupPair (PAIR_IY, aop, 0);
+          emit2 ("push iy");
+          emit2 ("pop %s", _pairs[id].name);
+        }
       break;
     case PAIR_IY:
       setupPair (PAIR_IY, aop, 0);
