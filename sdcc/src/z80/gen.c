@@ -1673,6 +1673,22 @@ emit3_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
   // emitDebug(";emit3_o cost: total so far: cost %lu bytecost %lu", cost, bytecost);
 }
 
+/* Map a register-pair id to its 16-bit asmop, so raw "adc/sbc hl,rr" emissions
+   can be routed through emit3w (which synthesises the op byte-wise on the
+   8080/8085, where the ED-prefix form does not exist). */
+static asmop *
+pairAsmop (PAIR_ID p)
+{
+  switch (p)
+    {
+    case PAIR_HL: return ASMOP_HL;
+    case PAIR_DE: return ASMOP_DE;
+    case PAIR_BC: return ASMOP_BC;
+    case PAIR_IY: return ASMOP_IY;
+    default: return 0;
+    }
+}
+
 /* 8080/8085: there is no adc hl,rr / sbc hl,rr - those are Z80 ED-prefix ops.
    Do the 16-bit add/subtract-with-carry byte-wise through A. "ld" does not
    affect the carry, so the incoming carry/borrow chains correctly across the
@@ -10388,8 +10404,8 @@ genPlus (iCode * ic)
               if (started)
                 {
                   wassert (!iy);
-                  emit2 ("adc hl, %s", _pairs[pair].name);
-                  cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
+                  /* route through emit3w so the 8080/8085 synthesises adc hl,rr */
+                  emit3w (A_ADC, ASMOP_HL, pairAsmop (pair));
                   spillPair (PAIR_HL);
                 }
               else
@@ -10579,8 +10595,8 @@ genPlus (iCode * ic)
           fetchPairLong (pair, IC_RIGHT (ic)->aop, 0, i);
           if (started)
             {
-              emit2 ("adc hl, %s", _pairs[pair].name);
-              cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
+              /* route through emit3w so the 8080/8085 synthesises adc hl,rr */
+              emit3w (A_ADC, ASMOP_HL, pairAsmop (pair));
             }
           else
             {
@@ -10602,8 +10618,8 @@ genPlus (iCode * ic)
                       || rightop->aopu.aop_reg[i]->rIdx == C_IDX) ? PAIR_BC : PAIR_DE;
           if (started)
             {
-              emit2 ("adc hl, %s", _pairs[pair].name);
-              cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
+              /* route through emit3w so the 8080/8085 synthesises adc hl,rr */
+              emit3w (A_ADC, ASMOP_HL, pairAsmop (pair));
             }
           else
             {
@@ -11213,8 +11229,8 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
             {
               if (!offset)
                 emit3 (A_CP, ASMOP_A, ASMOP_A);
-              emit2 ("sbc hl, %s", _pairs[rightpair].name);
-              cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
+              /* route through emit3w so the 8080/8085 synthesises sbc hl,rr */
+              emit3w (A_SBC, ASMOP_HL, pairAsmop (rightpair));
             }
           spillPair (PAIR_HL);
           genMove_o (result, offset, ASMOP_HL, 0, 2, a_dead, true, false, true, size <= 2);
@@ -12957,7 +12973,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
 
           if (sign && !((IS_R6K_NOTYET || IS_TLCS90) && ifx))  // Map signed operands to unsigned ones. This pre-subtraction workaround to lack of signed comparison is cheaper than the post-subtraction one at fix (except Rabbit 6000 and TLCS-90, which have additional conditional jumps, and thus don't need the workaround for the ifx case).
             {
-              if (size == 2 && !(IS_SM83 || !ifx && requiresHL(result->aop) && result->aop->type != AOP_REG) && isPairDead (PAIR_HL, ic) && (isPairDead (PAIR_DE, ic) || isPairDead (PAIR_BC, ic)) && (getPairId (left->aop) == PAIR_HL || IS_RAB && (left->aop->type == AOP_STK || left->aop->type == AOP_EXSTK)))
+              if (size == 2 && !(IS_SM83 || IS_8080LIKE || !ifx && requiresHL(result->aop) && result->aop->type != AOP_REG) && isPairDead (PAIR_HL, ic) && (isPairDead (PAIR_DE, ic) || isPairDead (PAIR_BC, ic)) && (getPairId (left->aop) == PAIR_HL || IS_RAB && (left->aop->type == AOP_STK || left->aop->type == AOP_EXSTK)))
                 {
                   PAIR_ID litpair = (isPairDead (PAIR_DE, ic) ? PAIR_DE : PAIR_BC);
                   fetchPair (PAIR_HL, left->aop);
@@ -13010,7 +13026,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
               goto release;
             }
         }
-      if (!IS_SM83 && (!sign || size > 2) && (getPairId_o (left->aop, offset) == PAIR_HL || size == 2 && left->aop->type == AOP_IY) && isPairDead (PAIR_HL, ic) &&
+      if (!IS_SM83 && !IS_8080LIKE && (!sign || size > 2) && (getPairId_o (left->aop, offset) == PAIR_HL || size == 2 && left->aop->type == AOP_IY) && isPairDead (PAIR_HL, ic) &&
         (getPairId_o (right->aop, offset) == PAIR_DE || getPairId_o (right->aop, offset) == PAIR_BC))
         {
           if (left->aop->type == AOP_DIR || left->aop->type == AOP_IY)
