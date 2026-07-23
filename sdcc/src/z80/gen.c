@@ -3296,6 +3296,36 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
           _pop (pairId);
           _push (pairId);
         }
+      /* The 8080/8085 has no "ld de/bc, (nn)" - that encoding is a Z80 ED-prefix
+         instruction (and 0xED is LHLX on the 8085). Only HL can be loaded from a
+         direct address, via LHLD. Load DE/BC byte-wise through A with LDA, which
+         leaves HL untouched. */
+      else if (IS_8080LIKE && pairId != PAIR_HL && (aop->type == AOP_IY || aop->type == AOP_HL) &&
+        (aop->size - offset >= 1))
+        {
+          bool pushed_a = ic && bitVectBitValue (ic->rMask, A_IDX);
+          if (pushed_a)
+            _push (PAIR_AF);
+          emit2 ("ld a, !mems", aopGetLitWordLong (aop, offset, FALSE));
+          cost2 (3, 3, 3, 3, 13, 10, 7, 7, 13, 7, 4, 4, 4, 4, 4);
+          emit2 ("ld %s, a", _pairs[pairId].l);
+          cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
+          if (aop->size - offset >= 2)
+            {
+              emit2 ("ld a, !mems", aopGetLitWordLong (aop, offset + 1, FALSE));
+              cost2 (3, 3, 3, 3, 13, 10, 7, 7, 13, 7, 4, 4, 4, 4, 4);
+              emit2 ("ld %s, a", _pairs[pairId].h);
+              cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
+            }
+          else
+            {
+              emit2 ("ld %s, !zero", _pairs[pairId].h);
+              cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
+            }
+          if (pushed_a)
+            _pop (PAIR_AF);
+          spillPair (pairId);
+        }
       else if (!IS_SM83 && (aop->type == AOP_IY || aop->type == AOP_HL) &&
         (aop->size >= 2 || pairId != PAIR_IY && optimize.allow_unsafe_read))
         {
