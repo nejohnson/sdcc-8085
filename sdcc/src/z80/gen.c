@@ -10800,6 +10800,35 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
         }
     }
 
+  /* 8080/8085: like the sm83 case above, a 16-bit subtraction of two memory
+     operands cannot use the byte loop below - with no index register both
+     operands need HL, and pointing HL at a stack operand uses add hl, sp,
+     which destroys the borrow between the low and high byte. Load both operands
+     into register pairs and subtract byte-wise in registers (carry-safe). */
+  if (!maskedtopbyte && IS_8080LIKE && size == 2 &&
+    requiresHL (left) && left->type != AOP_REG &&
+    requiresHL (right) && right->type != AOP_REG)
+    {
+      bool save_de = !isPairDead (PAIR_DE, ic);
+      if (save_de)
+        _push (PAIR_DE);
+      fetchPair (PAIR_DE, left);   /* left -> DE */
+      fetchPair (PAIR_HL, right);  /* right -> HL (order matters: right may be HL) */
+      emit3 (A_LD, ASMOP_A, ASMOP_E);
+      emit3 (A_SUB, ASMOP_A, ASMOP_L);   /* a = left_lo - right_lo */
+      emit3 (A_LD, ASMOP_E, ASMOP_A);    /* result_lo -> e */
+      emit3 (A_LD, ASMOP_A, ASMOP_D);
+      emit3 (A_SBC, ASMOP_A, ASMOP_H);   /* a = left_hi - right_hi - borrow */
+      spillPair (PAIR_HL);
+      /* result_hi in a, result_lo in e; hl (was right) is now free to address a
+         memory result. */
+      cheapMove (IC_RESULT (ic)->aop, 1, ASMOP_A, 0, true);
+      cheapMove (IC_RESULT (ic)->aop, 0, ASMOP_E, 0, true);
+      if (save_de)
+        _pop (PAIR_DE);
+      return;
+    }
+
   if ((requiresHL (result) && result->type != AOP_REG || requiresHL (left) && left->type != AOP_REG || requiresHL (right) && right->type != AOP_REG) &&
     (left->regs[L_IDX] > 0 || left->regs[H_IDX] > 0 || right->regs[L_IDX] > 0 || right->regs[H_IDX] > 0))
     UNIMPLEMENTED;
@@ -12557,7 +12586,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
                 emit3w (A_INC, ASMOP_HL, 0);
               offset++;
             }
-          if (sign && IS_SM83)
+          if (sign && (IS_SM83 || (IS_8080LIKE && isPairDead (PAIR_DE, ic))))
             {
               wassert(isPairDead (PAIR_DE, ic));
               emit2 ("ld a, !mems", "de");
@@ -12821,7 +12850,7 @@ fix:
               genIfxJump (ifx, "lt");
               return;
             }
-          else if (!ifx && !IS_SM83 && optimize.nosidechannels) // Compute N ^ V (the latter is not a flag bit on SM83).
+          else if (!ifx && !IS_SM83 && !IS_8080LIKE && optimize.nosidechannels) // Compute N ^ V (the latter is not a flag bit on SM83 or documented 8080/8085).
             {
               if (!isRegDead (BC_IDX, ic))
                 _push (PAIR_BC);
@@ -12836,7 +12865,7 @@ fix:
                 _pop (PAIR_BC);
               result_in_carry = false;
             }
-          else if (!IS_SM83) // Directly check for overflow, can't be done on SM83.
+          else if (!IS_SM83 && !IS_8080LIKE) // Directly check for overflow, can't be done on SM83 or the documented 8080/8085 (the P flag there is parity, not overflow).
             {
               // Assume no overflow.
               symbol *tlbl = regalloc_dry_run ? NULL : newiTempLabel (NULL);
