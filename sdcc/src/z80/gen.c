@@ -15353,6 +15353,21 @@ shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic
           emit8080Lsh1 (result->aop, 0, false);  /* sla low byte  */
           emit8080Lsh1 (result->aop, 1, true);   /* rl  high byte */
         }
+      /* Mask the top byte down to the bit width for a sub-byte-width unsigned
+         _BitInt result (a left shift can push bits past the width). The
+         generic path below does this too; the 8080/8085 path returns early. */
+      {
+        sym_link *rtype = operandType (IC_RESULT (ic));
+        unsigned tbmask = (IS_BITINT (rtype) && SPEC_USIGN (rtype) && (SPEC_BITINTWIDTH (rtype) % 8)) ?
+          (0xffu >> (8 - SPEC_BITINTWIDTH (rtype) % 8)) : 0xffu;
+        if (tbmask != 0xffu)
+          {
+            cheapMove (ASMOP_A, 0, result->aop, 1, true);
+            emit2 ("and a, #0x%02x", tbmask);
+            cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
+            cheapMove (result->aop, 1, ASMOP_A, 0, true);
+          }
+      }
       if (save_a)
         _pop (PAIR_AF);
       return;
