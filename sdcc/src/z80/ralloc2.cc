@@ -547,6 +547,19 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
   // Check if an input of this instruction is placed in A.
   bool input_in_A = operand_in_reg(left, REG_A, ia, i, G) || operand_in_reg(right, REG_A, ia, i, G);
 
+  // 8080/8085: the byte-wise shift/rotate body (emitRsh2 / emit8080Lsh1 / the
+  // 8080 register-rotate synthesis) uses A as scratch for every byte, so A must
+  // not hold a byte of the multi-byte value being shifted/rotated. That value is
+  // shifted in place in "shiftop", which is the result operand, or the left
+  // operand when the result is not in registers - so neither left nor result may
+  // have a byte in A. (The right operand is the shift count, which is moved to
+  // the count register first, so it is fine.) Single-byte shifts are done wholly
+  // in A and are unaffected.
+  if(IS_8080LIKE && (ic->op == LEFT_OP || ic->op == RIGHT_OP || ic->op == ROT) &&
+    getSize(operandType(IC_RESULT(ic))) > 1 &&
+    (result_in_A || operand_in_reg(left, REG_A, ia, i, G)))
+    return(false);
+
   // sfr access needs to go through a.
   if(input_in_A &&
     (IS_TRUE_SYMOP (left) && IN_REGSP (SPEC_OCLS (OP_SYMBOL (left)->etype)) ||
