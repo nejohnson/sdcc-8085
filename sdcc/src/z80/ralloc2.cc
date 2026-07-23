@@ -577,6 +577,11 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
     ic->op == RECEIVE || ic->op == '=' && !POINTER_SET (ic) || ic->op == CAST || ic->op == GET_VALUE_AT_ADDRESS)
     return(true);
 
+  // 8080/8085: integer negation is 0 - x, done in A (xor a,a; sub a,<x>). If x
+  // is in A, loading the 0 minuend clobbers it. Disallow the operand in A.
+  if (IS_8080LIKE && ic->op == UNARYMINUS && !IS_FLOAT (operandType (left)) && input_in_A)
+    return(false);
+
   if ((ic->op == '-' || ic->op == UNARYMINUS) && !IS_SM83)
     return(true);
 
