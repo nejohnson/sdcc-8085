@@ -16260,6 +16260,20 @@ genLeftShift (const iCode *ic)
       countreg = A_IDX;
     }
 
+  /* 8080/8085: the byte-wise shift body (emit8080Lsh1) uses A as scratch, so A
+     cannot hold the loop counter of a variable shift (literal shifts unroll). */
+  if (IS_8080LIKE && !shift_by_lit && countreg == A_IDX)
+    {
+      static const int cand[] = {C_IDX, B_IDX, E_IDX, D_IDX, L_IDX, H_IDX};
+      for (unsigned k = 0; k < sizeof (cand) / sizeof (cand[0]); k++)
+        if (isRegDead (cand[k], ic) && result->aop->regs[cand[k]] < 0 &&
+            left->aop->regs[cand[k]] < 0 && right->aop->regs[cand[k]] < 0)
+          {
+            countreg = cand[k];
+            break;
+          }
+    }
+
   if (IS_Z80N && z80n_de && (aopInReg (right->aop, 0, B_IDX) || countreg == B_IDX))
     {
       shiftop = result->aop->size == 2 ? ASMOP_DE : ASMOP_E;
@@ -16757,6 +16771,22 @@ genRightShift (const iCode * ic)
     countreg = B_IDX;
   else
     countreg = A_IDX;
+
+  /* 8080/8085: the byte-wise shift body uses A as scratch, so A cannot hold the
+     loop counter of a variable shift (a literal shift is unrolled instead, see
+     below). If the generic selection chose A, pick a free register that holds
+     none of the operands. */
+  if (IS_8080LIKE && !shift_by_lit && countreg == A_IDX)
+    {
+      static const int cand[] = {C_IDX, B_IDX, E_IDX, D_IDX, L_IDX, H_IDX};
+      for (unsigned k = 0; k < sizeof (cand) / sizeof (cand[0]); k++)
+        if (isRegDead (cand[k], ic) && result->aop->regs[cand[k]] < 0 &&
+            left->aop->regs[cand[k]] < 0 && right->aop->regs[cand[k]] < 0)
+          {
+            countreg = cand[k];
+            break;
+          }
+    }
 
   if (IS_Z80N && isRegDead (DE_IDX, ic) &&
     (result->aop->size == 2 && (aopInReg (result->aop, 0, DE_IDX) || aopInReg (left->aop, 0, DE_IDX)) ||
