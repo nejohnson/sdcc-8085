@@ -460,6 +460,7 @@ cost2old (unsigned int bytes, unsigned int z80_states /* also z80n */, unsigned 
 static void emit8080Bit (asmop *aop, int offset, int bit);
 static void emit8080SetRes (asmop *aop, int offset, int bit, bool set, bool a_dead);
 static void emit8080Ldir (void);
+static bool emit8080RotateByte (enum asminst inst, asmop *op1, int offset1);
 
 /*-----------------------------------------------------------------*/
 /* isRegIdxPair - true, if specified index is register pair,       */
@@ -1639,6 +1640,14 @@ emit3_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
   unsigned long cost, bytecost;
   float statecost;
 
+  /* 8080/8085 have no CB-prefix register rotates; synthesise them through A. */
+  if (IS_8080LIKE && !op2 &&
+      (inst == A_RL || inst == A_RR || inst == A_RLC || inst == A_RRC))
+    {
+      if (emit8080RotateByte (inst, op1, offset1))
+        return;
+    }
+
   emit3Cost (inst, op1, offset1, op2, offset2);
 
   if (regalloc_dry_run)
@@ -1708,6 +1717,52 @@ emit8080AdcSbcHL (bool sub, asmop *op2, int offset2, bool a_dead)
     emit2 ("pop af");
   Safe_free (lo);
   Safe_free (hi);
+}
+
+/* 8080/8085: there are no CB-prefix register rotates (rl/rr/rlc/rrc r). Only the
+   accumulator forms rla/rra/rlca/rrca exist. Synthesise a single-byte rotate on
+   an arbitrary operand byte by shuttling it through A: "ld" does not touch the
+   flags, so the carry chains correctly across a multi-byte rotate loop. This
+   clobbers A; the only emitter that reaches here (genRotW) already saves A when
+   it is live, and the carry-out is preserved for the next byte. Returns true if
+   it handled the instruction. */
+static bool
+emit8080RotateByte (enum asminst inst, asmop *op1, int offset1)
+{
+  const char *accins;
+  switch (inst)
+    {
+    case A_RL:  accins = "rla";  break;
+    case A_RR:  accins = "rra";  break;
+    case A_RLC: accins = "rlca"; break;
+    case A_RRC: accins = "rrca"; break;
+    default:
+      return false;
+    }
+
+  bool in_a = aopInReg (op1, offset1, A_IDX);
+  /* cost: the accumulator rotate is one byte; a non-A byte also needs ld a,r
+     and ld r,a around it. */
+  cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
+  if (!in_a)
+    {
+      cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
+      cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
+    }
+  if (regalloc_dry_run)
+    return true;
+
+  if (in_a)
+    emit2 ("%s", accins);
+  else
+    {
+      char *r = Safe_strdup (aopGet (op1, offset1, false));
+      emit2 ("ld a, %s", r);
+      emit2 ("%s", accins);
+      emit2 ("ld %s, a", r);
+      Safe_free (r);
+    }
+  return true;
 }
 
 static void
@@ -15700,7 +15755,7 @@ genRot1 (const iCode *ic)
         emit2 ("rr de");
       cost (1, 2);
     }
-  else if (s == 4 && !IS_SM83 && !IS_RAB && (aopInReg (left->aop, 0, A_IDX) || aopSame (result->aop, 0, left->aop, 0, 1)) &&
+  else if (s == 4 && !IS_SM83 && !IS_RAB && !IS_8080LIKE && (aopInReg (left->aop, 0, A_IDX) || aopSame (result->aop, 0, left->aop, 0, 1)) &&
     (result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY) && isPairDead (PAIR_HL, ic))
     {
       if (!isRegDead (A_IDX, ic))
@@ -15714,14 +15769,14 @@ genRot1 (const iCode *ic)
       if (!isRegDead (A_IDX, ic))
         _pop (PAIR_AF);
     }
-  else if ((s == 1 || s == 7) && aopSame (result->aop, 0, left->aop, 0, 1) &&
+  else if ((s == 1 || s == 7) && !IS_8080LIKE && aopSame (result->aop, 0, left->aop, 0, 1) &&
     (result->aop->type == AOP_EXSTK || result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY) && isPairDead (PAIR_HL, ic))
     {
       pointPairToAop (PAIR_HL, result->aop, 0);
       emit2 (s == 1 ? "rlc (hl)" : "rrc (hl)");
       cost2 (2, 2, -1, -1, 15, 6, 10, 10, 16, 8, -1, -1, -1, 5, 5);
     }
-  else if ((s == 1 || s == 7) && aopSame (result->aop, 0, left->aop, 0, 1) && result->aop->type == AOP_STK && !IS_SM83)
+  else if ((s == 1 || s == 7) && aopSame (result->aop, 0, left->aop, 0, 1) && result->aop->type == AOP_STK && !IS_SM83 && !IS_8080LIKE)
     {
       emit3 (s == 1 ? A_RLC : A_RRC, result->aop, 0);
     }
@@ -17174,6 +17229,23 @@ genPointerGet (const iCode *ic)
         }
       if (bit_field)
         genUnpackBits (result, 0, blen, bstr);
+      goto release;
+    }
+  else if (IS_8080LIKE && !from_far && !bit_field &&
+    (left->aop->type == AOP_IMMD || left->aop->type == AOP_LIT && !rightval) &&
+    result->aop->type == AOP_REG && result->aop->regs[A_IDX] < 0 && size >= 1 && size <= 4)
+    {
+      /* 8080/8085: there is no "ld bc/de, (nn)" (that is a Z80 ED-prefix op, and
+         0xED is LHLX on the 8085). Load the value byte-wise through A with LDA,
+         which leaves HL untouched. Only non-A register results reach here. */
+      if (surviving_a && !pushed_a)
+        _push (PAIR_AF), pushed_a = true;
+      for (int i = 0; i < size; i++)
+        {
+          emit2 ("ld a, !mems", aopGetLitWordLong (left->aop, rightval + i, false));
+          cost2 (3, 4, -1, 4, 13, 12, 9, 9, 16, 10, -1, 5, 5, 4, 4);
+          cheapMove (result->aop, i, ASMOP_A, 0, true);
+        }
       goto release;
     }
   else if (!IS_SM83 && (left->aop->type == AOP_IMMD || left->aop->type == AOP_LIT && !rightval) && isPair (result->aop) && !bit_field  &&
