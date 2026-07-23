@@ -12909,6 +12909,34 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
           goto fix;
         }
 
+      /* 8080/8085 signed compare: the post-subtraction sign fixups used below
+         rely on "bit 7, r" (which preserves the carry that holds the unsigned
+         result); the 8080/8085 has no bit test and its "and a,#0x80" substitute
+         destroys that carry. Instead use signed_lt = unsigned_borrow XOR a.sign
+         XOR b.sign, computed as 0x00/0xff byte masks (no carry to preserve
+         across the sign handling). Result sign bit lands in A bit 7. */
+      if (IS_8080LIKE && sign && size > 1 && right->aop->type != AOP_LIT &&
+          !aopInReg (left->aop, size - 1, A_IDX) && !aopInReg (right->aop, size - 1, A_IDX))
+        {
+          /* Full unsigned subtraction left - right; the borrow (carry) is the
+             unsigned "<" result. The operands are only read, not modified. */
+          for (int i = 0; i < size; i++)
+            {
+              cheapMove (ASMOP_A, 0, left->aop, i, true);
+              emit3_o (i == 0 ? A_SUB : A_SBC, ASMOP_A, 0, right->aop, i);
+            }
+          /* signed_lt = borrow XOR a.sign XOR b.sign. sbc a,a turns the borrow
+             into an all-ones/all-zero mask (bit 7 = borrow); XORing the two
+             top operand bytes flips bit 7 by their sign bits. Only bit 7 of the
+             result matters (release shifts it into carry). No carry needs to be
+             preserved, so this avoids the "bit 7,r" trick the 8080/8085 lacks. */
+          emit3 (A_SBC, ASMOP_A, ASMOP_A);
+          emit3_o (A_XOR, ASMOP_A, 0, left->aop, size - 1);
+          emit3_o (A_XOR, ASMOP_A, 0, right->aop, size - 1);
+          result_in_carry = false;
+          goto release;
+        }
+
       if (IS_SM83 && sign && right->aop->type != AOP_LIT && !aopInReg (left->aop, offset, A_IDX))
         {
           cheapMove (ASMOP_A, 0, right->aop, size - 1, true);
@@ -13131,38 +13159,43 @@ fix:
                  case we can easily decide which one is greater, and we set/reset the carry
                  flag. If not, then the unsigned compare gave the correct result and we
                  don't change the carry flag. */
-              symbol *tlbl1 = regalloc_dry_run ? 0 : newiTempLabel (0);
-              symbol *tlbl2 = regalloc_dry_run ? 0 : newiTempLabel (0);
-              // TODO: Fix all the cycle costs in here.
               if (IS_8080LIKE)
-                emit8080Bit (ASMOP_DE, 0, 7);
-              else {
-              emit2 ("bit 7, e");
-              regalloc_dry_run_cost += 2;
-              cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-              }
-              emitJP (tlbl1, "z", 0.5f, true);
-              if (IS_8080LIKE)
-                emit8080Bit (ASMOP_DE, 1, 7);
-              else {
-              emit2 ("bit 7, d");
-              regalloc_dry_run_cost += 2;
-              }
-              emitJP (tlbl2, "nz", 0.5f, true);
-              emit2 ("cp a, a");
-              regalloc_dry_run_cost += 1;
-              emitJP (tlbl2, NULL, 1.0f, true);
-              emitLabelSpill (tlbl1);
-              if (IS_8080LIKE)
-                emit8080Bit (ASMOP_DE, 1, 7);
-              else {
-              emit2 ("bit 7, d");
-              regalloc_dry_run_cost += 2;
-              }
-              emitJP (tlbl2, "z", 0.5f, true);
-              emit2 ("scf");
-              emitLabelSpill (tlbl2);
-              result_in_carry = true;
+                {
+                  /* The 8080/8085 has no "bit 7,r", and its "and a,#0x80"
+                     substitute would destroy the carry that holds the unsigned
+                     result. Instead form signed_lt = borrow XOR a.sign XOR
+                     b.sign as a byte: sbc a,a turns the borrow (carry) into an
+                     all-ones/all-zero mask, then XORing the two top operand
+                     bytes (D = left top, E = right top) flips bit 7 by their
+                     sign bits. Only bit 7 matters (release shifts it out). */
+                  emit3 (A_SBC, ASMOP_A, ASMOP_A);
+                  emit3 (A_XOR, ASMOP_A, ASMOP_D);
+                  emit3 (A_XOR, ASMOP_A, ASMOP_E);
+                  result_in_carry = false;
+                }
+              else
+                {
+                  symbol *tlbl1 = regalloc_dry_run ? 0 : newiTempLabel (0);
+                  symbol *tlbl2 = regalloc_dry_run ? 0 : newiTempLabel (0);
+                  // TODO: Fix all the cycle costs in here.
+                  emit2 ("bit 7, e");
+                  regalloc_dry_run_cost += 2;
+                  cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
+                  emitJP (tlbl1, "z", 0.5f, true);
+                  emit2 ("bit 7, d");
+                  regalloc_dry_run_cost += 2;
+                  emitJP (tlbl2, "nz", 0.5f, true);
+                  emit2 ("cp a, a");
+                  regalloc_dry_run_cost += 1;
+                  emitJP (tlbl2, NULL, 1.0f, true);
+                  emitLabelSpill (tlbl1);
+                  emit2 ("bit 7, d");
+                  regalloc_dry_run_cost += 2;
+                  emitJP (tlbl2, "z", 0.5f, true);
+                  emit2 ("scf");
+                  emitLabelSpill (tlbl2);
+                  result_in_carry = true;
+                }
             }
         }
       else
