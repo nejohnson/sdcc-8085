@@ -907,8 +907,15 @@ machine(struct mne *mp)
                          * op  hl,sp
                          */
 			if ((v1 == HL) && (v2 <= SP)) {
-				if (rf != S_ADD)
+				if (rf != S_ADD) {
+					/* adc/sbc hl,rr are ED-prefixed (Z80 only). Only
+					   add hl,rr (DAD) exists on the 8080/8085. */
+					if (IS_I8080_FAMILY) {
+						xerr('o', "Not an 8080/8085 instruction (adc/sbc hl,rr).");
+						break;
+					}
 					outab(0xED);
+				}
 				outab(op | (v2<<4));
 				break;
 			}
@@ -1173,6 +1180,12 @@ machine(struct mne *mp)
 			if (gixiy(v1) == HL) {
 				outab(0x2A);
 			} else {
+				/* ld bc/de/sp,(nn) are ED-prefixed (Z80 only). Only
+				   ld hl,(nn) (LHLD) exists on the 8080/8085. */
+				if (IS_I8080_FAMILY) {
+					xerr('o', "Not an 8080/8085 instruction (only ld hl,(nn) / LHLD).");
+					break;
+				}
 				outab(0xED);
 				outab(0x4B | (v1<<4));
 			}
@@ -1191,6 +1204,12 @@ machine(struct mne *mp)
 			if (gixiy(v2) == HL) {
 				outab(0x22);
 			} else {
+				/* ld (nn),bc/de/sp are ED-prefixed (Z80 only). Only
+				   ld (nn),hl (SHLD) exists on the 8080/8085. */
+				if (IS_I8080_FAMILY) {
+					xerr('o', "Not an 8080/8085 instruction (only ld (nn),hl / SHLD).");
+					break;
+				}
 				outab(0xED);
 				outab(0x43 | (v2<<4));
 			}
