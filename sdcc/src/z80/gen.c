@@ -10069,6 +10069,57 @@ genPlus (iCode * ic)
       goto release;
     }
 
+  /* 8080/8085: a wider (e.g. 32-bit long) addition of memory operands. add hl,
+     de only covers 16 bits, and the byte-wise loop's add hl, sp between bytes
+     destroys the carry. Walk three pointers - DE=left, HL=right, BC=result -
+     with ld a,(de) / add-or-adc a,(hl) / ld (bc),a and inc de/hl/bc: only the
+     add/adc touches the carry, and inc/ld-indirect are carry-clean, so the
+     carry chains correctly. Reading (de) and (hl) before writing (bc) makes it
+     safe even when result aliases an operand. */
+  if (IS_8080LIKE && size == 4 && !maskedtopbyte &&
+    requiresHL (leftop) && leftop->type != AOP_REG &&
+    requiresHL (rightop) && rightop->type != AOP_REG &&
+    requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG)
+    {
+      bool save_bc = !isPairDead (PAIR_BC, ic);
+      bool save_de = !isPairDead (PAIR_DE, ic);
+      if (save_bc)
+        _push (PAIR_BC);
+      if (save_de)
+        _push (PAIR_DE);
+      /* BC = &result (setupPairFromSP only does HL/DE/IY, so go via HL). */
+      pointPairToAop (PAIR_HL, IC_RESULT (ic)->aop, 0);
+      emit3 (A_LD, ASMOP_C, ASMOP_L);
+      emit3 (A_LD, ASMOP_B, ASMOP_H);
+      spillPair (PAIR_HL);
+      pointPairToAop (PAIR_DE, leftop, 0);   /* DE = &left  */
+      spillPair (PAIR_HL);
+      pointPairToAop (PAIR_HL, rightop, 0);  /* HL = &right */
+      for (int i = 0; i < size; i++)
+        {
+          emit2 ("ld a, !mems", "de");
+          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
+          emit2 ("%s a, !*hl", i ? "adc" : "add");
+          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 3, 3, 2, 2);
+          emit2 ("ld !mems, a", "bc");
+          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
+          if (i + 1 < size)
+            {
+              emit3w (A_INC, ASMOP_DE, 0);
+              emit3w (A_INC, ASMOP_HL, 0);
+              emit3w (A_INC, ASMOP_BC, 0);
+            }
+        }
+      spillPair (PAIR_HL);
+      spillPair (PAIR_DE);
+      spillPair (PAIR_BC);
+      if (save_de)
+        _pop (PAIR_DE);
+      if (save_bc)
+        _pop (PAIR_BC);
+      goto release;
+    }
+
   // Avoid overwriting operand in h or l when setupToPreserveCarry () loads hl - only necessary if carry is actually used during addition.
   premoved = FALSE;
   if (size > 1 &&
@@ -10826,6 +10877,54 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
       cheapMove (IC_RESULT (ic)->aop, 0, ASMOP_E, 0, true);
       if (save_de)
         _pop (PAIR_DE);
+      return;
+    }
+
+  /* 8080/8085: wider (e.g. 32-bit long) subtraction of memory operands. Walk
+     three pointers - DE=left, HL=right, BC=result - with ld a,(de) /
+     sub-or-sbc a,(hl) / ld (bc),a and inc de/hl/bc. Only the sub/sbc touches
+     the borrow; inc and indirect ld are borrow-clean, so it chains correctly.
+     Reading (de)/(hl) before writing (bc) is safe under result aliasing. */
+  if (!maskedtopbyte && IS_8080LIKE && size == 4 &&
+    requiresHL (left) && left->type != AOP_REG &&
+    requiresHL (right) && right->type != AOP_REG &&
+    requiresHL (result) && result->type != AOP_REG)
+    {
+      bool save_bc = !isPairDead (PAIR_BC, ic);
+      bool save_de = !isPairDead (PAIR_DE, ic);
+      if (save_bc)
+        _push (PAIR_BC);
+      if (save_de)
+        _push (PAIR_DE);
+      pointPairToAop (PAIR_HL, result, 0);   /* BC = &result via HL */
+      emit3 (A_LD, ASMOP_C, ASMOP_L);
+      emit3 (A_LD, ASMOP_B, ASMOP_H);
+      spillPair (PAIR_HL);
+      pointPairToAop (PAIR_DE, left, 0);      /* DE = &left  */
+      spillPair (PAIR_HL);
+      pointPairToAop (PAIR_HL, right, 0);     /* HL = &right */
+      for (int i = 0; i < size; i++)
+        {
+          emit2 ("ld a, !mems", "de");
+          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
+          emit2 ("%s a, !*hl", i ? "sbc" : "sub");
+          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 3, 3, 2, 2);
+          emit2 ("ld !mems, a", "bc");
+          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
+          if (i + 1 < size)
+            {
+              emit3w (A_INC, ASMOP_DE, 0);
+              emit3w (A_INC, ASMOP_HL, 0);
+              emit3w (A_INC, ASMOP_BC, 0);
+            }
+        }
+      spillPair (PAIR_HL);
+      spillPair (PAIR_DE);
+      spillPair (PAIR_BC);
+      if (save_de)
+        _pop (PAIR_DE);
+      if (save_bc)
+        _pop (PAIR_BC);
       return;
     }
 
