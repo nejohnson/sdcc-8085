@@ -6338,6 +6338,9 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           continue;
         }
       else if (!IS_SM83 && i + 1 < size && soffset + i + 1 < source->size && getPairId_o(result, roffset + i) != PAIR_INVALID &&
+        /* 8080/8085: only ld hl,(nn) (LHLD) exists; ld bc/de,(nn) are Z80
+           ED-prefix ops, so let non-HL pairs fall through to a byte-wise load. */
+        (!IS_8080LIKE || getPairId_o(result, roffset + i) == PAIR_HL) &&
         (source->type == AOP_IY || source->type == AOP_DIR || source->type == AOP_HL && (getPairId_o(result, roffset + i) == PAIR_HL || !hl_dead)))
         {
           emit2 ("ld %s, !mems", _pairs[getPairId_o (result, roffset + i)].name, aopGetLitWordLong (source, soffset + i, false));
@@ -17005,7 +17008,7 @@ unpackMaskA (bool sign, int len, bool c_dead)
       emit3(A_RRA, 0, 0);
       emit3(A_SBC, ASMOP_A, ASMOP_A);
     }
-  else if (sign && len == 7) // 3B
+  else if (sign && len == 7 && !IS_8080LIKE) // 3B (sra a is a CB-prefix op, not on 8080/8085)
     {
       emit3(A_RLA, 0, 0);
       emit3(A_SRA, ASMOP_A, 0);
@@ -17017,7 +17020,7 @@ unpackMaskA (bool sign, int len, bool c_dead)
     
       if (sign)
         {
-          if (optimize.nosidechannels) // 7B (if c free)
+          if (optimize.nosidechannels || IS_8080LIKE) // 7B (if c free); the 6B path below uses "bit", a CB-prefix op absent on 8080/8085
             {
               if (!c_dead)
                 _push (PAIR_BC);
@@ -17258,9 +17261,12 @@ genPointerGet (const iCode *ic)
         genUnpackBits (result, 0, blen, bstr);
       goto release;
     }
-  else if (IS_8080LIKE && !from_far && !bit_field &&
+  else if (IS_8080LIKE && !from_far &&
     (left->aop->type == AOP_IMMD || left->aop->type == AOP_LIT && !rightval) &&
-    result->aop->type == AOP_REG && result->aop->regs[A_IDX] < 0 && size >= 1 && size <= 4)
+    result->aop->type == AOP_REG && result->aop->regs[A_IDX] < 0 && size >= 1 && size <= 4 &&
+    /* plain load, sub-byte bitfield (genUnpackBits handles blen<=8), or a
+       full-width bitfield that needs no unpacking */
+    (!bit_field || blen <= 8 || bstr == 0 && blen == size * 8))
     {
       /* 8080/8085: there is no "ld bc/de, (nn)" (that is a Z80 ED-prefix op, and
          0xED is LHLX on the 8085). Load the value byte-wise through A with LDA,
@@ -17273,6 +17279,8 @@ genPointerGet (const iCode *ic)
           cost2 (3, 4, -1, 4, 13, 12, 9, 9, 16, 10, -1, 5, 5, 4, 4);
           cheapMove (result->aop, i, ASMOP_A, 0, true);
         }
+      if (bit_field && !(bstr == 0 && blen == size * 8))
+        genUnpackBits (result, 0, blen, bstr);
       goto release;
     }
   else if (!IS_SM83 && (left->aop->type == AOP_IMMD || left->aop->type == AOP_LIT && !rightval) && isPair (result->aop) && !bit_field  &&
@@ -17302,7 +17310,7 @@ genPointerGet (const iCode *ic)
         }
       goto release;
     }
-  else if (!IS_SM83 && !from_far && (left->aop->type == AOP_IMMD) && getPairId_o (result->aop, 0) != PAIR_INVALID && getPairId_o (result->aop, 2) != PAIR_INVALID)
+  else if (!IS_SM83 && !IS_8080LIKE && !from_far && (left->aop->type == AOP_IMMD) && getPairId_o (result->aop, 0) != PAIR_INVALID && getPairId_o (result->aop, 2) != PAIR_INVALID)
     {
       PAIR_ID pair;
       pair = getPairId_o (result->aop, 0);
@@ -18137,7 +18145,7 @@ genPackBits (PAIR_ID pair, operand *right, int roffset, int blen, int bstr, PAIR
 
   mask = ((0xffu << (blen + bstr)) | (0xffu >> (8 - bstr))) & 0xffu;
 
-  if (right->aop->type == AOP_LIT && blen == 1 && (pair == PAIR_HL || pair == PAIR_IX || pair == PAIR_IY))
+  if (right->aop->type == AOP_LIT && blen == 1 && !IS_8080LIKE && (pair == PAIR_HL || pair == PAIR_IX || pair == PAIR_IY))
     {
       litval = ullFromVal (right->aop->aopu.aop_lit) >> (roffset * 8);
       emit2 (litval & 1 ? "set %d, !mems" : "res %d, !mems", bstr, _pairs[pair].name);
