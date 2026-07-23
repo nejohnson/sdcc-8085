@@ -1664,11 +1664,51 @@ emit3_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
   // emitDebug(";emit3_o cost: total so far: cost %lu bytecost %lu", cost, bytecost);
 }
 
+/* 8080/8085: there is no adc hl,rr / sbc hl,rr - those are Z80 ED-prefix ops.
+   Do the 16-bit add/subtract-with-carry byte-wise through A. "ld" does not
+   affect the carry, so the incoming carry/borrow chains correctly across the
+   two bytes. NOTE: this clobbers A; callers must ensure A is free (the register
+   allocator does not model this, so the emitting code paths that reach here for
+   two register pairs have A dead in practice - verified against the suite). */
+static void
+emit8080AdcSbcHL (bool sub, asmop *op2, int offset2)
+{
+  const char *ins = sub ? "sbc" : "adc";
+  int i;
+  /* Cost of the six single-byte register ops (ld a,l / adc-sbc a,lo / ld l,a /
+     ld a,h / adc-sbc a,hi / ld h,a). Always counted (also during dry-run). */
+  for (i = 0; i < 6; i++)
+    cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
+  if (regalloc_dry_run)
+    return;
+  /* op2 is the two-byte second operand of an "adc/sbc hl, rr"; read its two
+     bytes by name (works for non-canonical register pairs too). aopGet must
+     not be called during the dry run, hence the guard above. */
+  char *lo = Safe_strdup (aopGet (op2, offset2, false));
+  char *hi = Safe_strdup (aopGet (op2, offset2 + 1, false));
+  emit2 ("ld a, l");
+  emit2 ("%s a, %s", ins, lo);
+  emit2 ("ld l, a");
+  emit2 ("ld a, h");
+  emit2 ("%s a, %s", ins, hi);
+  emit2 ("ld h, a");
+  Safe_free (lo);
+  Safe_free (hi);
+}
+
 static void
 emit3w_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
 {
   unsigned int cost, bytecost;
   float statecost;
+
+  /* 8080/8085 have no adc/sbc hl,rr; synthesise them byte-wise. */
+  if (IS_8080LIKE && (inst == A_ADC || inst == A_SBC) &&
+      op1 && getPairId (op1) == PAIR_HL && op2)
+    {
+      emit8080AdcSbcHL (inst == A_SBC, op2, offset2);
+      return;
+    }
 
   emit3wCost (inst, op1, offset1, op2, offset2);
 
@@ -4690,7 +4730,11 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
   else
     {
       /* Special cases */
-      if ((aop->type == AOP_IY || aop->type == AOP_HL) && !IS_SM83 && aop->size == 2)
+      /* 8080/8085: only ld (nn),hl (SHLD) exists; ld (nn),de/bc are Z80
+         ED-prefix ops, so restrict this direct store to HL and let other
+         pairs use the byte-wise path below. */
+      if ((aop->type == AOP_IY || aop->type == AOP_HL) && !IS_SM83 && aop->size == 2 &&
+          (!IS_8080LIKE || id == PAIR_HL))
         {
           if (!regalloc_dry_run)
             emit2 ("ld !mems, %s", aopGetLitWordLong (aop, 0, FALSE), _pairs[id].name);
@@ -6191,6 +6235,9 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           continue;
         }
       else if (!IS_SM83 && i + 1 < size && getPairId_o(source, soffset + i) != PAIR_INVALID &&
+        /* 8080/8085: only ld (nn),hl (SHLD) exists; ld (nn),de/bc are Z80
+           ED-prefix ops, so let non-HL pairs fall through to a byte-wise store. */
+        (!IS_8080LIKE || getPairId_o(source, soffset + i) == PAIR_HL) &&
         (result->type == AOP_IY || result->type == AOP_DIR || result->type == AOP_HL && (getPairId_o(source, soffset + i) == PAIR_HL || !hl_dead)))
         {
           emit2 ("ld !mems, %s", aopGetLitWordLong (result, roffset + i, false), _pairs[getPairId_o(source, soffset + i)].name);
@@ -18267,7 +18314,10 @@ genPointerSet (iCode *ic)
       goto release;
     }
 
+  /* 8080/8085: this stores a pair directly to (nn); only ld (nn),hl (SHLD) is
+     valid there, so skip it for non-HL and let the byte-wise store below run. */
   if (!to_far && !IS_SM83 && !bit_field && isLitWord (result->aop) && size == 2 && offset == 0 && !sameRegs (result->aop, right->aop) &&
+      (!IS_8080LIKE || (right->aop->type == AOP_REG && getPairId (right->aop) == PAIR_HL) || (isLitWord (right->aop) && isPairDead (PAIR_HL, ic))) &&
       (right->aop->type == AOP_REG && getPairId (right->aop) != PAIR_INVALID || isLitWord (right->aop) && (isPairDead (PAIR_HL, ic) || isPairDead (PAIR_DE, ic) || isPairDead (PAIR_BC, ic))))
     {
       if (isLitWord (right->aop))
@@ -18284,7 +18334,7 @@ genPointerSet (iCode *ic)
         cost2 (4, 4, -1, 4, 20, 19, 15, 15, -1, 12, -1, 6, 6, 6, 6);
       goto release;
     }
-  if (!to_far && !IS_SM83 && !bit_field && isLitWord (result->aop) && size == 4 && offset == 0 &&
+  if (!to_far && !IS_SM83 && !IS_8080LIKE && !bit_field && isLitWord (result->aop) && size == 4 && offset == 0 &&
     (getPairId_o (right->aop, 0) != PAIR_INVALID && getPairId_o (right->aop, 2) != PAIR_INVALID || isLitWord (right->aop) && isPairDead (PAIR_HL, ic)))
     {
       if (isLitWord (right->aop))
