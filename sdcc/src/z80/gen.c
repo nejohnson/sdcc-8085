@@ -14806,8 +14806,17 @@ shiftR2Left2Result (const iCode *ic, operand *left, int offl, operand *result, i
     {
       if (result->aop != left->aop || offr != offl)
         genMove_o (result->aop, offr, left->aop, offl, 2, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true, true);
+      /* emitRsh2 routes bytes that are not already in A through A; if A holds a
+         live value not part of the shifted operand, preserve it (the register
+         allocator does not model this scratch use of A). */
+      bool save_a = !isRegDead (A_IDX, ic)
+        && !aopInReg (result->aop, offr, A_IDX) && !aopInReg (result->aop, offr + 1, A_IDX);
+      if (save_a)
+        _push (PAIR_AF);
       while (shCount-- > 0)
         emitRsh2 (result->aop, 2, is_signed);
+      if (save_a)
+        _pop (PAIR_AF);
       return;
     }
 
@@ -14981,11 +14990,19 @@ shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic
     {
       if (result->aop != left->aop)
         genMove_o (result->aop, 0, left->aop, 0, 2, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true, true);
+      /* emit8080Lsh1 uses A as scratch for any byte not in A; preserve a live A
+         that is not part of the shifted operand (allocator doesn't model it). */
+      bool save_a = !isRegDead (A_IDX, ic)
+        && !aopInReg (result->aop, 0, A_IDX) && !aopInReg (result->aop, 1, A_IDX);
+      if (save_a)
+        _push (PAIR_AF);
       while (shCount-- > 0)
         {
           emit8080Lsh1 (result->aop, 0, false);  /* sla low byte  */
           emit8080Lsh1 (result->aop, 1, true);   /* rl  high byte */
         }
+      if (save_a)
+        _pop (PAIR_AF);
       return;
     }
 
@@ -15078,6 +15095,14 @@ shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic
 
       if (shiftaop->type == AOP_REG)
         {
+          /* On the 8080/8085 there are no CB shifts, so shifting a byte that is
+             not already in A goes through A (emit8080Lsh1).  If A holds a live
+             value that is not part of shiftaop, that value would be clobbered -
+             the register allocator does not model this A use - so preserve it. */
+          bool save_a = IS_8080LIKE && !isRegDead (A_IDX, ic)
+            && !aopInReg (shiftaop, 0, A_IDX) && !aopInReg (shiftaop, 1, A_IDX);
+          if (save_a)
+            _push (PAIR_AF);
           while (shCount--)
             {
               for (offset = 0; offset < size; offset++)
@@ -15089,6 +15114,8 @@ shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic
                   else
                     emit3_o (offset ? A_RL : A_SLA, shiftaop, offset, 0, 0);
             }
+          if (save_a)
+            _pop (PAIR_AF);
         }
       else
         {
@@ -15264,6 +15291,11 @@ shiftL1Left2Result (operand *left, int offl, operand *result, int offr, unsigned
      acc it is worth the additional effort for loading from / to acc. */
   else if (!aopInReg(result->aop, offr, A_IDX) && sameRegs (left->aop, result->aop) && shCount <= (2 + 2 * !isRegDead (A_IDX, ic)) && offr == offl)
     {
+      /* 8080/8085: emit8080Lsh1 uses A as scratch (the byte is not in A here);
+         preserve A if it holds a live value. */
+      bool save_a = IS_8080LIKE && !isRegDead (A_IDX, ic);
+      if (save_a)
+        _push (PAIR_AF);
       while (shCount--)
         {
           if (IS_8080LIKE)
@@ -15271,6 +15303,8 @@ shiftL1Left2Result (operand *left, int offl, operand *result, int offr, unsigned
           else
             emit3_o (A_SLA, result->aop, offr, 0, 0);
         }
+      if (save_a)
+        _pop (PAIR_AF);
     }
   else if ((IS_Z180 && !optimize.codeSpeed || IS_EZ80 || IS_Z80N) && // Try to use mlt
     (!IS_Z80N && aopInReg (result->aop, offr, C_IDX) && isPairDead(PAIR_BC, ic) || aopInReg (result->aop, offr, E_IDX) && isPairDead(PAIR_DE, ic) || !IS_Z80N && aopInReg (result->aop, offr, L_IDX) && isPairDead(PAIR_HL, ic)))
