@@ -1587,9 +1587,18 @@ z80canAssign (const char *op1, const char *op2, const char *exotic)
   if((isReg(dst) || isRegPair(dst) || !strcmp(src, "sp")) && src[0] == '#')
     return TRUE;
 
-  if((!strcmp(dst, "a") || (!IS_SM83 && (isRegPair(dst) || !strcmp(src, "sp")))) && !strncmp(src, "(#", 2))
+  /* 8080/8085: only ld a,(nn) (LDA) and ld hl,(nn) (LHLD) load from a direct
+     address; ld bc/de/sp,(nn) are Z80 ED-prefix ops. Likewise only STA/SHLD
+     store to one. */
+  if(!strncmp(src, "(#", 2) &&
+     (!strcmp(dst, "a") ||
+      (IS_8080LIKE ? !strcmp(dst, "hl")
+                   : (!IS_SM83 && (isRegPair(dst) || !strcmp(src, "sp"))))))
     return TRUE;
-  if(!strncmp(dst, "(#", 2) && (!strcmp(src, "a") || (!IS_SM83 && isRegPair(src)) || !strcmp(src, "sp")))
+  if(!strncmp(dst, "(#", 2) &&
+     (!strcmp(src, "a") ||
+      (IS_8080LIKE ? !strcmp(src, "hl")
+                   : ((!IS_SM83 && isRegPair(src)) || !strcmp(src, "sp")))))
     return TRUE;
 
   // Can load immediate values directly into (hl).
