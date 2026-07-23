@@ -10045,6 +10045,30 @@ genPlus (iCode * ic)
         }
     }
 
+  /* 8080/8085: a 16-bit addition of two memory operands cannot use the
+     byte-wise loop below. With no index register both operands are addressed
+     through HL, and - unlike the sm83, which has the flag-safe ld hl, sp+n -
+     the 8080/8085 must point HL with add hl, sp, which destroys the carry
+     needed between the low and high byte. Do the whole 16-bit add at once in
+     HL via add hl, de (DAD D), which is carry-clean. */
+  if (IS_8080LIKE && size == 2 && !maskedtopbyte &&
+    requiresHL (leftop) && leftop->type != AOP_REG &&
+    requiresHL (rightop) && rightop->type != AOP_REG)
+    {
+      bool save_de = !isPairDead (PAIR_DE, ic);
+      if (save_de)
+        _push (PAIR_DE);
+      fetchPair (PAIR_DE, rightop);
+      fetchPair (PAIR_HL, leftop);
+      emit3w (A_ADD, ASMOP_HL, ASMOP_DE);
+      spillPair (PAIR_HL);
+      /* DE is free scratch here (either dead, or saved on the stack above). */
+      genMove (IC_RESULT (ic)->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, true, true);
+      if (save_de)
+        _pop (PAIR_DE);
+      goto release;
+    }
+
   // Avoid overwriting operand in h or l when setupToPreserveCarry () loads hl - only necessary if carry is actually used during addition.
   premoved = FALSE;
   if (size > 1 &&
