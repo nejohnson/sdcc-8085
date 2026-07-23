@@ -12931,7 +12931,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
          destroys that carry. Instead use signed_lt = unsigned_borrow XOR a.sign
          XOR b.sign, computed as 0x00/0xff byte masks (no carry to preserve
          across the sign handling). Result sign bit lands in A bit 7. */
-      if (IS_8080LIKE && sign && size > 1 && right->aop->type != AOP_LIT &&
+      if (IS_8080LIKE && sign && size >= 1 && right->aop->type != AOP_LIT &&
           !aopInReg (left->aop, size - 1, A_IDX) && !aopInReg (right->aop, size - 1, A_IDX))
         {
           /* Full unsigned subtraction left - right; the borrow (carry) is the
