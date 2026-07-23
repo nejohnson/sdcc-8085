@@ -15130,7 +15130,7 @@ shiftR2Left2Result (const iCode *ic, operand *left, int offl, operand *result, i
         }
       return;
     }
-  else if (!IS_SM83 && !IS_RAB && !is_signed && aopSame (result->aop, offr, left->aop, offl, 2) && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
+  else if (!IS_SM83 && !IS_RAB && !IS_8080LIKE && !is_signed && aopSame (result->aop, offr, left->aop, offl, 2) && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
     (shCount == 4 || shCount == 5) &&
     (result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY))
     {
@@ -15578,7 +15578,7 @@ shiftL1Left2Result (operand *left, int offl, operand *result, int offr, unsigned
       while (shCount--)
         emit3w (A_ADD, ASMOP_HL, ASMOP_HL);
     }
-  else if (!IS_SM83 && !IS_RAB && aopSame (result->aop, offr, left->aop, offr, 1) && !offr && shCount == 4 && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
+  else if (!IS_SM83 && !IS_RAB && !IS_8080LIKE && aopSame (result->aop, offr, left->aop, offr, 1) && !offr && shCount == 4 && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
     (result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY))
     {
       emit3 (A_XOR, ASMOP_A, ASMOP_A);
@@ -16324,9 +16324,14 @@ genLeftShift (const iCode *ic)
   size = shiftop->size - byteshift;
   offset = byteshift;
 
+  /* 8080/8085: the byte-wise shift body (emit8080Lsh1) uses A as scratch, so A
+     cannot double as the loop counter. When A is the counter, unroll the
+     literal shift instead of looping (save_a_outer already preserves a live A). */
+  bool unroll_8080 = IS_8080LIKE && shift_by_lit && shiftcount > 1 && countreg == A_IDX;
+
   if (shift_by_lit && !shiftcount)
     goto end;
-  if (shift_by_lit && shiftcount > 1)
+  if (shift_by_lit && shiftcount > 1 && !unroll_8080)
     {
       emit2 ("ld %s, !immedbyte", regsZ80[countreg].name, (unsigned)shiftcount);
       cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
@@ -16337,16 +16342,20 @@ genLeftShift (const iCode *ic)
       cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
       emitJP (tlbl1, NULL, 1.0f, true);
     }
-  if (!(shift_by_lit && shiftcount == 1) && !regalloc_dry_run)
+  if (!(shift_by_lit && shiftcount == 1) && !unroll_8080 && !regalloc_dry_run)
     {
       emitLabel (tlbl);
       if (requiresHL (shiftop))
         spillPair (PAIR_HL);
     }
 
-  started = false;
   regalloc_dry_run_state_scale = shift_by_lit ? shiftcount : 2;
-  while (size)
+  for (int rep = 0, reps = unroll_8080 ? shiftcount : 1; rep < reps; rep++)
+   {
+    size = shiftop->size - byteshift;
+    offset = byteshift;
+    started = false;
+    while (size)
     {
       if (size >= 2 && offset + 1 >= byteshift &&
         shiftop->type == AOP_REG &&
@@ -16403,8 +16412,9 @@ genLeftShift (const iCode *ic)
           size--, offset++;
         }
     }
+   }
 
-  if (!(shift_by_lit && shiftcount == 1))
+  if (!(shift_by_lit && shiftcount == 1) && !unroll_8080)
     {
       emitLabel (tlbl1);
       if (!IS_SM83 && !IS_8080LIKE && countreg == B_IDX)
@@ -16507,7 +16517,7 @@ genrshOne (operand *result, operand *left, int shCount, int is_signed, const iCo
       emit2 ("mlt %s", _pairs[pair].name);
       cost2 (2, -1, 2, 2, 8, 17, -1, -1, -1, -1, 8, 8, 13, 6, -1);
     }
-  else if (!IS_SM83 && !IS_RAB && !is_signed && aopSame (result->aop, 0, left->aop, 0, 1) && shCount == 4 && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
+  else if (!IS_SM83 && !IS_RAB && !IS_8080LIKE && !is_signed && aopSame (result->aop, 0, left->aop, 0, 1) && shCount == 4 && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
     (result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY))
     {
       emit3 (A_XOR, ASMOP_A, ASMOP_A);
@@ -16820,6 +16830,12 @@ genRightShift (const iCode * ic)
   shift_by_one = (shift_by_lit && shiftcount == 1);
   shift_by_zero = (shift_by_lit && shiftcount == 0);
 
+  /* 8080/8085: the byte-wise shift body (emitRsh2) uses A as scratch, so A
+     cannot double as the loop counter. When the only free counter register is
+     A (e.g. a wide result occupies B), unroll the literal shift instead of
+     looping - this needs no counter at all. */
+  bool unroll_8080 = IS_8080LIKE && shift_by_lit && shiftcount > 1 && countreg == A_IDX;
+
   if (!regalloc_dry_run)
     {
       tlbl = newiTempLabel (NULL);
@@ -16830,6 +16846,15 @@ genRightShift (const iCode * ic)
 
   if (shift_by_zero)
     goto end;
+  else if (unroll_8080)
+    {
+      /* preserve a live A across the unrolled shift (emitRsh2 clobbers it) */
+      if (!isRegDead (A_IDX, ic) && !pushed_a)
+        {
+          _push (PAIR_AF);
+          pushed_a = true;
+        }
+    }
   else if (shift_by_lit && shiftcount > 1)
     {
       if (shiftop->regs[countreg] >= 0)
@@ -16872,7 +16897,7 @@ genRightShift (const iCode * ic)
         UNIMPLEMENTED;
     }
 
-  if (!shift_by_one && !regalloc_dry_run)
+  if (!shift_by_one && !unroll_8080 && !regalloc_dry_run)
     IS_SM83 ? emitLabelSpill (tlbl) : emitLabel (tlbl);
 
   if (!shift_by_one && requiresHL (shiftop))
@@ -16887,7 +16912,9 @@ genRightShift (const iCode * ic)
       {
         if (IS_8080LIKE)
           {
-            emitRsh2 (shiftop, size, is_signed);
+            int reps = unroll_8080 ? shiftcount : 1;
+            for (int r = 0; r < reps; r++)
+              emitRsh2 (shiftop, size, is_signed);
             offset -= size;
             size = 0;
           }
@@ -16930,7 +16957,7 @@ genRightShift (const iCode * ic)
           }
       }
 
-  if (!shift_by_one)
+  if (!shift_by_one && !unroll_8080)
     {
       emitLabel (tlbl1);
       if (!IS_SM83 && !IS_8080LIKE && countreg == B_IDX)
