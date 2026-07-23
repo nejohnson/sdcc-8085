@@ -1671,7 +1671,7 @@ emit3_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
    allocator does not model this, so the emitting code paths that reach here for
    two register pairs have A dead in practice - verified against the suite). */
 static void
-emit8080AdcSbcHL (bool sub, asmop *op2, int offset2)
+emit8080AdcSbcHL (bool sub, asmop *op2, int offset2, bool a_dead)
 {
   const char *ins = sub ? "sbc" : "adc";
   int i;
@@ -1679,6 +1679,16 @@ emit8080AdcSbcHL (bool sub, asmop *op2, int offset2)
      ld a,h / adc-sbc a,hi / ld h,a). Always counted (also during dry-run). */
   for (i = 0; i < 6; i++)
     cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
+  /* The byte-wise form clobbers A. If A holds a live value, preserve it with
+     push af / pop af. That restores the incoming flags (not the carry-out),
+     which is fine: the only paths that leave A live across an adc/sbc hl are
+     genPlus/genMinus, where the carry-out is not used afterwards. Where the
+     carry-out IS the result (genCmp) or the flags matter (shifts), A is dead. */
+  if (!a_dead)
+    {
+      cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4); /* push af */
+      cost2 (1, 1, 2, 1, 10, 9, 7, 7, 12, 10, 5, 4, 4, 3, 4);   /* pop af  */
+    }
   if (regalloc_dry_run)
     return;
   /* op2 is the two-byte second operand of an "adc/sbc hl, rr"; read its two
@@ -1686,12 +1696,16 @@ emit8080AdcSbcHL (bool sub, asmop *op2, int offset2)
      not be called during the dry run, hence the guard above. */
   char *lo = Safe_strdup (aopGet (op2, offset2, false));
   char *hi = Safe_strdup (aopGet (op2, offset2 + 1, false));
+  if (!a_dead)
+    emit2 ("push af");
   emit2 ("ld a, l");
   emit2 ("%s a, %s", ins, lo);
   emit2 ("ld l, a");
   emit2 ("ld a, h");
   emit2 ("%s a, %s", ins, hi);
   emit2 ("ld h, a");
+  if (!a_dead)
+    emit2 ("pop af");
   Safe_free (lo);
   Safe_free (hi);
 }
@@ -1702,11 +1716,13 @@ emit3w_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
   unsigned int cost, bytecost;
   float statecost;
 
-  /* 8080/8085 have no adc/sbc hl,rr; synthesise them byte-wise. */
+  /* 8080/8085 have no adc/sbc hl,rr; synthesise them byte-wise, preserving A
+     if the current iCode still needs it. */
   if (IS_8080LIKE && (inst == A_ADC || inst == A_SBC) &&
       op1 && getPairId (op1) == PAIR_HL && op2)
     {
-      emit8080AdcSbcHL (inst == A_SBC, op2, offset2);
+      const iCode *cic = genLine.lineElement.ic;
+      emit8080AdcSbcHL (inst == A_SBC, op2, offset2, !cic || isRegDead (A_IDX, cic));
       return;
     }
 
