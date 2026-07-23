@@ -5218,6 +5218,17 @@ initCSupport (void)
 
   mul_16_16_32[0] = port->support.has_mulint2long ? funcOfTypeVarg ("__mulsint2slong", "l", 2, (const char * []){"i", "i"}) : NULL;
   mul_16_16_32[1] = port->support.has_mulint2long ? funcOfTypeVarg ("__muluint2ulong", "Ul", 2, (const char * []){"Ui", "Ui"}) : NULL;
+  /* funcOfTypeVarg leaves FUNC_ISREENT/FUNC_NONBANKED unset (i.e. non-reentrant),
+     unlike funcOfType used for the 32-bit multiplies just below. Give these
+     widening 16x16->32 multiplies the same reentrancy as their siblings so a
+     library C implementation matches the declaration (the always-reentrant
+     z80-family C model otherwise clashes with the non-reentrant default). */
+  for (int i = 0; i < 2; i++)
+    if (mul_16_16_32[i])
+      {
+        FUNC_ISREENT (mul_16_16_32[i]->type) = options.intlong_rent ? 1 : 0;
+        FUNC_NONBANKED (mul_16_16_32[i]->type) = 1;
+      }
   mul_32_32_64[0] = funcOfType ("__mulslong2slonglong", multypes[3][1], multypes[2][1], 2, options.intlong_rent);
   mul_32_32_64[1] = funcOfType ("__mululong2ulonglong", multypes[3][0], multypes[2][0], 2, options.intlong_rent);
   mul_u32_u8_64 = port->support.has_mululonguchar2ulonglong ? funcOfTypeVarg ("__mululonguchar2ulonglong", "UL", 2, (const char * []){"Ul", "Uc"}) : NULL;
