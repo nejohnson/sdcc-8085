@@ -10213,25 +10213,49 @@ genPlus (iCode * ic)
         }
     }
 
-  /* 8080/8085: a 16-bit addition of two memory operands cannot use the
-     byte-wise loop below. With no index register both operands are addressed
-     through HL, and - unlike the sm83, which has the flag-safe ld hl, sp+n -
-     the 8080/8085 must point HL with add hl, sp, which destroys the carry
-     needed between the low and high byte. Do the whole 16-bit add at once in
-     HL via add hl, de (DAD D), which is carry-clean. */
+  /* 8080/8085: a 16-bit addition cannot use the byte-wise loop below whenever
+     it would need to address more than one memory location. With no index
+     register a stack operand is reached through HL, and - unlike the sm83,
+     which has the flag-safe ld hl, sp+n - the 8080/8085 must point HL with
+     add hl, sp, which destroys the carry needed between the low and high byte.
+     Worse, when the result is in memory the byte loop repurposes DE as the
+     result-address pointer, clobbering a still-needed addend that was widened
+     into DE. Do the whole 16-bit add at once in HL via add hl, de (DAD D),
+     which is carry-clean. This is needed whenever at least two of {left, right,
+     result} are memory locations: both operands in memory (the byte loop has
+     only one HL to address them), or the result plus one operand in memory
+     (setting up the result pointer clobbers the other addend). */
   if (IS_8080LIKE && size == 2 && !maskedtopbyte &&
-    requiresHL (leftop) && leftop->type != AOP_REG &&
-    requiresHL (rightop) && rightop->type != AOP_REG)
+    ((requiresHL (leftop) && leftop->type != AOP_REG &&
+      requiresHL (rightop) && rightop->type != AOP_REG) ||
+     (requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG &&
+      (requiresHL (leftop) && leftop->type != AOP_REG ||
+       requiresHL (rightop) && rightop->type != AOP_REG))))
     {
-      bool save_de = !isPairDead (PAIR_DE, ic);
+      /* Pick which addend goes to HL and which to DE. An operand already
+         living in DE stays there; the memory operand is loaded into HL last.
+         Loading HL from a stack location only uses HL and A (add hl, sp; ld
+         via (hl)), so it preserves the DE addend - the same ordering the
+         both-memory case above relies on. */
+      asmop *deop, *hlop;
+      if (aopInReg (leftop, 0, DE_IDX))
+        { deop = leftop; hlop = rightop; }
+      else if (aopInReg (rightop, 0, DE_IDX))
+        { deop = rightop; hlop = leftop; }
+      else
+        { deop = rightop; hlop = leftop; }
+      /* Save DE only when it holds a value live after this iCode. If an addend
+         is in DE it dies here (it is consumed), so no save is needed. */
+      bool save_de = !isPairDead (PAIR_DE, ic) &&
+        !aopInReg (leftop, 0, DE_IDX) && !aopInReg (rightop, 0, DE_IDX);
       if (save_de)
         _push (PAIR_DE);
-      fetchPair (PAIR_DE, rightop);
-      fetchPair (PAIR_HL, leftop);
+      if (!aopInReg (deop, 0, DE_IDX))
+        fetchPair (PAIR_DE, deop);
+      fetchPair (PAIR_HL, hlop);
       emit3w (A_ADD, ASMOP_HL, ASMOP_DE);
       spillPair (PAIR_HL);
-      /* DE is free scratch here (either dead, or saved on the stack above). */
-      genMove (IC_RESULT (ic)->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, true, true);
+      genMove (IC_RESULT (ic)->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, !save_de, true);
       if (save_de)
         _pop (PAIR_DE);
       goto release;
