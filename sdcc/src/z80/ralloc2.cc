@@ -560,15 +560,15 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
     (result_in_A || operand_in_reg(left, REG_A, ia, i, G)))
     return(false);
 
-  // 8080/8085: a single-byte shift is likewise carried out in A (the operand is
-  // loaded into A and shifted with add a,a / rra / ...), so A is clobbered. Unlike
-  // the wider case above the shifted value may legitimately be in A (it is done
-  // wholly there), but a value that is neither this shift's operand nor its result
-  // and is still live afterwards would be corrupted - so forbid keeping such a
-  // value in A across the shift. (The generic "A not used by this instruction"
-  // check further below is bypassed for LEFT_OP/RIGHT_OP, so handle it here.)
-  if(IS_8080LIKE && (ic->op == LEFT_OP || ic->op == RIGHT_OP) &&
-    getSize(operandType(IC_RESULT(ic))) == 1 &&
+  // 8080/8085: every shift/rotate is carried out through A (each operand byte is
+  // loaded into A and shifted with add a,a / rra / ...), so A is clobbered. The
+  // wider-value check above forbids the shifted value itself from being in A; on
+  // top of that, a value that is neither this shift/rotate's operand nor its
+  // result but is still live afterwards would be corrupted - so forbid keeping
+  // such a value in A across it. This applies at every width (the single-byte
+  // shift uses A as scratch too). The generic "A not used by this instruction"
+  // rejection further below is bypassed for LEFT_OP/RIGHT_OP, so handle it here.
+  if(IS_8080LIKE && (ic->op == LEFT_OP || ic->op == RIGHT_OP || ic->op == ROT) &&
     !result_in_A && !input_in_A && ia.registers[REG_A][1] >= 0)
     {
       const cfg_dying_t &dying_sh = G[i].dying;
