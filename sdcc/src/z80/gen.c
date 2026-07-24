@@ -457,6 +457,7 @@ cost2old (unsigned int bytes, unsigned int z80_states /* also z80n */, unsigned 
 
 /* Forward declarations for the 8080/8085 CB-instruction synthesis helpers,
    which are used earlier in the file than they are defined. */
+static void init_stackop (asmop *stackop, int size, long int stk_off);
 static void emit8080Bit (asmop *aop, int offset, int bit);
 static void emit8080SetRes (asmop *aop, int offset, int bit, bool set, bool a_dead);
 static void emit8080Ldir (void);
@@ -10245,17 +10246,35 @@ genPlus (iCode * ic)
      safe even when result aliases an operand. */
   if (IS_8080LIKE && size == 4 && !maskedtopbyte &&
     requiresHL (leftop) && leftop->type != AOP_REG &&
-    requiresHL (rightop) && rightop->type != AOP_REG &&
-    requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG)
+    requiresHL (rightop) && rightop->type != AOP_REG)
     {
+      /* Both source operands are in memory, so reading them needs the two
+         pointers DE (via ld a,(de)) and HL (via ld a,(hl)); the third pointer BC
+         addresses the destination. When the result is itself addressable
+         (memory), BC points at it directly. When it is not (e.g. it is in
+         registers - which cannot hold all four result bytes while DE and HL are
+         tied up as the source pointers), accumulate into a 4-byte stack temp and
+         move it into the result afterwards. NB: the earlier generic loop
+         mishandles two memory operands here (it has only one usable pointer and
+         reads (hl) for both), so this path must cover the register-result case
+         too. */
+      bool result_mem = requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG;
       bool save_bc = !isPairDead (PAIR_BC, ic);
       bool save_de = !isPairDead (PAIR_DE, ic);
+      struct asmop tmpaop;
       if (save_bc)
         _push (PAIR_BC);
       if (save_de)
         _push (PAIR_DE);
-      /* BC = &result (setupPairFromSP only does HL/DE/IY, so go via HL). */
-      pointPairToAop (PAIR_HL, IC_RESULT (ic)->aop, 0);
+      /* BC = &destination (setupPairFromSP only does HL/DE/IY, so go via HL). */
+      if (result_mem)
+        pointPairToAop (PAIR_HL, IC_RESULT (ic)->aop, 0);
+      else
+        {
+          adjustStack (-4, false, false, false, false, false);   /* alloc temp */
+          init_stackop (&tmpaop, 4, -(_G.stack.pushed + _G.stack.offset)); /* temp at SP+0 */
+          pointPairToAop (PAIR_HL, &tmpaop, 0);
+        }
       emit3 (A_LD, ASMOP_C, ASMOP_L);
       emit3 (A_LD, ASMOP_B, ASMOP_H);
       spillPair (PAIR_HL);
@@ -10280,6 +10299,12 @@ genPlus (iCode * ic)
       spillPair (PAIR_HL);
       spillPair (PAIR_DE);
       spillPair (PAIR_BC);
+      if (!result_mem)
+        {
+          /* move the temp (still at SP+0..3) into the register result, then free it */
+          genMove (IC_RESULT (ic)->aop, &tmpaop, true, true, true, true);
+          adjustStack (4, false, false, false, false, false);
+        }
       if (save_de)
         _pop (PAIR_DE);
       if (save_bc)
