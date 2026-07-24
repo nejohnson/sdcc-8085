@@ -701,6 +701,28 @@ _mullong (long a, long b)
 
         return t.l;
 }
+#elif defined(__SDCC_i8085) || defined(__SDCC_i8080)
+/* 32x32->32 multiplication for the 8080/8085. The z80-family Bodrato variant and
+   the generic union-byte variant both rely on heavy pointer/union aliasing of the
+   parameters, which the 8080/8085 code generator does not compile correctly (the
+   result comes back with a garbage top word). Use an aliasing-free formulation
+   built from the known-good helpers instead:
+     a*b (mod 2^32) = al*bl (16x16->32) + ((al*bh + ah*bl) mod 2^16) << 16
+   __muluint2ulong is called explicitly to avoid any chance of recursing into
+   __mullong via the widening-multiply optimisation. */
+extern unsigned long __muluint2ulong (unsigned int x, unsigned int y);
+
+long
+_mullong (long a, long b) __SDCC_NONBANKED
+{
+  unsigned int al = (unsigned int) (unsigned long) a;
+  unsigned int ah = (unsigned int) ((unsigned long) a >> 16);
+  unsigned int bl = (unsigned int) (unsigned long) b;
+  unsigned int bh = (unsigned int) ((unsigned long) b >> 16);
+  unsigned long r = __muluint2ulong (al, bl);
+  r += (unsigned long) (unsigned int) (al * bh + ah * bl) << 16;
+  return (long) r;
+}
 #elif defined(__SDCC_z80) || defined(__SDCC_sm83) || defined(__SDCC_r2ka) || defined(__SDCC_r3k) || defined(__SDCC_r3ka) || defined(__SDCC_r4k) || defined(__SDCC_r5k) || defined(__SDCC_r6k) || defined(__SDCC_r800)
 /* 32x32->32 multiplication to be used
    if 16x16->16 is faster than three 8x8->16.
