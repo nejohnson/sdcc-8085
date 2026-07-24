@@ -6409,7 +6409,11 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           else if ((aopInReg (result, roffset + i, IYL_IDX) || aopInReg (result, roffset + i, IYH_IDX)) && iy_dead)
             pair = PAIR_IY;
 
-          if (pair != PAIR_INVALID && soffset + i - upper >= 0 && (optimize.allow_unsafe_read || upper || soffset + i + 1 < source->size))
+          /* 8080/8085: only ld hl,(nn) (LHLD) exists; ld bc/de,(nn) are Z80
+             ED-prefix ops, so this "load a whole pair from a direct address"
+             shortcut is only legal for HL. Let non-HL pairs fall through to the
+             byte-wise load below. */
+          if (pair != PAIR_INVALID && (!IS_8080LIKE || pair == PAIR_HL) && soffset + i - upper >= 0 && (optimize.allow_unsafe_read || upper || soffset + i + 1 < source->size))
             {
               emit2 ("ld %s, !mems", _pairs[pair].name, aopGetLitWordLong (source, soffset + i - upper, false));
               if (pair == PAIR_HL)
@@ -10268,7 +10272,7 @@ genPlus (iCode * ic)
      add/adc touches the carry, and inc/ld-indirect are carry-clean, so the
      carry chains correctly. Reading (de) and (hl) before writing (bc) makes it
      safe even when result aliases an operand. */
-  if (IS_8080LIKE && size == 4 && !maskedtopbyte &&
+  if (IS_8080LIKE && size >= 4 && !maskedtopbyte &&
     requiresHL (leftop) && leftop->type != AOP_REG &&
     requiresHL (rightop) && rightop->type != AOP_REG)
     {
@@ -10295,8 +10299,8 @@ genPlus (iCode * ic)
         pointPairToAop (PAIR_HL, IC_RESULT (ic)->aop, 0);
       else
         {
-          adjustStack (-4, false, false, false, false, false);   /* alloc temp */
-          init_stackop (&tmpaop, 4, -(_G.stack.pushed + _G.stack.offset)); /* temp at SP+0 */
+          adjustStack (-size, false, false, false, false, false);   /* alloc temp */
+          init_stackop (&tmpaop, size, -(_G.stack.pushed + _G.stack.offset)); /* temp at SP+0 */
           pointPairToAop (PAIR_HL, &tmpaop, 0);
         }
       emit3 (A_LD, ASMOP_C, ASMOP_L);
@@ -10325,9 +10329,9 @@ genPlus (iCode * ic)
       spillPair (PAIR_BC);
       if (!result_mem)
         {
-          /* move the temp (still at SP+0..3) into the register result, then free it */
+          /* move the temp (still at SP+0..) into the register result, then free it */
           genMove (IC_RESULT (ic)->aop, &tmpaop, true, true, true, true);
-          adjustStack (4, false, false, false, false, false);
+          adjustStack (size, false, false, false, false, false);
         }
       if (save_de)
         _pop (PAIR_DE);
@@ -11101,7 +11105,7 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
      sub-or-sbc a,(hl) / ld (bc),a and inc de/hl/bc. Only the sub/sbc touches
      the borrow; inc and indirect ld are borrow-clean, so it chains correctly.
      Reading (de)/(hl) before writing (bc) is safe under result aliasing. */
-  if (!maskedtopbyte && IS_8080LIKE && size == 4 &&
+  if (!maskedtopbyte && IS_8080LIKE && size >= 4 &&
     requiresHL (left) && left->type != AOP_REG &&
     requiresHL (right) && right->type != AOP_REG &&
     requiresHL (result) && result->type != AOP_REG)
