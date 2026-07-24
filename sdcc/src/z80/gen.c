@@ -13350,7 +13350,16 @@ genCmpGt (iCode * ic, iCode * ifx)
       if ((requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG || requiresHL (left->aop) && left->aop->type != AOP_REG || requiresHL (right->aop) && right->aop->type != AOP_REG) &&
         (left->aop->regs[L_IDX] > 0 || left->aop->regs[H_IDX] > 0 || right->aop->regs[L_IDX] > 0 || right->aop->regs[H_IDX] > 0) || !isPairDead (PAIR_HL, ic))
         UNIMPLEMENTED;
-      else
+      else if (!(IS_8080LIKE && max (left->aop->size, right->aop->size) > 1 &&
+                 left->aop->type != AOP_REG && requiresHL (left->aop) && left->aop->type != AOP_STL &&
+                 right->aop->type != AOP_REG && requiresHL (right->aop) && right->aop->type != AOP_STL))
+        /* On the 8080/8085 the two-memory-operand signed compare in genCmp walks its
+           pointers with carry-clean inc de / inc hl and sets up its own pairs, so it
+           needs no carry preservation here. Skipping setupToPreserveCarry () for that
+           case avoids its shiftIntoPair (PAIR_DE) "push de": the matching "pop de" is
+           emitted by freeAsmop after genCmp, i.e. after genCmp's ifx "jp m", so it is
+           skipped on the branch-taken path and leaks 2 bytes of stack (corrupting every
+           later sp-relative access in the function). */
         setupToPreserveCarry (result->aop, left->aop, right->aop);
     }
 
@@ -13399,7 +13408,16 @@ genCmpLt (iCode * ic, iCode * ifx)
       if ((requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG || requiresHL (left->aop) && left->aop->type != AOP_REG || requiresHL (right->aop) && right->aop->type != AOP_REG) &&
         (left->aop->regs[L_IDX] > 0 || left->aop->regs[H_IDX] > 0 || right->aop->regs[L_IDX] > 0 || right->aop->regs[H_IDX] > 0) || !isPairDead (PAIR_HL, ic))
         UNIMPLEMENTED;
-      else
+      else if (!(IS_8080LIKE && max (left->aop->size, right->aop->size) > 1 &&
+                 left->aop->type != AOP_REG && requiresHL (left->aop) && left->aop->type != AOP_STL &&
+                 right->aop->type != AOP_REG && requiresHL (right->aop) && right->aop->type != AOP_STL))
+        /* On the 8080/8085 the two-memory-operand signed compare in genCmp walks its
+           pointers with carry-clean inc de / inc hl and sets up its own pairs, so it
+           needs no carry preservation here. Skipping setupToPreserveCarry () for that
+           case avoids its shiftIntoPair (PAIR_DE) "push de": the matching "pop de" is
+           emitted by freeAsmop after genCmp, i.e. after genCmp's ifx "jp m", so it is
+           skipped on the branch-taken path and leaks 2 bytes of stack (corrupting every
+           later sp-relative access in the function). */
         setupToPreserveCarry (result->aop, left->aop, right->aop);
     }
 
