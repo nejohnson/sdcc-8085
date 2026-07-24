@@ -560,6 +560,23 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
     (result_in_A || operand_in_reg(left, REG_A, ia, i, G)))
     return(false);
 
+  // 8080/8085: a single-byte shift is likewise carried out in A (the operand is
+  // loaded into A and shifted with add a,a / rra / ...), so A is clobbered. Unlike
+  // the wider case above the shifted value may legitimately be in A (it is done
+  // wholly there), but a value that is neither this shift's operand nor its result
+  // and is still live afterwards would be corrupted - so forbid keeping such a
+  // value in A across the shift. (The generic "A not used by this instruction"
+  // check further below is bypassed for LEFT_OP/RIGHT_OP, so handle it here.)
+  if(IS_8080LIKE && (ic->op == LEFT_OP || ic->op == RIGHT_OP) &&
+    getSize(operandType(IC_RESULT(ic))) == 1 &&
+    !result_in_A && !input_in_A && ia.registers[REG_A][1] >= 0)
+    {
+      const cfg_dying_t &dying_sh = G[i].dying;
+      if(dying_sh.find(ia.registers[REG_A][1]) == dying_sh.end() &&
+        dying_sh.find(ia.registers[REG_A][0]) == dying_sh.end())
+        return(false);
+    }
+
   // sfr access needs to go through a.
   if(input_in_A &&
     (IS_TRUE_SYMOP (left) && IN_REGSP (SPEC_OCLS (OP_SYMBOL (left)->etype)) ||
