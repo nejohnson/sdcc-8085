@@ -16208,8 +16208,10 @@ genRotW (const iCode *ic)
               else
                 emit3_o (A_RR, left->aop, offset, 0, 0);
             }
-          if (IS_SM83 && requiresHL (left->aop))
-            { /* ldhl sp,N changes CARRY */
+          if ((IS_SM83 || IS_8080LIKE) && requiresHL (left->aop))
+            { /* ldhl sp,N / add hl,sp changes CARRY. Point HL at the top byte
+                 now (with the wrap bit stashed in A across the address setup via
+                 rra/rla) so the following rr reuses HL and keeps the carry. */
               emit3_o (A_RRA, 0, 0, 0, 0);
               if (!regalloc_dry_run)
                 aopGet (left->aop, size - 1, false);
