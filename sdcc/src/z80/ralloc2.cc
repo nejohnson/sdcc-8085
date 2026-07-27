@@ -577,6 +577,21 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
         return(false);
     }
 
+  // 8080/8085: bitwise and/or/xor compute their result in A (and/or/xor a,x),
+  // clobbering whatever was there. z80 can test a bit non-destructively
+  // (bit n,r), but 8080 has no such instruction, so an operand kept in A that
+  // is still live after this instruction - and is not itself the result - is
+  // destroyed. Seen in mblen: `while (c & 0x80) c <<= 1;` keeps c in A across
+  // the `and a,#0x80`, which overwrites c before the shift reads it.
+  if(IS_8080LIKE && (ic->op == BITWISEAND || ic->op == '|' || ic->op == '^') &&
+    input_in_A && !result_in_A)
+    {
+      const cfg_dying_t &dying_bw = G[i].dying;
+      if(dying_bw.find(ia.registers[REG_A][1]) == dying_bw.end() &&
+        dying_bw.find(ia.registers[REG_A][0]) == dying_bw.end())
+        return(false);
+    }
+
   // sfr access needs to go through a.
   if(input_in_A &&
     (IS_TRUE_SYMOP (left) && IN_REGSP (SPEC_OCLS (OP_SYMBOL (left)->etype)) ||
