@@ -519,6 +519,21 @@ static bool operand_is_pair(const operand *o, const assignment &a, unsigned shor
   return(true);
 }
 
+// Return true, iff operand-node index v belongs to operand o at instruction i.
+template <class G_t>
+static bool operand_has_node(const operand *o, int v, unsigned short int i, const G_t &G)
+{
+  if(!o || !IS_SYMOP(o))
+    return(false);
+
+  operand_map_t::const_iterator oi, oi_end;
+  for(boost::tie(oi, oi_end) = G[i].operands.equal_range(OP_SYMBOL_CONST(o)->key); oi != oi_end; ++oi)
+    if(oi->second == v)
+      return(true);
+
+  return(false);
+}
+
 template <class G_t, class I_t>
 static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, const I_t &I)
 {
@@ -590,6 +605,29 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
       if(dying_bw.find(ia.registers[REG_A][1]) == dying_bw.end() &&
         dying_bw.find(ia.registers[REG_A][0]) == dying_bw.end())
         return(false);
+    }
+
+  // 8080/8085: and/or/xor and the (comparison + boolean) ops below carry out
+  // their work through A, so A cannot also hold an unrelated value that must
+  // survive the instruction. z80 has room (bit n,r, non-destructive tests) to
+  // keep a bystander in A; 8080 does not. If A holds a value that this
+  // instruction neither reads nor writes and that is still live afterwards, it
+  // would be clobbered - so reject. Seen in bitfields-bits2: the left boolean
+  // of `(var->bitN>0) != ((value&mask)>0)` was kept in A across the
+  // `value & mask` (result also in A), destroying it.
+  if(IS_8080LIKE && (ic->op == BITWISEAND || ic->op == '|' || ic->op == '^' ||
+    ic->op == EQ_OP || ic->op == NE_OP))
+    {
+      const cfg_dying_t &dying_bw2 = G[i].dying;
+      for(int s = 0; s < 2; s++)
+        {
+          const int v = ia.registers[REG_A][s];
+          if(v >= 0 && dying_bw2.find(v) == dying_bw2.end() &&
+            !operand_has_node(left, v, i, G) &&
+            !operand_has_node(right, v, i, G) &&
+            !operand_has_node(result, v, i, G))
+            return(false);
+        }
     }
 
   // sfr access needs to go through a.
