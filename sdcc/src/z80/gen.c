@@ -7026,7 +7026,10 @@ genNot (const iCode *ic)
     }
 
   if (!a_dead)
-    _push (PAIR_AF);
+    {
+      _push (PAIR_AF);
+      pushed_a = true;
+    }
 
   _toBoolean (left, FALSE);
 
