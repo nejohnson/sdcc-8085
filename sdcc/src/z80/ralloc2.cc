@@ -614,9 +614,12 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
   // instruction neither reads nor writes and that is still live afterwards, it
   // would be clobbered - so reject. Seen in bitfields-bits2: the left boolean
   // of `(var->bitN>0) != ((value&mask)>0)` was kept in A across the
-  // `value & mask` (result also in A), destroying it.
+  // `value & mask` (result also in A), destroying it. IFX is included because
+  // testing its condition (when not already in A) loads it into A via
+  // ld a,<r> / or a,a - seen in printf's output_digit, where the hex char in A
+  // was destroyed by the `if (lower_case)` test (IC_COND is IC_LEFT).
   if(IS_8080LIKE && (ic->op == BITWISEAND || ic->op == '|' || ic->op == '^' ||
-    ic->op == EQ_OP || ic->op == NE_OP))
+    ic->op == EQ_OP || ic->op == NE_OP || ic->op == IFX))
     {
       const cfg_dying_t &dying_bw2 = G[i].dying;
       for(int s = 0; s < 2; s++)
