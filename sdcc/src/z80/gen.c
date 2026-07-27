@@ -9813,7 +9813,17 @@ setupToPreserveCarry (asmop *result, asmop *left, asmop *right)
           /* check result again, in case right == result */
           if (couldDestroyCarry (result))
             {
-              if (couldDestroyCarry (left))
+              /* 8080/8085 have no IY, so the result would be parked in DE - but
+                 if a register operand lives in D/E that shift would clobber it
+                 (seen in compare-1: a signed compare with one operand in DE).
+                 A compare produces its result in A (the sign fixup) and stores
+                 it after the carry is already consumed, so leaving it in memory
+                 and addressing it via HL later needs no DE preservation. */
+              if (IS_8080LIKE &&
+                (aopInReg (left, 0, E_IDX) || aopInReg (left, 0, D_IDX) ||
+                 aopInReg (right, 0, E_IDX) || aopInReg (right, 0, D_IDX)))
+                ;
+              else if (couldDestroyCarry (left))
                 shiftIntoPair (PAIR_DE, result);
               else
                 shiftIntoPair (IS_8080LIKE ? PAIR_DE : PAIR_IY, result); // 8080/8085 have no IY
