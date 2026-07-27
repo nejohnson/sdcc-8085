@@ -16184,8 +16184,10 @@ genRotW (const iCode *ic)
           genMove (rotaop, left->aop, true, isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
           cheapMove (ASMOP_A, 0, rotaop, size - 1, true);
           emit3 (A_RLA, 0, 0);
-          if (IS_SM83 && requiresHL (rotaop) && rotaop->type != AOP_REG)
-            { /* ldhl sp,N changes CARRY */
+          if ((IS_SM83 || IS_8080LIKE) && requiresHL (rotaop) && rotaop->type != AOP_REG)
+            { /* ldhl sp,N / add hl,sp changes CARRY. Point HL at byte 0 now
+                 (with the wrap bit stashed in A across the address setup via
+                 rra/rla) so the following rl reuses HL and keeps the carry. */
               emit3_o (A_RRA, 0, 0, 0, 0);
               if (!regalloc_dry_run)
                 aopGet (rotaop, 0, false);

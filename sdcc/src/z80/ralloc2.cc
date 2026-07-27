@@ -592,6 +592,27 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
         return(false);
     }
 
+  // 8080/8085: a single-byte shift is carried out in A (ld a,x; add a,a / rrca
+  // ...), which destroys A. If the shifted value (left) is in A but is still
+  // live after this shift - e.g. the same value feeds two shifts, as in
+  // ((RV << 1) | (RV >> 7)) - its only copy is destroyed by this shift and the
+  // other shift then reads a stale A. So the input may only be in A when it
+  // dies here (or is also the result, an in-place shift). The wider-value case
+  // is already covered above; this handles size 1.
+  if(IS_8080LIKE && (ic->op == LEFT_OP || ic->op == RIGHT_OP) &&
+    getSize(operandType(IC_RESULT(ic))) == 1)
+    {
+      const cfg_dying_t &dying_sh1 = G[i].dying;
+      for(int s = 0; s < 2; s++)
+        {
+          const int v = ia.registers[REG_A][s];
+          if(v >= 0 && operand_has_node(left, v, i, G) &&
+            !operand_has_node(result, v, i, G) &&
+            dying_sh1.find(v) == dying_sh1.end())
+            return(false);
+        }
+    }
+
   // 8080/8085: bitwise and/or/xor compute their result in A (and/or/xor a,x),
   // clobbering whatever was there. z80 can test a bit non-destructively
   // (bit n,r), but 8080 has no such instruction, so an operand kept in A that
