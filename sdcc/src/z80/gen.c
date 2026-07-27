@@ -10249,6 +10249,14 @@ genPlus (iCode * ic)
         { deop = leftop; hlop = rightop; }
       else if (aopInReg (rightop, 0, DE_IDX))
         { deop = rightop; hlop = leftop; }
+      /* A register addend must go to DE, so that loading the memory addend into
+         HL (via add hl, sp) preserves it. Loading the memory operand into DE
+         instead would clobber a register addend living in D/E (seen in tinyaes
+         KeyExpansion: `RoundKey + (k+3)` with the byte index in E). */
+      else if (leftop->type == AOP_REG && rightop->type != AOP_REG)
+        { deop = leftop; hlop = rightop; }
+      else if (rightop->type == AOP_REG && leftop->type != AOP_REG)
+        { deop = rightop; hlop = leftop; }
       else
         { deop = rightop; hlop = leftop; }
       /* Save DE only when it holds a value live after this iCode. If an addend
@@ -10262,9 +10270,13 @@ genPlus (iCode * ic)
       fetchPair (PAIR_HL, hlop);
       emit3w (A_ADD, ASMOP_HL, ASMOP_DE);
       spillPair (PAIR_HL);
-      genMove (IC_RESULT (ic)->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, !save_de, true);
+      /* Restore DE before moving the sum out of HL: the result may itself be in
+         D/E (a pointer in [d,a]), and popping after the move would clobber it.
+         The sum is safe in HL across the pop, and the register move that follows
+         writes only the result bytes, leaving the restored DE addend intact. */
       if (save_de)
         _pop (PAIR_DE);
+      genMove (IC_RESULT (ic)->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, !save_de, true);
       goto release;
     }
 
