@@ -10275,6 +10275,71 @@ genPlus (iCode * ic)
      add/adc touches the carry, and inc/ld-indirect are carry-clean, so the
      carry chains correctly. Reading (de) and (hl) before writing (bc) makes it
      safe even when result aliases an operand. */
+  /* 8080/8085: a size-4 add of a register-pair operand and a memory operand
+     into a memory result. setupToPreserveCarry would park the result address
+     in DE, clobbering a register operand whose bytes live in D/E - e.g.
+     `long + (signed char)` in atol, where the sign-extended char sits in
+     B,C,D,E. Spill the register operand to a stack temp so both sources are in
+     memory, then use the carry-safe three-pointer walk below. Restricted to a
+     register operand that does not occupy H/L (so moving it to the temp, which
+     needs HL for addressing, cannot clash); a size-4 operand avoiding H/L is
+     exactly B,C,D,E, so BC and DE are free to use as pointers afterwards. */
+  if (IS_8080LIKE && size == 4 && !maskedtopbyte &&
+    requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG &&
+    /* The walk clobbers BC and DE (pointers); the register operand lives in
+       B,C,D,E, so it must die here - otherwise a value needed afterwards (as
+       in `x = a + b; ... a ...`) would be destroyed. When it is live-after the
+       old path already handles it, so only take over the dead-operand case
+       (which is where setupToPreserveCarry corrupts it). */
+    isPairDead (PAIR_BC, ic) && isPairDead (PAIR_DE, ic) &&
+    ((leftop->type == AOP_REG && leftop->regs[L_IDX] < 0 && leftop->regs[H_IDX] < 0 && requiresHL (rightop) && rightop->type != AOP_REG) ||
+     (rightop->type == AOP_REG && rightop->regs[L_IDX] < 0 && rightop->regs[H_IDX] < 0 && requiresHL (leftop) && leftop->type != AOP_REG)))
+    {
+      struct asmop optmp;
+      asmop *lop = leftop, *rop = rightop;
+      asmop *regop = (leftop->type == AOP_REG) ? leftop : rightop;
+      adjustStack (-size, false, false, false, false, false);   /* alloc temp */
+      init_stackop (&optmp, size, -(_G.stack.pushed + _G.stack.offset));
+      /* Spill the register operand (B,C,D,E) into the temp byte-by-byte.
+         cheapMove stores each register byte to the stack slot via HL, without
+         the push tricks genMove would use (which do not compose with the
+         adjustStack above). A is free here. */
+      for (int i = 0; i < size; i++)
+        cheapMove (&optmp, i, regop, i, true);
+      if (leftop->type == AOP_REG)
+        lop = &optmp;
+      else
+        rop = &optmp;
+      spillPair (PAIR_HL);
+      pointPairToAop (PAIR_HL, IC_RESULT (ic)->aop, 0);   /* BC = &result via HL */
+      emit3 (A_LD, ASMOP_C, ASMOP_L);
+      emit3 (A_LD, ASMOP_B, ASMOP_H);
+      spillPair (PAIR_HL);
+      pointPairToAop (PAIR_DE, lop, 0);   /* DE = &left  */
+      spillPair (PAIR_HL);
+      pointPairToAop (PAIR_HL, rop, 0);   /* HL = &right */
+      for (int i = 0; i < size; i++)
+        {
+          emit2 ("ld a, !mems", "de");
+          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
+          emit2 ("%s a, !*hl", i ? "adc" : "add");
+          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 3, 3, 2, 2);
+          emit2 ("ld !mems, a", "bc");
+          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
+          if (i + 1 < size)
+            {
+              emit3w (A_INC, ASMOP_DE, 0);
+              emit3w (A_INC, ASMOP_HL, 0);
+              emit3w (A_INC, ASMOP_BC, 0);
+            }
+        }
+      spillPair (PAIR_HL);
+      spillPair (PAIR_DE);
+      spillPair (PAIR_BC);
+      adjustStack (size, false, false, false, false, false);   /* free temp */
+      goto release;
+    }
+
   if (IS_8080LIKE && size >= 1 && !maskedtopbyte &&
     requiresHL (leftop) && leftop->type != AOP_REG &&
     requiresHL (rightop) && rightop->type != AOP_REG)
