@@ -17467,7 +17467,16 @@ genPointerGet (const iCode *ic)
         _push (PAIR_AF), pushed_a = true;
       for (int i = 0; i < size; i++)
         {
-          emit2 ("ld a, !mems", aopGetLitWordLong (left->aop, rightval + i, false));
+          /* The bytes live at consecutive ADDRESSES. For AOP_IMMD,
+             aopGetLitWordLong emits "symbol + offset" (address arithmetic), but
+             for AOP_LIT it byte-extracts the literal VALUE (v >> offset*8) - so
+             a literal address like *(uint16_t *)0xca08 would read the high byte
+             from (0x00ca) instead of (0xca09). Do explicit address arithmetic
+             for the literal-address case. */
+          if (left->aop->type == AOP_LIT)
+            emit2 ("ld a, (!constword)", (unsigned) ((ullFromVal (left->aop->aopu.aop_lit) + rightval + i) & 0xffffu));
+          else
+            emit2 ("ld a, !mems", aopGetLitWordLong (left->aop, rightval + i, false));
           cost2 (3, 4, -1, 4, 13, 12, 9, 9, 16, 10, -1, 5, 5, 4, 4);
           cheapMove (result->aop, i, ASMOP_A, 0, true);
         }
