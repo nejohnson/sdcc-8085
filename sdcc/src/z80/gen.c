@@ -11267,6 +11267,52 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
       return;
     }
 
+  /* 8080/8085: result = <literal> - (memory), result also in memory. Same
+     single-pointer problem as the two-memory-operand walk above, but here the
+     left operand is a constant (genUminus passes 0 for -x), so there is no
+     left pointer: load each left byte as an immediate (ld/xor - kept borrow-
+     clean via _G.preserveCarry) and walk HL = &right, BC = &result. Reading
+     (hl) before writing (bc) is alias-safe. Without this the generic byte loop
+     below has only HL and would both read the source and store the result
+     through it, clobbering the source in memory - e.g. `x += -gull` negating
+     the global gull in place instead of into a temp. */
+  if (!maskedtopbyte && IS_8080LIKE && size >= 1 &&
+    left->type == AOP_LIT &&
+    requiresHL (right) && right->type != AOP_REG &&
+    requiresHL (result) && result->type != AOP_REG)
+    {
+      bool save_bc = !isPairDead (PAIR_BC, ic);
+      if (save_bc)
+        _push (PAIR_BC);
+      /* BC = &result (setupPairFromSP only does HL/DE/IY, so go via HL). */
+      pointPairToAop (PAIR_HL, result, 0);
+      emit3 (A_LD, ASMOP_C, ASMOP_L);
+      emit3 (A_LD, ASMOP_B, ASMOP_H);
+      spillPair (PAIR_HL);
+      pointPairToAop (PAIR_HL, right, 0);       /* HL = &right */
+      _G.preserveCarry = false;
+      for (int i = 0; i < size; i++)
+        {
+          cheapMove (ASMOP_A, 0, left, i, true);        /* left byte -> a; ld (preserveCarry) keeps borrow */
+          emit2 ("%s a, !*hl", i ? "sbc" : "sub");
+          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 3, 3, 2, 2);
+          emit2 ("ld !mems, a", "bc");
+          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
+          _G.preserveCarry = (i + 1 < size);
+          if (i + 1 < size)
+            {
+              emit3w (A_INC, ASMOP_HL, 0);
+              emit3w (A_INC, ASMOP_BC, 0);
+            }
+        }
+      _G.preserveCarry = false;
+      spillPair (PAIR_HL);
+      spillPair (PAIR_BC);
+      if (save_bc)
+        _pop (PAIR_BC);
+      return;
+    }
+
   if ((requiresHL (result) && result->type != AOP_REG || requiresHL (left) && left->type != AOP_REG || requiresHL (right) && right->type != AOP_REG) &&
     (left->regs[L_IDX] > 0 || left->regs[H_IDX] > 0 || right->regs[L_IDX] > 0 || right->regs[H_IDX] > 0))
     UNIMPLEMENTED;
