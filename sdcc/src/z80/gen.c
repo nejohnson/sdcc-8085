@@ -10275,7 +10275,7 @@ genPlus (iCode * ic)
      add/adc touches the carry, and inc/ld-indirect are carry-clean, so the
      carry chains correctly. Reading (de) and (hl) before writing (bc) makes it
      safe even when result aliases an operand. */
-  if (IS_8080LIKE && size >= 4 && !maskedtopbyte &&
+  if (IS_8080LIKE && size >= 1 && !maskedtopbyte &&
     requiresHL (leftop) && leftop->type != AOP_REG &&
     requiresHL (rightop) && rightop->type != AOP_REG)
     {
@@ -11103,23 +11103,37 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
       return;
     }
 
-  /* 8080/8085: wider (e.g. 32-bit long) subtraction of memory operands. Walk
-     three pointers - DE=left, HL=right, BC=result - with ld a,(de) /
-     sub-or-sbc a,(hl) / ld (bc),a and inc de/hl/bc. Only the sub/sbc touches
-     the borrow; inc and indirect ld are borrow-clean, so it chains correctly.
-     Reading (de)/(hl) before writing (bc) is safe under result aliasing. */
-  if (!maskedtopbyte && IS_8080LIKE && size >= 4 &&
+  /* 8080/8085: subtraction of two memory operands (any width, including a
+     single byte). Walk three pointers - DE=left, HL=right, BC=result - with
+     ld a,(de) / sub-or-sbc a,(hl) / ld (bc),a and inc de/hl/bc. Only the
+     sub/sbc touches the borrow; inc and indirect ld are borrow-clean, so it
+     chains correctly. Reading (de)/(hl) before writing (bc) is safe under
+     result aliasing. The generic byte loop below cannot do this - with no
+     index register it has only one usable pointer and would read (hl) for both
+     operands (computing left-left). When the result is not itself addressable
+     (it is in registers - which cannot hold the result while DE and HL are the
+     source pointers), accumulate into a stack temp and move it afterwards. */
+  if (!maskedtopbyte && IS_8080LIKE && size >= 1 &&
     requiresHL (left) && left->type != AOP_REG &&
-    requiresHL (right) && right->type != AOP_REG &&
-    requiresHL (result) && result->type != AOP_REG)
+    requiresHL (right) && right->type != AOP_REG)
     {
+      bool result_mem = requiresHL (result) && result->type != AOP_REG;
       bool save_bc = !isPairDead (PAIR_BC, ic);
       bool save_de = !isPairDead (PAIR_DE, ic);
+      struct asmop tmpaop;
       if (save_bc)
         _push (PAIR_BC);
       if (save_de)
         _push (PAIR_DE);
-      pointPairToAop (PAIR_HL, result, 0);   /* BC = &result via HL */
+      /* BC = &destination (setupPairFromSP only does HL/DE/IY, so go via HL). */
+      if (result_mem)
+        pointPairToAop (PAIR_HL, result, 0);
+      else
+        {
+          adjustStack (-size, false, false, false, false, false);   /* alloc temp */
+          init_stackop (&tmpaop, size, -(_G.stack.pushed + _G.stack.offset)); /* temp at SP+0 */
+          pointPairToAop (PAIR_HL, &tmpaop, 0);
+        }
       emit3 (A_LD, ASMOP_C, ASMOP_L);
       emit3 (A_LD, ASMOP_B, ASMOP_H);
       spillPair (PAIR_HL);
@@ -11144,6 +11158,12 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
       spillPair (PAIR_HL);
       spillPair (PAIR_DE);
       spillPair (PAIR_BC);
+      if (!result_mem)
+        {
+          /* move the temp (still at SP+0..) into the register result, then free it */
+          genMove (result, &tmpaop, true, true, true, true);
+          adjustStack (size, false, false, false, false, false);
+        }
       if (save_de)
         _pop (PAIR_DE);
       if (save_bc)
