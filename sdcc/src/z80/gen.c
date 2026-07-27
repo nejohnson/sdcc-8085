@@ -13002,7 +13002,29 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
                 emit3w (A_INC, ASMOP_HL, 0);
               offset++;
             }
-          if (sign && (IS_SM83 || (IS_8080LIKE && isPairDead (PAIR_DE, ic))))
+          if (sign && IS_8080LIKE)
+            {
+              /* Signed fixup done here, directly off the pointers (DE->top of
+                 left, HL->top of right, carry = unsigned borrow), so it works
+                 whether or not DE was live/pushed: the D/E approach used for
+                 SM83 needs the top bytes preloaded into D/E, but on 8080 a live
+                 DE is popped below, which would clobber them. signed_lt =
+                 borrow XOR left.sign XOR right.sign, landing in A bit 7 (which
+                 release: shifts out); no carry needs preserving afterwards. */
+              emit3 (A_SBC, ASMOP_A, ASMOP_A);   /* A = borrow ? 0xff : 0x00 */
+              emit2 ("xor a, !*hl");             /* ^ right top byte */
+              cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
+              emit3w (A_EX, ASMOP_DE, ASMOP_HL); /* HL -> top of left */
+              emit2 ("xor a, !*hl");             /* ^ left top byte */
+              cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
+              result_in_carry = false;
+              spillPair (PAIR_DE);
+              spillPair (PAIR_HL);
+              if (!isPairDead (PAIR_DE, ic))
+                _pop (PAIR_DE);
+              goto release;
+            }
+          if (sign && IS_SM83)
             {
               wassert(isPairDead (PAIR_DE, ic));
               emit2 ("ld a, !mems", "de");
