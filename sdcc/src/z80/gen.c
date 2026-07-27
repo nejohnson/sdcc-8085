@@ -11074,14 +11074,23 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
         }
     }
 
-  /* 8080/8085: like the sm83 case above, a 16-bit subtraction of two memory
-     operands cannot use the byte loop below - with no index register both
-     operands need HL, and pointing HL at a stack operand uses add hl, sp,
-     which destroys the borrow between the low and high byte. Load both operands
-     into register pairs and subtract byte-wise in registers (carry-safe). */
+  /* 8080/8085: like the sm83 case above, a 16-bit subtraction where the right
+     operand is in memory cannot use the byte loop below - with no index
+     register the memory operand needs HL, and pointing HL at a stack operand
+     uses add hl, sp, which destroys the borrow between the low and high byte.
+     (setupToPreserveCarry would try to park the result in DE, clobbering a
+     left operand already held there - e.g. a pointer value in `ptr - i`.) Load
+     both operands into register pairs (left -> DE, right -> HL; fetchPair is a
+     no-op when an operand is already in the pair) and subtract byte-wise in
+     registers (carry-safe), then store. Fires when the right operand is in
+     memory and the left is either in memory or a register pair. */
   if (!maskedtopbyte && IS_8080LIKE && size == 2 &&
-    requiresHL (left) && left->type != AOP_REG &&
-    requiresHL (right) && right->type != AOP_REG)
+    requiresHL (right) && right->type != AOP_REG &&
+    ((requiresHL (left) && left->type != AOP_REG) ||
+     /* reg-pair left (e.g. a pointer value in `ptr - i`): only when the result
+        is also in memory, so storing it matches the proven both-memory path and
+        does not collide with a register result. */
+     (left->type == AOP_REG && left->size == 2 && requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG)))
     {
       bool save_de = !isPairDead (PAIR_DE, ic);
       if (save_de)
