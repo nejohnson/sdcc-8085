@@ -13700,7 +13700,7 @@ gencjneshort (operand *left, operand *right, symbol *lbl, const iCode *ic)
             }
 
           if (aopInReg (left->aop, offset, HL_IDX) &&
-            ((!IS_SM83 && isRegDead (HL_IDX, ic) && (aopInReg (right->aop, offset, BC_IDX) || aopInReg (right->aop, offset, DE_IDX) || bc_dead || de_dead)) ||
+            ((!IS_SM83 && !IS_8080LIKE && isRegDead (HL_IDX, ic) && (aopInReg (right->aop, offset, BC_IDX) || aopInReg (right->aop, offset, DE_IDX) || bc_dead || de_dead)) ||
             (IS_R4K || IS_R5K || IS_R6K || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && aopInReg (right->aop, offset, DE_IDX) ||
             (IS_R4K || IS_R5K || IS_R6K) && aopInReg (right->aop, offset, JK_IDX) ||
             (IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && aopInReg (right->aop, offset, BC_IDX)))
@@ -13731,7 +13731,7 @@ gencjneshort (operand *left, operand *right, symbol *lbl, const iCode *ic)
               size--;
               continue;
             }
-          else if (!IS_SM83 && hl_dead && (left->aop->type == AOP_STK || left->aop->type == AOP_IY || left->aop->type == AOP_HL || left->aop->type == AOP_DIR) && (aopInReg (right->aop, offset, DE_IDX) || aopInReg (right->aop, offset, BC_IDX)))
+          else if (!IS_SM83 && !IS_8080LIKE && hl_dead && (left->aop->type == AOP_STK || left->aop->type == AOP_IY || left->aop->type == AOP_HL || left->aop->type == AOP_DIR) && (aopInReg (right->aop, offset, DE_IDX) || aopInReg (right->aop, offset, BC_IDX)))
             {
               genMove_o (ASMOP_HL, 0, left->aop, offset, 2, a_dead, true, de_dead, iy_dead, true);
               if ((IS_R4K || IS_R5K || IS_R6K || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && aopInReg (right->aop, offset, DE_IDX) ||
