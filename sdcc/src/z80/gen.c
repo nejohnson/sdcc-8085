@@ -10308,18 +10308,20 @@ genPlus (iCode * ic)
      exactly B,C,D,E, so BC and DE are free to use as pointers afterwards. */
   if (IS_8080LIKE && size == 4 && !maskedtopbyte &&
     requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG &&
-    /* The walk clobbers BC and DE (pointers); the register operand lives in
-       B,C,D,E, so it must die here - otherwise a value needed afterwards (as
-       in `x = a + b; ... a ...`) would be destroyed. When it is live-after the
-       old path already handles it, so only take over the dead-operand case
-       (which is where setupToPreserveCarry corrupts it). */
-    isPairDead (PAIR_BC, ic) && isPairDead (PAIR_DE, ic) &&
+    /* The walk clobbers BC and DE (the pointers), which is exactly where the
+       register operand's bytes live (B,C,D,E). When the operand dies here that
+       is harmless; when it is live-after we reload it from the spill temp below.
+       The old generic byte loop cannot handle either case: it repurposes DE as
+       the result pointer and then reads the operand's high bytes from the now-
+       clobbered D/E (seen in 981001-1: `(a + 2*sub(...)) * a`, where the widened
+       `a` in [c b e d] fed __mullong with a garbage high word). */
     ((leftop->type == AOP_REG && leftop->regs[L_IDX] < 0 && leftop->regs[H_IDX] < 0 && requiresHL (rightop) && rightop->type != AOP_REG) ||
      (rightop->type == AOP_REG && rightop->regs[L_IDX] < 0 && rightop->regs[H_IDX] < 0 && requiresHL (leftop) && leftop->type != AOP_REG)))
     {
       struct asmop optmp;
       asmop *lop = leftop, *rop = rightop;
       asmop *regop = (leftop->type == AOP_REG) ? leftop : rightop;
+      bool regop_live = !(isPairDead (PAIR_BC, ic) && isPairDead (PAIR_DE, ic));
       adjustStack (-size, false, false, false, false, false);   /* alloc temp */
       init_stackop (&optmp, size, -(_G.stack.pushed + _G.stack.offset));
       /* Spill the register operand (B,C,D,E) into the temp byte-by-byte.
@@ -10358,6 +10360,15 @@ genPlus (iCode * ic)
       spillPair (PAIR_HL);
       spillPair (PAIR_DE);
       spillPair (PAIR_BC);
+      /* The walk clobbered BC and DE, i.e. the register operand's home. If it is
+         still needed after this iCode, restore it from the spill temp (it is a
+         source, so its value is unchanged by the add). */
+      if (regop_live)
+        {
+          spillPair (PAIR_HL);
+          for (int i = 0; i < size; i++)
+            cheapMove (regop, i, &optmp, i, true);
+        }
       adjustStack (size, false, false, false, false, false);   /* free temp */
       goto release;
     }
