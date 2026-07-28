@@ -46,9 +46,10 @@ I8085_LONGLONG = $(COMMON_LONGLONG) \
 # hand-written assembly; use the portable C versions on the 8080/8085.
 I8085_SUPPORT = \
   _mulint.c _mulschar.c _muluchar.c \
+  __muluint2ulong.c __mulsint2slong.c \
   _divsint.c _divuint.c _divschar.c _divuchar.c \
   _modsint.c _moduint.c _modschar.c _moduchar.c \
-  memcpy.c _memmove.c _strcpy.c strlen.c \
+  memcpy.c __memcpy.c _memmove.c _strcpy.c strlen.c \
   __itoa.c __ltoa.c
 
 I8085_SDCC = $(COMMON_SDCC) \
@@ -65,7 +66,7 @@ I8085_SDCC = $(COMMON_SDCC) \
 # Hand-written 8080/8085 assembler routines that live in this port directory:
 #   heap.s   - the _HEAP storage + heap-init hook required by malloc/free/etc.
 #   setjmp.s - setjmp/longjmp (no frame pointer, so jmp_buf is 4 bytes)
-I8085_ASMOBJ = heap.rel setjmp.rel atomic_flag_test_and_set.rel
+I8085_ASMOBJ = heap.rel setjmp.rel atomic_flag_test_and_set.rel __sdcc_call_hl.rel __builtin_memcpy.rel
 
 I8085SOURCES = $(addprefix ../,$(I8085_FLOAT) $(I8085_LONG) $(I8085_LONGLONG) $(I8085_SUPPORT) $(I8085_SDCC))
 I8085OBJECTS = $(patsubst %.c,%.rel,$(I8085_FLOAT) $(I8085_LONG) $(I8085_LONGLONG) $(I8085_SUPPORT) $(I8085_SDCC)) $(I8085_ASMOBJ)
