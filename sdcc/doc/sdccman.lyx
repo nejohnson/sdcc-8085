@@ -13878,6 +13878,83 @@ Z180
 \labelwidthstring 00.00.0000
 
 \series bold
+-mi8080
+\begin_inset Index idx
+range none
+pageformat default
+status collapsed
+
+\begin_layout Plain Layout
+-mi8080
+\end_layout
+
+\end_inset
+
+
+\series default
+ Generate code for the Intel 8080
+\begin_inset Index idx
+range none
+pageformat default
+status collapsed
+
+\begin_layout Plain Layout
+8080
+\end_layout
+
+\end_inset
+
+ processor.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\series bold
+-mi8085
+\begin_inset Index idx
+range none
+pageformat default
+status collapsed
+
+\begin_layout Plain Layout
+-mi8085
+\end_layout
+
+\end_inset
+
+
+\series default
+ Generate code for the Intel 8085
+\begin_inset Index idx
+range none
+pageformat default
+status collapsed
+
+\begin_layout Plain Layout
+8085
+\end_layout
+
+\end_inset
+
+ processor.
+ See
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Intel-8080/8085"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\series bold
 -mr2k
 \begin_inset Index idx
 range none
@@ -30164,7 +30241,9 @@ interrupt
 
  upon entry to a critical function and restore the interrupt enable to the previous state before returning (for architectures where there is no efficient way to do so (sm83,
  tlcs90,
- stm8),
+ stm8,
+ i8080,
+ i8085),
  interrupts will be unconditionally enabled instead).
  Nesting critical functions will need one additional byte on the stack
 \begin_inset Index idx
@@ -49070,6 +49149,8 @@ ftp://ftp.dalsemi.com/pub/tini/ds80c400/c_libraries/sdcc/index.html
 The Z80,
  Z80N,
  Z180,
+ Intel 8080,
+ Intel 8085,
  Rabbit 2000,
  Rabbit 2000A,
  Rabbit 3000A,
@@ -49099,6 +49180,19 @@ Z80
  Z80N,
  Z180,
  eZ80,
+ the Intel 8080 and 8085
+\begin_inset Index idx
+range none
+pageformat default
+status collapsed
+
+\begin_layout Plain Layout
+8080
+\end_layout
+
+\end_inset
+
+,
  Rabbit 2000,
  Rabbit 2000A,
  Rabbit 3000A and LR35902,
@@ -49162,6 +49256,85 @@ http://sdcc.sourceforge.net/wiki/index.php/Z80_code_size
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Subsection
+Intel 8080/8085
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Intel-8080/8085"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+SDCC supports the Intel 8080 (-mi8080) and Intel 8085 (-mi8085) as sub-targets of the Z80 back-end.
+ Both are strict subsets of the Z80: there are no index registers (IX/IY), no relative jumps (JR/DJNZ), no alternate register set (EXX/EX AF,AF'), and none of the ED- or CB-prefixed instructions - so there are no block moves, no 16-bit ADC/SBC HL, and no bit/shift (BIT/SET/RES/SLA/SRL/...) group.
+ Because there is no index register, a frame pointer cannot reside in IX as it does on the Z80;
+ stack-relative addressing is used instead.
+\end_layout
+
+\begin_layout Standard
+The __dynamicc calling convention is not supported on the 8080/8085: it has the caller save IX as a frame pointer, and these processors have no index register (it was a Rabbit/Z180-only convention).
+ Using it results in a diagnostic.
+\end_layout
+
+\begin_layout Standard
+By default only documented instructions are emitted.
+ When compiling for the 8085 with --allow-undocumented-instructions
+\begin_inset Index idx
+range none
+pageformat default
+status collapsed
+
+\begin_layout Plain Layout
+--allow-undocumented-instructions
+\end_layout
+
+\end_inset
+
+,
+ the -mi8085 port additionally exploits the undocumented 8085 instructions and the two undocumented flags (V,
+ overflow;
+ and K/X5,
+ the signed-comparison flag) to generate smaller and faster code.
+ The following undocumented instructions are used:
+\end_layout
+
+\begin_layout Itemize
+DSUB - 16-bit subtract HL = HL - BC.
+\end_layout
+
+\begin_layout Itemize
+ARHL - arithmetic (signed) shift right of HL by one.
+\end_layout
+
+\begin_layout Itemize
+RDEL - rotate DE left through carry (the 16-bit "adc de,
+ de" the 8080/8085 otherwise lack),
+ used in wide left shifts.
+\end_layout
+
+\begin_layout Itemize
+LDHI - DE = HL + immediate,
+ combined with LHLX for 16-bit struct/array member loads.
+\end_layout
+
+\begin_layout Itemize
+LDSI - DE = SP + immediate.
+\end_layout
+
+\begin_layout Itemize
+LHLX / SHLX - load/store HL through a pointer in DE,
+ giving DE a role as a second data pointer.
+\end_layout
+
+\begin_layout Standard
+The V and K/X5 flags are modelled accurately by the ucsim simulator.
+ The -mi8080 port never emits undocumented instructions,
+ even with --allow-undocumented-instructions.
 \end_layout
 
 \begin_layout Subsection
