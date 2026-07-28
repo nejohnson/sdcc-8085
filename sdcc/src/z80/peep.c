@@ -401,6 +401,23 @@ z80MightReadFlag(const lineNode *pl, const char *what)
   if(IS_EZ80 && lineIsInst (pl, "push.l"))
     return (argCont(pl->line + 6, "af"));
 
+  /* 8085 undocumented instructions. dsub/arhl/ldhi/ldsi/lhlx/shlx read no
+     flags; rdel reads carry, rstv reads the V flag, and jx5/jnx5 read the
+     K/X5 flag - report those as reading flags so the flag-setting instruction
+     before them is never optimized away. */
+  if(lineIsInst (pl, "dsub") ||
+     lineIsInst (pl, "arhl") ||
+     lineIsInst (pl, "ldhi") ||
+     lineIsInst (pl, "ldsi") ||
+     lineIsInst (pl, "lhlx") ||
+     lineIsInst (pl, "shlx"))
+    return false;
+  if(lineIsInst (pl, "rdel") ||
+     lineIsInst (pl, "rstv") ||
+     lineIsInst (pl, "jx5") ||
+     lineIsInst (pl, "jnx5"))
+    return true;
+
   printf("Warning: z80MightReadFlag unknown asm inst line: %s\n", pl->line);
 
   return true; // Fail-safe: we have no idea what happens at this line, so assume it might read anything.
@@ -752,6 +769,22 @@ z80MightRead(const lineNode *pl, const char *what)
   if(lineIsInst (pl, "rst"))
     return(true);
 
+  /* 8085 undocumented instructions: the registers each one reads. */
+  if(lineIsInst (pl, "dsub"))                                    /* HL = HL - BC */
+    return (strchr(what, 'h') || strchr(what, 'l') || strchr(what, 'b') || strchr(what, 'c'));
+  if(lineIsInst (pl, "arhl") || lineIsInst (pl, "ldhi"))         /* HL>>1 ; DE = HL + imm */
+    return (strchr(what, 'h') || strchr(what, 'l'));
+  if(lineIsInst (pl, "rdel") || lineIsInst (pl, "lhlx"))         /* DE rotate ; HL = (DE) */
+    return (strchr(what, 'd') || strchr(what, 'e'));
+  if(lineIsInst (pl, "ldsi"))                                    /* DE = SP + imm */
+    return (!strcmp(what, "sp"));
+  if(lineIsInst (pl, "shlx"))                                    /* (DE) = HL */
+    return (strchr(what, 'd') || strchr(what, 'e') || strchr(what, 'h') || strchr(what, 'l'));
+  if(lineIsInst (pl, "jx5") || lineIsInst (pl, "jnx5"))          /* conditional jumps: no register reads */
+    return false;
+  if(lineIsInst (pl, "rstv"))                                    /* conditional restart: may touch sp */
+    return true;
+
   printf("Warning: z80MightRead unknown asm inst line: %s\n", pl->line);
 
   return(true);
@@ -1000,6 +1033,16 @@ z80SurelyWritesFlag(const lineNode *pl, const char *what)
   if(IS_R800 && lineIsInst (pl, "multu") ||
      IS_R800 && lineIsInst (pl, "multuw"))
      return (strcmp(what, "hf") && strcmp(what, "sf"));
+
+  /* 8085 undocumented instructions. ldhi/ldsi/lhlx/shlx and the jumps
+     jx5/jnx5/rstv touch no flags; dsub/arhl/rdel do, but reporting "not sure"
+     (false) is the safe, conservative answer here (it only prevents the
+     peephole from treating them as killing an earlier flag definition). */
+  if(lineIsInst (pl, "dsub") || lineIsInst (pl, "arhl") || lineIsInst (pl, "rdel") ||
+     lineIsInst (pl, "ldhi") || lineIsInst (pl, "ldsi") ||
+     lineIsInst (pl, "lhlx") || lineIsInst (pl, "shlx") ||
+     lineIsInst (pl, "jx5")  || lineIsInst (pl, "jnx5") || lineIsInst (pl, "rstv"))
+    return false;
 
   printf("Warning: z80SurelyWritesFlag unknown asm inst line: %s\n", pl->line);
 
@@ -2101,6 +2144,15 @@ int z80instructionSize (lineNode *pl)
         return i/4;
       
     }
+
+  /* 8085 undocumented instructions */
+  if(lineIsInst (pl, "dsub") || lineIsInst (pl, "arhl") || lineIsInst (pl, "rdel") ||
+     lineIsInst (pl, "rstv") || lineIsInst (pl, "shlx") || lineIsInst (pl, "lhlx"))
+    return 1;
+  if(lineIsInst (pl, "ldhi") || lineIsInst (pl, "ldsi"))
+    return 2;
+  if(lineIsInst (pl, "jx5") || lineIsInst (pl, "jnx5"))
+    return 3;
 
   /* If the instruction is unrecognized, we shouldn't try to optimize.  */
   /* For all we know it might be some .ds or similar possibly long line */
