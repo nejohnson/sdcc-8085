@@ -8790,7 +8790,7 @@ genFunction (const iCode * ic)
          If critical function then turn interrupts off */
       if (IFFUNC_ISCRITICAL (sym->type))
         {
-          if (IS_SM83 || IS_RAB || IS_TLCS90)
+          if (IS_SM83 || IS_RAB || IS_TLCS90 || IS_8080LIKE)
             {
               emit2 ("!di");
             }
@@ -9073,7 +9073,7 @@ genEndFunction (iCode *ic)
          If critical function then turn interrupts back on */
       if (IFFUNC_ISCRITICAL (sym->type))
         {
-          if (IS_SM83 || IS_TLCS90 || IS_RAB)
+          if (IS_SM83 || IS_TLCS90 || IS_RAB || IS_8080LIKE)
             emit2 ("!ei");
           else
             {
@@ -9243,6 +9243,17 @@ genEndFunction (iCode *ic)
         }
       else if (IS_SM83)
         emit3 (IFFUNC_ISCRITICAL (sym->type) ? A_RETI : A_RET, 0, 0);
+      else if (IS_8080LIKE)
+        {
+          /* 8080/8085 have no reti/retn; interrupts are auto-disabled on accept,
+             so a critical ISR re-enables with ei, then a plain ret. */
+          if (IFFUNC_ISCRITICAL (sym->type))
+            {
+              emit2 ("!ei");
+              cost2old (1, 4, 3, 0, 4, 2, 1, 1);
+            }
+          emit3 (A_RET, 0, 0);
+        }
       else
         {
           if (IFFUNC_ISCRITICAL (sym->type) && !is_nmi)
@@ -20419,7 +20430,7 @@ genCritical (const iCode * ic)
 {
   symbol *tlbl = regalloc_dry_run ? 0 : newiTempLabel (0);
 
-  if (IS_SM83 || IS_RAB || IS_TLCS90)
+  if (IS_SM83 || IS_RAB || IS_TLCS90 || IS_8080LIKE)
     {
       emit2 ("!di");
       regalloc_dry_run_cost += 1;
@@ -20485,7 +20496,7 @@ genEndCritical (const iCode * ic)
 {
   symbol *tlbl = regalloc_dry_run ? 0 : newiTempLabel (0);
 
-  if (IS_SM83 || IS_TLCS90 || IS_RAB)
+  if (IS_SM83 || IS_TLCS90 || IS_RAB || IS_8080LIKE)
     {
       emit2 ("!ei");
       cost2old (1, 4, 3, 0, 4, 2, 1, 1);
