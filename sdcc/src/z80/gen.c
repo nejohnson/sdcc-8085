@@ -16754,17 +16754,35 @@ genLeftShift (const iCode *ic)
     }
 
   /* 8080/8085: the byte-wise shift body (emit8080Lsh1) uses A as scratch, so A
-     cannot hold the loop counter of a variable shift (literal shifts unroll). */
-  if (IS_8080LIKE && !shift_by_lit && countreg == A_IDX)
+     cannot hold the loop counter of a variable shift. In addition, a memory
+     (stack/dir) shift operand is addressed through HL, so when the operand is
+     not in registers the counter must not live in L or H either - it would be
+     recomputed (clobbered) on every iteration, giving an endless loop (e.g. a
+     variable 32-bit rotate/shift with the value on the stack). Literal shifts
+     unroll and are unaffected. */
+  if (IS_8080LIKE && !shift_by_lit)
     {
-      static const int cand[] = {C_IDX, B_IDX, E_IDX, D_IDX, L_IDX, H_IDX};
-      for (unsigned k = 0; k < sizeof (cand) / sizeof (cand[0]); k++)
-        if (isRegDead (cand[k], ic) && result->aop->regs[cand[k]] < 0 &&
-            left->aop->regs[cand[k]] < 0 && right->aop->regs[cand[k]] < 0)
-          {
-            countreg = cand[k];
-            break;
-          }
+      bool mem_shift = result->aop->type != AOP_REG; // shiftop addressed via HL
+      if (countreg == A_IDX || (mem_shift && (countreg == L_IDX || countreg == H_IDX)))
+        {
+          static const int cand[] = {C_IDX, B_IDX, E_IDX, D_IDX, L_IDX, H_IDX};
+          bool found = false;
+          for (unsigned k = 0; k < sizeof (cand) / sizeof (cand[0]); k++)
+            {
+              int r = cand[k];
+              if (mem_shift && (r == L_IDX || r == H_IDX))
+                continue; // HL is needed to address the memory operand
+              if (isRegDead (r, ic) && result->aop->regs[r] < 0 &&
+                  left->aop->regs[r] < 0 && right->aop->regs[r] < 0)
+                {
+                  countreg = r;
+                  found = true;
+                  break;
+                }
+            }
+          if (!found)
+            UNIMPLEMENTED; // no safe counter register - force a different allocation
+        }
     }
 
   if (IS_Z80N && z80n_de && (aopInReg (right->aop, 0, B_IDX) || countreg == B_IDX))
@@ -17267,18 +17285,34 @@ genRightShift (const iCode * ic)
 
   /* 8080/8085: the byte-wise shift body uses A as scratch, so A cannot hold the
      loop counter of a variable shift (a literal shift is unrolled instead, see
-     below). If the generic selection chose A, pick a free register that holds
-     none of the operands. */
-  if (IS_8080LIKE && !shift_by_lit && countreg == A_IDX)
+     below). In addition, a memory (stack/dir) shift operand is addressed through
+     HL, so when the operand is not in registers the counter must not live in L
+     or H either - it would be recomputed (clobbered) every iteration, giving an
+     endless loop (e.g. a variable 32-bit right shift with the value on the
+     stack). Pick a free register that holds none of the operands. */
+  if (IS_8080LIKE && !shift_by_lit)
     {
-      static const int cand[] = {C_IDX, B_IDX, E_IDX, D_IDX, L_IDX, H_IDX};
-      for (unsigned k = 0; k < sizeof (cand) / sizeof (cand[0]); k++)
-        if (isRegDead (cand[k], ic) && result->aop->regs[cand[k]] < 0 &&
-            left->aop->regs[cand[k]] < 0 && right->aop->regs[cand[k]] < 0)
-          {
-            countreg = cand[k];
-            break;
-          }
+      bool mem_shift = result->aop->type != AOP_REG; // shiftop addressed via HL
+      if (countreg == A_IDX || (mem_shift && (countreg == L_IDX || countreg == H_IDX)))
+        {
+          static const int cand[] = {C_IDX, B_IDX, E_IDX, D_IDX, L_IDX, H_IDX};
+          bool found = false;
+          for (unsigned k = 0; k < sizeof (cand) / sizeof (cand[0]); k++)
+            {
+              int r = cand[k];
+              if (mem_shift && (r == L_IDX || r == H_IDX))
+                continue; // HL is needed to address the memory operand
+              if (isRegDead (r, ic) && result->aop->regs[r] < 0 &&
+                  left->aop->regs[r] < 0 && right->aop->regs[r] < 0)
+                {
+                  countreg = r;
+                  found = true;
+                  break;
+                }
+            }
+          if (!found)
+            UNIMPLEMENTED; // no safe counter register - force a different allocation
+        }
     }
 
   if (IS_Z80N && isRegDead (DE_IDX, ic) &&
