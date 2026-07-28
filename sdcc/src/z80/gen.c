@@ -3659,6 +3659,22 @@ setupPairFromSP (PAIR_ID id, int offset)
       offset += 2;
     }
 
+  /* 8085 undocumented LDSI: DE = SP + imm8 in a single two-byte instruction,
+     with no ex de, hl / add hl, sp dance and without disturbing HL. The
+     immediate is unsigned, so only a small non-negative offset qualifies. */
+  if (id == PAIR_DE && IS_8085 && options.allow_undoc_inst && offset >= 0 && offset <= 255)
+    {
+      emit2 ("ldsi !immedbyte", (unsigned)offset);
+      cost2 (2, 2, 2, 2, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
+      if (_G.preserveCarry)
+        {
+          _pop (PAIR_AF);
+          offset -= 2;
+        }
+      spillPair (PAIR_DE);
+      return;
+    }
+
   if (id == PAIR_DE && !IS_SM83) // TODO: Could hl be in use for sm83, so it needs to be saved and restored?
     emit3w (A_EX, ASMOP_DE, ASMOP_HL);
 
@@ -17701,6 +17717,20 @@ genPointerGet (const iCode *ic)
   if ((IS_SM83 || IY_RESERVED) && requiresHL (result->aop) && size > 1 && result->aop->type != AOP_REG)
     pair = PAIR_DE;
 
+  /* 8085 undocumented LHLX: HL = (DE), a 16-bit load through a pointer in DE in
+     a single byte - giving DE a genuine role as a second data pointer. Only for
+     a plain 2-byte load (no offset, no bit-field) with the pointer already in
+     DE. Leaves DE (the pointer) intact and does not touch A. */
+  if (IS_8085 && options.allow_undoc_inst && !from_far && !bit_field &&
+      getPairId (left->aop) == PAIR_DE && size == 2 && !rightval)
+    {
+      emit2 ("lhlx");
+      cost2 (1, 1, 1, 1, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
+      spillPair (PAIR_HL);
+      genMove (result->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true);
+      goto release;
+    }
+
   if (IS_SM83 && size == 1 && left->aop->type == AOP_LIT && (((unsigned long)(operandLitValue (left) + rightval) & 0xff00) == 0xff00) && isRegDead (A_IDX, ic)) // SM83 has special instructions for address range 0xff00 - 0xffff.
     {
       if (surviving_a)
@@ -18766,6 +18796,19 @@ genPointerSet (iCode *ic)
     pairId = (isRegOrLit (right->aop) || right->aop->type == AOP_STK) ? PAIR_HL : PAIR_DE;
   if (isPair (result->aop) && isPairDead (getPairId (result->aop), ic) && !(size > 1 && sameRegs (result->aop, right->aop)))
     pairId = getPairId (result->aop);
+
+  /* 8085 undocumented SHLX: (DE) = HL, a 16-bit store through a pointer in DE
+     in a single byte. Only for a plain 2-byte store (no bit-field) with the
+     pointer already in DE; load the value into HL (never disturbing DE), shlx. */
+  if (IS_8085 && options.allow_undoc_inst && !to_far && !bit_field &&
+      getPairId (result->aop) == PAIR_DE && size == 2)
+    {
+      genMove (ASMOP_HL, right->aop, isRegDead (A_IDX, ic), true, false, true);
+      emit2 ("shlx");
+      cost2 (1, 1, 1, 1, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
+      spillPair (PAIR_HL);
+      goto release;
+    }
 
   if (IS_SM83 && size == 1 && result->aop->type == AOP_LIT && (((unsigned long)operandLitValue (result) & 0xff00) == 0xff00) && (isRegDead (A_IDX, ic) || aopInReg (right->aop, 0, A_IDX)) && !bit_field) // SM83 has special instructions for address range 0xff00 - 0xffff.
     {
