@@ -787,6 +787,8 @@ struct
      "string literal assigned to pointer to non-const", 0 },
   {W_QUALIFIED_RETURN, ERROR_LEVEL_WARNING,
      "qualifier on return type has no effect", 0},
+  {E_DYNAMICC_UNSUPPORTED, ERROR_LEVEL_ERROR,
+     "the __dynamicc calling convention is not supported on the i8080/i8085 (it requires an index register); it was a Rabbit/Z180-only convention", 0},
 };
 
 /* -------------------------------------------------------------------------------

@@ -500,6 +500,12 @@ _reset_regparm (struct sym_link *ftype)
   _G.regparam.ftype = ftype;
   if (IFFUNC_ISZ88DK_FASTCALL (ftype) && IFFUNC_HASVARARGS (ftype))
     werror (E_Z88DK_FASTCALL_PARAMETERS);
+  /* The Dynamic C calling convention has the caller save IX as the frame
+     pointer; the i8080/i8085 have no index register, so the convention cannot
+     be honoured ABI-compatibly (it was a Rabbit/Z180-only convention). Reject
+     it rather than silently emitting a subtly-incompatible variant. */
+  if (IFFUNC_ISDYNAMICC (ftype) && IS_8080LIKE)
+    werror (E_DYNAMICC_UNSUPPORTED);
 }
 
 static int
