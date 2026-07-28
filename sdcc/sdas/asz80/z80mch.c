@@ -2171,6 +2171,12 @@ genop(int pop, int op, struct expr *esp, int f)
 int
 gixiy(int v)
 {
+	/* The 8080/8085 have no index registers; the DD/FD prefix does not exist.
+	 * Catch any instruction that would emit one (e.g. a stray "push ix") here,
+	 * the single choke point for the prefix, rather than silently assembling an
+	 * illegal opcode that a later 8085 disassembler/simulator misinterprets. */
+	if (IS_I8080_FAMILY && (v == IX || v == IY || v == S_IDIX || v == S_IDIY))
+		xerr('a', "8080/8085: No IX or IY.");
 	if (v == IX) {
 		v = HL;
 		outab(0xDD);
