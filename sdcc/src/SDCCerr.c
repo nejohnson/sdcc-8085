@@ -789,6 +789,8 @@ struct
      "qualifier on return type has no effect", 0},
   {E_DYNAMICC_UNSUPPORTED, ERROR_LEVEL_ERROR,
      "the __dynamicc calling convention is not supported on the i8080/i8085 (it requires an index register); it was a Rabbit/Z180-only convention", 0},
+  {E_SFR_BANKED_UNSUPPORTED, ERROR_LEVEL_ERROR,
+     "__banked __sfr (16-bit I/O addresses) is not supported on the i8080/i8085, which have an 8-bit I/O space only", 0},
 };
 
 /* -------------------------------------------------------------------------------

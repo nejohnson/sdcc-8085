@@ -2136,6 +2136,12 @@ aopForSym (const iCode *ic, symbol *sym, bool result, bool requires_a)
           aop->aopu.aop_dir = sym->rname;
           aop->size = getSize (sym->type);
           aop->banked = FUNC_REGBANK (sym->type);
+          /* __banked __sfr means a 16-bit I/O address. The 8080/8085 have an
+             8-bit I/O space only (and lack the Z80 addressing the banked access
+             relies on), so reject it at compile time rather than emitting an
+             illegal in/out (c). */
+          if (aop->banked && IS_8080LIKE && !regalloc_dry_run)
+            werror (E_SFR_BANKED_UNSUPPORTED);
           aop->bcInUse = isPairInUse (PAIR_BC, ic);
           /* emitDebug (";Z80 AOP_SFR for %s banked:%d bc:%d", sym->rname, FUNC_REGBANK (sym->type), aop->bcInUse); */
 
