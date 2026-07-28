@@ -422,6 +422,30 @@ EXCLUDE_ucez80 += ${EXCLUDE_ARCH_z80}
 EXCLUDE_i8085 += ${EXCLUDE_ARCH_z80}
 EXCLUDE_i8085-undoc += ${EXCLUDE_ARCH_z80}
 EXCLUDE_i8080 += ${EXCLUDE_ARCH_z80}
+
+# Tests that cannot complete on the i8080/i8085 for reasons inherent to the
+# target (not codegen bugs). See project-i8085-abnormal-stops notes.
+#  - dynamic*: the __dynamicc (Dynamic C) calling convention needs IX as a frame
+#    pointer; the 8080/8085 have no index register, so SDCC now rejects it
+#    (error 362) - these would otherwise fail to compile. Dynamic C was a
+#    Rabbit/Z180-only convention, out of scope here.
+#  - serpent/smallserpent/gcrypt-serpent: 34-50 KB of code overruns --data-loc
+#    0x8000 (only ~31.5 KB of code fits below data).
+#  - rabbit / arith-rand-ll: genuinely need >2e9 cycles at the simulated 1 MHz,
+#    exceeding the uCsim step budget.
+EXCLUDE_ARCH_i8080 = \
+	dynamic \
+	dynamiccstructret \
+	tst_dynamicc \
+	tst_dynamiccasmchk \
+	serpent \
+	smallserpent \
+	gcrypt-serpent \
+	tst_rabbit \
+	tst_gcc-torture-execute-arith-rand-ll
+EXCLUDE_i8085 += ${EXCLUDE_ARCH_i8080}
+EXCLUDE_i8085-undoc += ${EXCLUDE_ARCH_i8080}
+EXCLUDE_i8080 += ${EXCLUDE_ARCH_i8080}
 ###################################################
 EXCLUDE_stm8 += ${EXCLUDE_ARCH_stm8}
 EXCLUDE_stm8-large += ${EXCLUDE_ARCH_stm8}
