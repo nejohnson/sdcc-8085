@@ -11183,6 +11183,33 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
         }
     }
 
+  /* 8085 undocumented DSUB: HL = HL - BC in a single byte. Worth it for a
+     16-bit subtract when both operands are already in register pairs - there is
+     then no memory operand fighting for HL, and by costing this path cheaply
+     the register allocator is nudged into placing the operands in HL/BC where
+     the surrounding code allows. Only for the 8085 with undocumented
+     instructions enabled (never -mi8080, never plain -mi8085). */
+  if (!maskedtopbyte && IS_8085 && options.allow_undoc_inst && size == 2 &&
+    isPairDead (PAIR_HL, ic) && isPairDead (PAIR_BC, ic) &&
+    getPairId (left) != PAIR_INVALID && getPairId (right) != PAIR_INVALID)
+    {
+      if (!(aopInReg (left, 0, HL_IDX) && aopInReg (right, 0, BC_IDX)))
+        {
+          /* Stash right on the stack, move left into HL, then pop right into
+             BC. Both operands are register pairs, so this needs no memory
+             access and has no swap hazard for any pair assignment. */
+          _push (getPairId (right));
+          if (!aopInReg (left, 0, HL_IDX))
+            fetchPair (PAIR_HL, left);
+          _pop (PAIR_BC);
+        }
+      emit2 ("dsub");
+      cost2 (1, 1, 1, 1, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
+      spillPair (PAIR_HL);
+      genMove (IC_RESULT (ic)->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true);
+      return;
+    }
+
   /* 8080/8085: like the sm83 case above, a 16-bit subtraction where the right
      operand is in memory cannot use the byte loop below - with no index
      register the memory operand needs HL, and pointing HL at a stack operand
