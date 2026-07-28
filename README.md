@@ -5,9 +5,10 @@
 Real, honest-to-goodness **C for the Intel 8085 and 8080** — the 8-bit CPUs that predate the Z80 and helped launch the microcomputer age. This project teaches [SDCC](https://sdcc.sourceforge.net/) to target the `8085` and `8080` as first-class members of the Z80 family, complete with an optional unlockable stash of **undocumented instructions**. 🕹️✨
 
 <p>
-  <img alt="version" src="https://img.shields.io/badge/version-0.1.0%20%22Sojourner%22-blue">
+  <img alt="version" src="https://img.shields.io/badge/version-0.2.0%20%22Sojourner%22-blue">
   <img alt="targets" src="https://img.shields.io/badge/targets-i8085%20%7C%20i8080-orange">
-  <img alt="regression" src="https://img.shields.io/badge/i8085%20%2B%20i8080%20regression-100%25%20passing-brightgreen">
+  <img alt="regression" src="https://img.shields.io/badge/i8085%20%2B%20i8080%20regression-0%20failures%20%7C%200%20abnormal%20stops-brightgreen">
+  <img alt="undocumented" src="https://img.shields.io/badge/undocumented%20instructions-exploited-purple">
   <img alt="z80" src="https://img.shields.io/badge/z80%20backend-0%20regressions-brightgreen">
 </p>
 
@@ -18,20 +19,22 @@ Real, honest-to-goodness **C for the Intel 8085 and 8080** — the 8-bit CPUs th
 The 8085 has **no index registers, no relative jumps, no alternate register set, and none of the Z80's CB/ED instruction groups** — just `DAD` for 16-bit math and a handful of accumulator rotates. Getting a modern optimizing C compiler to produce **correct, working code** on a CPU this spare is a genuinely fun engineering problem, and it's done here by *gating* SDCC's battle-tested Z80 backend down to the 8080/8085 subset rather than writing a new compiler from scratch.
 
 - 🎯 **Two targets:** `-mi8085` (8085 + documented set) and `-mi8080` (the strict 8080 baseline).
-- ✅ **Rock-solid:** the **entire SDCC regression suite passes for both `-mi8085` and `-mi8080` with zero failures** — value, compile, *and* link.
+- ✅ **Rock-solid:** the **entire SDCC regression suite passes for both `-mi8085` and `-mi8080` — 0 failures *and* 0 abnormal stops** (value, compile, link, *and* run-to-completion).
 - 🛡️ **Good neighbour:** the shared Z80 backend stays at **0 regressions** — verified from clean trees.
 - 🧪 **Fully simulated:** cycle-accurate testing on the bundled `ucsim_i8085` simulator.
-- 🔓 **Undocumented goodies:** an opt-in flag unlocks the 8085's secret instructions and flags (see below).
+- 🔓 **Undocumented goodies — now put to work:** the code generator actively *emits* the 8085's secret instructions for measurably smaller, faster code (opt-in, see below).
 
 ---
 
 ## 🪐 About the name — "Sojourner"
 
-The `v0.1.0` release is codenamed **Sojourner**, and the story is too good not to tell. 🌌
+These releases are codenamed **Sojourner**, and the story is too good not to tell. 🌌
 
 When NASA's **Mars Pathfinder** touched down on the Red Planet on **July 4, 1997**, it delivered the first-ever robotic rover to another world: **Sojourner**. The little six-wheeled explorer that rolled down the ramp and trundled across Ares Vallis was driven by a **radiation-hardened Intel 80C85** — a CMOS 8085, clocked at a whisper-quiet ~2 MHz.
 
-So the very same instruction set this compiler targets **literally took humanity's first drive on Mars.** 🔴🤖 For a project's first steps, there was no better name.
+So the very same instruction set this compiler targets **literally took humanity's first drive on Mars.** 🔴🤖 There was no better name.
+
+`v0.2.0` continues under Sojourner: with the undocumented instructions now exploited, we're still *coming in to land* — documentation was the final descent. 🛬
 
 > 📖 Read the mission story straight from NASA: **[NASA — Mars Pathfinder](https://science.nasa.gov/mission/mars-pathfinder/)**
 
@@ -66,7 +69,7 @@ The toolchain reuses SDCC's `sdasz80` assembler and `sdldz80` linker (emitting a
 | 🔗 **Linker** — `sdldz80` | ✅ |
 | 📚 **Runtime library** — mul/div/shift/mem/atomics ported to the subset | ✅ |
 | 🖥️ **Simulator** — `ucsim_i8085` for regression testing | ✅ |
-| 🧾 **Documentation & ChangeLog** | 🔜 |
+| 🧾 **Documentation & ChangeLog** — `sdccman` port section + entry | ✅ |
 
 ---
 
@@ -86,14 +89,17 @@ The 8085 shipped with **ten undocumented instructions and two undocumented flags
 
 …plus the **V (overflow)** and **K/X5** flags — a real gift on a CPU that otherwise makes signed comparisons awkward.
 
+As of **v0.2.0**, the code generator actively emits **`DSUB`, `ARHL`, `RDEL`, `LDHI`+`LHLX`, `LDSI`, `LHLX`/`SHLX`** wherever they pay off — 16-bit member loads, signed shifts, wide shifts, and `DE` as a second data pointer — with measurable code-size savings across the regression suite. The V/K flags are hardware-accurate in the simulator. (`RSTV` is a software-interrupt with no general compiler use; `JX5`/`JNX5` are assembler- and simulator-supported but left out of code generation.)
+
 ---
 
 ## 🗺️ Roadmap
 
 - [x] 🏗️ Port registration, assembler, linker, runtime library
 - [x] 🎯 Documented-only code generation — full regression sweep green
-- [ ] 🔓 Exploit the undocumented instructions & flags for tighter code
-- [ ] 📚 User documentation & ChangeLog
+- [x] 🔓 Exploit the undocumented instructions & flags for tighter code — **v0.2.0**
+- [x] 📚 User documentation & ChangeLog
+- [ ] 🛬 Touchdown — a `1.0` release (and, perhaps, upstreaming)
 
 ---
 
