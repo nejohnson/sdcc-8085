@@ -11938,9 +11938,19 @@ genEor (const iCode *ic, iCode *ifx, asmop *result_aop, asmop *left_aop, asmop *
                   pushed_a = false;
               }
             genMove_o (result_aop, i, left_aop, i, end - i, a_free, hl_free, !isPairInUse (PAIR_DE, ic), true, true);
-            if (result_aop->type == AOP_REG &&
-              (left_aop->regs[result_aop->aopu.aop_reg[i]->rIdx] >= end || right_aop->regs[result_aop->aopu.aop_reg[i]->rIdx] >= end))
-              UNIMPLEMENTED;
+            /* The move above writes a result register for every byte in [i, end).
+               If any of those registers still holds an operand byte needed at a
+               later byte (>= end) it is clobbered before use - not just the first
+               byte's register. Seen in blake2s: a rotate-by-8 lowered to
+               (x>>8)^(x<<24) put the wrapped byte in e, and copying the zero-run
+               wrote result byte 2 into e before byte 3 read it. */
+            if (result_aop->type == AOP_REG)
+              for (int j = i; j < end; j++)
+                if (left_aop->regs[result_aop->aopu.aop_reg[j]->rIdx] >= end || right_aop->regs[result_aop->aopu.aop_reg[j]->rIdx] >= end)
+                  {
+                    UNIMPLEMENTED;
+                    break;
+                  }
             if (result_aop->regs[A_IDX] >= i && result_aop->regs[A_IDX] < end)
               a_free = false;
             i = end;
