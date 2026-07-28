@@ -18302,6 +18302,37 @@ genPointerGet (const iCode *ic)
 
   extrapair = isPairDead (PAIR_DE, ic) ? PAIR_DE : PAIR_BC;
 
+  /* 8085 undocumented LDHI + LHLX: read a 16-bit value from *(base + off) with a
+     small positive constant offset (1..255) into HL. LDHI computes DE = HL + off
+     in one two-byte instruction and LHLX loads HL = (DE) in one byte, replacing
+     the usual "ld hl,#off; add hl,ss" pointer arithmetic plus the two-byte (hl)
+     read (the struct/array member-access idiom, e.g. return p->x). LDHI is
+     HL-relative, so the base must be in HL: accept it already in HL, or in DE via
+     a one-byte XCHG. Both instructions clobber DE, and HL is overwritten with the
+     base and then the result, so both pairs must be free here (which also means
+     the setup block below would emit no push/pop we need to unwind). Placed
+     before that setup block so rightval still carries the member offset. */
+  if (IS_8085 && options.allow_undoc_inst && !bit_field && !from_far && size == 2 &&
+      rightval >= 1 && rightval <= 255 &&
+      isPairDead (PAIR_HL, ic) && isPairDead (PAIR_DE, ic) &&
+      (getPairId (left->aop) == PAIR_HL || getPairId (left->aop) == PAIR_DE))
+    {
+      if (getPairId (left->aop) == PAIR_DE)
+        {
+          emit2 ("ex de, hl");   /* base DE -> HL; old HL (dead) -> DE (scratch) */
+          cost2 (1, 1, 1, 1, 4, 3, 2, 2, 5, 4, 1, 1, 1, 1, 1);
+        }
+      /* else base already in HL - nothing to do */
+      emit2 ("ldhi !immedbyte", (unsigned) rightval);
+      cost2 (2, 2, 2, 2, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
+      emit2 ("lhlx");
+      cost2 (1, 1, 1, 1, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
+      spillPair (PAIR_HL);
+      spillPair (PAIR_DE);
+      genMove (result->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, true, isRegDead (IY_IDX, ic));
+      goto release;
+    }
+
   if (!surviving_a && (getPairId (left->aop) == PAIR_BC || getPairId (left->aop) == PAIR_DE) && isPairDead (getPairId (left->aop), ic) && abs(rightval) <= 2 && !bit_field && size < 2) // Use inc ss (size < 2 condition to avoid overwriting pair with result)
     pair = getPairId (left->aop);
 
