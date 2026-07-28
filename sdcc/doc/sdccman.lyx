@@ -329,7 +329,8 @@ Z80,
 \end_inset
 
 ),
- STMicroelectronics STM8 
+ the Intel 8080 and 8085,
+ STMicroelectronics STM8
 \begin_inset Index idx
 range none
 pageformat default
@@ -25173,7 +25174,13 @@ D3 78
 \begin_inset space ~
 \end_inset
 
-out (_IoPort),a 
+out (_IoPort),a
+\end_layout
+
+\begin_layout Standard
+The 8-bit __sfr form is also supported on the Intel 8080 and 8085,
+ which have the same 8-bit port I/O,
+ accessed with the documented IN and OUT instructions.
 \end_layout
 
 \begin_layout Subsubsection
@@ -25340,7 +25347,14 @@ ED 79
 \begin_inset space ~
 \end_inset
 
-out (c),a 
+out (c),a
+\end_layout
+
+\begin_layout Standard
+__banked (16-bit I/O) is available only on the Z80,
+ Z180 and eZ80.
+ The Intel 8080 and 8085 have an 8-bit I/O space only,
+ so __banked __sfr is not supported on those targets.
 \end_layout
 
 \begin_layout Subsubsection
@@ -30145,6 +30159,16 @@ Interrupt handler cannot be interrupted by further interrupts
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+On the Intel 8080 and 8085,
+ which have neither RETI nor RETN (both are Z80 instructions),
+ an interrupt service routine written with __interrupt returns with a plain RET,
+ preceded by EI to re-enable interrupts.
+ As on the Z80,
+ SDCC does not generate an interrupt vector table;
+ the handler must be reached through the target's own vectors (for example the 8085 RST and TRAP vectors).
 \end_layout
 
 \begin_layout Subsection
