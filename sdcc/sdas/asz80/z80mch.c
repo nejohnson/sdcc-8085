@@ -1466,6 +1466,12 @@ machine(struct mne *mp)
                          * out  (c),r   [out  (bc),r]
                          */
 			if (t2 == S_IDC) {
+				/* The register-indirect (c) form is an ED-prefix
+				 * Z80 instruction; the 8080/8085 have only the
+				 * 8-bit immediate-port in/out (D3/DB). Reject it
+				 * rather than emitting an illegal ED opcode. */
+				if (IS_I8080_FAMILY)
+					xerr('o', "Not an 8080/8085 instruction (in/out (c) is Z80-only; 8080/8085 have 8-bit port I/O only).");
 				outab(0xED);
 				outab(((rf == S_IN) ? 0x40 : 0x41) + (v1<<3));
 				break;
