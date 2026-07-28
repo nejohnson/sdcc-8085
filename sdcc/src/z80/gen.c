@@ -15419,6 +15419,17 @@ emitRsh2 (asmop * aop, int size, int is_signed)
      carry = bit 7 while leaving A unchanged (and needs no scratch register). */
   if (IS_8080LIKE)
     {
+      /* 8085 undocumented ARHL: HL = HL >> 1 arithmetic (sign preserved, bit 0
+         into carry) in a single byte, replacing the per-byte rlca/rrca/rra
+         synthesis for a signed 16-bit shift whose value is in HL. Costing this
+         cheaply also nudges the allocator to keep such shifts in HL. */
+      if (IS_8085 && options.allow_undoc_inst && is_signed && size == 2 &&
+          aopInReg (aop, 0, L_IDX) && aopInReg (aop, 1, H_IDX))
+        {
+          emit2 ("arhl");
+          cost2 (1, 1, 1, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7);
+          return;
+        }
       for (int off = size - 1; off >= 0; off--)
         {
           bool inA = aopInReg (aop, off, A_IDX);
@@ -15553,6 +15564,23 @@ shiftR2Left2Result (const iCode *ic, operand *left, int offl, operand *result, i
   /* 8080/8085: no CB shifts. Move into place and shift byte-wise via rra. */
   if (IS_8080LIKE)
     {
+      /* 8085 undocumented ARHL: a signed 16-bit right shift is one byte per
+         step (HL = HL >> 1 arithmetic) when done in HL. Do the shift in HL and
+         move the result out, replacing the ~8-instruction rlca/rrca/rra
+         synthesis per step. Fires whenever HL is free to use (or is itself the
+         result), which is the common case; otherwise fall through. */
+      if (IS_8085 && options.allow_undoc_inst && is_signed && shCount > 0 &&
+          (isPairDead (PAIR_HL, ic) || aopInReg (result->aop, offr, HL_IDX)))
+        {
+          genMove_o (ASMOP_HL, 0, left->aop, offl, 2, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true, true);
+          while (shCount-- > 0)
+            {
+              emit2 ("arhl");
+              cost2 (1, 1, 1, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7);
+            }
+          genMove_o (result->aop, offr, ASMOP_HL, 0, 2, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true, true);
+          return;
+        }
       if (result->aop != left->aop || offr != offl)
         genMove_o (result->aop, offr, left->aop, offl, 2, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true, true);
       /* emitRsh2 routes bytes that are not already in A through A; if A holds a
