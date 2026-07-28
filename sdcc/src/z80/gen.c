@@ -11210,6 +11210,70 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
       return;
     }
 
+  /* 8080/8085: a size-4 subtraction with one operand in a register pair and the
+     other in memory, into a memory result - the genPlus register-operand case,
+     for subtraction. The generic byte loop repurposes DE as the result pointer
+     and then reads the register operand's high bytes from the now-clobbered D/E
+     (seen in 950607-2: `p1.p_x - b.p_x` with the minuend in [c b e d], feeding a
+     garbage high word into __mulslong2slonglong). Spill the register operand to
+     a stack temp so both sources are in memory, use the carry-safe three-pointer
+     walk, then - if the register operand is still needed - reload it from the
+     temp (it is a source, unchanged by the subtraction). Restricted to a
+     register operand avoiding H/L, i.e. B,C,D,E, so BC and DE are free as
+     pointers. */
+  if (!maskedtopbyte && IS_8080LIKE && size == 4 &&
+    requiresHL (result) && result->type != AOP_REG &&
+    ((left->type == AOP_REG && left->regs[L_IDX] < 0 && left->regs[H_IDX] < 0 && requiresHL (right) && right->type != AOP_REG) ||
+     (right->type == AOP_REG && right->regs[L_IDX] < 0 && right->regs[H_IDX] < 0 && requiresHL (left) && left->type != AOP_REG)))
+    {
+      struct asmop optmp;
+      asmop *lop = left, *rop = right;
+      asmop *regop = (left->type == AOP_REG) ? left : right;
+      bool regop_live = !(isPairDead (PAIR_BC, ic) && isPairDead (PAIR_DE, ic));
+      adjustStack (-size, false, false, false, false, false);   /* alloc temp */
+      init_stackop (&optmp, size, -(_G.stack.pushed + _G.stack.offset));
+      for (int i = 0; i < size; i++)
+        cheapMove (&optmp, i, regop, i, true);
+      if (left->type == AOP_REG)
+        lop = &optmp;
+      else
+        rop = &optmp;
+      spillPair (PAIR_HL);
+      pointPairToAop (PAIR_HL, result, 0);   /* BC = &result via HL */
+      emit3 (A_LD, ASMOP_C, ASMOP_L);
+      emit3 (A_LD, ASMOP_B, ASMOP_H);
+      spillPair (PAIR_HL);
+      pointPairToAop (PAIR_DE, lop, 0);   /* DE = &left  */
+      spillPair (PAIR_HL);
+      pointPairToAop (PAIR_HL, rop, 0);   /* HL = &right */
+      for (int i = 0; i < size; i++)
+        {
+          emit2 ("ld a, !mems", "de");
+          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
+          emit2 ("%s a, !*hl", i ? "sbc" : "sub");
+          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 3, 3, 2, 2);
+          emit2 ("ld !mems, a", "bc");
+          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
+          if (i + 1 < size)
+            {
+              emit3w (A_INC, ASMOP_DE, 0);
+              emit3w (A_INC, ASMOP_HL, 0);
+              emit3w (A_INC, ASMOP_BC, 0);
+            }
+        }
+      spillPair (PAIR_HL);
+      spillPair (PAIR_DE);
+      spillPair (PAIR_BC);
+      if (regop_live)
+        {
+          spillPair (PAIR_HL);
+          for (int i = 0; i < size; i++)
+            cheapMove (regop, i, &optmp, i, true);
+        }
+      adjustStack (size, false, false, false, false, false);   /* free temp */
+      return;
+    }
+
   /* 8080/8085: subtraction of two memory operands (any width, including a
      single byte). Walk three pointers - DE=left, HL=right, BC=result - with
      ld a,(de) / sub-or-sbc a,(hl) / ld (bc),a and inc de/hl/bc. Only the
