@@ -16913,6 +16913,18 @@ genLeftShift (const iCode *ic)
           started = true;
           size -= 2, offset += 2;
         }
+      else if (IS_8085 && options.allow_undoc_inst && size >= 2 && offset + 1 >= byteshift && started &&
+        aopInReg (shiftop, offset, E_IDX) && aopInReg (shiftop, offset + 1, D_IDX))
+        {
+          /* 8085 undocumented RDEL: rotate DE left through carry in one byte -
+             the 16-bit "adc de, de" that the 8080/8085 otherwise lack. Used for a
+             carry-in 16-bit chunk of a wider left shift held in DE, replacing the
+             six-instruction accumulator dance (ld a,e; rla; ld e,a; ld a,d; ...). */
+          emit2 ("rdel");
+          cost2 (1, 1, 1, 1, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
+          started = true;
+          size -= 2, offset += 2;
+        }
       else if (size >= 2 && offset + 1 >= byteshift &&
         shiftop->type == AOP_STK &&
         (IS_RAB || IS_EZ80) &&
