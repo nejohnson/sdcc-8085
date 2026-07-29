@@ -5,7 +5,7 @@
 Real, honest-to-goodness **C for the Intel 8085 and 8080** — the 8-bit CPUs that predate the Z80 and helped launch the microcomputer age. This project teaches [SDCC](https://sdcc.sourceforge.net/) to target the `8085` and `8080` as first-class members of the Z80 family, complete with an optional unlockable stash of **undocumented instructions**. 🕹️✨
 
 <p>
-  <img alt="version" src="https://img.shields.io/badge/version-0.2.0%20%22Sojourner%22-blue">
+  <img alt="version" src="https://img.shields.io/badge/version-1.0.0%20%22Ares%20Vallis%22-blue">
   <img alt="targets" src="https://img.shields.io/badge/targets-i8085%20%7C%20i8080-orange">
   <img alt="regression" src="https://img.shields.io/badge/i8085%20%2B%20i8080%20regression-0%20failures%20%7C%200%20abnormal%20stops-brightgreen">
   <img alt="undocumented" src="https://img.shields.io/badge/undocumented%20instructions-exploited-purple">
@@ -28,13 +28,13 @@ The 8085 has **no index registers, no relative jumps, no alternate register set,
 
 ## 🪐 About the name — "Sojourner"
 
-These releases are codenamed **Sojourner**, and the story is too good not to tell. 🌌
+The release names come from NASA's **Mars Pathfinder** mission, and the story is too good not to tell. 🌌
 
 When NASA's **Mars Pathfinder** touched down on the Red Planet on **July 4, 1997**, it delivered the first-ever robotic rover to another world: **Sojourner**. The little six-wheeled explorer that rolled down the ramp and trundled across Ares Vallis was driven by a **radiation-hardened Intel 80C85** — a CMOS 8085, clocked at a whisper-quiet ~2 MHz.
 
 So the very same instruction set this compiler targets **literally took humanity's first drive on Mars.** 🔴🤖 There was no better name.
 
-`v0.2.0` continues under Sojourner: with the undocumented instructions now exploited, we're still *coming in to land* — documentation was the final descent. 🛬
+The pre-1.0 releases were codenamed **Sojourner** — the journey. And now we've landed: **`v1.0.0` "Ares Vallis"**, named for the very channel Sojourner rolled into, marks touchdown. 🛬🔴 Both `-mi8085` and `-mi8080` pass the full regression suite (0 failures, 0 abnormal stops), the undocumented instructions are exploited for measurably tighter code, the manual is written, and the port is ready for real-hardware bring-up.
 
 > 📖 Read the mission story straight from NASA: **[NASA — Mars Pathfinder](https://science.nasa.gov/mission/mars-pathfinder/)**
 
@@ -99,7 +99,8 @@ As of **v0.2.0**, the code generator actively emits **`DSUB`, `ARHL`, `RDEL`, `L
 - [x] 🎯 Documented-only code generation — full regression sweep green
 - [x] 🔓 Exploit the undocumented instructions & flags for tighter code — **v0.2.0**
 - [x] 📚 User documentation & ChangeLog
-- [ ] 🛬 Touchdown — a `1.0` release (and, perhaps, upstreaming)
+- [x] 🛬 Touchdown — **v1.0.0 "Ares Vallis"**
+- [ ] 🔴 Real-hardware bring-up (a separate project) — and, perhaps, upstreaming
 
 ---
 
