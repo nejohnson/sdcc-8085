@@ -50,100 +50,17 @@
 #define OPTION_SMALL_MODEL      "--model-small"
 #define OPTION_MEDIUM_MODEL     "--model-medium"
 
+/* Only the plain z80 peephole ruleset is used by i8080/i8085; the
+   sm83/r2k/tlcs90/ez80/z80n variants from the shared z80/main.c are not
+   reachable here since only i8080_port/i8085_port exist in this file. */
 static char _z80_defaultRules[] = {
 #include "peeph.rul"
 #include "peeph-z80.rul"
 };
 
-static char _r2k_defaultRules[] = {
-#include "peeph.rul"
-#include "peeph-r2k.rul"
-};
-
-static char _tlcs90_defaultRules[] = {
-#include "peeph.rul"
-#include "peeph-tlcs90.rul"
-};
-
-static char _sm83_defaultRules[] = {
-#include "peeph-sm83.rul"
-#include "peeph.rul"
-};
-
-static char _ez80_defaultRules[] = {
-#include "peeph.rul"
-#include "peeph-z80.rul"
-#include "peeph-ez80.rul"
-};
-
-static char _z80n_defaultRules[] = {
-#include "peeph.rul"
-#include "peeph-z80.rul"
-#include "peeph-z80n.rul"
-};
-
-
 /* z80_opts is defined once in src/z80/main.c and shared across all
    z80-family ports (including i8080/i8085) via the extern declaration
    already in z80.h; only one definition may exist link-wide. */
-
-static OPTION _z80_like_options[] = {
-  {0, OPTION_CALLEE_SAVES_BC, &z80_opts.calleeSavesBC, "Force a called function to always save BC"},
-  {0, OPTION_PORTMODE,        NULL, "Determine PORT I/O mode (z80/z180)"},
-  {0, OPTION_BO,              NULL, "<num> use code bank <num>"},
-  {0, OPTION_BA,              NULL, "<num> use data bank <num>"},
-  {0, OPTION_ASM,             NULL, "Define assembler name (rgbds/asxxxx/isas/z80asm/gas)"},
-  {0, OPTION_CODE_SEG,        &options.code_seg, "<name> use this name for the code segment", CLAT_STRING},
-  {0, OPTION_CONST_SEG,       &options.const_seg, "<name> use this name for the const segment", CLAT_STRING},
-  {0, OPTION_DATA_SEG,        &options.data_seg, "<name> use this name for the data segment", CLAT_STRING},
-  {0, OPTION_NO_STD_CRT0,     &options.no_std_crt0, "Do not link default crt0.rel"},
-  {0, OPTION_RESERVE_IY,      &z80_opts.reserveIY, "Do not use IY (incompatible with --fomit-frame-pointer)"},
-  {0, OPTION_FRAMEPOINTER,    &z80_opts.noOmitFramePtr, "Do not omit frame pointer"},
-  {0, OPTION_EMIT_EXTERNS,    NULL, "Emit externs list in generated asm"},
-  {0, OPTION_LEGACY_BANKING,  &z80_opts.legacyBanking, "Use legacy method to call banked functions"},
-  {0, OPTION_NMOS_Z80,        &z80_opts.nmosZ80, "Generate workaround for NMOS Z80 when saving IFF2"},
-  {0, OPTION_SDCCCALL,        &options.sdcccall, "Set ABI version for default calling convention", CLAT_INTEGER},
-  {0, NULL}
-};
-
-static OPTION _z80_options[] = {
-  {0, OPTION_CALLEE_SAVES_BC, &z80_opts.calleeSavesBC, "Force a called function to always save BC"},
-  {0, OPTION_PORTMODE,        NULL, "Determine PORT I/O mode (z80/z180)"},
-  {0, OPTION_BO,              NULL, "<num> use code bank <num>"},
-  {0, OPTION_BA,              NULL, "<num> use data bank <num>"},
-  {0, OPTION_ASM,             NULL, "Define assembler name (rgbds/asxxxx/isas/z80asm/gas)"},
-  {0, OPTION_CODE_SEG,        &options.code_seg, "<name> use this name for the code segment", CLAT_STRING},
-  {0, OPTION_CONST_SEG,       &options.const_seg, "<name> use this name for the const segment", CLAT_STRING},
-  {0, OPTION_DATA_SEG,        &options.data_seg, "<name> use this name for the data segment", CLAT_STRING},
-  {0, OPTION_NO_STD_CRT0,     &options.no_std_crt0, "Do not link default crt0.rel"},
-  {0, OPTION_RESERVE_IY,      &z80_opts.reserveIY, "Do not use IY (incompatible with --fomit-frame-pointer)"},
-  {0, OPTION_FRAMEPOINTER,    &z80_opts.noOmitFramePtr, "Do not omit frame pointer"},
-  {0, OPTION_EMIT_EXTERNS,    NULL, "Emit externs list in generated asm"},
-  {0, OPTION_LEGACY_BANKING,  &z80_opts.legacyBanking, "Use legacy method to call banked functions"},
-  {0, OPTION_NMOS_Z80,        &z80_opts.nmosZ80, "Generate workaround for NMOS Z80 when saving IFF2"},
-  {0, OPTION_SDCCCALL,        &options.sdcccall, "Set ABI version for default calling convention", CLAT_INTEGER},
-  {0, OPTION_ALLOW_UNDOC_INST,&options.allow_undoc_inst, "Allow use of undocumented instructions"},
-  {0, NULL}
-};
-
-static OPTION _rab_options[] = {
-  {0, OPTION_CALLEE_SAVES_BC, &z80_opts.calleeSavesBC, "Force a called function to always save BC"},
-  {0, OPTION_BO,              NULL, "<num> use code bank <num>"},
-  {0, OPTION_BA,              NULL, "<num> use data bank <num>"},
-  {0, OPTION_ASM,             NULL, "Define assembler name (rgbds/asxxxx/isas/z80asm/gas)"},
-  {0, OPTION_CODE_SEG,        &options.code_seg, "<name> use this name for the code segment", CLAT_STRING},
-  {0, OPTION_CONST_SEG,       &options.const_seg, "<name> use this name for the const segment", CLAT_STRING},
-  {0, OPTION_DATA_SEG,        &options.data_seg, "<name> use this name for the data segment", CLAT_STRING},
-  {0, OPTION_NO_STD_CRT0,     &options.no_std_crt0, "Do not link default crt0.rel"},
-  {0, OPTION_RESERVE_IY,      &z80_opts.reserveIY, "Do not use IY (incompatible with --fomit-frame-pointer)"},
-  {0, OPTION_FRAMEPOINTER,    &z80_opts.noOmitFramePtr, "Do not omit frame pointer"},
-  {0, OPTION_EMIT_EXTERNS,    NULL, "Emit externs list in generated asm"},
-  {0, OPTION_LEGACY_BANKING,  &z80_opts.legacyBanking, "Use legacy method to call banked functions"},
-  {0, OPTION_SDCCCALL,        &options.sdcccall, "Set ABI version for default calling convention", CLAT_INTEGER},
-  {0, OPTION_SMALL_MODEL,     NULL, "16-bit address space for both data and code (default)"},
-  {0, OPTION_MEDIUM_MODEL,    NULL, "16-bit address space for data, 24-bit for code"},
-  {0, NULL}
-};
 
 static OPTION _i8080_options[] = {
   {0, OPTION_CALLEE_SAVES_BC, &z80_opts.calleeSavesBC, "Force a called function to always save BC"},
@@ -169,20 +86,6 @@ static OPTION _i8085_options[] = {
   {0, OPTION_EMIT_EXTERNS,    NULL, "Emit externs list in generated asm"},
   {0, OPTION_SDCCCALL,        &options.sdcccall, "Set ABI version for default calling convention", CLAT_INTEGER},
   {0, OPTION_ALLOW_UNDOC_INST,&options.allow_undoc_inst, "Allow use of undocumented 8085 instructions and flags"},
-  {0, NULL}
-};
-
-static OPTION _sm83_options[] = {
-  {0, OPTION_BO,              NULL, "<num> use code bank <num>"},
-  {0, OPTION_BA,              NULL, "<num> use data bank <num>"},
-  {0, OPTION_ASM,             NULL, "Define assembler name (rgbds/asxxxx/isas/z80asm/gas)"},
-  {0, OPTION_CALLEE_SAVES_BC, &z80_opts.calleeSavesBC, "Force a called function to always save BC"},
-  {0, OPTION_CODE_SEG,        &options.code_seg, "<name> use this name for the code segment", CLAT_STRING},
-  {0, OPTION_CONST_SEG,       &options.const_seg, "<name> use this name for the const segment", CLAT_STRING},
-  {0, OPTION_DATA_SEG,        &options.data_seg, "<name> use this name for the data segment", CLAT_STRING},
-  {0, OPTION_NO_STD_CRT0,     &options.no_std_crt0, "Do not link default crt0.rel"},
-  {0, OPTION_LEGACY_BANKING,  &z80_opts.legacyBanking, "Use legacy method to call banked functions"},
-  {0, OPTION_SDCCCALL,        &options.sdcccall, "Set ABI version for default calling convention", CLAT_INTEGER},
   {0, NULL}
 };
 
@@ -226,84 +129,14 @@ static char *_keywords[] = {
   NULL
 };
 
-static char *_keywordsez80[] = {
-  "sfr",
-  "nonbanked",
-  "banked",
-  "at",
-  "_naked",
-  "critical",
-  "interrupt",
-  "z88dk_fastcall",
-  "z88dk_callee",
-  "smallc",
-  "dynamicc",
-  "z88dk_shortcall",
-  "z88dk_params_offset",
-  "far",
-  "xdata",
-  NULL
-};
-
-static char *_keywordsrab[] = {
-  "sfr",
-  "nonbanked",
-  "banked",
-  "at",
-  "_naked",
-  "critical",
-  "interrupt",
-  "z88dk_fastcall",
-  "z88dk_callee",
-  "smallc",
-  "dynamicc",
-  "z88dk_shortcall",
-  "z88dk_params_offset",
-  "far",
-  "xdata",
-  NULL
-};
-
-static char *_keywordsgb[] = {
-  "sfr",
-  "nonbanked",
-  "banked",
-  "at",
-  "_naked",
-  "critical",
-  "interrupt",
-  "z88dk_callee",
-  "smallc",
-  "dynamicc",
-  NULL
-};
-
-static char *_keywordstlcs90[] = {
-  "nonbanked",
-  "banked",
-  "at",
-  "_naked",
-  "critical",
-  "interrupt",
-  "z88dk_fastcall",
-  "z88dk_callee",
-  "smallc",
-  "dynamicc",
-  "far",
-  "xdata",
-  NULL
-};
-
-extern PORT z80_port;
-extern PORT r2k_port;
 extern PORT sm83_port;
 
 /* The ASM_MAPPINGS tables in mappings.i are defined once in
    src/z80/main.c (which #includes mappings.i); i8080/i8085 share them
    via extern rather than re-including the file, to avoid duplicate
    definitions when both port.a archives link into the same sdcc binary. */
-extern const ASM_MAPPINGS _isas_gb, _rgbds_gb, _asxxxx_gb, _asxxxx_z80,
-                           _z80asm_z80, _asxxxx_r2k, _gas_gb, _gas_z80;
+extern const ASM_MAPPINGS _isas_gb, _rgbds_gb, _asxxxx_z80,
+                           _z80asm_z80, _gas_z80;
 
 // Dont have size_t here, so we just use unsigned int, which is size_t for these ports.
 static const char z80_builtins[] =
@@ -320,165 +153,9 @@ static const char z80_builtins_c90[] =
   "extern char *__builtin_strchr (const char *s, char c) __builtin__;\n"
   "extern void *__builtin_memset (void *s, int c, unsigned int n) __builtin__;\n";
 
-extern reg_info sm83_regs[];
 extern reg_info i8080_regs[];
-extern reg_info z80_regs[];
-extern reg_info r4k_regs[];
 extern void z80_init_asmops (void);
 extern reg_info *regsZ80;
-
-static void
-_z80_init (void)
-{
-  z80_opts.sub = SUB_Z80;
-  switch (_G.asmType)
-    {
-    case ASM_TYPE_GAS:
-      asm_addTree (&_gas_z80);
-      break;
-    default:
-      asm_addTree (&_asxxxx_z80);
-      break;
-    }
-
-  regsZ80 = z80_regs;
-  z80_init_asmops ();
-}
-
-static void
-_z180_init (void)
-{
-  z80_opts.sub = SUB_Z180;
-  switch (_G.asmType)
-    {
-    case ASM_TYPE_GAS:
-      asm_addTree (&_gas_z80);
-      break;
-    default:
-      asm_addTree (&_asxxxx_z80);
-      break;
-    }
-
-  regsZ80 = z80_regs;
-  z80_init_asmops ();
-}
-
-static void
-_r2k_init (void)
-{
-  z80_opts.sub = SUB_R2K;
-  asm_addTree (&_asxxxx_r2k);
-
-  regsZ80 = z80_regs;
-  z80_init_asmops ();
-}
-
-static void
-_r2ka_init (void)
-{
-  z80_opts.sub = SUB_R2KA;
-  asm_addTree (&_asxxxx_r2k);
-
-  regsZ80 = z80_regs;
-  z80_init_asmops ();
-}
-
-static void
-_r3ka_init (void)
-{
-  z80_opts.sub = SUB_R3KA;
-  asm_addTree (&_asxxxx_r2k);
-
-  regsZ80 = z80_regs;
-  z80_init_asmops ();
-}
-
-static void
-_r4k_init (void)
-{
-  z80_opts.sub = SUB_R4K;
-  asm_addTree (&_asxxxx_r2k);
-
-  regsZ80 = r4k_regs;
-  z80_init_asmops ();
-}
-
-static void
-_r5k_init (void)
-{
-  z80_opts.sub = SUB_R5K;
-  asm_addTree (&_asxxxx_r2k);
-
-  regsZ80 = r4k_regs;
-  z80_init_asmops ();
-}
-
-static void
-_r6k_init (void)
-{
-  z80_opts.sub = SUB_R6K;
-  asm_addTree (&_asxxxx_r2k);
-
-  regsZ80 = r4k_regs;
-  z80_init_asmops ();
-}
-
-static void
-_sm83_init (void)
-{
-  z80_opts.sub = SUB_SM83;
-
-  regsZ80 = sm83_regs;
-  z80_init_asmops ();
-}
-
-static void
-_tlcs90_init (void)
-{
-  z80_opts.sub = SUB_TLCS90;
-  asm_addTree (&_asxxxx_z80);
-
-  regsZ80 = z80_regs;
-  z80_init_asmops ();
-}
-
-static void
-_ez80_init (void)
-{
-  z80_opts.sub = SUB_EZ80;
-  switch (_G.asmType)
-    {
-    case ASM_TYPE_GAS:
-      asm_addTree (&_gas_z80);
-      break;
-    default:
-      asm_addTree (&_asxxxx_z80);
-      break;
-    }
-
-  regsZ80 = z80_regs;
-  z80_init_asmops ();
-}
-
-static void
-_z80n_init (void)
-{
-  z80_opts.sub = SUB_Z80N;
-  asm_addTree (&_asxxxx_z80);
-
-  regsZ80 = z80_regs;
-  z80_init_asmops ();
-}
-
-static void
-_r800_init (void)
-{
-  z80_opts.sub = SUB_R800;
-  asm_addTree (&_asxxxx_z80);
-
-  regsZ80 = z80_regs;
-  z80_init_asmops ();
-}
 
 static void
 _i8080_init (void)
@@ -510,8 +187,10 @@ _reset_regparm (struct sym_link *ftype)
   /* The Dynamic C calling convention has the caller save IX as the frame
      pointer; the i8080/i8085 have no index register, so the convention cannot
      be honoured ABI-compatibly (it was a Rabbit/Z180-only convention). Reject
-     it rather than silently emitting a subtly-incompatible variant. */
-  if (IFFUNC_ISDYNAMICC (ftype) && IS_8080LIKE)
+     it rather than silently emitting a subtly-incompatible variant.
+     IS_8080LIKE is unconditionally true in this file (only i8080_port/
+     i8085_port run this code), so the check always fires for __dynamicc. */
+  if (IFFUNC_ISDYNAMICC (ftype))
     werror (E_DYNAMICC_UNSUPPORTED);
 }
 
@@ -775,47 +454,10 @@ _parseOptions (int *pargc, char **argv, int *i)
 {
   if (argv[*i][0] == '-')
     {
-      if (IS_SM83 || IS_Z80)
-        {
-          if (!strncmp (argv[*i], OPTION_BO, sizeof (OPTION_BO) - 1))
-            {
-              /* ROM bank */
-              int bank = getIntArg (OPTION_BO, argv, i, *pargc);
-              struct dbuf_s buffer;
-
-              dbuf_init (&buffer, 16);
-              if (_G.asmType == ASM_TYPE_RGBDS)
-                {
-                  dbuf_printf (&buffer, "ROMX,BANK[%u]", bank);
-                }
-              else
-                {
-                  dbuf_printf (&buffer, "CODE_%u", bank);
-                }
-              dbuf_c_str (&buffer);
-              options.code_seg = (char *) dbuf_detach (&buffer);
-              return TRUE;
-            }
-          else if (!strncmp (argv[*i], OPTION_BA, sizeof (OPTION_BA) - 1))
-            {
-              /* RAM bank */
-              int bank = getIntArg (OPTION_BA, argv, i, *pargc);
-              struct dbuf_s buffer;
-
-              dbuf_init (&buffer, 16);
-              if (_G.asmType == ASM_TYPE_RGBDS)
-                {
-                  dbuf_printf (&buffer, "SRAM,BANK[%u]", bank);
-                }
-              else
-                {
-                  dbuf_printf (&buffer, "DATA_%u", bank);
-                }
-              dbuf_c_str (&buffer);
-              options.data_seg = (char *) dbuf_detach (&buffer);
-              return TRUE;
-            }
-        }
+      /* OPTION_BO/OPTION_BA (ROM/RAM bank selection) are z80/sm83-only
+         options, not present in _i8080_options/_i8085_options, so the
+         IS_SM83/IS_Z80 branch that handled them (both always false on
+         i8080/i8085) is unreachable here and has been removed. */
 
       if (!strncmp (argv[*i], OPTION_ASM, sizeof (OPTION_ASM) - 1))
         {
@@ -963,16 +605,8 @@ _setValues (void)
   setMainValue ("z80extralibpaths", (s = joinStrSet (libPathsSet)));
   Safe_free ((void *) s);
 
-  if (IS_SM83)
-    {
-      setMainValue ("z80outputtypeflag", "-Z");
-      setMainValue ("z80outext", ".gb");
-    }
-  else
-    {
-      setMainValue ("z80outputtypeflag", "-i");
-      setMainValue ("z80outext", ".ihx");
-    }
+  setMainValue ("z80outputtypeflag", "-i");
+  setMainValue ("z80outext", ".ihx");
 
   setMainValue ("stdobjdstfilename", "{dstfilename}{objext}");
   setMainValue ("stdlinkdstfilename", "{dstfilename}{z80outext}");
@@ -993,38 +627,11 @@ _finaliseOptions (void)
   if (!options.std_c99 && port->c_preamble)
     port->c_preamble = z80_builtins_c90;
 
-  if (IS_RAB && options.model == MODEL_MEDIUM)
-    {
-      port->s.funcptr_size = 3;
-      port->stack.call_overhead = 3;
-      port->jumptableCost.maxCount = 0;
-    }
-  else if (IS_RAB && options.model == MODEL_LARGE)
-    {
-      wassertl (IS_R4K || IS_R5K || IS_R6K, "Large memory model not supported on Rabbits earlier than Rabbit 4000");
-      port->s.funcptr_size = 4;
-      port->stack.call_overhead = 4;
-      port->jumptableCost.maxCount = 0;
-    }
   port->mem.default_local_map = data;
   port->mem.default_globl_map = data;
-  if (IS_SM83)
-    switch (_G.asmType)
-      {
-      case ASM_TYPE_ASXXXX:
-        asm_addTree (&_asxxxx_gb);
-        break;
-      case ASM_TYPE_GAS:
-        asm_addTree (&_gas_gb);
-        break;
-      case ASM_TYPE_ISAS:
-      case ASM_TYPE_RGBDS:
-      case ASM_TYPE_Z80ASM:
-        break;
-      }
 
-  if (IY_RESERVED)
-    port->num_regs -= 2;
+  /* IY_RESERVED is unconditionally true on i8080/i8085 (there is no IY). */
+  port->num_regs -= 2;
 
   _setValues ();
 }
@@ -1039,18 +646,9 @@ _setDefaultOptions (void)
   options.float_rent = 1;
   options.noRegParams = 0;
   /* Default code and data locations. */
-  options.code_loc = IS_RAB ? 0x400 : 0x200;
+  options.code_loc = 0x200;
   options.allow_undoc_inst = false;
-
-  if (IS_SM83)
-    options.data_loc = 0xc000;
-  else if (IS_RAB) // Match default crt0
-    options.data_loc = 0xa000;
-  else
-    options.data_loc = 0x8000;
-
-  if (IS_RAB) // The RCM have RAM physically at 0x80000, the lower 16K can be used in the generic address space (mapped from data_loc), leaving the rest from 0x84000 for xdata.
-    options.xdata_loc = 0x84000;
+  options.data_loc = 0x8000;
 
   options.out_fmt = 'i';        /* Default output format is ihx */
 }
@@ -1141,79 +739,20 @@ _z80_genAssemblerStart (FILE * of)
       fprintf (of, "\n");
     }
 
-  if (TARGET_IS_Z80 && options.allow_undoc_inst)
-    fprintf (of, "\t.allow_undocumented\n");
-  else if (TARGET_IS_Z80N)
-    fprintf (of, "\t.zxn\n");
-  else if (TARGET_IS_Z180)
-    fprintf (of, "\t.hd64\n");
-  else if (TARGET_IS_R2K || TARGET_IS_R2KA)
-    fprintf (of, "\t.r2k\n");
-  else if (TARGET_IS_R3KA)
-    fprintf (of, "\t.r3ka\n");
-  else if (TARGET_IS_R4K || TARGET_IS_R5K)
-    fprintf (of, "\t.r4k10\n");
-  else if (TARGET_IS_R6K)
-    fprintf (of, "\t.r6k10\n");
-  else if (TARGET_IS_TLCS90)
-    fprintf (of, "\tby = 0xffed\n");
-  else if (TARGET_IS_EZ80)
-    fprintf (of, "\t.ez80\n");
-  else if (TARGET_IS_R800)
-    fprintf (of, "\t.r800\n");
-  else if (TARGET_IS_I8080)
+  /* Only i8080_port/i8085_port ever call this, so port->id is always
+     TARGET_ID_I8080 or TARGET_ID_I8085; every other TARGET_IS_* arm from
+     the shared z80/main.c version is unreachable here. */
+  if (TARGET_IS_I8080)
     fprintf (of, "\t.8080\n");
   else if (TARGET_IS_I8085)
     fprintf (of, options.allow_undoc_inst ? "\t.8085x\n" : "\t.8085\n");
 }
 
-#define RAB_INTERRUPTS_COUNT (IS_R2K ? 16 : 32) // The Rabbit 2000A to Rabbit 2000C also have just 16 internal interrupts, but the r2ka port is also used for the Rabbit 3000.
-/* Defined once in src/z80/main.c; only used by the Rabbit-family ports,
-   but the generic rab_genIVT() below (shared boilerplate, unused by
-   i8080/i8085 at runtime) still references it, so it must stay linkable. */
-extern const char *rab_int_names[32];
-
-static int
-rab_genIVT (struct dbuf_s *oBuf, symbol **intTable, int intCount)
-{
-  dbuf_tprintf (oBuf, "\tGCSR\t.equ\t0x00 ; Global control / status register\n");
-  dbuf_tprintf (oBuf, "\t.area	_IIVT (ABS)\n");
-  dbuf_printf (oBuf, "\n");
-
-  if (intCount > RAB_INTERRUPTS_COUNT)
-    {
-      werror (E_INT_BAD_INTNO, intCount - 1);
-      intCount = RAB_INTERRUPTS_COUNT;
-    }
-    
-  for (int i = 0; i < intCount; i++)
-    {
-      dbuf_printf (oBuf, "\t.org\t0x%04x ; int %d - %s\n", (unsigned int)(0x200 + i * 0x10), i, rab_int_names[i]);
-      if (interrupts[i]) // User-supplied interrupt handler
-        dbuf_printf (oBuf, "\tjp %s\n", interrupts[i]->rname);
-      else if (i == 0) // Default handler for periodic interrupt
-        {
-          dbuf_printf (oBuf, "\tipres\n");
-          dbuf_printf (oBuf, "\tpush\taf\n");
-	  dbuf_printf (oBuf, "\tioi\n");
-	  dbuf_printf (oBuf, "\tld\ta, (GCSR) ; clear interrupt\n");
-	  dbuf_printf (oBuf, "\tpop\taf\n");
-          dbuf_printf (oBuf, "\tret\n");
-        }
-      else if (i >= 2 && i <= 7) // rst or syscall
-        {
-          dbuf_printf (oBuf, "\tret\n");
-        }
-      else
-        {
-          dbuf_printf (oBuf, "\tipres\n");
-          dbuf_printf (oBuf, "\tret\n");
-        }
-      dbuf_printf (oBuf, "\n");
-    }
-
-  return true;
-}
+/* rab_genIVT (Rabbit-family interrupt vector table generation) is not used:
+   both i8080_port and i8085_port pass 0 for genIVT (see the PORT struct
+   below), so it was dead code even before this port existed as a separate
+   backend. Removed along with RAB_INTERRUPTS_COUNT/rab_int_names, which it
+   alone referenced. */
 
 static bool
 _hasNativeMulFor (iCode *ic, sym_link *left, sym_link *right)
@@ -1233,23 +772,13 @@ _hasNativeMulFor (iCode *ic, sym_link *left, sym_link *right)
     test = right;
   /* 8x8 unsigned multiplication code is shorter than
      call overhead for the multiplication routine. */
-  else if (IS_CHAR (right) && IS_UNSIGNED (right) && IS_CHAR (left) && IS_UNSIGNED (left) && !IS_SM83)
+  else if (IS_CHAR (right) && IS_UNSIGNED (right) && IS_CHAR (left) && IS_UNSIGNED (left))
     return(true);
   /* Same for any multiplication with 8 bit result. */
-  else if (result_size == 1 && !IS_SM83)
+  else if (result_size == 1)
     return(true);
-  // Rabbits have signed 16x16->32 multiplication, which is broken on original Rabbit 2000.
-  else if (IS_RAB && !IS_R2K && getSize (left) == 2 && getSize(right) == 2 &&
-    (result_size == 2 || result_size <= 4 && !IS_UNSIGNED (left) && !IS_UNSIGNED (right)))
-    return(true);
-  // Later Rabbits also have unsigned 16x16->32 multiplication.
-  else if ((IS_R4K || IS_R5K || IS_R6K) && getSize (left) == 2 && getSize (right) == 2 &&
-    (result_size <= 4 && IS_UNSIGNED (left) && IS_UNSIGNED (right)))
-    return(true);
-  // The R800 has unsigned 16x16->32 multiplication.
-  else if (IS_R800 && getSize (left) == 2 && getSize (right) == 2 &&
-    (result_size == 2 || result_size <= 4 && IS_UNSIGNED (left) && IS_UNSIGNED (right)))
-    return(true);
+  /* i8080/i8085 have no native 16x16 multiplication (that was Rabbit/R800
+     only), so no further fast-path checks apply here. */
   else
     return(false);
 
@@ -1313,49 +842,12 @@ static const char *_z80LinkCmd[] = {
   "sdldz80", "-nf", "$1", "$L", NULL
 };
 
-static const char *_gbLinkCmd[] = {
-  "sdldgb", "-nf", "$1", "$L", NULL
-};
-/*
-static const char *_gnuLdCmd[] = {
-  "z80-elf-ld", "", "$1", NULL
-};
-*/
 /* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
 static const char *_z80AsmCmd[] = {
   "sdasz80", "$l", "$3", "$2", "$1.asm", NULL
 };
 
-static const char *_r2kAsmCmd[] = {
-  "sdasrab", "$l", "$3", "$2", "$1.asm", NULL
-};
-
-static const char *_gbAsmCmd[] = {
-  "sdasgb", "$l", "$3", "$2", "$1.asm", NULL
-};
-
-static const char *_tlcs90AsmCmd[] = {
-  "sdastlcs90", "$l", "$3", "$2", "$1.asm", NULL
-};
-/*
-static const char *_GnuAsmCmd[] = {
-  "z80-elf-as", "$l", "$3", "$2", "$1.asm", NULL
-};
-*/
 static const char *const _crt[] = { "crt0.rel", NULL, };
-static const char *const _libs_z80[] = { "z80", NULL, };
-static const char *const _libs_z180[] = { "z180", NULL, };
-static const char *const _libs_r2k[] = { "r2k", NULL, };
-static const char *const _libs_r2ka[] = { "r2ka", NULL, };
-static const char *const _libs_r3ka[] = { "r3ka", NULL, };
-static const char *const _libs_r4k[] = { "r4k", NULL, };
-static const char *const _libs_r5k[] = { "r5k", NULL, };
-static const char *const _libs_r6k[] = { "r6k", NULL, };
-static const char *const _libs_tlcs90[] = { "tlcs90", NULL, };
-static const char *const _libs_sm83[] = { "sm83", NULL, };
-static const char *const _libs_ez80[] = { "ez80", NULL, };
-static const char *const _libs_z80n[] = { "z80n", NULL, };
-static const char *const _libs_r800[] = { "r800", NULL, };
 static const char *const _libs_i8080[] = { "i8080", NULL, };
 static const char *const _libs_i8085[] = { "i8085", NULL, };
 
