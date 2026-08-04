@@ -259,9 +259,9 @@ static struct
   } trace;
 } _G;
 
-bool z80_regs_used_as_parms_in_calls_from_current_function[IYH_IDX + 1];
-bool z80_symmParm_in_calls_from_current_function;
-bool z80_regs_preserved_in_calls_from_current_function[IYH_IDX + 1];
+bool i8085_regs_used_as_parms_in_calls_from_current_function[IYH_IDX + 1];
+bool i8085_symmParm_in_calls_from_current_function;
+bool i8085_regs_preserved_in_calls_from_current_function[IYH_IDX + 1];
 
 static const char *aopGet (asmop *aop, int offset, bool bit16);
 
@@ -308,7 +308,7 @@ z80_init_reg_asmop(asmop *aop, const signed char *regidx)
   
   for(int i = 0; regidx[i] >= 0; i++)
     {
-      aop->aopu.aop_reg[i] = regsZ80 + regidx[i];
+      aop->aopu.aop_reg[i] = i8085_regsZ80 + regidx[i];
       aop->regs[regidx[i]] = i;
       aop->size++;
     }
@@ -318,7 +318,7 @@ z80_init_reg_asmop(asmop *aop, const signed char *regidx)
 }
 
 void
-z80_init_asmops (void)
+i8085_init_asmops (void)
 {
   z80_init_reg_asmop(&asmop_a, (const signed char[]){A_IDX, -1});
   z80_init_reg_asmop(&asmop_b, (const signed char[]){B_IDX, -1});
@@ -936,11 +936,11 @@ getPairId (const asmop *aop)
 
 
 /*-----------------------------------------------------------------*/
-/* z80_emitDebuggerSymbol - associate the current code location    */
+/* i8085_emitDebuggerSymbol - associate the current code location    */
 /*   with a debugger symbol                                        */
 /*-----------------------------------------------------------------*/
 void
-z80_emitDebuggerSymbol (const char *debugSym)
+i8085_emitDebuggerSymbol (const char *debugSym)
 {
   genLine.lineElement.isDebug = 1;
   emit2 ("%s !equ !here", debugSym);
@@ -4334,10 +4334,10 @@ poppairwithsavedreg (PAIR_ID pair, short survivingreg, short tempreg)
 {
   if (tempreg >= 0)
     {
-      emit2 ("ld %s, %s", regsZ80[tempreg].name, regsZ80[survivingreg].name);
+      emit2 ("ld %s, %s", i8085_regsZ80[tempreg].name, i8085_regsZ80[survivingreg].name);
       ld_cost (ASMOP_L, 0, ASMOP_H, 0, true);
       _pop (pair);
-      emit2 ("ld %s, %s", regsZ80[survivingreg].name, regsZ80[tempreg].name);
+      emit2 ("ld %s, %s", i8085_regsZ80[survivingreg].name, i8085_regsZ80[tempreg].name);
       ld_cost (ASMOP_L, 0, ASMOP_H, 0, true);
       return;
     }
@@ -4350,7 +4350,7 @@ poppairwithsavedreg (PAIR_ID pair, short survivingreg, short tempreg)
   cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
   emit2 ("add hl, sp");
   cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3 , 1, 1);
-  emit2 ("ld (hl), %s", regsZ80[survivingreg].name);
+  emit2 ("ld (hl), %s", i8085_regsZ80[survivingreg].name);
   cost2 (1, 2, 2, 2, 7, 7, 6, 6, 8, 6, 3, 3, 3, 2, 2);
   _pop (PAIR_HL);
   _pop (PAIR_AF);
@@ -7142,7 +7142,7 @@ restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand
 
   if (SomethingReturned)
     {
-      bitVect *rv = z80_rUmaskForOp (result);
+      bitVect *rv = i8085_rUmaskForOp (result);
       a_live = bitVectBitValue (rv, A_IDX);
       b_live = bitVectBitValue (rv, B_IDX);
       c_live = bitVectBitValue (rv, C_IDX);
@@ -7351,12 +7351,12 @@ _saveRegsForCall (const iCode *ic, bool saveHLifused, bool dontsaveIY)
     saveHLifused = true;
   if (!_G.saves.saved)
     {
-      const bool call_preserves_h = ftype->funcAttrs.preserved_regs[H_IDX] && !z80IsParmInCall(ftype, "h");
-      const bool call_preserves_l = ftype->funcAttrs.preserved_regs[L_IDX] && !z80IsParmInCall(ftype, "l");
-      const bool call_preserves_b = ftype->funcAttrs.preserved_regs[B_IDX] && !z80IsParmInCall(ftype, "b");
-      const bool call_preserves_c = ftype->funcAttrs.preserved_regs[C_IDX] && !z80IsParmInCall(ftype, "c");
-      const bool call_preserves_d = ftype->funcAttrs.preserved_regs[D_IDX] && !z80IsParmInCall(ftype, "d");
-      const bool call_preserves_e = ftype->funcAttrs.preserved_regs[E_IDX] && !z80IsParmInCall(ftype, "e");
+      const bool call_preserves_h = ftype->funcAttrs.preserved_regs[H_IDX] && !i8085_IsParmInCall(ftype, "h");
+      const bool call_preserves_l = ftype->funcAttrs.preserved_regs[L_IDX] && !i8085_IsParmInCall(ftype, "l");
+      const bool call_preserves_b = ftype->funcAttrs.preserved_regs[B_IDX] && !i8085_IsParmInCall(ftype, "b");
+      const bool call_preserves_c = ftype->funcAttrs.preserved_regs[C_IDX] && !i8085_IsParmInCall(ftype, "c");
+      const bool call_preserves_d = ftype->funcAttrs.preserved_regs[D_IDX] && !i8085_IsParmInCall(ftype, "d");
+      const bool call_preserves_e = ftype->funcAttrs.preserved_regs[E_IDX] && !i8085_IsParmInCall(ftype, "e");
       const bool push_hl = !isRegDead (H_IDX, ic) && (!call_preserves_h || saveHLifused) || !isRegDead (L_IDX, ic) && (!call_preserves_l || saveHLifused);
       const bool push_bc = !isRegDead (B_IDX, ic) && !call_preserves_b || !isRegDead (C_IDX, ic) && !call_preserves_c;
       const bool push_de = !isRegDead (D_IDX, ic) && !call_preserves_d || !isRegDead (E_IDX, ic) && !call_preserves_e;
@@ -8010,7 +8010,7 @@ static void genSend (const iCode *ic)
   
   for (int i = 0; i < IC_LEFT (ic)->aop->size; i++)
     if (!regalloc_dry_run)
-      z80_regs_used_as_parms_in_calls_from_current_function[argreg->aopu.aop_reg[i]->rIdx] = true;
+      i8085_regs_used_as_parms_in_calls_from_current_function[argreg->aopu.aop_reg[i]->rIdx] = true;
 
   freeAsmop (IC_LEFT (ic), NULL);
 }
@@ -8026,7 +8026,7 @@ genCall (const iCode *ic)
   bool tailjump = false;
 
   for (i = 0; i < IYH_IDX + 1; i++)
-    z80_regs_preserved_in_calls_from_current_function[i] |= ftype->funcAttrs.preserved_regs[i];
+    i8085_regs_preserved_in_calls_from_current_function[i] |= ftype->funcAttrs.preserved_regs[i];
 
   aopOp (ic->left, ic, false, false);
 
@@ -8034,15 +8034,15 @@ genCall (const iCode *ic)
   const bool SomethingReturned = IS_ITEMP (IC_RESULT (ic)) && (OP_SYMBOL (IC_RESULT (ic))->nRegs || OP_SYMBOL (IC_RESULT (ic))->spildir) ||
                        IS_TRUE_SYMOP (IC_RESULT (ic));
 
-  bool a_not_parm = !z80IsParmInCall(ftype, "a");
+  bool a_not_parm = !i8085_IsParmInCall(ftype, "a");
   bool a_free = a_not_parm && ic->left->aop->regs[A_IDX] < 0;
-  bool hl_not_parm = !z80IsParmInCall(ftype, "l") && !z80IsParmInCall(ftype, "h");
+  bool hl_not_parm = !i8085_IsParmInCall(ftype, "l") && !i8085_IsParmInCall(ftype, "h");
   bool hl_free = hl_not_parm && ic->left->aop->regs[L_IDX] < 0 && ic->left->aop->regs[H_IDX] < 0;
-  bool de_not_parm = !z80IsParmInCall(ftype, "e") && !z80IsParmInCall(ftype, "d");
+  bool de_not_parm = !i8085_IsParmInCall(ftype, "e") && !i8085_IsParmInCall(ftype, "d");
   bool de_free = de_not_parm && ic->left->aop->regs[E_IDX] < 0 && ic->left->aop->regs[D_IDX] < 0;
-  bool bc_not_parm = !z80IsParmInCall(ftype, "b") && !z80IsParmInCall(ftype, "c");
+  bool bc_not_parm = !i8085_IsParmInCall(ftype, "b") && !i8085_IsParmInCall(ftype, "c");
   bool bc_free = bc_not_parm && ic->left->aop->regs[C_IDX] < 0 && ic->left->aop->regs[B_IDX] < 0;
-  bool jk_not_parm = !z80IsParmInCall(ftype, "j") && !z80IsParmInCall(ftype, "k");
+  bool jk_not_parm = !i8085_IsParmInCall(ftype, "j") && !i8085_IsParmInCall(ftype, "k");
   
   if (SomethingReturned && !bigreturn)
     aopOp (ic->result, ic, true, false);
@@ -8250,7 +8250,7 @@ genCall (const iCode *ic)
                 }
             }
         }
-      else if (!rab_lcall && !rab_llcall && !IS_SM83 && !IY_RESERVED && !z80IsParmInCall (ftype, "iy")) // Ensure that we don't access the stack via iy when reading IC_LEFT (ic).
+      else if (!rab_lcall && !rab_llcall && !IS_SM83 && !IY_RESERVED && !i8085_IsParmInCall (ftype, "iy")) // Ensure that we don't access the stack via iy when reading IC_LEFT (ic).
         {
           if (ic->left->aop->type == AOP_EXSTK) // Ensure that we don't directly overwrite iyl while accessing the stack via iy.
             {
@@ -8640,7 +8640,7 @@ genCall (const iCode *ic)
         {
           _G.stack.pushed -= ic->parmBytes;
           _G.stack.pushed -= IFFUNC_ISDYNAMICC (ftype) && IS_STRUCT (ftype->next) ? getSize (ftype->next) :  bigreturn * 2;
-          z80_symmParm_in_calls_from_current_function = false;
+          i8085_symmParm_in_calls_from_current_function = false;
         }
     }
   else if ((ic->parmBytes || bigreturn))
@@ -8735,7 +8735,7 @@ genFunction (const iCode * ic)
   /* Create the function header */
   emit2 ("!functionheader", sym->name);
 
-  emitDebug (z80_assignment_optimal ? "; Register assignment is optimal." : "; Register assignment might be sub-optimal.");
+  emitDebug (i8085_assignment_optimal ? "; Register assignment is optimal." : "; Register assignment might be sub-optimal.");
   emitDebug ("; Stack space usage: %d bytes.", sym->stack);
 
   if (IFFUNC_BANKED (sym->type))
@@ -8902,7 +8902,7 @@ genFunction (const iCode * ic)
     }
   sym = OP_SYMBOL (IC_LEFT (ic));
 
-  _G.omitFramePtr = should_omit_frame_ptr;
+  _G.omitFramePtr = i8085_should_omit_frame_ptr;
 
   if (!IS_SM83 && !z80_opts.noOmitFramePtr && !stackParm && !sym->stack)
     {
@@ -8911,7 +8911,7 @@ genFunction (const iCode * ic)
     }
   else if (sym->stack)
     {
-      if (IS_EZ80 && !_G.omitFramePtr && -sym->stack > -128 && -sym->stack <= -3 && (z80IsParmInCall (sym->type, "l") || z80IsParmInCall (sym->type, "h")))
+      if (IS_EZ80 && !_G.omitFramePtr && -sym->stack > -128 && -sym->stack <= -3 && (i8085_IsParmInCall (sym->type, "l") || i8085_IsParmInCall (sym->type, "h")))
         {
           emit2 ("push ix");
           cost (2, 4);
@@ -8927,8 +8927,8 @@ genFunction (const iCode * ic)
       else
         {
           if (!_G.omitFramePtr)
-            emit2 ((optimize.codeSize && !z80IsParmInCall (sym->type, "l") && !z80IsParmInCall (sym->type, "h")) ? "!enters" : "!enter");
-          if (IS_EZ80 && !_G.omitFramePtr && -sym->stack > -128 && -sym->stack <= -3 && !z80IsParmInCall (sym->type, "l") && !z80IsParmInCall (sym->type, "h"))
+            emit2 ((optimize.codeSize && !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h")) ? "!enters" : "!enter");
+          if (IS_EZ80 && !_G.omitFramePtr && -sym->stack > -128 && -sym->stack <= -3 && !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h"))
             {
               emit2 ("lea hl, ix, !immed%d", -sym->stack);
               cost (3, 3);
@@ -8936,13 +8936,13 @@ genFunction (const iCode * ic)
               cost (1, 1);
             }
           else
-            adjustStack (-sym->stack, !z80IsParmInCall (sym->type, "a"), !z80IsParmInCall (sym->type, "c") && !z80IsParmInCall (sym->type, "v"), !z80IsParmInCall (sym->type, "e") && !z80IsParmInCall (sym->type, "d"), !z80IsParmInCall (sym->type, "l") && !z80IsParmInCall (sym->type, "h"), !IY_RESERVED);
+            adjustStack (-sym->stack, !i8085_IsParmInCall (sym->type, "a"), !i8085_IsParmInCall (sym->type, "c") && !i8085_IsParmInCall (sym->type, "v"), !i8085_IsParmInCall (sym->type, "e") && !i8085_IsParmInCall (sym->type, "d"), !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h"), !IY_RESERVED);
         }
       _G.stack.pushed = 0;
     }
   else if (!_G.omitFramePtr)
     {
-      emit2 ((optimize.codeSize && !z80IsParmInCall (sym->type, "l") && !z80IsParmInCall (sym->type, "h")) ? "!enters" : "!enter"); // !enters might result in a function call to a helper function.
+      emit2 ((optimize.codeSize && !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h")) ? "!enters" : "!enter"); // !enters might result in a function call to a helper function.
     }
 
   _G.stack.offset = sym->stack;
@@ -15754,7 +15754,7 @@ shiftR2Left2Result (const iCode *ic, operand *left, int offl, operand *result, i
           emit3 (A_DEC, caop, 0);
           emitJP (tlbl, "nz", 1.0f, true);
         }
-      spillPairReg (regsZ80[caop->aopu.aop_reg[0]->rIdx].name);
+      spillPairReg (i8085_regsZ80[caop->aopu.aop_reg[0]->rIdx].name);
 
       regalloc_dry_run_state_scale = 1.0f;
     }
@@ -16867,12 +16867,12 @@ genLeftShift (const iCode *ic)
     goto end;
   if (shift_by_lit && shiftcount > 1 && !unroll_8080)
     {
-      emit2 ("ld %s, !immedbyte", regsZ80[countreg].name, (unsigned)shiftcount);
+      emit2 ("ld %s, !immedbyte", i8085_regsZ80[countreg].name, (unsigned)shiftcount);
       cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
     }
   else if (!shift_by_lit && !aopIsNotLitVal (right->aop, 0, 1, 0))
     {
-      emit2 ("inc %s", regsZ80[countreg].name);
+      emit2 ("inc %s", i8085_regsZ80[countreg].name);
       cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
       emitJP (tlbl1, NULL, 1.0f, true);
     }
@@ -16971,7 +16971,7 @@ genLeftShift (const iCode *ic)
         }
       else
         {
-          emit2 ("dec %s", regsZ80[countreg].name);
+          emit2 ("dec %s", i8085_regsZ80[countreg].name);
           cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
           emitJP (tlbl, "nz", 1.0f, true);
         }
@@ -17442,7 +17442,7 @@ genRightShift (const iCode * ic)
           _push (PAIR_AF);
           pushed_a = true;
         }
-      emit2 ("ld %s, !immedbyte", regsZ80[countreg].name, (unsigned)shiftcount);
+      emit2 ("ld %s, !immedbyte", i8085_regsZ80[countreg].name, (unsigned)shiftcount);
       cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
     }
   else if (!IS_8080LIKE && !optimize.codeSize && !shift_by_lit && !aopIsNotLitVal (right->aop, 0, 1, 0) &&
@@ -17451,13 +17451,13 @@ genRightShift (const iCode * ic)
       if (shiftop->regs[countreg] >= 0)
         UNIMPLEMENTED;
       shift_bytewise = true;
-      emit2 ("srl %s", regsZ80[countreg].name);
+      emit2 ("srl %s", i8085_regsZ80[countreg].name);
       cost2 (2, 2, -1, -1, 8, 7, 4, 4, 8, 4, -1, -1, -1, 2, 2);
-      emit2 ("srl %s", regsZ80[countreg].name);
+      emit2 ("srl %s", i8085_regsZ80[countreg].name);
       cost2 (2, 2, -1, -1, 8, 7, 4, 4, 8, 4, -1, -1, -1, 2, 2);
-      emit2 ("srl %s", regsZ80[countreg].name);
+      emit2 ("srl %s", i8085_regsZ80[countreg].name);
       cost2 (2, 2, -1, -1, 8, 7, 4, 4, 8, 4, -1, -1, -1, 2, 2);
-      emit2 ("inc %s", regsZ80[countreg].name);
+      emit2 ("inc %s", i8085_regsZ80[countreg].name);
       cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
       emitJP (tlbl1, NULL, 1.0f, true);
     }
@@ -17465,7 +17465,7 @@ genRightShift (const iCode * ic)
     {
       if (shiftop->regs[countreg] >= 0)
         UNIMPLEMENTED;
-      emit2 ("inc %s", regsZ80[countreg].name);
+      emit2 ("inc %s", i8085_regsZ80[countreg].name);
       cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
       emitJP (tlbl1, NULL, 1.0f, true);
     }
@@ -17546,11 +17546,11 @@ genRightShift (const iCode * ic)
         }
       else
         {
-          emit2 ("dec %s", regsZ80[countreg].name);
+          emit2 ("dec %s", i8085_regsZ80[countreg].name);
           cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
           emitJP (tlbl, "nz", 1.0f, true);
         }
-      spillPairReg (regsZ80[countreg].name);
+      spillPairReg (i8085_regsZ80[countreg].name);
     }
 
 end:
@@ -22065,7 +22065,7 @@ genZ80iCode (iCode * ic)
 }
 
 float
-dryZ80iCode (iCode * ic)
+i8085_dryZ80iCode (iCode * ic)
 {
   regalloc_dry_run = true;
   regalloc_dry_run_cost = 0;
@@ -22073,7 +22073,7 @@ dryZ80iCode (iCode * ic)
   regalloc_dry_run_cost_states = 0;
 
   initGenLineElement ();
-  _G.omitFramePtr = should_omit_frame_ptr;
+  _G.omitFramePtr = i8085_should_omit_frame_ptr;
 
   genZ80iCode (ic);
 
@@ -22110,7 +22110,7 @@ dryZ80Code (iCode * lic)
   for (ic = lic; ic; ic = ic->next)
     if (ic->op != FUNCTION && ic->op != ENDFUNCTION && ic->op != LABEL && ic->op != GOTO && ic->op != INLINEASM)
       {
-        printf ("; iCode %d total cost: %f ", ic->key, dryZ80iCode (ic));
+        printf ("; iCode %d total cost: %f ", ic->key, i8085_dryZ80iCode (ic));
         const unsigned int state_cost_divider = 8u << (optimize.codeSize * 3 + !optimize.codeSpeed * 3);
         printf ("(%f + %f * %f * 0.0001 / %u\n", (float)regalloc_dry_run_cost_bytes, regalloc_dry_run_cost_states, ic->count, state_cost_divider);
       }
@@ -22118,10 +22118,10 @@ dryZ80Code (iCode * lic)
 #endif
 
 /*-------------------------------------------------------------------------------------*/
-/* genZ80Code - generate code for Z80 based controllers for a block of instructions    */
+/* i8085_genZ80Code - generate code for Z80 based controllers for a block of instructions    */
 /*-------------------------------------------------------------------------------------*/
 void
-genZ80Code (iCode * lic)
+i8085_genZ80Code (iCode * lic)
 {
 #ifdef DEBUG_DRY_COST
   dryZ80Code (lic);
@@ -22133,9 +22133,9 @@ genZ80Code (iCode * lic)
 
   initGenLineElement ();
 
-  memset(z80_regs_used_as_parms_in_calls_from_current_function, 0, sizeof(bool) * (IYH_IDX + 1));
-  z80_symmParm_in_calls_from_current_function = TRUE;
-  memset(z80_regs_preserved_in_calls_from_current_function, 0, sizeof(bool) * (IYH_IDX + 1));
+  memset(i8085_regs_used_as_parms_in_calls_from_current_function, 0, sizeof(bool) * (IYH_IDX + 1));
+  i8085_symmParm_in_calls_from_current_function = TRUE;
+  memset(i8085_regs_preserved_in_calls_from_current_function, 0, sizeof(bool) * (IYH_IDX + 1));
 
   /* if debug information required */
   if (options.debug && currFunc)
@@ -22206,10 +22206,10 @@ genZ80Code (iCode * lic)
 
 // Check if what is returned by the curent function.
 bool
-z80IsReturned(const char *what)
+i8085_IsReturned(const char *what)
 {
   if (!strcmp(what, "iy"))
-    return (z80IsReturned ("iyl") || z80IsReturned ("iyh"));
+    return (i8085_IsReturned ("iyl") || i8085_IsReturned ("iyh"));
 
   const asmop *retaop = aopRet (currFunc->type);
 
@@ -22224,10 +22224,10 @@ z80IsReturned(const char *what)
 // Check if what is part of the ith argument (counting from 1) to a function of type ftype.
 // If what is 0, just check if the ith argument is in registers.
 bool
-z80IsRegArg(struct sym_link *ftype, int i, const char *what)
+i8085_IsRegArg(struct sym_link *ftype, int i, const char *what)
 {
   if (what && !strcmp(what, "iy"))
-    return (z80IsRegArg (ftype, i, "iyl") || z80IsRegArg (ftype, i, "iyh"));
+    return (i8085_IsRegArg (ftype, i, "iyl") || i8085_IsRegArg (ftype, i, "iyh"));
 
   const asmop *argaop = aopArg (ftype, i);
 
@@ -22245,13 +22245,13 @@ z80IsRegArg(struct sym_link *ftype, int i, const char *what)
 }
 
 bool
-z80IsParmInCall(sym_link *ftype, const char *what)
+i8085_IsParmInCall(sym_link *ftype, const char *what)
 {
   const value *args;
   int i;
 
   for (i = 1, args = FUNC_ARGS (ftype); args; args = args->next, i++)
-    if (z80IsRegArg(ftype, i, what))
+    if (i8085_IsRegArg(ftype, i, what))
       return true;
   return false;
 }

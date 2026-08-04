@@ -88,7 +88,14 @@ static struct
   int nRegs;
 } _G;
 
-reg_info sm83_regs[] = {
+/* Intel 8080/8085: same GPR file as the SM83 (no IX/IY index registers).
+   The z80_regs/sm83_regs/r4k_regs arrays that were here in the shared
+   z80/ralloc.c (register files for the other z80-family sub-targets) are
+   dropped entirely: i8080/i8085 never select them (z80_opts.sub is always
+   SUB_8080/SUB_8085 in this file), and they'd collide (same non-static
+   names) with z80/ralloc.c's own copies now that this file is genuinely
+   forked and linked. */
+reg_info i8085_gpr_regs[] = {
   {REG_GPR, A_IDX, "a", 1},
   {REG_GPR, C_IDX, "c", 1},
   {REG_GPR, B_IDX, "b", 1},
@@ -99,72 +106,30 @@ reg_info sm83_regs[] = {
   {REG_CND, CND_IDX, "c", 1}
 };
 
-/* Intel 8080/8085: same GPR file as the SM83 (no IX/IY index registers). */
-reg_info i8080_regs[] = {
-  {REG_GPR, A_IDX, "a", 1},
-  {REG_GPR, C_IDX, "c", 1},
-  {REG_GPR, B_IDX, "b", 1},
-  {REG_GPR, E_IDX, "e", 1},
-  {REG_GPR, D_IDX, "d", 1},
-  {REG_GPR, L_IDX, "l", 1},
-  {REG_GPR, H_IDX, "h", 1},
-  {REG_CND, CND_IDX, "c", 1}
-};
-
-reg_info z80_regs[] = {
-  {REG_GPR, A_IDX, "a", 1},
-  {REG_GPR, C_IDX, "c", 1},
-  {REG_GPR, B_IDX, "b", 1},
-  {REG_GPR, E_IDX, "e", 1},
-  {REG_GPR, D_IDX, "d", 1},
-  {REG_GPR, L_IDX, "l", 1},
-  {REG_GPR, H_IDX, "h", 1},
-  {REG_GPR, IYL_IDX, "iyl", 1},
-  {REG_GPR, IYH_IDX, "iyh", 1},
-  {REG_CND, CND_IDX, "c", 1}
-};
-
-reg_info r4k_regs[] = {
-  {REG_GPR, A_IDX, "a", 1},
-  {REG_GPR, C_IDX, "c", 1},
-  {REG_GPR, B_IDX, "b", 1},
-  {REG_GPR, E_IDX, "e", 1},
-  {REG_GPR, D_IDX, "d", 1},
-  {REG_GPR, L_IDX, "l", 1},
-  {REG_GPR, H_IDX, "h", 1},
-  {REG_GPR, IYL_IDX, "iyl", 1},
-  {REG_GPR, IYH_IDX, "iyh", 1},
-  {REG_GPR, K_IDX, "k", 1},
-  {REG_GPR, J_IDX, "j", 1},
-  {REG_CND, CND_IDX, "c", 1}
-};
-
-reg_info *regsZ80;
+reg_info *i8085_regsZ80;
 
 /** Number of usable registers (all but C) */
-#define Z80_MAX_REGS ((sizeof (z80_regs) / sizeof (z80_regs[0]))-1)
-#define SM83_MAX_REGS ((sizeof (sm83_regs) / sizeof (sm83_regs[0]))-1)
-#define I8080_MAX_REGS ((sizeof (i8080_regs) / sizeof (i8080_regs[0]))-1)
+#define I8085_MAX_REGS ((sizeof (i8085_gpr_regs) / sizeof (i8085_gpr_regs[0]))-1)
 
-void z80SpillThis (symbol *);
+void i8085_SpillThis (symbol *);
 static void freeAllRegs ();
 
 /** Returns pointer to register wit index number
  */
 reg_info *
-regWithIdx (int idx)
+i8085_regWithIdx (int idx)
 {
   int i;
 
   for (i = C_IDX; i < _G.nRegs; i++)
     {
-      if (regsZ80[i].rIdx == idx)
+      if (i8085_regsZ80[i].rIdx == idx)
         {
-          return &regsZ80[i];
+          return &i8085_regsZ80[i];
         }
     }
 
-  wassertl (0, "regWithIdx not found");
+  wassertl (0, "i8085_regWithIdx not found");
   exit (1);
 }
 
@@ -173,8 +138,8 @@ regWithIdx (int idx)
 static void
 freeReg (reg_info *reg)
 {
-  wassert (!reg->isFree);
-  reg->isFree = 1;
+  wassert (!reg->i8085_isFree);
+  reg->i8085_isFree = 1;
   D (D_ALLOC, ("freeReg: freed %p\n", (void *)reg));
 }
 
@@ -203,9 +168,9 @@ noOverLap (set *itmpStack, symbol *fsym)
 }
 
 /*-----------------------------------------------------------------*/
-/* isFree - will return 1 if the a free spil location is found     */
+/* i8085_isFree - will return 1 if the a free spil location is found     */
 /*-----------------------------------------------------------------*/
-DEFSETFUNC (isFree)
+DEFSETFUNC (i8085_isFree)
 {
   symbol *sym = item;
   V_ARG (symbol **, sloc);
@@ -241,7 +206,7 @@ createStackSpil (symbol *sym)
 
   /* first go try and find a free one that is already
      existing on the stack */
-  if (applyToSet (_G.stackSpil, isFree, &sloc, sym) && USE_OLDSALLOC)
+  if (applyToSet (_G.stackSpil, i8085_isFree, &sloc, sym) && USE_OLDSALLOC)
     {
       /* found a free one : just update & return */
       sym->usl.spillLoc = sloc;
@@ -304,11 +269,11 @@ createStackSpil (symbol *sym)
 /* spillThis - spils a specific operand                            */
 /*-----------------------------------------------------------------*/
 void
-z80SpillThis (symbol * sym)
+i8085_SpillThis (symbol * sym)
 {
   int i;
 
-  D (D_ALLOC, ("z80SpillThis: spilling %p (%s)\n", (void *)sym, sym->name));
+  D (D_ALLOC, ("i8085_SpillThis: spilling %p (%s)\n", (void *)sym, sym->name));
 
   /* if this is rematerializable or has a spillLocation
      we are okay, else we need to create a spillLocation
@@ -434,13 +399,13 @@ verifyRegsAssigned (operand *op, iCode *ic)
   if (sym->regs[0])
     return;
 
-  z80SpillThis (sym);
+  i8085_SpillThis (sym);
 }
 
 /*-----------------------------------------------------------------*/
 /* rUmaskForOp :- returns register mask for an operand             */
 /*-----------------------------------------------------------------*/
-bitVect *
+static bitVect *
 rUmaskForOp (const operand * op)
 {
   bitVect *rumask;
@@ -458,7 +423,7 @@ rUmaskForOp (const operand * op)
   if (sym->isspilt || !sym->nRegs)
     return NULL;
 
-  rumask = newBitVect (IS_SM83 ? SM83_MAX_REGS : IS_8080LIKE ? I8080_MAX_REGS : Z80_MAX_REGS);
+  rumask = newBitVect (I8085_MAX_REGS);
 
   for (j = 0; j < sym->nRegs; j++)
     {
@@ -474,7 +439,7 @@ rUmaskForOp (const operand * op)
 }
 
 bitVect *
-z80_rUmaskForOp (const operand * op)
+i8085_rUmaskForOp (const operand * op)
 {
   return rUmaskForOp (op);
 }
@@ -482,9 +447,9 @@ z80_rUmaskForOp (const operand * op)
 /** Returns bit vector of registers used in iCode.
  */
 bitVect *
-regsUsedIniCode (iCode * ic)
+i8085_regsUsedIniCode (iCode * ic)
 {
-  bitVect *rmask = newBitVect (IS_SM83 ? SM83_MAX_REGS : IS_8080LIKE ? I8080_MAX_REGS : Z80_MAX_REGS);
+  bitVect *rmask = newBitVect (I8085_MAX_REGS);
 
   /* of all other cases */
   if (IC_LEFT (ic))
@@ -521,7 +486,7 @@ regTypeNum (void)
             continue;
           if (IS_STRUCT (sym->type)) // We found an unused return value of struct or union type.
             {
-              z80SpillThis (sym);
+              i8085_SpillThis (sym);
               continue;
             }
         }
@@ -586,7 +551,7 @@ freeAllRegs ()
   D (D_ALLOC, ("freeAllRegs: running.\n"));
 
   for (i = C_IDX; i < _G.nRegs; i++)
-    regsZ80[i].isFree = 1;
+    i8085_regsZ80[i].i8085_isFree = 1;
 }
 
 /*-----------------------------------------------------------------*/
@@ -738,7 +703,7 @@ packRegsForAssign (iCode * ic, eBBlock * ebp)
 /** Scanning backwards looks for first assig found.
  */
 iCode *
-findAssignToSym (operand * op, iCode * ic)
+i8085_findAssignToSym (operand * op, iCode * ic)
 {
   iCode *dic;
 
@@ -1215,7 +1180,7 @@ serialRegMark (eBBlock ** ebbs, int count)
                 {
                   D (D_ALLOC, ("serialRegAssign: \"spilling to be safe.\"\n"));
                   sym->for_newralloc = 0;
-                  z80SpillThis (sym);
+                  i8085_SpillThis (sym);
                   continue;
                 }
 
@@ -1229,7 +1194,7 @@ serialRegMark (eBBlock ** ebbs, int count)
                 {
                   D (D_ALLOC, ("Spilling %s (too large)\n", sym->name));
                   sym->for_newralloc = 0;
-                  z80SpillThis (sym);
+                  i8085_SpillThis (sym);
                 }
               else if (max_alloc_bytes >= sym->nRegs)
                 {
@@ -1238,7 +1203,7 @@ serialRegMark (eBBlock ** ebbs, int count)
                 }
               else if (!sym->for_newralloc)
                 {
-                  z80SpillThis (sym);
+                  i8085_SpillThis (sym);
                   printf ("Spilt %s due to byte limit.\n", sym->name);
                 }
             }
@@ -1247,7 +1212,7 @@ serialRegMark (eBBlock ** ebbs, int count)
 }
 
 void
-Z80RegFix (eBBlock ** ebbs, int count)
+i8085_RegFix (eBBlock ** ebbs, int count)
 {
   int i;
 
@@ -1277,20 +1242,20 @@ Z80RegFix (eBBlock ** ebbs, int count)
 /* Register allocator                                          */
 /*-----------------------------------------------------------------*/
 void
-z80_ralloc (ebbIndex *ebbi)
+i8085_ralloc (ebbIndex *ebbi)
 {
   eBBlock **ebbs = ebbi->bbOrder;
   int count = ebbi->count;
   iCode *ic;
   int i;
 
-  D (D_ALLOC, ("\n-> z80_ralloc: entered for %s.\n", currFunc ? currFunc->name : "[no function]"));
+  D (D_ALLOC, ("\n-> i8085_ralloc: entered for %s.\n", currFunc ? currFunc->name : "[no function]"));
 
   setToNull ((void *) &_G.funcrUsed);
   setToNull ((void *) &_G.totRegAssigned);
   _G.stackExtend = _G.dataExtend = 0;
 
-  _G.nRegs = IS_SM83 ? SM83_MAX_REGS : IS_8080LIKE ? I8080_MAX_REGS : Z80_MAX_REGS;
+  _G.nRegs = I8085_MAX_REGS; /* IS_8080LIKE is unconditionally true in this file */
 
   /* change assignments this will remove some
      live ranges reducing some register pressure */
@@ -1314,7 +1279,7 @@ z80_ralloc (ebbIndex *ebbi)
   joinPushes (iCodeLabelOptimize(iCodeFromeBBlock (ebbs, count)));
 
   /* The new register allocator invokes its magic */
-  ic = z80_ralloc2_cc (ebbi);
+  ic = i8085_ralloc2_cc (ebbi);
 
   if (options.dump_i_code)
     {
@@ -1322,7 +1287,7 @@ z80_ralloc (ebbIndex *ebbi)
       dumpLiveRanges (DUMP_LRANGE, liveRanges);
     }
 
-  genZ80Code (ic);
+  i8085_genZ80Code (ic);
 
   /* free up any stackSpil locations allocated */
   applyToSet (_G.stackSpil, deallocStackSpil);
@@ -1339,8 +1304,8 @@ z80_ralloc (ebbIndex *ebbi)
 /* assignRegisters - assigns registers to each live range as need  */
 /*-----------------------------------------------------------------*/
 void
-z80_assignRegisters (ebbIndex * ebbi)
+i8085_assignRegisters (ebbIndex * ebbi)
 {
-  z80_ralloc (ebbi);
+  i8085_ralloc (ebbi);
 }
 

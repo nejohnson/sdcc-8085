@@ -68,20 +68,20 @@ typedef struct reg_info
                                    REG_GPR, REG_PTR or REG_CND */
   short rIdx;                   /* index into register table */
   const char *name;
-  unsigned isFree:1;            /* is currently unassigned  */
+  unsigned i8085_isFree:1;            /* is currently unassigned  */
 } reg_info;
 
-extern reg_info *regsZ80;
+extern reg_info *i8085_regsZ80;
 
 void assignRegisters (eBBlock **, int);
-reg_info *regWithIdx (int);
+reg_info *i8085_regWithIdx (int);
 
-void z80_assignRegisters (ebbIndex *);
-bitVect *z80_rUmaskForOp (const operand * op);
+void i8085_assignRegisters (ebbIndex *);
+bitVect *i8085_rUmaskForOp (const operand * op);
 
-void z80SpillThis (symbol *);
-iCode *z80_ralloc2_cc(ebbIndex *ebbi);
+void i8085_SpillThis (symbol *);
+iCode *i8085_ralloc2_cc(ebbIndex *ebbi);
 
-void Z80RegFix (eBBlock ** ebbs, int count);
+void i8085_RegFix (eBBlock ** ebbs, int count);
 #endif
 

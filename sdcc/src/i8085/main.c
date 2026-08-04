@@ -153,9 +153,9 @@ static const char z80_builtins_c90[] =
   "extern char *__builtin_strchr (const char *s, char c) __builtin__;\n"
   "extern void *__builtin_memset (void *s, int c, unsigned int n) __builtin__;\n";
 
-extern reg_info i8080_regs[];
-extern void z80_init_asmops (void);
-extern reg_info *regsZ80;
+extern reg_info i8085_gpr_regs[];
+extern void i8085_init_asmops (void);
+extern reg_info *i8085_regsZ80;
 
 static void
 _i8080_init (void)
@@ -163,8 +163,8 @@ _i8080_init (void)
   z80_opts.sub = SUB_8080;
   asm_addTree (&_asxxxx_z80);
 
-  regsZ80 = i8080_regs;
-  z80_init_asmops ();
+  i8085_regsZ80 = i8085_gpr_regs;
+  i8085_init_asmops ();
 }
 
 static void
@@ -173,8 +173,8 @@ _i8085_init (void)
   z80_opts.sub = SUB_8085;
   asm_addTree (&_asxxxx_z80);
 
-  regsZ80 = i8080_regs;
-  z80_init_asmops ();
+  i8085_regsZ80 = i8085_gpr_regs;
+  i8085_init_asmops ();
 }
 
 static void
@@ -205,7 +205,7 @@ _reg_parm (sym_link *l, bool reentrant)
         werror (E_Z88DK_FASTCALL_PARAMETER);
     }
 
-  bool is_regarg = z80IsRegArg (_G.regparam.ftype, ++_G.regparam.n, 0);
+  bool is_regarg = i8085_IsRegArg (_G.regparam.ftype, ++_G.regparam.n, 0);
 
   return (is_regarg ? _G.regparam.n : 0);
 }
@@ -936,7 +936,7 @@ PORT i8080_port =
     true,                       // Use support routine for int x int -> long multiplication.
     false,                      /* do not use support routine for unsigned long x unsigned char -> unsigned long long multiplication */
   },
-  { z80_emitDebuggerSymbol },
+  { i8085_emitDebuggerSymbol },
   {
     8000,                       /* maxCount */
     2,                          /* sizeofElement */
@@ -952,7 +952,7 @@ PORT i8080_port =
   NULL,
   _finaliseOptions,
   _setDefaultOptions,
-  z80_assignRegisters,
+  i8085_assignRegisters,
   _getRegName,
   _getRegByName,
   NULL,
@@ -1084,7 +1084,7 @@ PORT i8085_port =
     true,                       // Use support routine for int x int -> long multiplication.
     false,                      /* do not use support routine for unsigned long x unsigned char -> unsigned long long multiplication */
   },
-  { z80_emitDebuggerSymbol },
+  { i8085_emitDebuggerSymbol },
   {
     8000,                       /* maxCount */
     2,                          /* sizeofElement */
@@ -1100,7 +1100,7 @@ PORT i8085_port =
   NULL,
   _finaliseOptions,
   _setDefaultOptions,
-  z80_assignRegisters,
+  i8085_assignRegisters,
   _getRegName,
   _getRegByName,
   NULL,
