@@ -725,7 +725,7 @@ getDeadPairId (const iCode *ic)
     {
       return PAIR_BC;
     }
-  else if (!IS_SM83 && isPairDead (PAIR_DE, ic))
+  else if (isPairDead (PAIR_DE, ic))
     {
       return PAIR_DE;
     }
@@ -742,7 +742,7 @@ getFreePairId (const iCode *ic)
     {
       return PAIR_BC;
     }
-  else if (!IS_SM83 && !isPairInUse (PAIR_DE, ic))
+  else if (!isPairInUse (PAIR_DE, ic))
     {
       return PAIR_DE;
     }
@@ -838,31 +838,17 @@ emitJP (const symbol *target, const char *condition, float probability, bool tar
       wassert (currFunc);
       if (condition)
         {
-          if (IS_RAB && options.model != MODEL_SMALL) // We need to handle the shifting XPC window.
-            emit2 ("jp %s, (((!tlabel & 0xf000) ^ !tlabel) | 0xe000)", condition, currFunc->name, labelKey2num (target->key));
-          else
-            emit2 ("jp %s, !tlabel", condition, labelKey2num (target->key));
+          emit2 ("jp %s, !tlabel", condition, labelKey2num (target->key));
         }
       else
         {
-          if (IS_RAB && options.model != MODEL_SMALL) // We need to handle the shifting XPC window.
-            emit2 ("jp (((!tlabel & 0xf000) ^ !tlabel) | 0xe000)", currFunc->name, labelKey2num (target->key));
-          else
-            emit2 ("jp !tlabel", labelKey2num (target->key));
+          emit2 ("jp !tlabel", labelKey2num (target->key));
         }
     }
 
   if (condition)
     {
-      if ((IS_R4K || IS_R5K || IS_R6K) && (!strcmp (condition, "gt") || !strcmp (condition, "lt") || !strcmp (condition, "gtu") || !strcmp (condition, "v")) ||
-        IS_R6K_NOTYET && (!strcmp (condition, "ge") || !strcmp (condition, "le") || !strcmp (condition, "leu")))
-        {
-          if (target_in_jr_range)
-            cost (3, 5 + IS_R6K);
-          else
-            cost (4, 9);
-        }
-      else if (target_in_jr_range)
+      if (target_in_jr_range)
         cost2 (2, 2, 2, 2, 7 + 5 * probability, 6 + 2 * probability, 5, 6, 8 + 4 * probability, 4 + 4 * probability, 2 + 2 * probability, 2 + 2 * probability, 2 + 2 * probability, 2 + 1 * probability, 2 + 1 * probability);
       else
         cost2 (3, 4, -1, -1, 10, 6 + 3 * probability, 7, 7, 12 + 4 * probability, 10 + 2 * probability, -1, -1, -1, 3 + 1 * probability, 3);
@@ -976,7 +962,7 @@ ld_cost (const asmop *op1, int offset1, const asmop *op2, int offset2, bool coun
             {
               if (count)
                 cost2 (1, 2, 2, 2, 4, 4, 2, 2, 4, 4, 2, 1, 2, 1, 1); // ld r, r'
-              return (1 + IS_TLCS);
+              return (1); // IS_TLCS is unconditionally false in this file.
             }
         case AOP_IMMD:
         case AOP_LIT:
@@ -996,12 +982,7 @@ ld_cost (const asmop *op1, int offset1, const asmop *op2, int offset2, bool coun
         case AOP_SFR:
           if (count)
             {
-              if (IS_SM83)
-                cost (2, 12); // ldh
-              else if (IS_RAB)
-                cost (5, 13); // ioi; ld a, (nn); nop
-              else
-                cost2 (2, -1, -1, -1, 11, 9, -1, -1, -1, -1, -1, -1, -1, 3, 3); // in a, (n)
+              cost2 (2, -1, -1, -1, 11, 9, -1, -1, -1, -1, -1, -1, -1, 3, 3); // in a, (n)
               if (!aopInReg (op1, 0, A_IDX) && op1type != AOP_DUMMY)
                 cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1); // ld r, a
             }
@@ -1061,7 +1042,7 @@ ld_cost (const asmop *op1, int offset1, const asmop *op2, int offset2, bool coun
           if (op1->type == AOP_DUMMY || aopInReg (op1, 0, A_IDX))
             {
               cost2 (3, 4, -1, 4, 13, 12, 9, 9, 16, 10, -1, 5, 5, 4, 4);
-              return (3 + IS_TLCS);
+              return (3); // IS_TLCS is unconditionally false in this file.
             }
         default:
           fprintf (stderr, "ld_cost op1: AOP_REG, op2: %d\n", (int) (op2type));
@@ -1070,12 +1051,7 @@ ld_cost (const asmop *op1, int offset1, const asmop *op2, int offset2, bool coun
     case AOP_SFR:
       if (count)
         {
-          if (IS_SM83)
-            cost (2, 12); // ldh
-          else if (IS_RAB)
-            cost (5, 14); // ioi; ld (nn), a; nop
-          else
-            cost2 (2, -1, -1, -1, 11, 10, -1, -1, -1, -1, -1, -1, -1, 3, 3); // out (n), a
+          cost2 (2, -1, -1, -1, 11, 10, -1, -1, -1, -1, -1, -1, -1, 3, 3); // out (n), a
         }
       if (aopInReg (op1, 0, A_IDX))
         return (2);
@@ -1111,12 +1087,7 @@ ld_cost (const asmop *op1, int offset1, const asmop *op2, int offset2, bool coun
         case AOP_SFR:          /* 2 from in a, (...) */
           if (count)
             {
-              if (IS_SM83)
-                cost (2, 12); // ldh
-              else if (IS_RAB)
-                cost (5, 13); // ioi; ld a, (nn); nop
-              else
-                cost2 (2, -1, -1, -1, 11, 9, -1, -1, -1, -1, -1, -1, -1, 3, 3); // in a, (n)
+              cost2 (2, -1, -1, -1, 11, 9, -1, -1, -1, -1, -1, -1, -1, 3, 3); // in a, (n)
               cost2 (3, 3, -1, 3, 19, 15, 10, 11, -1, 10, -1, 5, 4, 4, 5); // ld d(ix), a
             }
           return (5);
@@ -1172,7 +1143,7 @@ ld_cost (const asmop *op1, int offset1, const asmop *op2, int offset2, bool coun
         case AOP_LIT:
           if (count)
             cost2 (2, 3, 2, 2, 10, 9, 7, 7, 12, 8, 3, 4, 3, 3, 3); // ld (hl), n
-          return (5 + IS_TLCS90);
+          return (5); // IS_TLCS90 is unconditionally false in this file.
         case AOP_STK:
           if (count)
             {
@@ -1183,12 +1154,7 @@ ld_cost (const asmop *op1, int offset1, const asmop *op2, int offset2, bool coun
         case AOP_SFR:
           if (count)
             {
-              if (IS_SM83)
-                cost (2, 12); // ldh
-              else if (IS_RAB)
-                cost (5, 13); // ioi; ld a, (nn); nop
-              else
-                cost2 (2, -1, -1, -1, 11, 9, -1, -1, -1, -1, -1, -1, -1, 3, 3); // in a, (n)
+              cost2 (2, -1, -1, -1, 11, 9, -1, -1, -1, -1, -1, -1, -1, 3, 3); // in a, (n)
               cost2 (1, 2, 1, 1, 7, 7, 6, 6, 8, 6, 2, 2, 2, 2, 2); // ld (hl), a
             }
           return (6);
