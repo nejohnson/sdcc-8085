@@ -1403,17 +1403,7 @@ emit3Cost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, i
     case A_SBC:
     case A_SUB:
     case A_XOR:
-      if (IS_TLCS && !aopInReg (op1, offset1, A_IDX) && (op2->type == AOP_LIT || op2->type == AOP_IMMD))
-        {
-          if (op1->type == AOP_REG)
-            cost2 (-1, 3, 3, 3, -1, -1, -1, -1, -1, 6, 3, 3, 3, -1, -1);
-          else if (op1->type == AOP_DIR && !IS_TLCS870)
-            cost (5, 7 + IS_TLCS90 * 7);
-          else
-            wassert (0);
-        }
-      else
-        op8_cost (op2, offset2);
+      op8_cost (op2, offset2); // IS_TLCS is unconditionally false in this file.
       return;
     case A_DEC:
     case A_INC:
@@ -1438,11 +1428,7 @@ emit3Cost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, i
       bit8_cost (op1);
       return;
     case A_SWAP:
-      wassert (!IS_Z80 && !IS_RAB && !IS_TLCS90);
-      if (aopInReg (op1, offset1, A_IDX) && IS_TLCS870)
-        cost (1, 3);
-      else
-        cost2 (2, -1, 2, 2, 8, -1, -1, -1, 8, -1, 4, 4, 7, -1, -1);
+      cost2 (2, -1, 2, 2, 8, -1, -1, -1, 8, -1, 4, 4, 7, -1, -1); // IS_TLCS870 is unconditionally false in this file.
       return;
     default:
       wassertl (0, "Tried get cost for unknown instruction");
@@ -2026,7 +2012,7 @@ aopForSym (const iCode *ic, symbol *sym, bool result, bool requires_a)
          Normally everything is AOP_STK, but for offsets of < -128 or
          > 127 on the Z80 an extended stack pointer is used.
        */
-      if (IS_SM83 || IS_TLCS870 || (_G.omitFramePtr || sym->stack < INT8MIN || sym->stack > (int) (INT8MAX - getSize (sym->type))))
+      if (_G.omitFramePtr || sym->stack < INT8MIN || sym->stack > (int) (INT8MAX - getSize (sym->type))) // IS_SM83||IS_TLCS870 unconditionally false in this file.
         {
           // emitDebug ("; AOP_EXSTK for %s, _G.omitFramePtr %d, sym->stack %d, size %d", sym->rname, (int) (_G.omitFramePtr), sym->stack, getSize (sym->type));
           sym->aop = aop = newAsmop (AOP_EXSTK);
@@ -2056,19 +2042,9 @@ aopForSym (const iCode *ic, symbol *sym, bool result, bool requires_a)
   if (IN_REGSP (space))
     {
       /*.p.t.20030716 minor restructure to add SFR support to the Z80 */
-      if (IS_SM83)
-        {
-          /* if it is in direct space */
-          if (!requires_a)
-            {
-              sym->aop = aop = newAsmop (AOP_SFR);
-              aop->aopu.aop_dir = sym->rname;
-              aop->size = getSize (sym->type);
-              /* emitDebug ("; AOP_SFR for %s", sym->rname); */
-              return aop;
-            }
-        }
-      else
+      /* IS_SM83 is unconditionally false in this file, so the sm83-only
+         AOP_SFR-without-requires_a shortcut that was here is dead; only
+         the general (originally "else") SFR path below ever runs. */
         {
           /*.p.t.20030716 adding SFR support to the Z80 port */
           aop = newAsmop (AOP_SFR);
@@ -2079,8 +2055,8 @@ aopForSym (const iCode *ic, symbol *sym, bool result, bool requires_a)
           /* __banked __sfr means a 16-bit I/O address. The 8080/8085 have an
              8-bit I/O space only (and lack the Z80 addressing the banked access
              relies on), so reject it at compile time rather than emitting an
-             illegal in/out (c). */
-          if (aop->banked && IS_8080LIKE && !regalloc_dry_run)
+             illegal in/out (c). IS_8080LIKE is unconditionally true in this file. */
+          if (aop->banked && !regalloc_dry_run)
             werror (E_SFR_BANKED_UNSUPPORTED);
           aop->bcInUse = isPairInUse (PAIR_BC, ic);
           /* emitDebug (";Z80 AOP_SFR for %s banked:%d bc:%d", sym->rname, FUNC_REGBANK (sym->type), aop->bcInUse); */
@@ -2094,17 +2070,15 @@ aopForSym (const iCode *ic, symbol *sym, bool result, bool requires_a)
       wassertl (IS_EZ80 || IS_RAB || IS_TLCS90, "__far for eZ80, Rabbits and TLCS-90 only");
       sym->aop = aop = newAsmop (AOP_FDIR);
     }
-  else if (!IS_TLCS870 && getSize (sym->type) == 1 && isRegDead(A_IDX, ic) && !isRegDead(HL_IDX, ic) &&
+  else if (getSize (sym->type) == 1 && isRegDead(A_IDX, ic) && !isRegDead(HL_IDX, ic) && // IS_TLCS870 unconditionally false in this file.
     ((ic->op == '=' || ic->op == CAST) && !IS_OP_LITERAL (ic->right) && !OP_SYMBOL (ic->right)->remat ||
     ic->op == '!' && !isOperandEqual (ic->left, ic->result) ||
     result && !isOperandEqual (ic->left, ic->result) && !isOperandEqual (ic->right, ic->result)))
     sym->aop = aop = newAsmop (AOP_DIR);
-  /* put address in hl or iy */
-  else if (IS_SM83 || IS_TLCS870 || IY_RESERVED ||
-    getSize (sym->type) == 1 && isRegDead(HL_IDX, ic) && result)
-    sym->aop = aop = newAsmop (AOP_HL);
+  /* put address in hl - IY_RESERVED is unconditionally true in this file
+     (there is no IY at all), so the AOP_IY arm below is unreachable. */
   else
-    sym->aop = aop = newAsmop (AOP_IY);
+    sym->aop = aop = newAsmop (AOP_HL);
 
   aop->size = getSize (sym->type);
   aop->aopu.aop_dir = sym->rname;
@@ -2439,7 +2413,7 @@ aopOp (operand *op, const iCode *ic, bool result, bool requires_a)
       /* On-stack for dry run. */
       if (sym->nRegs && regalloc_dry_run)
         {
-          sym->aop = op->aop = aop = newAsmop ((_G.omitFramePtr || IS_SM83 || IS_TLCS870) ? AOP_EXSTK : AOP_STK);
+          sym->aop = op->aop = aop = newAsmop (_G.omitFramePtr ? AOP_EXSTK : AOP_STK); // IS_SM83||IS_TLCS870 unconditionally false in this file.
           aop->size = getSize (sym->type);
           if (!result)
             aop->valinfo = getOperandValinfo (ic, op, false);
@@ -2560,12 +2534,7 @@ aopRet (sym_link *ftype)
     case 1:
       return (ASMOP_A);
     case 2:
-      if (IS_RAB || IS_TLCS90 || IS_EZ80)
-        return ASMOP_HL;
-      else if (IS_SM83)
-        return ASMOP_BC;
-      else
-        return ASMOP_DE;
+      return ASMOP_DE; // IS_RAB||IS_TLCS90||IS_EZ80||IS_SM83 unconditionally false in this file.
     case 3:
       return (ASMOP_LDE);
     case 4:
@@ -2648,30 +2617,14 @@ aopArg (sym_link *ftype, int i)
       if (i == 1 && getSize (arg->type) == 4)
         return (ASMOP_HLDE);
 
-      if (IS_SM83 && i == 2 && aopArg (ftype, 1) == ASMOP_A && getSize (arg->type) == 1)
-        return ASMOP_E;
-      if (IS_SM83 && i == 2 && aopArg (ftype, 1) == ASMOP_A && getSize (arg->type) == 2)
-        return ASMOP_DE;
-  
-      if (IS_SM83 && i == 2 && aopArg (ftype, 1) == ASMOP_DE && getSize (arg->type) == 1)
-        return ASMOP_A;
-      if (IS_SM83 && i == 2 && aopArg (ftype, 1) == ASMOP_DE && getSize (arg->type) == 2)
-        return ASMOP_BC;
-
-      if (!IS_SM83 && i == 2 && aopArg (ftype, 1) == ASMOP_A && getSize (arg->type) == 1)
+      // IS_SM83-gated arms (ASMOP_A/ASMOP_DE second-arg cases) removed:
+      // unconditionally false in this file.
+      if (i == 2 && aopArg (ftype, 1) == ASMOP_A && getSize (arg->type) == 1) // !IS_SM83 unconditionally true in this file.
         return ASMOP_L;
 
-      if ((IS_Z80 || IS_Z180 || IS_Z80N || IS_R800) && i == 2 && aopArg (ftype, 1) == ASMOP_A && getSize (arg->type) == 2)
-        return ASMOP_DE;
-      if ((IS_Z80 || IS_Z180 || IS_Z80N || IS_R800) && i == 2 && aopArg (ftype, 1) == ASMOP_HL && getSize (arg->type) == 2)
-        return ASMOP_DE;
-
-      if ((IS_RAB || IS_TLCS90 || IS_EZ80) && i == 2 && aopArg (ftype, 1) == ASMOP_A && getSize (arg->type) == 2)
-        return ASMOP_HL;
-      if ((IS_RAB || IS_TLCS90 || IS_EZ80) && i == 2 && aopArg (ftype, 1) == ASMOP_HL && getSize (arg->type) == 1)
-        return ASMOP_A;
-      if ((IS_RAB || IS_TLCS90 || IS_EZ80) && i == 2 && aopArg (ftype, 1) == ASMOP_HLDE && getSize (arg->type) == 1)
-        return ASMOP_A;
+      // (IS_Z80||IS_Z180||IS_Z80N||IS_R800)-gated and
+      // (IS_RAB||IS_TLCS90||IS_EZ80)-gated arms removed: unconditionally
+      // false in this file.
 
       return 0;
     }
@@ -2716,10 +2669,6 @@ isFuncCalleeStackCleanup (sym_link *ftype)
 
   wassert (FUNC_SDCCCALL (ftype) == 1);
 
-  // Callee cleans up stack for all non-vararg functions on sm83.
-  if (IS_SM83)
-    return true;
-
   // Callee cleans up stack if return value has at most 16 bits or the return value is float and there is a first argument of type float.
   if (!ftype->next || getSize (ftype->next) <= 2)
     return true;
@@ -2749,7 +2698,7 @@ freeAsmop (operand * op, asmop *aaop)
 
   aop->freed = 1;
 
-  if (aop->type == AOP_PAIRPTR && !IS_SM83 && aop->aopu.aop_pairId == PAIR_DE)
+  if (aop->type == AOP_PAIRPTR && aop->aopu.aop_pairId == PAIR_DE) // !IS_SM83 unconditionally true in this file.
     {
       _pop (aop->aopu.aop_pairId);
     }
