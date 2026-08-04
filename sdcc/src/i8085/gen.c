@@ -284,11 +284,15 @@ static struct asmop *const ASMOP_AHL = &asmop_ahl;
 static struct asmop *const ASMOP_AIY = &asmop_aiy;
 static struct asmop *const ASMOP_EHL = &asmop_ehl;
 static struct asmop *const ASMOP_LDE = &asmop_lde;
-static struct asmop *const ASMOP_EBC = &asmop_ebc;
+/* ASMOP_EBC/ASMOP_DEBC (aliases for asmop_ebc/asmop_debc) are now unused:
+   their only uses were the IS_SM83-true arm of ternaries simplified away
+   above (IS_SM83 is unconditionally false in this file). The underlying
+   asmop_ebc/asmop_debc storage and their z80_init_reg_asmop() calls are
+   left alone - harmless, and asmop_ebc/asmop_debc share a declaration
+   line with many still-used asmop_* variables. */
 static struct asmop *const ASMOP_DEHL = &asmop_dehl;
 static struct asmop *const ASMOP_HLDE = &asmop_hlde;
 static struct asmop *const ASMOP_HLBC = &asmop_hlbc;
-static struct asmop *const ASMOP_DEBC = &asmop_debc;
 static struct asmop *const ASMOP_BCDE = &asmop_bcde;
 static struct asmop *const ASMOP_JKHL = &asmop_jkhl;
 static struct asmop *const ASMOP_ZERO = &asmop_zero;
@@ -405,44 +409,21 @@ cost (unsigned int bytes, float states)
 }
 
 static void // Count costs for register allocator.
-cost2 (int z80_bytes /* also most other ports */, int tlcs90_bytes, int tlcs870_bytes, int tlcs870c_bytes,
-  float z80n_states /* also z80 */, float z180_states, float r4k_clocks, float r6k_clocks, float sm83_cycles, float tlcs90_states, float tlcs870_cycles, float tlcs870c_cycles, float tlcs870c1_cycles, float ez80_cycles, float r800_cycles)
+/* Every column here except z80_bytes/z80n_states picks out a cost for some
+   other z80-family sub-target (TLCS90/870/EZ80/R800/Rabbit/SM83/...) that
+   never runs in this file - z80_opts.sub is always SUB_8080/SUB_8085, so
+   IS_8080LIKE is unconditionally true and every other IS_* predicate below
+   is unconditionally false. Collapsed to the two columns i8080/i8085
+   actually use (reusing the z80 columns, per the original "reuse the z80
+   cost column for now; refine later" comment). The full 15-argument
+   signature is kept unchanged so none of the many cost2(...) call sites
+   throughout this file need editing - the extra arguments are simply
+   ignored now, exactly as they were selected-and-discarded before. */
+cost2 (int z80_bytes, int tlcs90_bytes, int tlcs870_bytes, int tlcs870c_bytes,
+  float z80n_states, float z180_states, float r4k_clocks, float r6k_clocks, float sm83_cycles, float tlcs90_states, float tlcs870_cycles, float tlcs870c_cycles, float tlcs870c1_cycles, float ez80_cycles, float r800_cycles)
 {
-  int bytes = -1;
-  float states = -1.0;
-  if (IS_TLCS90)
-    bytes = tlcs90_bytes;
-  else if (IS_TLCS870)
-    bytes = tlcs870_bytes;
-  else if (IS_TLCS870C || IS_TLCS870C1)
-    bytes = tlcs870c_bytes;
-  else
-    bytes = z80_bytes;
-
-  if (IS_Z80 || IS_Z80N)
-    states = z80n_states;
-  else if (IS_Z180)
-    states = z180_states;
-  else if (IS_R2K || IS_R2KA || IS_R3KA || IS_R4K)
-    states = r4k_clocks;
-  else if (IS_R5K || IS_R6K)
-    states = r6k_clocks;
-  else if (IS_SM83)
-    states = sm83_cycles;
-  else if(IS_TLCS90)
-    states = tlcs90_states;
-  else if(IS_TLCS870)
-    states = tlcs870_cycles;
-  else if(IS_TLCS870C)
-    states = tlcs870c_cycles;
-  else if(IS_TLCS870C1)
-    states = tlcs870c1_cycles;
-  else if(IS_EZ80)
-    states = ez80_cycles;
-  else if(IS_R800)
-    states = r800_cycles;
-  else if(IS_8080LIKE)   /* reuse the z80 cost column for now; refine later */
-    states = z80n_states;
+  int bytes = z80_bytes;
+  float states = z80n_states;
 
   wassert (bytes >= 0 && states >= 0.0f);
   regalloc_dry_run_cost_bytes += bytes;
@@ -689,14 +670,7 @@ isRegDead (short rIdx, const iCode *ic)
 static PAIR_ID
 _getTempPairId (void)
 {
-  if (IS_SM83)
-    {
-      return PAIR_DE;
-    }
-  else
-    {
-      return PAIR_HL;
-    }
+  return PAIR_HL; /* IS_SM83 is unconditionally false in this file. */
 }
 
 static const char *
@@ -2602,13 +2576,13 @@ aopRet (sym_link *ftype)
     switch (size)
       {
       case 1:
-        return (IS_SM83 ? ASMOP_E : ASMOP_L);
+        return (ASMOP_L);
       case 2:
-        return (IS_SM83 ? ASMOP_DE : ASMOP_HL);
+        return (ASMOP_HL);
       case 3:
-        return (IS_SM83 ? ASMOP_LDE : ASMOP_EHL);
+        return (ASMOP_EHL);
       case 4:
-        return (IS_SM83 ? ASMOP_HLDE : ASMOP_DEHL);
+        return (ASMOP_DEHL);
       default:
         return 0;
       }
@@ -2627,9 +2601,9 @@ aopRet (sym_link *ftype)
       else
         return ASMOP_DE;
     case 3:
-      return (IS_SM83 ? ASMOP_EBC : ASMOP_LDE);
+      return (ASMOP_LDE);
     case 4:
-      return (IS_SM83 ? ASMOP_DEBC : ASMOP_HLDE);
+      return (ASMOP_HLDE);
     default:
       return 0;
     }
@@ -2704,9 +2678,9 @@ aopArg (sym_link *ftype, int i)
       if (i == 1 && getSize (arg->type) == 1)
         return ASMOP_A;
       if (i == 1 && getSize (arg->type) == 2)
-        return (IS_SM83 ? ASMOP_DE : ASMOP_HL);
+        return (ASMOP_HL);
       if (i == 1 && getSize (arg->type) == 4)
-        return (IS_SM83 ? ASMOP_DEBC : ASMOP_HLDE);
+        return (ASMOP_HLDE);
 
       if (IS_SM83 && i == 2 && aopArg (ftype, 1) == ASMOP_A && getSize (arg->type) == 1)
         return ASMOP_E;
@@ -6639,7 +6613,7 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
       n -= n;
     }
   else if ((optimize.codeSpeed ?
-    (loop_cycles >= (IS_RAB ? 10 : IS_SM83 ? 28 : 27)) :
+    (loop_cycles >= 27) :
     (loop_bytes >= 5)) &&
     hl_free)
     {
@@ -6710,7 +6684,7 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
           else
             d = n;
           emit2 ("add sp, !immed%d", d);
-          cost (2, IS_SM83 ? 16 : 4);
+          cost (2, 4);
           n -= d;
         }
       // on sm83 pop is smaller and faster, but that makes detection of uninitialized memory harder
@@ -9425,7 +9399,7 @@ genRet (const iCode *ic)
   else if (IC_LEFT (ic)->aop->type == AOP_LIT)
     {
       unsigned long long lit = ullFromVal (IC_LEFT (ic)->aop->aopu.aop_lit);
-      setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr || IS_SM83 ? 0 : 2));
+      setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr ? 0 : 2));
       emit2 ("!ldahli");
       regalloc_dry_run_cost += 6;
       emit2 ("ld h, !*hl");
@@ -9458,11 +9432,11 @@ genRet (const iCode *ic)
                   argsize++;
                 stackparmbytes += argsize;
               }
-          setupPairFromSP (PAIR_DE, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr || IS_SM83 ? 0 : 2) + stackparmbytes);
+          setupPairFromSP (PAIR_DE, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr ? 0 : 2) + stackparmbytes);
         }
       else
         {
-          setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr || IS_SM83 ? 0 : 2));
+          setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr ? 0 : 2));
           emit2 ("ld e, !*hl");
           cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
           emit3w (A_INC, ASMOP_HL, 0);
@@ -9505,13 +9479,13 @@ genRet (const iCode *ic)
                   argsize++;
                 stackparmbytes += argsize;
               }
-          setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr || IS_SM83 ? 0 : 2) + stackparmbytes);
+          setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr ? 0 : 2) + stackparmbytes);
           emit3 (A_LD, ASMOP_C, ASMOP_L);
           emit3 (A_LD, ASMOP_B, ASMOP_H);
         }
       else
         {
-          setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr || IS_SM83 ? 0 : 2));
+          setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr ? 0 : 2));
           emit2 ("ld c, !*hl");
           cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
           emit3w (A_INC, ASMOP_HL, 0);
@@ -17476,7 +17450,7 @@ genRightShift (const iCode * ic)
     }
 
   if (!shift_by_one && !unroll_8080 && !regalloc_dry_run)
-    IS_SM83 ? emitLabelSpill (tlbl) : emitLabel (tlbl);
+    emitLabel (tlbl);
 
   if (!shift_by_one && requiresHL (shiftop))
     spillPair (PAIR_HL);
@@ -19826,7 +19800,7 @@ genAddrOf (const iCode *ic)
     {
       pair = getPairId (ic->result->aop);
       if (pair == PAIR_INVALID)
-        pair = IS_SM83 ? PAIR_DE : PAIR_HL;
+        pair = PAIR_HL;
 
       if (!isPairDead (pair, ic))
         {
