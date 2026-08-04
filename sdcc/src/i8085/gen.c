@@ -3067,33 +3067,9 @@ adjusted:
   return(0);
 }
 
-static PAIR_ID
-makeFreePairId (const iCode * ic, bool * pisUsed)
-{
-  *pisUsed = FALSE;
-
-  if (ic != NULL)
-    {
-      if (!bitVectBitValue (ic->rMask, B_IDX) && !bitVectBitValue (ic->rMask, C_IDX))
-        {
-          return PAIR_BC;
-        }
-      else if (!IS_SM83 && !bitVectBitValue (ic->rMask, D_IDX) && !bitVectBitValue (ic->rMask, E_IDX))
-        {
-          return PAIR_DE;
-        }
-      else
-        {
-          *pisUsed = TRUE;
-          return PAIR_HL;
-        }
-    }
-  else
-    {
-      *pisUsed = TRUE;
-      return PAIR_HL;
-    }
-}
+/* makeFreePairId removed: its only caller was the !IS_8080LIKE-gated
+   pairId==PAIR_IY block in fetchPairLong, removed above (unconditionally
+   false in this file - confirmed via grep that no other call site exists). */
 
 // push an asmop to stack
 static void
@@ -3101,37 +3077,21 @@ push (asmop *aop, int offset, int size)
 {
   while (size)
     {
-      if ((size >= 2 && aop->type == AOP_LIT || aop->type == AOP_IMMD) &&
-         (IS_Z80N || IS_R4K || IS_R5K || IS_R6K)) // Same size, but slower (21 vs 23 cycles for Z80N, 13 vs 15 vor R4K, 13 vs 16 for R5K/R6K) than going through a register pair other than iy. Only worth it under high register pressure.
-         {
-           emit3w_o (A_PUSH, aop, size - 2, 0, 0);
-           _G.stack.pushed += 2;
-           size -= 2;
-         }
-      else if (size >= 4 && aopInReg (aop, offset + size - 4, DE_IDX) && aopInReg (aop, offset + size - 2, BC_IDX) &&
-        (IS_R4K || IS_R5K || IS_R6K))
-        {
-          emit2 ("push bcde");
-          cost2 (2, -1, -1, -1, -1, -1, 18, 19, -1, -1, -1, -1, -1, -1, -1);
-          _G.stack.pushed += 4;
-          size -= 4;
-        }
-      else if (size >= 4 && aopInReg (aop, offset + size - 4, HL_IDX) && aopInReg (aop, offset + size - 2, JK_IDX))
+      // IS_Z80N||IS_R4K||IS_R5K||IS_R6K-gated and IS_R4K||IS_R5K||IS_R6K-gated
+      // (Rabbit/Z80N-only 32-bit-literal-push and bcde-pair-push) arms
+      // removed here (unconditionally false in this file). The
+      // aopInReg(...,JK_IDX) arm right after is left alone: JK is a
+      // Rabbit-4000-family-only register pair not gated by an IS_* macro
+      // here, so it is dead only via the register-allocator's invariant
+      // (i8085_gpr_regs has no K_IDX/J_IDX), not provably so from this
+      // file alone - left for review, matching the IY-string-check
+      // precedent elsewhere in this pass.
+      if (size >= 4 && aopInReg (aop, offset + size - 4, HL_IDX) && aopInReg (aop, offset + size - 2, JK_IDX))
         {
           emit2 ("push jkhl");
           cost2 (2, -1, -1, -1, -1, -1, 18, 19, -1, -1, -1, -1, -1, -1, -1);
           _G.stack.pushed += 4;
           size -= 4;
-        }
-      else if (size >= 3 && aopInReg (aop, offset + size - 3, D_IDX) && aopInReg (aop, offset + size - 2, BC_IDX) &&
-        (IS_R4K || IS_R5K || IS_R6K))
-        {
-          emit2 ("push bcde");
-          cost2 (2, -1, -1, -1, -1, -1, 18, 19, -1, -1, -1, -1, -1, -1, -1);
-          emit2 ("inc sp");
-          cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
-          _G.stack.pushed += 3;
-          size -= 3;
         }
       else if (size >= 2 && getPairId_o (aop, offset + size - 2) != PAIR_INVALID && getPairId_o (aop, offset + size - 2) != PAIR_JK)
         {
@@ -3236,7 +3196,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
 
   if (aop->type == AOP_STL && !offset)
     {
-      if (IS_SM83 && pairId == PAIR_DE || pairId == PAIR_BC)
+      if (pairId == PAIR_BC) // IS_SM83 is unconditionally false in this file.
         {
           _push (PAIR_HL);
           emit2 ("ld hl, !immed%d", spOffset(aop->aopu.aop_stk));
@@ -3250,14 +3210,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
           _pop (PAIR_HL);
           return;
         }
-      else if (!IS_8080LIKE && pairId == PAIR_IY)
-        {
-          emit2 ("ld iy, !immed%d", spOffset(aop->aopu.aop_stk));
-          cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
-          emit2 ("add iy, sp");
-          cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
-          return;
-        }
+      // !IS_8080LIKE-gated PAIR_IY handling removed here (unconditionally false in this file).
       //todo use pair info, if useful?
       if (pairId == PAIR_DE)
         emit3w (A_EX, ASMOP_DE, ASMOP_HL);
@@ -3290,16 +3243,10 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
         {
           /* Do nothing */
         }
-      else if (IS_EZ80 && aop->size - offset >= 2 && aop->type == AOP_STK)
-        {
-          int fp_offset = aop->aopu.aop_stk + offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
-          emit2 ("ld %s, %d (ix)", _pairs[pairId].name, fp_offset);
-          cost (3, 5);
-        }
       /* Getting the parameter by a pop / push sequence is cheaper when we have a free pair (except for the Rabbit, which has an even cheaper sp-relative load).
          SM83 is nearly twice as fast doing it byte by byte, but that's a byte bigger.
          Stack allocation can change after register allocation, so assume this optimization is not possible for the allocator's cost function (unless the stack location is for a parameter). */
-      else if (!IS_RAB && (!IS_SM83 || optimize.codeSize) && aop->size - offset >= 2 &&
+      else if (aop->size - offset >= 2 && // IS_RAB unconditionally false, !IS_SM83 unconditionally true in this file.
                (aop->type == AOP_STK || aop->type == AOP_EXSTK) && (!regalloc_dry_run || aop->aopu.aop_stk > 0)
                && (aop->aopu.aop_stk + offset + _G.stack.offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) +
                    _G.stack.pushed) == 2 && ic && getFreePairId (ic) != PAIR_INVALID && getFreePairId (ic) != pairId)
@@ -3311,7 +3258,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
           _push (extrapair);
         }
       /* Todo: Use even cheaper ex hl, (sp) and ex iy, (sp) when possible. */
-      else if ((!IS_RAB || pairId == PAIR_BC || pairId == PAIR_DE) && aop->size - offset >= 2 &&
+      else if (aop->size - offset >= 2 && // IS_RAB unconditionally false in this file.
                (aop->type == AOP_STK || aop->type == AOP_EXSTK) && (!regalloc_dry_run || aop->aopu.aop_stk > 0)
                && (aop->aopu.aop_stk + offset + _G.stack.offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) +
                    _G.stack.pushed) == 0)
@@ -3323,7 +3270,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
          instruction (and 0xED is LHLX on the 8085). Only HL can be loaded from a
          direct address, via LHLD. Load DE/BC byte-wise through A with LDA, which
          leaves HL untouched. */
-      else if (IS_8080LIKE && pairId != PAIR_HL && (aop->type == AOP_IY || aop->type == AOP_HL) &&
+      else if (pairId != PAIR_HL && (aop->type == AOP_IY || aop->type == AOP_HL) && // IS_8080LIKE unconditionally true in this file.
         (aop->size - offset >= 1))
         {
           bool pushed_a = ic && bitVectBitValue (ic->rMask, A_IDX);
@@ -3349,7 +3296,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
             _pop (PAIR_AF);
           spillPair (pairId);
         }
-      else if (!IS_SM83 && (aop->type == AOP_IY || aop->type == AOP_HL) &&
+      else if ((aop->type == AOP_IY || aop->type == AOP_HL) && // !IS_SM83 unconditionally true in this file.
         (aop->size >= 2 || pairId != PAIR_IY && optimize.allow_unsafe_read))
         {
           /* Instead of fetching relative to IY, just grab directly
@@ -3367,7 +3314,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
             }
         }
       /* we need to get it byte by byte */
-      else if (pairId == PAIR_HL && (IS_SM83 || IY_RESERVED) && (aop->type == AOP_HL || aop->type == AOP_EXSTK || IS_SM83 && aop->type == AOP_STK) && requiresHL (aop))
+      else if (pairId == PAIR_HL && (aop->type == AOP_HL || aop->type == AOP_EXSTK) && requiresHL (aop)) // IY_RESERVED unconditionally true, IS_SM83 unconditionally false in this file.
         {
           if (!regalloc_dry_run)        // TODO: Fix this to get correct cost!
             aopGet (aop, offset, FALSE);
@@ -3381,29 +3328,16 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
               break;
             default:
               wassertl (aop->size - offset > 1, "Attempted to fetch no data into HL");
-              if (IS_RAB)
-                {
-                  emit2 ("ld hl, 0 (hl)");
-                  cost (3, 11 + (IS_R5K || IS_R6K));
-                }
-              else if (IS_EZ80 || IS_TLCS)
-                {
-                  emit2 ("ld hl, !*hl");
-                  cost2 (2, 2, 2, 2, -1, -1, -1, -1, -1, 8, 4, 4, 4, 4, -1);
-                }
-              else
+              // IS_RAB-gated and (IS_EZ80||IS_TLCS)-gated variants removed here
+              // (unconditionally false in this file); the IS_SM83-gated cost
+              // variant below it likewise (unconditionally false).
                 {
                   if (ic && bitVectBitValue (ic->rMask, A_IDX))
                     _push (PAIR_AF);
 
                   emit2 ("!ldahli");
-                  if (IS_SM83)
-                    cost (1, 8); // ldi
-                  else
-                    {
-                      cost2 (1, 2, 1, 1, 7, 6, 5, 5, 8, 6, 2, 2, 2, 2, 2); // ld a, (hl)
-                      cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1); // inc hl
-                    }
+                  cost2 (1, 2, 1, 1, 7, 6, 5, 5, 8, 6, 2, 2, 2, 2, 2); // ld a, (hl)
+                  cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1); // inc hl
                   emit2 ("ld h, !*hl");
                   cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
                   emit3 (A_LD, ASMOP_L, ASMOP_A);
@@ -3414,49 +3348,8 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
               break;
             }
         }
-      else if (!IS_8080LIKE && pairId == PAIR_IY)
-        {
-          /* The Rabbit has the ld iy, n (sp) instruction. */
-          int fp_offset = aop->aopu.aop_stk + offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
-          int sp_offset = fp_offset + _G.stack.pushed + _G.stack.offset;
-          if ((IS_RAB || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && (aop->type == AOP_STK || aop->type == AOP_EXSTK) && abs (sp_offset) <= 127)
-            {
-              emit2 ("ld iy, %d (sp)", sp_offset);
-              cost2 (3, 3, -1, 3, -1, -1, 11, 12, -1, 12, -1, 6, 6, -1, -1);
-            }
-          else if (isPair (aop) && (IS_RAB || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && getPairId (aop) == PAIR_HL)
-            {
-              emit2 ("ld iy, hl");
-              cost2 (2, 1, -1, 2, -1, -1, 4, 4, -1, 4, -1, 2, 2, -1, -1);
-            }
-          else if (isPair (aop))
-            {
-              _push (getPairId (aop));
-              _pop (PAIR_IY);
-            }
-          else
-            {
-              bool isUsed;
-              PAIR_ID id = makeFreePairId (ic, &isUsed);
-              if (isUsed)
-                _push (id);
-              /* Can't load into parts, so load into HL then exchange. */
-              genMove_o (id == PAIR_HL ? ASMOP_HL : id == PAIR_DE ? ASMOP_DE : id == PAIR_BC ? ASMOP_BC : ASMOP_IY, 0, aop, offset, 2, false, false, false, false, false);
-
-              if ((IS_RAB || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && id == PAIR_HL)
-                {
-                  emit2 ("ld iy, hl");
-                  cost2 (2, 1, -1, 2, -1, -1, 4, 4, -1, 4, -1, 2, 2, -1, -1);
-                }
-              else
-                {
-                  _push (id);
-                  _pop (PAIR_IY);
-                }
-              if (isUsed)
-                _pop (id);
-            }
-        }
+      // !IS_8080LIKE-gated pairId==PAIR_IY handling removed here in full
+      // (unconditionally false in this file - there is no IY at all).
       else if (isUnsplitable (aop))
         {
           _push (getPairId (aop));
@@ -3464,26 +3357,11 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
         }
       else
         {
-          /* The Rabbit has the ld hl, n (sp) and ld hl, n (ix) instructions. */
-          int fp_offset = aop->aopu.aop_stk + offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
-          int sp_offset = fp_offset + _G.stack.pushed + _G.stack.offset;
-          if ((IS_RAB || IS_TLCS90) && aop->size - offset >= 2 && (aop->type == AOP_STK || aop->type == AOP_EXSTK)
-              && (pairId == PAIR_HL || pairId == PAIR_IY || pairId == PAIR_DE) && (abs (fp_offset) <= 127 && pairId == PAIR_HL
-                  && aop->type == AOP_STK
-                  || abs (sp_offset) <= 127))
-            {
-              if (pairId == PAIR_DE && !(ic && isPairDead (PAIR_HL, ic)))
-                emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-              if (abs (sp_offset) <= 127)
-                emit2 ("ld %s, %d (sp)", pairId == PAIR_IY ? "iy" : "hl", sp_offset);   /* Fetch relative to stack pointer. */
-              else
-                emit2 ("ld hl, %d (ix)", fp_offset);    /* Fetch relative to frame pointer. */
-              cost (pairId == PAIR_IY ? 3 : 2, pairId == PAIR_IY ? 11 : 9);
-              if (pairId == PAIR_DE)
-                emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-            }
+          // (IS_RAB||IS_TLCS90)-gated ld-from-sp/ix-offset arm and the
+          // IS_RAB-gated "bool hl" zero-extend arm removed here
+          // (unconditionally false in this file).
           /* Operand resides (partially) in the pair */
-          else if (!regalloc_dry_run && !strcmp (aopGet (aop, offset + 1, FALSE), _pairs[pairId].l))    // aopGet (aop, offset + 1, FALSE) is problematic: It prevents calculation of exact cost, and results in redundant code being generated. Todo: Exact cost
+          if (!regalloc_dry_run && !strcmp (aopGet (aop, offset + 1, FALSE), _pairs[pairId].l))    // aopGet (aop, offset + 1, FALSE) is problematic: It prevents calculation of exact cost, and results in redundant code being generated. Todo: Exact cost
             {
               _moveA3 (aop, offset);
               if (!regalloc_dry_run)
@@ -3492,23 +3370,13 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
               emit2 ("ld %s, a", _pairs[pairId].l);
               ld_cost (ASMOP_L, 0, ASMOP_A, 0, true);
             }
-          /* The Rabbit's cast to bool is a cheap way of zeroing h (similar to xor a, a for a for the Z80). */
-          else if (pairId == PAIR_HL && IS_RAB && aop->size - offset == 1 && !(aop->type == AOP_REG && (aop->aopu.aop_reg[offset]->rIdx == L_IDX || aop->aopu.aop_reg[offset]->rIdx == H_IDX)) &&
-            !aopInReg (aop, offset, IYL_IDX) && !aopInReg (aop, offset, IYH_IDX))
-            {
-              emit2 ("bool hl");
-              cost (1, 2);
-              if (!regalloc_dry_run)
-                emit2 ("ld %s, %s", _pairs[pairId].l, aopGet (aop, offset, false));
-              ld_cost (pairId == PAIR_HL ? ASMOP_L : pairId == PAIR_DE ? ASMOP_E : ASMOP_C, 0, aop, offset, true);
-            }
           else
             {
               if (pairId == PAIR_HL && (aopInReg (aop, offset, IYL_IDX) || aopInReg (aop, offset, IYH_IDX)))
                 UNIMPLEMENTED;
               if (!aopInReg (aop, offset, _pairs[pairId].l_idx))
                 {
-                  if (!HAS_IYL_INST && (aopInReg (aop, offset, IYL_IDX) || aopInReg (aop, offset, IYH_IDX)))
+                  if (aopInReg (aop, offset, IYL_IDX) || aopInReg (aop, offset, IYH_IDX)) // HAS_IYL_INST is unconditionally false in this file.
                     UNIMPLEMENTED;
                   else
                     {
@@ -3521,7 +3389,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
                 UNIMPLEMENTED;
               if (!aopInReg (aop, offset + 1, _pairs[pairId].h_idx))
                 {
-                  if (!HAS_IYL_INST && (aopInReg (aop, offset + 1, IYL_IDX) || aopInReg (aop, offset + 1, IYH_IDX)))
+                  if (aopInReg (aop, offset + 1, IYL_IDX) || aopInReg (aop, offset + 1, IYH_IDX)) // HAS_IYL_INST is unconditionally false in this file.
                     UNIMPLEMENTED;
                   else
                     {
