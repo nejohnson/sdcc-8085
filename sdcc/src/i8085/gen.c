@@ -4822,8 +4822,12 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
       // IS_TLCS90))`, both disjuncts unconditionally false) all removed
       // here. Also removed: the (IS_RAB||IS_TLCS90||IS_TLCS870C||
       // IS_TLCS870C1)-gated ld-iy-to-stack arm.
-      else if (!IS_SM83 && !IS_TLCS870 && !IS_RAB && !(IS_TLCS90 && optimize.codeSpeed) && // The sm83 doesn't have ex (sp), hl. The Rabbits and tlcs90 have it, but ld 0 (sp), hl is faster. For the Rabbits, they are also the same size.
-        i + 1 < n && aopOnStack (result, roffset + i, 2) && !sp_offset &&
+      // Dropped from the condition below: "!IS_SM83 && !IS_TLCS870 &&
+      // !IS_RAB && !(IS_TLCS90 && optimize.codeSpeed) &&" - all four
+      // terms unconditionally true in this file (the sm83 doesn't have
+      // ex (sp), hl; the Rabbits and tlcs90 have it, but ld 0 (sp), hl
+      // is faster - none of that applies here).
+      else if (i + 1 < n && aopOnStack (result, roffset + i, 2) && !sp_offset &&
         aopInReg (source, soffset + i, HL_IDX) && hl_dead && // If we knew that iy was dead, we could also use ex (sp), iy here.
         !regalloc_dry_run) // Stack positions will change, so do not assume this is possible in the cost function.
         {
@@ -4946,28 +4950,10 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
             goto skip_byte_push_iy; // We can't write this one without overwriting the source.
         }
 
-      if (IS_RAB &&
-        (getPairId_o (result, roffset + i) == PAIR_HL && getPairId_o (source, soffset + i) == PAIR_IY ||
-        getPairId_o (result, roffset + i) == PAIR_IY && getPairId_o (source, soffset + i) == PAIR_HL))
-        {
-          emit2 ("ld %s, %s", _pairs[getPairId_o (result, roffset + i)].name, _pairs[getPairId_o (source, soffset + i)].name);
-          cost (2, 4);
-          spillPair (getPairId_o (result, roffset + i));
-        }
-      else if (IS_TLCS90 && getPairId_o (result, roffset + i) != PAIR_INVALID && getPairId_o (source, soffset + i) != PAIR_INVALID)
-        {
-          emit2 ("ld %s, %s", _pairs[getPairId_o (result, roffset + i)].name, _pairs[getPairId_o (source, soffset + i)].name);
-          bool hl = (aopInReg (result, roffset + i, HL_IDX) ^ aopInReg (source, soffset + i, HL_IDX));
-          cost (2 - hl, 6 - 2 * hl);
-          spillPair (getPairId_o (result, roffset + i));
-        }
-      else if (IS_EZ80 && getPairId_o (result, roffset + i) != PAIR_INVALID && aopInReg (source, soffset + i, IY_IDX))
-        {
-          emit2 ("lea %s, iy, !zero", _pairs[getPairId_o (result, roffset + i)].name);
-          cost (3, 3);
-          spillPair (getPairId_o (result, roffset + i));
-        }
-      else if (aopInReg (result, roffset + i, IY_IDX) && getPairId_o (source, soffset + i) != PAIR_INVALID ||
+      // IS_RAB-gated "ld hl, iy / ld iy, hl", IS_TLCS90-gated "ld rr, rr",
+      // and IS_EZ80-gated "lea rr, iy" arms removed here (all three
+      // macros unconditionally false in this file).
+      if (aopInReg (result, roffset + i, IY_IDX) && getPairId_o (source, soffset + i) != PAIR_INVALID ||
         getPairId_o (result, roffset + i) != PAIR_INVALID && aopInReg (source, soffset + i, IY_IDX))
         {
           _push (getPairId_o (source, soffset + i));
@@ -4986,8 +4972,7 @@ skip_byte_push_iy:
     }
 
   // Try to use ex de, hl
-  if (!IS_SM83)
-    {
+  { // IS_SM83 unconditionally false in this file; block always executes.
       int ex[4] = {-2, -2, -2, -2}; // Swapped bytes
       bool no = !hl_dead || !de_dead; // Still needed byte would be overwritten
 
@@ -5249,31 +5234,8 @@ skip_byte_push_iy:
         }
     }
 
-  // Try to use Rabbit 6000 swap rr
-  if (IS_R6K)
-    for (int b = C_IDX; b <= K_IDX; b += 2)
-      if (regsize >= 2 && (b == C_IDX || b == E_IDX || b == L_IDX || b == K_IDX))
-        {
-          int i;
-          int ex[2] = {-1, -1};
-
-          i = result->regs[b] - roffset;
-          if (i >= 0 && i < n && !assigned[i] && aopInReg (source, soffset + i, b + 1))
-            ex[0] = i;
-          i = result->regs[b + 1] - roffset;
-          if (i >= 0 && i < n && !assigned[i] && aopInReg (source, soffset + i, b))
-            ex[1] = i;
-
-          if (ex[0] >= 0 && ex[1] >= 0)
-            {
-              asmop *xchaop = (b == C_IDX) ? ASMOP_BC : (b == E_IDX) ? ASMOP_DE : (b == L_IDX) ? ASMOP_HL : ASMOP_JK;
-              emit3w (A_SWAP, xchaop, 0);
-              assigned[ex[0]] = true;
-              assigned[ex[1]] = true;
-              regsize -= 2;
-              size -= 2;
-            }
-        }
+  // IS_R6K-gated "Try to use Rabbit 6000 swap rr" loop removed here
+  // (IS_R6K unconditionally false in this file).
 
   while (regsize && result->type == AOP_REG && source->type == AOP_REG)
     {
@@ -5352,37 +5314,9 @@ skip_byte:
     }
   genCopyStack (result, roffset, source, soffset, n, assigned, &size, a_free, hl_free, jk_free, false);
 
-  // Take de from stack first on Rabbit, while hl is still free, so we can do with just one ex de, hl.
-  if (IS_RAB && hl_free &&
-    result->regs[E_IDX] > roffset && result->regs[E_IDX] < roffset + n && !assigned[result->regs[E_IDX] - roffset] &&
-    result->regs[D_IDX] > roffset && result->regs[D_IDX] < roffset + n && !assigned[result->regs[D_IDX] - roffset] &&
-    result->regs[E_IDX] + 1 == result->regs[D_IDX])
-    {
-      int i = result->regs[E_IDX] - roffset;
-      const int fp_offset = source->aopu.aop_stk + soffset + i + (source->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
-      const int sp_offset = fp_offset + _G.stack.pushed + _G.stack.offset;     
-      if (sp_offset <= 255 || fp_offset <= 127)
-        {
-          if (!regalloc_dry_run)
-            if (sp_offset <= 255)
-              {
-                emit2 ("ld hl, %d (sp)", sp_offset);
-              }
-            else
-              {
-                emit2 ("ld hl, %s", aopGet (source, soffset + i, false));
-              }
-          cost (2, 9);
-          emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-          spillPair (PAIR_HL);
-          spillPair (PAIR_DE);
-          assigned[i] = true;
-          assigned[i + 1] = true;
-          size -= 2;
-          i += 2;
-        }
-    }
-  
+  // IS_RAB-gated "Take de from stack first on Rabbit" block removed here
+  // (IS_RAB unconditionally false in this file).
+
   // Last, move everything else from stack to registers.
   wassert (result->type != AOP_REG || result->size < 8);
   for (int i = 0; i < n && result->type == AOP_REG;)
@@ -5401,46 +5335,10 @@ skip_byte:
 
       if (assigned[i])
         i++;
-      else if ((IS_R4K || IS_R5K || IS_R6K) && i + 3 < n && !assigned[i] && !assigned[i + 1] && !assigned[i + 2] && !assigned[i + 3] &&
-        sp_offset <= 255 &&
-        (aopInReg (result, roffset + i + 2, JK_IDX) && aopInReg (result, roffset + i, HL_IDX) || aopInReg (result, roffset + i + 2, BC_IDX) && aopInReg (result, roffset + i, DE_IDX)))
-        {
-          if (!regalloc_dry_run)
-            emit2 ("ld %s%s, %d (sp)", _pairs[getPairId_o (result, roffset + i + 2)].name, _pairs[getPairId_o (result, roffset + i)].name, sp_offset);
-          // todo: cost2
-          assigned[i] = true;
-          assigned[i + 1] = true;
-          assigned[i + 2] = true;
-          assigned[i + 3] = true;
-          size -= 4;
-          i += 4;
-        }
-      else if (i + 1 < n && !assigned[i + 1] && (source->type == AOP_STK || source->type == AOP_EXSTK) &&
-        (IS_RAB && sp_offset <= 255 || IS_TLCS90 && sp_offset <= 127) &&
-        (aopInReg (result, roffset + i, HL_IDX) || aopInReg (result, roffset + i, IY_IDX)))
-        {
-          if (!regalloc_dry_run)
-            emit2 ("ld %s, %d (sp)", _pairs[getPairId_o (result, roffset + i)].name, sp_offset);
-          spillPair (getPairId_o (result, roffset + i));
-          cost2old (3 - IS_RAB, 0, 0, 11, 0, 12, 0, 0);
-          assigned[i] = true;
-          assigned[i + 1] = true;
-          size -= 2;
-          i += 2;
-        }
-      else if (i + 1 < n && !assigned[i + 1] && source->type == AOP_STK &&
-        (aopInReg (result, roffset + i, HL_IDX) && IS_RAB ||
-        (aopInReg (result, roffset + i, BC_IDX) || aopInReg (result, roffset + i, DE_IDX) || aopInReg (result, roffset + i, HL_IDX) || aopInReg (result, roffset + i, IY_IDX)) && (IS_EZ80 || IS_TLCS90)))
-        {
-          if (!regalloc_dry_run)
-            emit2 ("ld %s, %s", _pairs[getPairId_o (result, roffset + i)].name, aopGet (source, soffset + i, false));
-          spillPair (getPairId_o (result, roffset + i));
-          cost2old (3 - IS_RAB, 0, 0, 11, 0, 12, 5, 0);
-          assigned[i] = true;
-          assigned[i + 1] = true;
-          size -= 2;
-          i += 2;
-        }
+      // (IS_R4K||IS_R5K||IS_R6K)-gated 32-bit "ld rrrr, (sp)" arm,
+      // (IS_RAB||IS_TLCS90)-gated "ld hl/iy, (sp)" arm, and
+      // (IS_RAB||IS_EZ80||IS_TLCS90)-gated "ld hl/iy/bc/de, ..." arm
+      // removed here (all macros unconditionally false in this file).
       else if (i + 1 < n && !assigned[i + 1] && (source->type == AOP_STK || source->type == AOP_EXSTK) &&
         !sp_offset && getPairId_o (result, roffset + i) != PAIR_INVALID &&
         !regalloc_dry_run) // Stack locations might change.
@@ -5467,9 +5365,11 @@ skip_byte:
         sp_offset == 2 && getPairId_o (result, roffset + i) != PAIR_INVALID &&
         (getPairId_o (result, roffset + i) != PAIR_HL && hl_free || getPairId_o (result, roffset + i) != PAIR_DE && de_free) &&
         (!regalloc_dry_run || source->aopu.aop_stk > 0) &&  // Stack locations might change, unless its a parameter.
-        !(IS_RAB && aopInReg (result, roffset + i, DE_IDX)) && // For de, Rabbit can do it faster at same code size using ex twice
-        (!IS_SM83 || optimize.codeSize) // SM83 can do it faster (worst case 2B bigger, but 1B smaller if lucky -> hl reuse)
-        && !optimize.codeSpeed) // A bit slower (42 vs 38 cycles on Z80 and Z80N), so don't do it when optimizing for speed.
+        // Dropped here: "!(IS_RAB && ...)" (IS_RAB unconditionally
+        // false, so this whole clause was unconditionally true) and
+        // "(!IS_SM83 || ...)" (IS_SM83 unconditionally false, so this
+        // clause was also unconditionally true).
+        !optimize.codeSpeed) // A bit slower (42 vs 38 cycles on Z80 and Z80N), so don't do it when optimizing for speed.
         {
           PAIR_ID pair = getPairId_o (result, roffset + i);
           PAIR_ID extrapair = (getPairId_o (result, roffset + i) != PAIR_HL && hl_free) ? PAIR_HL : PAIR_DE; // If we knew it is dead, we could use bc as extrapair here, too.
@@ -5483,32 +5383,9 @@ skip_byte:
           size -= 2;
           i += 2;
         }
-      else if ((IS_RAB || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1 || IS_EZ80) && i + 1 < n && !assigned[i + 1] &&
-        (source->type == AOP_STK && fp_offset <= 127 || !IS_EZ80 && sp_offset <= (IS_RAB ? 255 : 127)) &&
-        (aopInReg (result, roffset + i, DE_IDX) || result->type == AOP_REG && result->regs[L_IDX] < i && result->regs[IYL_IDX] < i && result->regs[H_IDX] < i && result->regs[IYH_IDX] < i && hl_free))
-        {
-          if (!hl_free)
-            emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-          if (!regalloc_dry_run)
-            if (!IS_EZ80 && sp_offset <= (IS_RAB ? 255 : 127))
-              emit2 ("ld hl, %d (sp)", sp_offset);
-            else
-              emit2 ("ld hl, %s", aopGet (source, soffset + i, false));
-          cost2 (2 + IS_EZ80, 3, -1, 3, -1, -1, 9, 10, -1, 12, -1, 6, 6, 5, -1);
-          spillPair (PAIR_HL);
-          if (aopInReg (result, roffset + i, DE_IDX))
-            emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-          else
-            {
-              wassert (hl_free);
-              emit3_o (A_LD, result, roffset + i, ASMOP_L, 0);
-              emit3_o (A_LD, result, roffset + i + 1, ASMOP_H, 0);
-            }
-          assigned[i] = true;
-          assigned[i + 1] = true;
-          size -= 2;
-          i += 2;      
-        }
+      // (IS_RAB||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1||IS_EZ80)-gated
+      // "ex de, hl; ld hl, (sp)" arm removed here (all five macros
+      // unconditionally false in this file).
       else if (i + 1 < n && !assigned[i + 1] && (source->type == AOP_STK || source->type == AOP_EXSTK) && requiresHL (source) &&
         (aopInReg (result, roffset + i, HL_IDX) || aopInReg (result, roffset + i, H_IDX) && aopInReg (result, roffset + i + 1, L_IDX))) // Stack access might go through hl.
         {
