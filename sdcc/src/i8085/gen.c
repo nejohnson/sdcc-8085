@@ -4854,30 +4854,21 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
 
       if (assigned[i])
         i++;
-      else if ((IS_R4K || IS_R5K || IS_R6K) && // The 32 bit loads of the Rabbit 4000 are the fastest way to move data to the stack.
-        i + 3 < n && aopOnStack (result, roffset + i, 4) && (abs(fp_offset) <= 127 || sp_offset <= 255) &&
-        (aopInReg (source, soffset + i + 2, BC_IDX) && aopInReg (source, soffset + i, DE_IDX) || aopInReg (source, soffset + i + 2, JK_IDX) && aopInReg (source, soffset + i, HL_IDX)))
-        {
-          bool use_sp = sp_offset <= 255;
-          emit2 ("ld %d %s, %s%s", use_sp ? sp_offset : fp_offset, use_sp ? "(sp)" : "(ix)", _pairs[getPairId_o (source, soffset + i + 2)].name, _pairs[getPairId_o (source, soffset + i)].name);
-          // todo: cost2
-          assigned[i] = true;
-          assigned[i + 1] = true;
-          assigned[i + 2] = true;
-          assigned[i + 3] = true;
-          spillPair (getPairId_o (source, soffset + i + 2));
-          spillPair (getPairId_o (source, soffset + i));
-          regsize -= 4;
-          size -= 4;
-          i += 4;
-        }
+      // IS_R4K||IS_R5K||IS_R6K-gated 32-bit-load, !IS_SM83&&!IS_TLCS870&&
+      // !IS_RAB&&!(IS_TLCS90&&...)-gated ex-(sp),hl, and the
+      // fp/sp-relative-ld arm above (whose full condition reduces to
+      // always-false once IS_RAB/IS_TLCS90/IS_EZ80 are eliminated: its
+      // last `&&`-clause was `(... && IS_RAB) || (... && (IS_EZ80 ||
+      // IS_TLCS90))`, both disjuncts unconditionally false) all removed
+      // here. Also removed: the (IS_RAB||IS_TLCS90||IS_TLCS870C||
+      // IS_TLCS870C1)-gated ld-iy-to-stack arm.
       else if (!IS_SM83 && !IS_TLCS870 && !IS_RAB && !(IS_TLCS90 && optimize.codeSpeed) && // The sm83 doesn't have ex (sp), hl. The Rabbits and tlcs90 have it, but ld 0 (sp), hl is faster. For the Rabbits, they are also the same size.
         i + 1 < n && aopOnStack (result, roffset + i, 2) && !sp_offset &&
         aopInReg (source, soffset + i, HL_IDX) && hl_dead && // If we knew that iy was dead, we could also use ex (sp), iy here.
         !regalloc_dry_run) // Stack positions will change, so do not assume this is possible in the cost function.
         {
           emit2 ("ex (sp), hl");
-          cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
+          cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
           spillPair (PAIR_HL);
           assigned[i] = true;
           assigned[i + 1] = true;
@@ -4885,44 +4876,14 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
           size -= 2;
           i += 2;        
         }
-      else if (i + 1 < n && aopOnStack (result, roffset + i, 2) && (abs(fp_offset) <= 127 && !_G.omitFramePtr || IS_RAB && sp_offset <= 255 || IS_TLCS90 && sp_offset <= 127) &&
-        ((aopInReg (source, soffset + i, HL_IDX) || aopInReg (source, soffset + i, IY_IDX)) && IS_RAB || (getPairId_o (source, soffset + i) != PAIR_INVALID && (IS_EZ80 || IS_TLCS90))))
-        {
-          bool use_sp = IS_RAB && sp_offset <= 255 || IS_TLCS90 && sp_offset <= 127;
-          if (!regalloc_dry_run)
-            emit2 ("ld %d %s, %s", use_sp ? sp_offset : fp_offset, use_sp ? "(sp)" : "(ix)", _pairs[getPairId_o (source, soffset + i)].name);
-          cost2old (3 - IS_RAB, 0, 0, 11, 0, 12, 5, 0);
-          assigned[i] = true;
-          assigned[i + 1] = true;
-          regsize -= 2;
-          size -= 2;
-          i += 2;
-        }
-      else if ((IS_RAB || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && i + 1 < n && aopOnStack (result, roffset + i, 2) && aopInReg (source, soffset + i, IY_IDX) &&
-        sp_offset <= (IS_RAB ? 255 : 127))
-        {
-          emit2 ("ld %d (sp), iy", sp_offset);
-          cost2 (3, 3, -1, 3, -1, -1, 13, 14, -1, 12, -1, 5, 5, -1, -1);
-          assigned[i] = true;
-          assigned[i + 1] = true;
-          regsize -= 2;
-          size -= 2;
-          i += 2;         
-        }
       else if (i + 1 < n && aopOnStack (result, roffset + i, 2) && getPairId_o (source, soffset + i) != PAIR_INVALID && !sp_offset && !regalloc_dry_run) // Stack positions will change, so do not assume this is possible in the cost function.
         {
-          if ((IS_Z80 || IS_Z80N || IS_SM83 || IS_TLCS870C || IS_TLCS870C1) && (de_free || hl_free))
-            {
-              emit3w (A_POP, de_free ? ASMOP_DE : ASMOP_HL, 0);
-              spillPair (de_free ? PAIR_DE : PAIR_HL);
-            }
-          else
-            {
-              emit2 ("inc sp");
-              cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
-              emit2 ("inc sp");
-              cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
-            }
+          // IS_Z80||IS_Z80N||IS_SM83||IS_TLCS870C||IS_TLCS870C1-gated pop
+          // variant removed (unconditionally false in this file).
+          emit2 ("inc sp");
+          cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
+          emit2 ("inc sp");
+          cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
           emit3w_o (A_PUSH, source, soffset + i, 0, 0);
           assigned[i] = true;
           assigned[i + 1] = true;
