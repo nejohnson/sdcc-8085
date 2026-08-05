@@ -3740,30 +3740,14 @@ aopGet (asmop *aop, int offset, bool bit16)
 
         case AOP_EXSTK:
         case AOP_STK:
-          ;
-          int sp_offset = aop->aopu.aop_stk + offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) + _G.stack.pushed + _G.stack.offset;
+          // IS_TLCS90-gated (sp) shortcut and AOP_EXSTK&&!IY_RESERVED-gated
+          // iy-pointer addressing removed here (both unconditionally false
+          // in this file: IS_TLCS90 is always false, and IY_RESERVED -
+          // which the second is gated on the negation of - is always true,
+          // there being no IY at all on i8080/i8085). This also left
+          // sp_offset (only used by the removed code) unused - removed too.
 
-          if (IS_TLCS90 && !sp_offset) // Try to use (sp) addressing mode.
-            {
-              dbuf_tprintf (&dbuf, "(sp)");
-              break;
-            }
-            
-          if (aop->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE)
-            {
-              if (IS_TLCS90 && sp_offset <= 127)
-                {
-                  dbuf_tprintf (&dbuf, "%d (sp)", sp_offset);
-                }
-              else
-                {
-                  pointPairToAop (PAIR_IY, aop, 0);
-                  dbuf_tprintf (&dbuf, "!*iyx", offset);
-                }
-              break;
-            }
-
-          if (IS_SM83 || aop->type == AOP_EXSTK)
+          if (aop->type == AOP_EXSTK) // IS_SM83 unconditionally false in this file.
             {
               pointPairToAop (PAIR_HL, aop, offset);
               dbuf_tprintf (&dbuf, "!*hl");
@@ -3990,36 +3974,12 @@ aopPut (asmop *aop, const char *s, int offset)
 
     case AOP_EXSTK:
     case AOP_STK:
-      ;
-      int sp_offset = aop->aopu.aop_stk + offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) + _G.stack.pushed + _G.stack.offset;
-      if (IS_TLCS90 && !sp_offset)
-        {
-          if (!canAssignToPtr (s))
-            {
-              emit2 ("ld a, %s", s);
-              emit2 ("ld (sp), a");
-            }
-          else
-            emit2 ("ld (sp), %s", s);
-          break;
-        }
-      if(aop->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE)
-        {
-          if (!canAssignToPtr (s))
-            {
-              emit2 ("ld a, %s", s);
-              pointPairToAop (PAIR_IY, aop, 0);
-              emit2 ("ld !*iyx, a", offset);
-            }
-          else
-            {
-              pointPairToAop (PAIR_IY, aop, 0);
-              emit2 ("ld !*iyx, %s", offset, s);
-            }
-          break;
-       }
+      // IS_TLCS90-gated (sp) shortcut and AOP_EXSTK&&!IY_RESERVED-gated
+      // iy-pointer addressing removed here (both unconditionally false in
+      // this file). This also left sp_offset (only used by the removed
+      // code) unused - removed too.
 
-      if (IS_SM83 || aop->type == AOP_EXSTK)
+      if (aop->type == AOP_EXSTK) // IS_SM83 unconditionally false in this file.
         {
           /* PENDING: re-target */
           if (!strcmp (s, "!*hl") || !strcmp (s, "(hl)") || !strcmp (s, "[hl]"))
@@ -4891,38 +4851,9 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
           size -= 2;
           i += 2;  
         }
-      else if ((IS_RAB || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && i + 1 < n && aopOnStack (result, roffset + i, 2) && aopInReg (source, soffset + i, DE_IDX) &&
-        (sp_offset <= (IS_RAB ? 255 : 127) || abs(fp_offset) <= 127 && !_G.omitFramePtr))
-        {
-          // Try to free hl first
-          if (source->regs[L_IDX] >= soffset && source->regs[L_IDX] < soffset + n && !assigned[source->regs[L_IDX] - soffset] &&
-            source->regs[H_IDX] >= soffset && source->regs[H_IDX] < soffset + n && !assigned[source->regs[H_IDX] - soffset] &&
-            hl_dead && source->regs[H_IDX] == source->regs[L_IDX] + 1 && sp_offset + n < (IS_RAB ? 255 : 127))
-            {
-              int j = source->regs[L_IDX] - soffset;
-              emit2 ("ld %d (sp), hl", result->aopu.aop_stk + (result->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) + roffset + j + _G.stack.pushed + _G.stack.offset);
-              cost2 (2, 3, -1, 3, -1, -1, 11, 12, -1, 12, -1, 6, 5, -1, -1);
-              assigned[j] = true;
-              assigned[j + 1] = true;
-              regsize -= 2;
-              size -= 2;
-            }
-
-          bool use_sp = (sp_offset <= 255);
-          emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-          if (!regalloc_dry_run)
-            emit2 ("ld %d %s, hl", use_sp ? sp_offset : fp_offset, use_sp ? "(sp)" : "(ix)");
-          cost2 (2, 3, -1, 3, -1, -1, 11, 12, -1, 12, -1, 6, 5, -1, -1);
-          if (!de_dead || !hl_dead || source->regs[L_IDX] >= 0 && !assigned[source->regs[L_IDX]] || source->regs[H_IDX] >= 0 && !assigned[source->regs[H_IDX]])
-            emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-          spillPair (PAIR_HL);
-          assigned[i] = true;
-          assigned[i + 1] = true;
-          regsize -= 2;
-          size -= 2;
-          i += 2;
-        }
-      else if (!IS_SM83 && i + 1 < n && aopOnStack (result, roffset + i, 2) && requiresHL (result) &&
+      // (IS_RAB||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1)-gated ex-de,hl
+      // stack-store arm removed here (unconditionally false in this file).
+      else if (i + 1 < n && aopOnStack (result, roffset + i, 2) && requiresHL (result) && // !IS_SM83 unconditionally true in this file.
         aopInReg (source, soffset + i, HL_IDX) && hl_free)
         {
           if (!de_free)
@@ -4938,18 +4869,8 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
           size -= 2;
           i += 2;
         }
-      else if (result->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE)
-        {
-          if (!iy_free)
-            _push (PAIR_IY);
-          cheapMove (result, roffset + i, source, soffset + i, a_free);
-          if (!iy_free)
-            _pop (PAIR_IY);
-          assigned[i] = true;
-          regsize--;
-          size--;
-          i++;
-        }
+      // AOP_EXSTK&&!IY_RESERVED-gated iy-push/cheapMove arm removed here
+      // (unconditionally false in this file).
       else if (aopOnStack (result, roffset + i, 1) && requiresHL (result) && !hl_free)
         {
           _push(PAIR_HL);
@@ -4962,15 +4883,10 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
         }
       else if (aopRS (source) && !aopOnStack (source, soffset + i, 1) && aopOnStack (result, roffset + i, 1))
         {
-          bool pushed_iy = false;
-          if (result->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE && !iy_free)
-            {
-              _push (PAIR_IY);
-              pushed_iy = true;
-            }
+          // AOP_EXSTK&&!IY_RESERVED-gated iy-push removed here
+          // (unconditionally false in this file), so pushed_iy is
+          // always false and the corresponding _pop below never fires.
           cheapMove (result, roffset + i, source, soffset + i, a_free);
-          if (pushed_iy)
-            _pop (PAIR_IY);
           assigned[i] = true;
           regsize--;
           size--;
@@ -5479,7 +5395,9 @@ skip_byte:
       const bool e_free = de_dead && (result->regs[E_IDX] < roffset || !assigned[result->regs[E_IDX] - roffset]);
       const bool d_free = de_dead && (result->regs[D_IDX] < roffset || !assigned[result->regs[D_IDX] - roffset]);
       const bool de_free = e_free && d_free;
-      const bool iy_free = iy_dead && (result->regs[IYL_IDX] < roffset || !assigned[result->regs[IYL_IDX] - roffset]) && (result->regs[IYH_IDX] < roffset || !assigned[result->regs[IYH_IDX] - roffset]);
+      // iy_free (IYL/IYH-pair-free check) removed: unused now that the
+      // AOP_EXSTK&&!IY_RESERVED-gated code that read it is gone
+      // (unconditionally false in this file - no IY at all).
 
       if (assigned[i])
         i++;
@@ -5614,15 +5532,9 @@ skip_byte:
         }
       else if (aopRS (result) && aopOnStack (source, soffset + i, 1) && !aopOnStack (result, roffset + i, 1))
         {
-          if (source->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE)
-            {
-              if (!iy_free)
-                _push (PAIR_IY);
-              cheapMove (result, roffset + i, source, soffset + i, a_free);
-              if (!iy_free)
-                _pop (PAIR_IY);
-            }
-          else if (requiresHL (source) && !hl_free && (aopInReg (result, roffset + i, L_IDX) || aopInReg (result, roffset + i, H_IDX)))
+          // AOP_EXSTK&&!IY_RESERVED-gated iy-push/cheapMove arm removed
+          // here (unconditionally false in this file).
+          if (requiresHL (source) && !hl_free && (aopInReg (result, roffset + i, L_IDX) || aopInReg (result, roffset + i, H_IDX)))
             {
               if (!a_free)
                 _push (PAIR_AF);
