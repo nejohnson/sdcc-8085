@@ -7496,8 +7496,10 @@ genCall (const iCode *ic)
   bool de_free = de_not_parm && ic->left->aop->regs[E_IDX] < 0 && ic->left->aop->regs[D_IDX] < 0;
   bool bc_not_parm = !i8085_IsParmInCall(ftype, "b") && !i8085_IsParmInCall(ftype, "c");
   bool bc_free = bc_not_parm && ic->left->aop->regs[C_IDX] < 0 && ic->left->aop->regs[B_IDX] < 0;
-  bool jk_not_parm = !i8085_IsParmInCall(ftype, "j") && !i8085_IsParmInCall(ftype, "k");
-  
+  // jk_not_parm removed: only read by the rab_llcall-gated arm below,
+  // which is unconditionally dead in this file (IS_RAB is
+  // unconditionally false).
+
   if (SomethingReturned && !bigreturn)
     aopOp (ic->result, ic, true, false);
 
@@ -7510,9 +7512,9 @@ genCall (const iCode *ic)
   if (bigreturn && !IFFUNC_ISDYNAMICC (ftype))
     {
       int fp_offset, sp_offset;
-      PAIR_ID pair = (ic->op == PCALL && !IS_SM83 && !IY_RESERVED) ? PAIR_IY : PAIR_HL;
+      PAIR_ID pair = PAIR_HL; // Dropped ternary: "(ic->op == PCALL && !IS_SM83 && !IY_RESERVED) ? PAIR_IY : ..." always selects PAIR_HL in this file (!IY_RESERVED is unconditionally false).
 
-      if (ic->op == PCALL && IS_SM83 || !hl_free)
+      if (!hl_free) // Dropped: "ic->op == PCALL && IS_SM83 ||" (unconditionally false in this file).
         _push (PAIR_HL);
       aopOp (IC_RESULT (ic), ic, true, false);
       wassert (IC_RESULT (ic)->aop->type == AOP_STK || IC_RESULT (ic)->aop->type == AOP_EXSTK);
@@ -7520,12 +7522,8 @@ genCall (const iCode *ic)
         IC_RESULT (ic)->aop->aopu.aop_stk + (IC_RESULT (ic)->aop->aopu.aop_stk >
             0 ? _G.stack.param_offset : 0);
       sp_offset = fp_offset + _G.stack.pushed + _G.stack.offset;
-      if (IS_SM83 && sp_offset <= 127 && sp_offset >= -128)
-        {
-          emit2 ("!ldahlsp", sp_offset);
-          cost (2, 12);
-        }
-      else
+      // IS_SM83-gated "!ldahlsp" arm removed here (IS_SM83
+      // unconditionally false in this file).
         {
           emit2 ("ld %s, !immedword", _pairs[pair].name, (unsigned)sp_offset);
           if (pair == PAIR_IY)
@@ -7538,7 +7536,7 @@ genCall (const iCode *ic)
           else
             cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3 , 1, 1);
         }
-      if (ic->op == PCALL && IS_SM83 || !hl_free)
+      if (!hl_free) // Dropped: "ic->op == PCALL && IS_SM83 ||" (unconditionally false in this file).
         {
           if (pair == PAIR_HL && de_free)
             {
@@ -7573,7 +7571,7 @@ genCall (const iCode *ic)
     (!isFuncCalleeStackCleanup (currFunc->type) || !ic->parmEscapeAlive && ic->op == CALL && 0 /* todo: test and enable depending on optimization goal - as done for stm8 - for z80 and r3ka this will be slower and bigger than without tail call optimization, but it saves RAM */) &&
     !ic->localEscapeAlive &&
     !IFFUNC_ISBANKEDCALL (dtype) && !IFFUNC_ISZ88DK_SHORTCALL (ftype) &&
-    (_G.omitFramePtr || IS_SM83))
+    _G.omitFramePtr) // Dropped: "|| IS_SM83" (unconditionally false in this file).
     {
       int limit = 16; // Avoid endless loops in the code putting us into an endless loop here.
 
@@ -7602,7 +7600,7 @@ genCall (const iCode *ic)
             targetlabel = returnLabel;
           else if (nic->op == ENDFUNCTION)
             {
-              if (OP_SYMBOL (IC_LEFT (nic))->stack <= (ic->op == PCALL ? 1 : (optimize.codeSize ? 1 : 2)) + IS_RAB * 120)
+              if (OP_SYMBOL (IC_LEFT (nic))->stack <= (ic->op == PCALL ? 1 : (optimize.codeSize ? 1 : 2))) // Dropped: "+ IS_RAB * 120" (IS_RAB unconditionally false, i.e. 0, in this file).
                 {
                   prestackadjust = OP_SYMBOL (IC_LEFT (nic))->stack;
                   tailjump = true;
@@ -7650,8 +7648,9 @@ genCall (const iCode *ic)
         }
 
   const bool jump = tailjump || !ic->parmBytes && !bigreturn && ic->op != PCALL && !IFFUNC_ISBANKEDCALL (dtype) && !IFFUNC_ISZ88DK_SHORTCALL(ftype) && IFFUNC_ISNORETURN (ftype);
-  bool rab_lcall = IS_RAB && options.model == MODEL_MEDIUM;
-  bool rab_llcall = IS_RAB && options.model == MODEL_LARGE;
+  // rab_lcall/rab_llcall removed: both were "IS_RAB && ..." and so
+  // unconditionally false in this file (IS_RAB is unconditionally
+  // false); every branch gated on either was dead and has been removed.
 
   if (ic->op == PCALL)
     {
@@ -7664,7 +7663,7 @@ genCall (const iCode *ic)
           wassertl(0, "__z88dk_short_call via function pointer not implemented");
        }
 
-      if (!jump && !IS_TLCS90 && !IS_RAB && // TLCS-90 doesn't have rst. Rabbit rst has different semantics.
+      if (!jump && // Dropped: "!IS_TLCS90 && !IS_RAB &&" (unconditionally true in this file - TLCS-90 doesn't have rst, Rabbit rst has different semantics, but neither applies here).
         isLitWord (ic->left->aop) && aopIsLitVal(ic->left->aop, 1, 1, 0x00) &&
         (aopIsLitVal (ic->left->aop, 0, 1, 0x00) || aopIsLitVal (ic->left->aop, 0, 1, 0x08) || aopIsLitVal (ic->left->aop, 0, 1, 0x10) || aopIsLitVal (ic->left->aop, 0, 1, 0x18) ||
         aopIsLitVal (ic->left->aop, 0, 1, 0x20) || aopIsLitVal (ic->left->aop, 0, 1, 0x28) || aopIsLitVal (ic->left->aop, 0, 1, 0x30) || aopIsLitVal (ic->left->aop, 0, 1, 0x38)))
@@ -7674,7 +7673,7 @@ genCall (const iCode *ic)
             emit2 ("rst %s", aopGet (ic->left->aop, 0, false));
             cost2 (1, -1, -1, -1, 11, 11, 8, 11, 16, -1, -1, -1, -1, 5, 4);
         }
-      else if (!rab_lcall && !rab_llcall && isLitWord (ic->left->aop))
+      else if (isLitWord (ic->left->aop))
         {
           adjustStack (prestackadjust, a_free, bc_free, de_free, hl_free, false);
           emit2 (jump ? "jp %s" : "call %s", aopGetLitWordLong (ic->left->aop, 0, FALSE));
@@ -7683,16 +7682,13 @@ genCall (const iCode *ic)
           else
             cost2 (3, 3, 3, 3, 17, 16, 12, 13, 24, 14, 6, 6, 6, 5, 3);
         }
-      else if (!rab_lcall && !rab_llcall && !aopInReg (ic->left->aop, 0, IY_IDX) && (aopInReg (ic->left->aop, 0, HL_IDX) || hl_free))
+      else if (!aopInReg (ic->left->aop, 0, IY_IDX) && (aopInReg (ic->left->aop, 0, HL_IDX) || hl_free))
         {
           genMove (ASMOP_HL, ic->left->aop, a_free, hl_free, de_free, true);
           adjustStack (prestackadjust, a_not_parm, bc_not_parm, de_not_parm, false, false);
-          if ((IS_R4K || IS_R5K || IS_R6K || IS_TLCS) && !jump)
-            {
-              emit2 ("call (hl)");
-              cost2 (2, 2, 2, 2, -1, -1, 12, 13, -1, 14, 6, 6, 6, -1, -1);
-            }
-          else
+          // (IS_R4K||IS_R5K||IS_R6K||IS_TLCS)-gated "call (hl)" arm
+          // removed here (all four macros unconditionally false in
+          // this file).
             {
               emit2 (jump ? "!jphl" : "call ___sdcc_call_hl");
               if (jump)
@@ -7704,40 +7700,13 @@ genCall (const iCode *ic)
                 }
             }
         }
-      else if (!rab_lcall && !rab_llcall && !IS_SM83 && !IY_RESERVED && !i8085_IsParmInCall (ftype, "iy")) // Ensure that we don't access the stack via iy when reading IC_LEFT (ic).
-        {
-          if (ic->left->aop->type == AOP_EXSTK) // Ensure that we don't directly overwrite iyl while accessing the stack via iy.
-            {
-              _push (PAIR_HL);
-              genMove (ASMOP_HL, IC_LEFT (ic)->aop, a_not_parm, true, de_not_parm, true);
-              emit2 ("ex (sp), hl");
-              cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
-              _pop (PAIR_IY);
-            }
-          else
-            genMove (ASMOP_IY, IC_LEFT (ic)->aop, a_not_parm, hl_not_parm, de_not_parm, true);
-          adjustStack (prestackadjust, a_not_parm, bc_not_parm, de_not_parm, hl_not_parm, false);
-          if ((IS_R4K || IS_R5K || IS_R6K || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && !jump)
-            {
-              emit2 ("call (iy)");
-              cost2 (2, 2, -1, 2, -1, -1, 12, 13, -1, 14, -1, 6, 6, -1, -1);
-            }
-          else
-            {
-              emit2 (jump ? "jp (iy)" : "call ___sdcc_call_iy");
-              if (jump)
-                cost2 (2, 2, -1, 2, 8, 6, 6, 6, -1, 8, -1, 3, 3, 4, 2);
-              else
-               {
-                 cost2 (3, 3, 3, 3, 17, 16, 12, 13, 24, 14, 6, 6, 6, 5, 3);
-                  // todo: add cycles spent in ___sdcc_call_iy here
-               }
-            }
-        }
-      else if (!rab_lcall && !rab_llcall && bc_not_parm && (ic->left->aop->regs[B_IDX] < 0 && ic->left->aop->regs[C_IDX] < 0 || de_free)) // Try bc, since it is the only 16-bit register guarateed to be free even for __z88dk_fastcall with --reserve-regs-iy
+      // (!IS_SM83 && !IY_RESERVED)-gated "call (iy)" arm removed here
+      // (unconditionally false in this file: IY_RESERVED is always true,
+      // so !IY_RESERVED is always false).
+      else if (bc_not_parm && (ic->left->aop->regs[B_IDX] < 0 && ic->left->aop->regs[C_IDX] < 0 || de_free)) // Try bc, since it is the only 16-bit register guarateed to be free even for __z88dk_fastcall with --reserve-regs-iy
         {
           wassert (!prestackadjust);
-          wassert (IY_RESERVED || IS_SM83); // The peephole optimizer handles ret for purposes other than returning only for --reserve-regs-iy
+          wassert (IY_RESERVED); // The peephole optimizer handles ret for purposes other than returning only for --reserve-regs-iy. Dropped: "|| IS_SM83" (IY_RESERVED alone is already unconditionally true in this file).
           symbol *tlbl = 0;
           if (ic->left->aop->regs[B_IDX] >= 0 || ic->left->aop->regs[C_IDX] >= 0)
             {
@@ -7767,10 +7736,10 @@ genCall (const iCode *ic)
             _G.stack.pushed -= 2;
           emitLabel (tlbl);
         }
-      else if (!rab_lcall && !rab_llcall && de_not_parm && (ic->left->aop->regs[D_IDX] < 0 && ic->left->aop->regs[E_IDX] < 0 || bc_free)) // Try de.
+      else if (de_not_parm && (ic->left->aop->regs[D_IDX] < 0 && ic->left->aop->regs[E_IDX] < 0 || bc_free)) // Try de.
         {
           wassert (!prestackadjust);
-          wassert (IY_RESERVED || IS_SM83); // The peephole optimizer handles ret for purposes other than returning only for --reserve-regs-iy
+          wassert (IY_RESERVED); // The peephole optimizer handles ret for purposes other than returning only for --reserve-regs-iy. Dropped: "|| IS_SM83" (IY_RESERVED alone is already unconditionally true in this file).
           symbol *tlbl = 0;
           if (ic->left->aop->regs[D_IDX] >= 0 || ic->left->aop->regs[E_IDX] >= 0)
             {
@@ -7800,93 +7769,10 @@ genCall (const iCode *ic)
             _G.stack.pushed -= 2;
           emitLabel (tlbl);
         }
-      else if (rab_lcall && bc_not_parm && ic->left->aop->regs[B_IDX] < 0 && ic->left->aop->regs[C_IDX] < 0) // There is no indirect lcall or ljp, so we have to do it all manually.
-        {
-          wassert (!prestackadjust);
-          symbol *tlbl = NULL;
-          bool a_dead = a_not_parm && ic->left->aop->regs[A_IDX] < 0;
-          if (!jump)
-            {
-              tlbl = regalloc_dry_run ? NULL : newiTempLabel (NULL);
-              if (!a_dead)
-                {
-                  _push (PAIR_AF);
-                  emit2 ("ld a, xpc");
-                  cost (2, 4);
-                  emit3 (A_LD, ASMOP_B, ASMOP_A);
-                  _pop(PAIR_AF);
-                  push (ASMOP_BC, 0, 1);
-                }
-              else
-                {
-                  emit2 ("ld a, xpc");
-                  cost (2, 4);
-                  push (ASMOP_A, 0, 1);
-                }
-              if (tlbl)
-                emit2 ("ld bc, !immed!tlabel", labelKey2num (tlbl->key));
-              cost (3, 6);
-              push (ASMOP_BC, 0, 2);
-            }
-          a_dead |= (ic->left->aop->regs[A_IDX] > 2);
-          genMove_o (ASMOP_B, 0, ic->left->aop, 2, 1, a_dead, false, false, false, true);
-          push (ASMOP_B, 0, 1);
-          genMove_o (ASMOP_BC, 0, ic->left->aop, 0, 2, a_not_parm, hl_not_parm, de_not_parm, false, true);
-          push (ASMOP_BC, 0, 2);
-          if (!regalloc_dry_run)
-            _G.stack.pushed -= jump ? 3 : 6;
-          emit2 ("lret");
-          cost (2, 13);
-          if (tlbl)
-            emitLabel (tlbl);
-        }
-      else if (rab_llcall && hl_not_parm && jk_not_parm && !jump)
-        {
-          wassert (!prestackadjust);
-          genMove (ASMOP_JKHL, ic->left->aop, a_not_parm, true, de_not_parm, false);
-          emit2 ("llcall (jkhl)");
-          cost (2, IS_R4K ? 19 : 20);
-        }
-      else if (rab_llcall && bc_not_parm && ic->left->aop->regs[B_IDX] < 0 && ic->left->aop->regs[C_IDX] < 0)
-        {
-          wassert (!prestackadjust);
-          symbol *tlbl = NULL;
-          bool a_dead = a_not_parm && ic->left->aop->regs[A_IDX] < 0;
-          bool hl_dead = hl_not_parm && ic->left->aop->regs[H_IDX] < 0 && ic->left->aop->regs[L_IDX] < 0;
-          if (!jump)
-            {
-              tlbl = regalloc_dry_run ? NULL : newiTempLabel (NULL);
-              if (!hl_dead)
-                {
-                  push (ASMOP_HL, 0, 2);
-                  emit2 ("ld hl, xpc");
-                  cost (2, 4);
-                  emit2 ("ex (sp, hl");
-                  cost (2, 15);
-                  adjustStack (2, a_dead, true, false, true, false);
-                }
-              else
-                {
-                  emit2 ("ld hl, xpc");
-                  cost (2, 4);
-                  push (ASMOP_HL, 0, 2);
-                }
-              if (tlbl)
-                emit2 ("ld bc, !immed!tlabel", labelKey2num (tlbl->key));
-              cost (3, 6);
-              push (ASMOP_BC, 0, 2);
-            }
-          genMove_o (ASMOP_BC, 0, ic->left->aop, 0, 2, a_dead, hl_dead, false, false, true);
-          push (ASMOP_BC, 0, 2);
-          genMove_o (ASMOP_BC, 0, ic->left->aop, 2, 2, a_not_parm, hl_not_parm, de_not_parm, false, true);
-          push (ASMOP_BC, 0, 2);
-          if (!regalloc_dry_run)
-            _G.stack.pushed -= jump ? 4 : 8;
-          emit2 ("llret");
-          cost (2, 14);
-          if (tlbl)
-            emitLabel (tlbl);
-        }
+      // Three rab_lcall-/rab_llcall-gated indirect lcall/llcall arms
+      // removed here (both variables unconditionally false in this
+      // file: IS_RAB, which both are &&-gated on, is unconditionally
+      // false).
       else
         UNIMPLEMENTED;
     }
@@ -7939,18 +7825,9 @@ genCall (const iCode *ic)
 
           if (IS_LITERAL (etype))
             {
-              if (rab_lcall)
-                {
-                  unsigned int taddrlower = ulFromVal (OP_VALUE (ic->left)) & 0x0fff | 0xe000;
-                  unsigned int taddrupper = ulFromVal (OP_VALUE (ic->left)) >> 12;
-                  wassert (taddrlower <= 0xff);
-                  emit2 (jump ? "ljp 0x%02x, 0x%04x" : "lcall 0x%02x, 0x%04x", taddrupper, taddrlower);
-                  if (jump)
-                    cost2 (4, 0, 0, 0, 0, 0, 10, 10, 0, 0, 0, 0, 0, 0, 0);
-                  else
-                    cost2 (4, 0, 0, 0, 0, 0, 19, 20, 0, 0, 0, 0, 0, 0, 0);
-                }
-              else
+              // rab_lcall-gated "lcall/ljp" arm removed here (rab_lcall
+              // unconditionally false in this file: IS_RAB, which it is
+              // &&-gated on, is unconditionally false).
                 {
                   emit2 (jump ? "jp !constword" : "call !constword", ulFromVal (OP_VALUE (IC_LEFT (ic))));
                   if (jump)
@@ -7971,65 +7848,10 @@ genCall (const iCode *ic)
                 emit2 ("defw !immedword\n", (unsigned)value);
               regalloc_dry_run_cost_bytes += 2 + (value >= 256);
             }
-          else if (rab_lcall && 0) // Not yet supported by assembler
-            {
-              const char *t = (OP_SYMBOL (IC_LEFT (ic))->rname[0] ? OP_SYMBOL (ic->left)->rname : OP_SYMBOL (ic->left)->name);
-              emit2 ("%s (#%s >> 12), (#%s | #0xe000)", jump ? "ljp" : "lcall", t, t);
-              if (jump)
-                cost2 (4, 0, 0, 0, 0, 0, 10, 10, 0, 0, 0, 0, 0, 0, 0);
-              else
-                cost2 (4, 0, 0, 0, 0, 0, 19, 20, 0, 0, 0, 0, 0, 0, 0);
-            }
-          else if (rab_lcall && bc_not_parm) // Workaround for assembler limitations.
-            {
-              const char *t = (OP_SYMBOL (IC_LEFT (ic))->rname[0] ? OP_SYMBOL (ic->left)->rname : OP_SYMBOL (ic->left)->name);
-              if (!regalloc_dry_run)
-                {
-                  symbol *tlbl = newiTempLabel (NULL);
-                  if (!jump)
-                    {
-                      _push (PAIR_AF);
-                      emit2 ("ld a, xpc");
-                      emit2 ("ld b, a");
-                      _pop(PAIR_AF);
-                      emit2 ("push bc");
-                      emit2 ("inc sp");
-                      emit2 ("ld bc, !immed!tlabel", labelKey2num (tlbl->key));
-                      emit2 ("push bc");
-                    }
-                  emit2 ("ld bc, (!immed%s >> 8)", t);
-                  emit2 ("sla c");
-                  emit2 ("rlc b");
-                  emit2 ("sla c");
-                  emit2 ("rlc b");
-                  emit2 ("sla c");
-                  emit2 ("rlc b");
-                  emit2 ("sla c");
-                  emit2 ("rlc b");
-                  emit2 ("push bc");
-                  emit2 ("inc sp");
-                  emit2 ("ld bc, !immed%s", t);
-                  _push (PAIR_AF);
-                  emit2 ("ld a, b");
-                  emit2 ("and a, #0x0f");
-                  emit2 ("or a, #0xe0");
-                  emit2 ("ld b, a");
-                  emit2 ("push bc");
-                  _pop(PAIR_AF);
-                  emit2 ("lret");
-                  emitLabel (tlbl);
-                }
-              regalloc_dry_run_cost += jump ? 36 : 45;
-            }
-          else if (rab_llcall)
-            {
-              const char *t = (OP_SYMBOL (IC_LEFT (ic))->rname[0] ? OP_SYMBOL (ic->left)->rname : OP_SYMBOL (ic->left)->name);
-              emit2 ("%s (#%s >> 12), (#%s | #0xe000)", jump ? "lljp" : "llcall", t, t);
-              if (jump)
-                cost2 (4, 0, 0, 0, 0, 0, 12, 12, 0, 0, 0, 0, 0, 0, 0);
-              else
-                cost2 (4, 0, 0, 0, 0, 0, 24, 25, 0, 0, 0, 0, 0, 0, 0);
-            }
+          // rab_lcall-gated (already-disabled "&& 0") arm, rab_lcall-
+          // gated bc-workaround arm, and rab_llcall-gated "llcall/lljp"
+          // arm all removed here (rab_lcall/rab_llcall unconditionally
+          // false in this file).
           else
             {
               emit2 ("%s %s", jump ? "jp" : "call",
@@ -8061,7 +7883,12 @@ genCall (const iCode *ic)
       setupPairFromSP (PAIR_HL, ic->parmBytes);
       emit2 ("ld bc, !immed%d", size);
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-      if (IS_R2K || IS_SM83 || IS_8080LIKE || IS_TLCS870 || IS_TLCS870C || IS_TLCS870C1) // No useable ldir
+      // "No useable ldir" byte-copy loop: IS_8080LIKE is unconditionally
+      // true in this file, so the condition here (originally
+      // "IS_R2K||IS_SM83||IS_8080LIKE||IS_TLCS870||IS_TLCS870C||
+      // IS_TLCS870C1") is unconditionally true; the ldir-based else arm
+      // (including its own dead "if (IS_8080LIKE) emit8080Ldir ();
+      // else emit2 ("ldir");") was removed as unreachable.
         {
           // todo: scale cost.
           wassert (size <= 256);
@@ -8075,12 +7902,6 @@ genCall (const iCode *ic)
           emit3w (A_INC, ASMOP_DE, 0);
           emit3 (A_DEC, ASMOP_C, 0);
           emitJP (tlbl, "nz", 1.0f, true);
-        }
-      else
-        {
-          if (IS_8080LIKE) emit8080Ldir (); else
-      emit2 ("ldir");
-          cost2 (2, 2, -1, -1, 21 * size -5, 14 * size - 2, 7 * size - 1, 7 * size - 1, -1, 18 * size - 4, -1, -1, -1, 2 * size - 1, 4 * size);
         }
       updatePair (PAIR_HL, size);
 
@@ -8105,7 +7926,7 @@ genCall (const iCode *ic)
         !return_in_reg || !aopRet (ftype) || (aopRet (ftype)->regs[C_IDX] < 0 || aopRet (ftype)->regs[C_IDX] > IC_RESULT (ic)->aop->size) && (aopRet (ftype)->regs[B_IDX] < 0 || aopRet (ftype)->regs[B_IDX] > IC_RESULT (ic)->aop->size),
         !return_in_reg || !aopRet (ftype) || (aopRet (ftype)->regs[E_IDX] < 0 || aopRet (ftype)->regs[E_IDX] > IC_RESULT (ic)->aop->size) && (aopRet (ftype)->regs[D_IDX] < 0 || aopRet (ftype)->regs[D_IDX] > IC_RESULT (ic)->aop->size),
         !return_in_reg || !aopRet (ftype) || (aopRet (ftype)->regs[L_IDX] < 0 || aopRet (ftype)->regs[L_IDX] > IC_RESULT (ic)->aop->size) && (aopRet (ftype)->regs[H_IDX] < 0 || aopRet (ftype)->regs[H_IDX] > IC_RESULT (ic)->aop->size),
-        !IY_RESERVED);
+        false); // IY_RESERVED unconditionally true in this file, so "!IY_RESERVED" is unconditionally false.
 
       if (regalloc_dry_run)
         _G.stack.pushed += ic->parmBytes + bigreturn * 2;
