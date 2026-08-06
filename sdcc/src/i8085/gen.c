@@ -12193,36 +12193,12 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
           goto release;
         }
 
-      // TLCS-90 and some Rabbits have some wide non-destructive compare
-      if (ifx && size == 2 && !sign && aopInReg (left->aop, 0, HL_IDX) &&
-        ((IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && (getPairId (right->aop) != PAIR_INVALID || right->aop->type == AOP_LIT) ||
-          ((IS_R4K || IS_R5K || IS_R6K) && (getPairId (right->aop) == PAIR_DE || right->aop->type == AOP_LIT && ullFromVal (right->aop->aopu.aop_lit) < 128))))
-        {
-          emit3w (A_CP, ASMOP_HL, right->aop);
-          result_in_carry = true;
-          goto release;
-        }
-      if (ifx && size == 2 && !sign && aopInReg (left->aop, 0, HL_IDX) &&
-        (IS_R6K || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && aopOnStack (right->aop, 0, 2))
-        {
-          int sp_offset = spOffset (right->aop->aopu.aop_stk);
-          int fp_offset = fpOffset (right->aop->aopu.aop_stk);
-          if (sp_offset <= (IS_R6K ? 255 : 127))
-            {
-              emit2 ("cp hl, %d (sp)", sp_offset);
-              cost2 (3, 3, -1, 3, -1, -1, -1, 12, -1, 12, -1, 7, 6, -1, -1);
-              result_in_carry = true;
-              goto release;
-            }
-          else if (-128 <= fp_offset && fp_offset <= 127)
-            {
-              emit2 ("cp hl, %d (ix)", fp_offset);
-              cost2 (3, 3, -1, 3, -1, -1, -1, 12, -1, 12, -1, 7, 6, -1, -1);
-              result_in_carry = true;
-              goto release;
-            }
-        }
-        
+      // (IS_TLCS90||IS_TLCS870C||IS_TLCS870C1||IS_R4K||IS_R5K||IS_R6K)-gated
+      // "cp hl, rr" wide non-destructive compare and
+      // (IS_R6K||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1)-gated
+      // "cp hl, n (sp)/(ix)" removed here (all macros unconditionally
+      // false in this file).
+
       if (right->aop->type == AOP_LIT && !ullFromVal (right->aop->aopu.aop_lit)) // special case: comparison to 0. Do it here early, so we don't run into sm83 workarounds below.
         {
           if (!sign)
@@ -12236,16 +12212,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
               if (!(result->aop->type == AOP_CRY && result->aop->size) && ifx &&
                 (left->aop->type == AOP_REG || left->aop->type == AOP_STK))
                 {
-                  if (IS_8080LIKE)
-                    emit8080Bit (left->aop, left->aop->size - 1, 7);
-                  else {
-                  if (!regalloc_dry_run)
-                    emit2 ("bit 7, %s", aopGet (left->aop, left->aop->size - 1, FALSE));
-                  if (left->aop->type == AOP_REG)
-                    cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-                  else
-                    cost2 (4, 3, -1, 3, 20, 15, 10, 11, -1, 10, -1, 5, 5, 5 , 5);
-                  }
+                  emit8080Bit (left->aop, left->aop->size - 1, 7); // IS_8080LIKE unconditionally true in this file.
                   genIfxJump (ifx, "nz");
                   return;
                 }
@@ -12270,7 +12237,9 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
         }
 
       // On the SM83 we can't afford to adjust HL as it may trash the carry.
-      if (size > 1 && (IS_SM83 || IY_RESERVED) &&
+      // Dropped: "(IS_SM83 || IY_RESERVED) &&" - unconditionally true in
+      // this file (IY_RESERVED alone is already unconditionally true).
+      if (size > 1 &&
         left->aop->type != AOP_REG && requiresHL (left->aop) && left->aop->type != AOP_STL &&
         right->aop->type != AOP_REG && requiresHL (right->aop) && right->aop->type != AOP_STL)
         {
@@ -12292,7 +12261,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
                 emit3w (A_INC, ASMOP_HL, 0);
               offset++;
             }
-          if (sign && IS_8080LIKE)
+          if (sign) // IS_8080LIKE unconditionally true in this file.
             {
               /* Signed fixup done here, directly off the pointers (DE->top of
                  left, HL->top of right, carry = unsigned borrow), so it works
@@ -12314,15 +12283,8 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
                 _pop (PAIR_DE);
               goto release;
             }
-          if (sign && IS_SM83)
-            {
-              wassert(isPairDead (PAIR_DE, ic));
-              emit2 ("ld a, !mems", "de");
-              cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
-              emit3 (A_LD, ASMOP_D, ASMOP_A);
-              emit2 ("ld e, !*hl");
-              cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
-            }
+          // (sign && IS_SM83)-gated arm removed here (IS_SM83
+          // unconditionally false in this file).
 
           spillPair (PAIR_DE);
           if (!isPairDead (PAIR_DE, ic))
@@ -12332,60 +12294,8 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
           result_in_carry = TRUE;
           goto fix;
         }
-      else if (size > 1 && IS_SM83 && (requiresHL (right->aop) && right->aop->type != AOP_REG && right->aop->type != AOP_STL && !requiresHL (left->aop)))
-        {
-          if (!regalloc_dry_run)
-            aopGet (right->aop, LSB, FALSE);
-
-          while (size--)
-            {
-              cheapMove (ASMOP_A, 0, left->aop, offset, true);
-              emit2 ("%s a, !*hl", offset == 0 ? "sub" : "sbc");
-              cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 3, 3, 2, 2);
-
-              if (size != 0)
-                emit3w (A_INC, ASMOP_HL, 0);
-              offset++;
-            }
-          if (sign)
-            {
-              cheapMove (ASMOP_A, 0, left->aop, offset - 1, true);
-              emit3 (A_LD, ASMOP_D, ASMOP_A);
-              emit2 ("ld e, !*hl");
-              cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
-            }
-          spillPair (PAIR_HL);
-          result_in_carry = TRUE;
-          goto fix;
-        }
-      else if (size > 1 && IS_SM83 && (!requiresHL (right->aop) && requiresHL (left->aop) && left->aop->type != AOP_REG && left->aop->type != AOP_STL))
-        {
-          if (!regalloc_dry_run)
-            aopGet (left->aop, LSB, FALSE);
-
-          while (size--)
-            {
-              emit2 ("ld a, !*hl");
-              cost2 (1, 2, 1, 1, 7, 6, 5, 5, 8, 6, 2, 2, 2, 2, 2);
-              emit3_o (offset == 0 ? A_SUB : A_SBC, ASMOP_A, 0, right->aop, offset);
-
-              if (size != 0)
-                {
-                  emit3w (A_INC, ASMOP_HL, 0);
-                  updatePair (PAIR_HL, 1);
-                }
-              offset++;
-            }
-          if (sign)
-            {
-              emit2 ("ld d, !*hl");
-              cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
-              cheapMove (ASMOP_A, 0, right->aop, offset - 1, true);
-              emit3 (A_LD, ASMOP_E, ASMOP_A);
-            }
-          result_in_carry = TRUE;
-          goto fix;
-        }
+      // Two size>1-gated IS_SM83-only arms removed here (IS_SM83
+      // unconditionally false in this file).
 
       /* 8080/8085 signed compare: the post-subtraction sign fixups used below
          rely on "bit 7, r" (which preserves the carry that holds the unsigned
@@ -12393,7 +12303,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
          destroys that carry. Instead use signed_lt = unsigned_borrow XOR a.sign
          XOR b.sign, computed as 0x00/0xff byte masks (no carry to preserve
          across the sign handling). Result sign bit lands in A bit 7. */
-      if (IS_8080LIKE && sign && size >= 1 && right->aop->type != AOP_LIT &&
+      if (sign && size >= 1 && right->aop->type != AOP_LIT && // IS_8080LIKE unconditionally true in this file; dropped from the condition.
           !aopInReg (left->aop, size - 1, A_IDX) && !aopInReg (right->aop, size - 1, A_IDX))
         {
           /* Full unsigned subtraction left - right; the borrow (carry) is the
@@ -12415,13 +12325,8 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
           goto release;
         }
 
-      if (IS_SM83 && sign && right->aop->type != AOP_LIT && !aopInReg (left->aop, offset, A_IDX))
-        {
-          cheapMove (ASMOP_A, 0, right->aop, size - 1, true);
-          cheapMove (ASMOP_E, 0, ASMOP_A, 0, true);
-          cheapMove (ASMOP_A, 0, left->aop, size - 1, true);
-          cheapMove (ASMOP_D, 0, ASMOP_A, 0, true);
-        }
+      // IS_SM83-gated arm removed here (IS_SM83 unconditionally false
+      // in this file).
 
       if (right->aop->type == AOP_LIT)
         {
@@ -12433,32 +12338,13 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
               offset++;
             }
 
-          if (sign && !((IS_R6K_NOTYET || IS_TLCS90) && ifx))  // Map signed operands to unsigned ones. This pre-subtraction workaround to lack of signed comparison is cheaper than the post-subtraction one at fix (except Rabbit 6000 and TLCS-90, which have additional conditional jumps, and thus don't need the workaround for the ifx case).
+          if (sign) // Map signed operands to unsigned ones. This pre-subtraction workaround to lack of signed comparison is cheaper than the post-subtraction one at fix. Dropped: "&& !((IS_R6K_NOTYET || IS_TLCS90) && ifx)" - unconditionally true in this file (IS_R6K_NOTYET is unconditionally false everywhere, and IS_TLCS90 is unconditionally false in this file).
             {
-              if (size == 2 && !(IS_SM83 || IS_8080LIKE || !ifx && requiresHL(result->aop) && result->aop->type != AOP_REG) && isPairDead (PAIR_HL, ic) && (isPairDead (PAIR_DE, ic) || isPairDead (PAIR_BC, ic)) && (getPairId (left->aop) == PAIR_HL || IS_RAB && (left->aop->type == AOP_STK || left->aop->type == AOP_EXSTK)))
-                {
-                  PAIR_ID litpair = (isPairDead (PAIR_DE, ic) ? PAIR_DE : PAIR_BC);
-                  fetchPair (PAIR_HL, left->aop);
-                  emit2 ("ld %s, !immedbyte", _pairs[litpair].name, (unsigned) ((lit ^ 0x8000u) & 0xffffu));
-                  cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-                  emit3w (A_ADD, ASMOP_HL, ASMOP_HL);
-                  emit3 (A_CCF, 0, 0);
-                  if (IS_RAB)
-                    {
-                      emit2 ("rr hl");
-                      cost (1, 2);
-                    }
-                  else
-                    {
-                      emit3 (A_RR, ASMOP_H, 0);
-                      emit3 (A_RR, ASMOP_L, 0);
-                    }
-                  emit2 ("sbc hl, %s", _pairs[litpair].name);
-                  cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8 , -1, 4, 3, 2, 2);
-                  spillPair (PAIR_HL);
-                  result_in_carry = true;
-                  goto release;
-                }
+              // (size==2 && !(IS_SM83||IS_8080LIKE||...))-gated
+              // "ld pair, immed; sbc hl, pair" arm removed here
+              // (unconditionally false in this file: IS_8080LIKE is
+              // always true, so the inner "!(... || IS_8080LIKE || ...)"
+              // is always false).
 
               cheapMove (ASMOP_A, 0, left->aop, offset, true);
               if (size == 1)
@@ -12488,20 +12374,10 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
               goto release;
             }
         }
-      if (!IS_SM83 && !IS_8080LIKE && (!sign || size > 2) && (getPairId_o (left->aop, offset) == PAIR_HL || size == 2 && left->aop->type == AOP_IY) && isPairDead (PAIR_HL, ic) &&
-        (getPairId_o (right->aop, offset) == PAIR_DE || getPairId_o (right->aop, offset) == PAIR_BC))
-        {
-          if (left->aop->type == AOP_DIR || left->aop->type == AOP_IY)
-            fetchPair (PAIR_HL, left->aop);
-          emit3 (A_XOR, ASMOP_A, ASMOP_A); // Clear carry.
-          emit2 ("sbc hl, %s", _pairs[getPairId_o (right->aop, offset)].name);
-          cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8 , -1, 4, 3, 2, 2);
-          spillPair (PAIR_HL);
-          started = true;
-          size -= 2;
-          offset += 2;
-        }
-      else if (left->aop->type == AOP_LIT && !aopInReg (right->aop, offset, A_IDX) && isRegDead (A_IDX, ic))
+      // (!IS_SM83 && !IS_8080LIKE)-gated "xor a; sbc hl, rr" arm removed
+      // here (unconditionally false in this file: IS_8080LIKE is always
+      // true, so !IS_8080LIKE is always false).
+      if (left->aop->type == AOP_LIT && !aopInReg (right->aop, offset, A_IDX) && isRegDead (A_IDX, ic))
         {
           bool pushed_hl = false;
           if (byteOfVal (left->aop->aopu.aop_lit, offset) == 0x00)
@@ -12537,9 +12413,9 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
               offset += size;
               size = 0;
             }
-          else if (!IS_SM83 && size >= 2 && (!sign || size > 2) && !left_already_in_a &&
+          else if (size >= 2 && (!sign || size > 2) && !left_already_in_a && // Dropped: "!IS_SM83 &&" (unconditionally true in this file).
             isPairDead (PAIR_HL, ic) &&
-            (getPairId_o (left->aop, offset) == PAIR_HL || (left->aop->type == AOP_LIT || left->aop->type == AOP_IMMD || left->aop->type == AOP_HL || left->aop->type == AOP_IY || (IS_RAB || IS_TLCS90 || IS_EZ80) && left->aop->type == AOP_STK) && right->aop->regs[L_IDX] < offset && right->aop->regs[H_IDX] < offset) &&
+            (getPairId_o (left->aop, offset) == PAIR_HL || (left->aop->type == AOP_LIT || left->aop->type == AOP_IMMD || left->aop->type == AOP_HL || left->aop->type == AOP_IY) && right->aop->regs[L_IDX] < offset && right->aop->regs[H_IDX] < offset) && // Dropped: "|| (IS_RAB||IS_TLCS90||IS_EZ80) && left->aop->type == AOP_STK" (unconditionally false in this file).
             (getPairId_o (right->aop, offset) == PAIR_DE || getPairId_o (right->aop, offset) == PAIR_BC))
             {
               genMove_o (ASMOP_HL, 0, left->aop, offset, 2, isRegDead (A_IDX, ic), true, false, true, !offset);
@@ -12551,10 +12427,10 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
               size -= 2;
               offset += 2;
             }
-          else if (!IS_SM83 && size >= 2 && (!sign || size > 2) && !left_already_in_a &&
+          else if (size >= 2 && (!sign || size > 2) && !left_already_in_a && // Dropped: "!IS_SM83 &&" (unconditionally true in this file).
             isPairDead (PAIR_HL, ic) && isPairDead (PAIR_DE, ic) && left->aop->regs[E_IDX] < offset + 1 && left->aop->regs[D_IDX] < offset + 1 &&
-            (getPairId_o (left->aop, offset) == PAIR_HL || left->aop->type == AOP_LIT || left->aop->type == AOP_IMMD || left->aop->type == AOP_HL || left->aop->type == AOP_IY || (IS_RAB || IS_TLCS90 || IS_EZ80) && left->aop->type == AOP_STK) &&
-            (right->aop->type == AOP_LIT || right->aop->type == AOP_IMMD || right->aop->type == AOP_HL || right->aop->type == AOP_IY || (IS_RAB || IS_TLCS90 || IS_EZ80) && right->aop->type == AOP_STK))
+            (getPairId_o (left->aop, offset) == PAIR_HL || left->aop->type == AOP_LIT || left->aop->type == AOP_IMMD || left->aop->type == AOP_HL || left->aop->type == AOP_IY) && // Dropped: "|| (IS_RAB||IS_TLCS90||IS_EZ80) && left->aop->type == AOP_STK" (unconditionally false in this file).
+            (right->aop->type == AOP_LIT || right->aop->type == AOP_IMMD || right->aop->type == AOP_HL || right->aop->type == AOP_IY)) // Dropped: "|| (IS_RAB||IS_TLCS90||IS_EZ80) && right->aop->type == AOP_STK" (unconditionally false in this file).
             {
               genMove_o (ASMOP_DE, 0, right->aop, offset, 2, isRegDead (A_IDX, ic), getPairId_o (left->aop, offset) != PAIR_HL, true, true, !offset);
               genMove_o (ASMOP_HL, 0, left->aop, offset, 2, isRegDead (A_IDX, ic), true, false, true, !offset);
@@ -12601,80 +12477,31 @@ fix:
       // There is no good signed compare in the Z80, so we need workarounds.
       if (sign)
         {
-          if (ifx && ((IS_R4K || IS_R5K) && IC_TRUE (ifx) || IS_R6K_NOTYET || IS_TLCS90)) // Some Rabbits do have conditional jumps that (for some cases) allow an efficient signed compare. WARNING: There is soemthing wrong with jp lt! Enabling this works fine on uCsim, but breaks on a real Rabbit 4000!
+          // Removed here (unconditionally false/dead in this file):
+          // an (IS_R4K||IS_R5K||IS_R6K_NOTYET||IS_TLCS90)-gated "genIfxJump"
+          // shortcut, an (!IS_SM83 && !IS_8080LIKE)-gated "compute N ^ V"
+          // arm, and an (!IS_SM83 && !IS_8080LIKE)-gated "directly check
+          // for overflow" arm - leaving only the "hard way" fallback,
+          // which always runs in this file.
+          {
+            /* Test if one operand is negative, while the other is not. If this is the
+               case we can easily decide which one is greater, and we set/reset the carry
+               flag. If not, then the unsigned compare gave the correct result and we
+               don't change the carry flag. */
             {
-              genIfxJump (ifx, "lt");
-              return;
-            }
-          else if (!ifx && !IS_SM83 && !IS_8080LIKE && optimize.nosidechannels) // Compute N ^ V (the latter is not a flag bit on SM83 or documented 8080/8085).
-            {
-              if (!isRegDead (BC_IDX, ic))
-                _push (PAIR_BC);
-              _push (PAIR_AF);
-              _pop (PAIR_BC);
-              emit3 (A_LD, ASMOP_A, ASMOP_C);
-              emit3 (A_RRCA, NULL, NULL);
-              emit3 (A_RRCA, NULL, NULL);
-              emit3 (A_RRCA, NULL, NULL);
-              emit3 (A_XOR, ASMOP_A, ASMOP_C);
-              if (!isRegDead (BC_IDX, ic))
-                _pop (PAIR_BC);
+              /* The 8080/8085 has no "bit 7,r", and its "and a,#0x80"
+                 substitute would destroy the carry that holds the unsigned
+                 result. Instead form signed_lt = borrow XOR a.sign XOR
+                 b.sign as a byte: sbc a,a turns the borrow (carry) into an
+                 all-ones/all-zero mask, then XORing the two top operand
+                 bytes (D = left top, E = right top) flips bit 7 by their
+                 sign bits. Only bit 7 matters (release shifts it out). */
+              emit3 (A_SBC, ASMOP_A, ASMOP_A);
+              emit3 (A_XOR, ASMOP_A, ASMOP_D);
+              emit3 (A_XOR, ASMOP_A, ASMOP_E);
               result_in_carry = false;
             }
-          else if (!IS_SM83 && !IS_8080LIKE) // Directly check for overflow, can't be done on SM83 or the documented 8080/8085 (the P flag there is parity, not overflow).
-            {
-              // Assume no overflow.
-              symbol *tlbl = regalloc_dry_run ? NULL : newiTempLabel (NULL);
-              emitJP (tlbl, IS_RAB ? "lz" : "po", 1.0f, false);
-              emit2 ("xor a, !immedbyte", 0x80u);
-              cost (2, 0); // Assume no overflow.
-              emitLabelSpill (tlbl);
-              result_in_carry = false;
-            }
-          else // Do it the hard way
-            {
-              /* Test if one operand is negative, while the other is not. If this is the
-                 case we can easily decide which one is greater, and we set/reset the carry
-                 flag. If not, then the unsigned compare gave the correct result and we
-                 don't change the carry flag. */
-              if (IS_8080LIKE)
-                {
-                  /* The 8080/8085 has no "bit 7,r", and its "and a,#0x80"
-                     substitute would destroy the carry that holds the unsigned
-                     result. Instead form signed_lt = borrow XOR a.sign XOR
-                     b.sign as a byte: sbc a,a turns the borrow (carry) into an
-                     all-ones/all-zero mask, then XORing the two top operand
-                     bytes (D = left top, E = right top) flips bit 7 by their
-                     sign bits. Only bit 7 matters (release shifts it out). */
-                  emit3 (A_SBC, ASMOP_A, ASMOP_A);
-                  emit3 (A_XOR, ASMOP_A, ASMOP_D);
-                  emit3 (A_XOR, ASMOP_A, ASMOP_E);
-                  result_in_carry = false;
-                }
-              else
-                {
-                  symbol *tlbl1 = regalloc_dry_run ? 0 : newiTempLabel (0);
-                  symbol *tlbl2 = regalloc_dry_run ? 0 : newiTempLabel (0);
-                  // TODO: Fix all the cycle costs in here.
-                  emit2 ("bit 7, e");
-                  regalloc_dry_run_cost += 2;
-                  cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-                  emitJP (tlbl1, "z", 0.5f, true);
-                  emit2 ("bit 7, d");
-                  regalloc_dry_run_cost += 2;
-                  emitJP (tlbl2, "nz", 0.5f, true);
-                  emit2 ("cp a, a");
-                  regalloc_dry_run_cost += 1;
-                  emitJP (tlbl2, NULL, 1.0f, true);
-                  emitLabelSpill (tlbl1);
-                  emit2 ("bit 7, d");
-                  regalloc_dry_run_cost += 2;
-                  emitJP (tlbl2, "z", 0.5f, true);
-                  emit2 ("scf");
-                  emitLabelSpill (tlbl2);
-                  result_in_carry = true;
-                }
-            }
+          }
         }
       else
         result_in_carry = true;
@@ -12701,13 +12528,7 @@ release:
           if (!result_in_carry)
             {
               wassert (!inv);
-              if (!IS_SM83)
-                genIfxJump (ifx, "m");
-              else
-                {
-                  emit3 (A_RLCA, 0, 0);
-                  genIfxJump (ifx, "c");
-                }
+              genIfxJump (ifx, "m"); // IS_SM83 unconditionally false in this file.
             }
           else
             genIfxJump (ifx, inv ? "nc" : "c");
