@@ -15456,8 +15456,9 @@ genLeftShift (const iCode *ic)
   aopOp (result, ic, true, false);
   aopOp (left, ic, false, false);
 
-  bool z80n_de = ((result->aop->size == 2 && (aopInReg (result->aop, 0, DE_IDX) || aopInReg (left->aop, 0, DE_IDX)) ||
-    result->aop->size == 1 && (aopInReg (result->aop, 0, E_IDX) || aopInReg (left->aop, 0, E_IDX)))) && isRegDead (DE_IDX, ic);
+  // z80n_de removed: only read by the two IS_Z80N-gated arms above,
+  // both unconditionally dead in this file (IS_Z80N is unconditionally
+  // false).
 
   if (right->aop->type == AOP_REG && !bitVectBitValue (ic->rSurv, right->aop->aopu.aop_reg[0]->rIdx) && right->aop->aopu.aop_reg[0]->rIdx != IYL_IDX && (sameRegs (left->aop, result->aop) || left->aop->type != AOP_REG) &&
     (result->aop->type != AOP_REG ||
@@ -15470,8 +15471,8 @@ genLeftShift (const iCode *ic)
     countreg = A_IDX;
   else if (isRegDead (C_IDX, ic) && result->aop->regs[C_IDX] < 0 && left->aop->regs[C_IDX] < 0)
     countreg = C_IDX;
-  else if (IS_Z80N && z80n_de && aopInReg (right->aop, 0, B_IDX))
-    countreg = B_IDX;
+  // IS_Z80N-gated countreg==B_IDX arm removed here (IS_Z80N
+  // unconditionally false in this file).
   else
     {
       UNIMPLEMENTED;
@@ -15485,7 +15486,7 @@ genLeftShift (const iCode *ic)
      recomputed (clobbered) on every iteration, giving an endless loop (e.g. a
      variable 32-bit rotate/shift with the value on the stack). Literal shifts
      unroll and are unaffected. */
-  if (IS_8080LIKE && !shift_by_lit)
+  if (!shift_by_lit) // IS_8080LIKE unconditionally true in this file; dropped from the condition.
     {
       bool mem_shift = result->aop->type != AOP_REG; // shiftop addressed via HL
       if (countreg == A_IDX || (mem_shift && (countreg == L_IDX || countreg == H_IDX)))
@@ -15510,15 +15511,8 @@ genLeftShift (const iCode *ic)
         }
     }
 
-  if (IS_Z80N && z80n_de && (aopInReg (right->aop, 0, B_IDX) || countreg == B_IDX))
-    {
-      shiftop = result->aop->size == 2 ? ASMOP_DE : ASMOP_E;
-      cheapMove (ASMOP_B, 0, right->aop, 0, isRegDead (A_IDX, ic));
-      genMove (shiftop, left->aop, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), true, true);
-      emit2 ("bsla de, b");
-      cost (2, 8);
-      goto end;
-    }
+  // IS_Z80N-gated "bsla de, b" arm removed here (IS_Z80N
+  // unconditionally false in this file).
 
   save_a_outer = (!isRegDead (A_IDX, ic) && countreg == A_IDX && !(shift_by_lit && shiftcount == 1));
   
@@ -15529,8 +15523,8 @@ genLeftShift (const iCode *ic)
     cheapMove (asmopregs[countreg], 0, right->aop, 0, true);
 
   bool save_a_inner = (countreg == A_IDX && !shift_by_lit) &&
-    !(left->aop->type == AOP_REG && result->aop->type != AOP_REG ||
-    !IS_SM83 && (left->aop->type == AOP_STK && canAssignToPtr3 (result->aop) || result->aop->type == AOP_STK && canAssignToPtr3 (left->aop)));
+    !(left->aop->type == AOP_REG && result->aop->type != AOP_REG || // Dropped: "!IS_SM83 &&" (unconditionally true in this file).
+    (left->aop->type == AOP_STK && canAssignToPtr3 (result->aop) || result->aop->type == AOP_STK && canAssignToPtr3 (left->aop)));
 
   shiftop = result->aop;
   if (result->aop->type != AOP_REG && left->aop->type == AOP_REG && result->aop->size == left->aop->size && left->aop->regs[countreg] < 0)
@@ -15580,7 +15574,7 @@ genLeftShift (const iCode *ic)
   /* 8080/8085: the byte-wise shift body (emit8080Lsh1) uses A as scratch, so A
      cannot double as the loop counter. When A is the counter, unroll the
      literal shift instead of looping (save_a_outer already preserves a live A). */
-  bool unroll_8080 = IS_8080LIKE && shift_by_lit && shiftcount > 1 && countreg == A_IDX;
+  bool unroll_8080 = shift_by_lit && shiftcount > 1 && countreg == A_IDX; // IS_8080LIKE unconditionally true in this file; dropped from the condition.
 
   if (shift_by_lit && !shiftcount)
     goto end;
@@ -15610,26 +15604,26 @@ genLeftShift (const iCode *ic)
     started = false;
     while (size)
     {
+      // Dropped from the condition below: "(!started || !IS_SM83) &&"
+      // (unconditionally true - !IS_SM83 alone is already
+      // unconditionally true in this file), "IS_RAB ||" from the DE
+      // arm's guard (unconditionally false), and the trailing
+      // "(IS_R4K||IS_R5K||IS_R6K) && aopInReg (shiftop, offset,
+      // BC_IDX)" disjunct (unconditionally false).
       if (size >= 2 && offset + 1 >= byteshift &&
         shiftop->type == AOP_REG &&
-        (!started || !IS_SM83) && // sm83 doesn't have wide adc
         (aopInReg (shiftop, offset, HL_IDX) ||
         !started && aopInReg (shiftop, offset, IY_IDX) ||
-        (IS_RAB || optimize.codeSize && !started && !IS_SM83) && aopInReg (shiftop, offset, DE_IDX)) ||
-        (IS_R4K || IS_R5K || IS_R6K) && aopInReg (shiftop, offset, BC_IDX))
+        optimize.codeSize && !started && aopInReg (shiftop, offset, DE_IDX)))
         {
-          if (aopInReg (shiftop, offset, HL_IDX) || aopInReg (shiftop, offset, IY_IDX) || IS_TLCS870C || IS_TLCS870C1)
+          // Dropped from the condition below: "|| IS_TLCS870C ||
+          // IS_TLCS870C1" (both unconditionally false in this file).
+          if (aopInReg (shiftop, offset, HL_IDX) || aopInReg (shiftop, offset, IY_IDX))
             emit3w_o (started ? A_ADC : A_ADD, shiftop, offset, shiftop, offset);
-          else if (IS_RAB && aopInReg (shiftop, offset, DE_IDX) ||
-            (IS_R4K || IS_R5K || IS_R6K) && aopInReg (shiftop, offset, BC_IDX))
-            {
-              if (!started)
-                emit3 (A_CP, ASMOP_A, ASMOP_A);
-              emit3w_o (A_RL, shiftop, offset, 0, 0);
-            }
+          // (IS_RAB||(IS_R4K||IS_R5K||IS_R6K))-gated "rl shiftop" arm
+          // removed here (unconditionally false in this file).
           else
             {
-              wassert (!IS_SM83);
               emit3w (A_EX, ASMOP_DE, ASMOP_HL);
               emit3w (started ? A_ADC : A_ADD, ASMOP_HL, ASMOP_HL);
               emit3w (A_EX, ASMOP_DE, ASMOP_HL);
@@ -15650,17 +15644,8 @@ genLeftShift (const iCode *ic)
           started = true;
           size -= 2, offset += 2;
         }
-      else if (size >= 2 && offset + 1 >= byteshift &&
-        shiftop->type == AOP_STK &&
-        (IS_RAB || IS_EZ80) &&
-        isRegDead (HL_IDX, ic) && shiftop->regs[L_IDX] < 0 && shiftop->regs[H_IDX] < 0 && countreg != L_IDX && countreg != H_IDX)
-        {
-          genMove_o (ASMOP_HL, 0, shiftop, offset, 2, false, true, false, false, !started);
-          emit3w (started ? A_ADC : A_ADD, ASMOP_HL, ASMOP_HL);
-          genMove_o (shiftop, offset, ASMOP_HL, 0, 2, false, true, false, false, false);
-          started = true;
-          size -= 2, offset += 2;
-        }
+      // (IS_RAB||IS_EZ80)-gated "add hl, hl" stack-shift arm removed
+      // here (both macros unconditionally false in this file).
       else
         {
           if (offset >= byteshift)
@@ -15668,10 +15653,7 @@ genLeftShift (const iCode *ic)
               if (aopInReg (shiftop, offset, A_IDX))
                 emit3 (started ? A_ADC : A_ADD, ASMOP_A, ASMOP_A);
               else
-                if (IS_8080LIKE)
-                  emit8080Lsh1 (shiftop, offset, started);
-                else
-                  emit3_o (started ? A_RL : A_SLA, shiftop, offset, 0, 0);
+                emit8080Lsh1 (shiftop, offset, started); // IS_8080LIKE unconditionally true in this file.
               started = true;
             }
           size--, offset++;
@@ -15682,13 +15664,9 @@ genLeftShift (const iCode *ic)
   if (!(shift_by_lit && shiftcount == 1) && !unroll_8080)
     {
       emitLabel (tlbl1);
-      if (!IS_SM83 && !IS_8080LIKE && countreg == B_IDX)
-        {
-          if (!regalloc_dry_run)
-            emit2 ("djnz !tlabel", labelKey2num (tlbl->key));
-          cost2 (2, 2, -1, -1, 13, 9, 5, 6, -1, 10, -1, -1, -1, 4, 2); // Assume jump taken.
-        }
-      else
+      // (!IS_SM83 && !IS_8080LIKE)-gated "djnz" arm removed here
+      // (unconditionally false in this file: IS_8080LIKE is always
+      // true, so !IS_8080LIKE is always false).
         {
           emit2 ("dec %s", i8085_regsZ80[countreg].name);
           cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
@@ -15971,14 +15949,13 @@ genRightShift (const iCode * ic)
 {
   operand *right, *left, *result;
   asmop *shiftop;
-  int size, offset, first = 1;
+  int size, offset;
   bool is_signed;
   int countreg;
   bool shift_by_lit, shift_by_one, shift_by_zero;
   int shiftcount = 0;
   int byteoffset = 0;
   bool pushed_a = false;
-  bool shift_bytewise = false;
 
   symbol *tlbl = 0, *tlbl1 = 0;
 
@@ -16013,7 +15990,7 @@ genRightShift (const iCode * ic)
     right->aop->aopu.aop_reg[0]->rIdx != IYL_IDX && right->aop->aopu.aop_reg[0]->rIdx != IYH_IDX && (sameRegs (left->aop, result->aop) || left->aop->type != AOP_REG) &&
     (result->aop->type != AOP_REG || result->aop->regs[right->aop->aopu.aop_reg[0]->rIdx] < 0))
     countreg = right->aop->aopu.aop_reg[0]->rIdx;
-  else if ((!IS_SM83 && !IS_TLCS870 && !IS_TLCS870C && !IS_TLCS870C1 || result->aop->regs[A_IDX] >= 0) && // Some targets do not have djnz, so there is no reason to prefer b over an available a.
+  else if (// Dropped: "(!IS_SM83 && !IS_TLCS870 && !IS_TLCS870C && !IS_TLCS870C1 || result->aop->regs[A_IDX] >= 0) &&" - unconditionally true in this file (all four macros are unconditionally true/false such that the conjunction is unconditionally true, regardless of the "||" alternative). Some targets do not have djnz, so there is no reason to prefer b over an available a.
      isRegDead (B_IDX, ic) && result->aop->regs[B_IDX] < 0 &&
      (sameRegs (left->aop, result->aop) || left->aop->type != AOP_REG || shift_by_lit || left->aop->regs[A_IDX] >= 0 || result->aop->regs[A_IDX] >= 0))
     countreg = B_IDX;
@@ -16027,7 +16004,7 @@ genRightShift (const iCode * ic)
      or H either - it would be recomputed (clobbered) every iteration, giving an
      endless loop (e.g. a variable 32-bit right shift with the value on the
      stack). Pick a free register that holds none of the operands. */
-  if (IS_8080LIKE && !shift_by_lit)
+  if (!shift_by_lit) // IS_8080LIKE unconditionally true in this file; dropped from the condition.
     {
       bool mem_shift = result->aop->type != AOP_REG; // shiftop addressed via HL
       if (countreg == A_IDX || (mem_shift && (countreg == L_IDX || countreg == H_IDX)))
@@ -16052,18 +16029,8 @@ genRightShift (const iCode * ic)
         }
     }
 
-  if (IS_Z80N && isRegDead (DE_IDX, ic) &&
-    (result->aop->size == 2 && (aopInReg (result->aop, 0, DE_IDX) || aopInReg (left->aop, 0, DE_IDX)) ||
-      result->aop->size == 1 && (aopInReg (result->aop, 0, D_IDX) || aopInReg (left->aop, 0, D_IDX))) &&
-    (aopInReg (right->aop, 0, B_IDX) || countreg == B_IDX))
-    {
-      shiftop = result->aop->size == 2 ? ASMOP_DE : ASMOP_D;
-      cheapMove (ASMOP_B, 0, right->aop, 0, isRegDead (A_IDX, ic));
-      genMove (shiftop, left->aop, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), true, true);
-      emit2 (is_signed ? "bsra de, b" : "bsrl de, b");
-      cost (2, 8);
-      goto end;
-    }
+  // IS_Z80N-gated "bsra/bsrl de, b" arm removed here (IS_Z80N
+  // unconditionally false in this file).
 
   if (!shift_by_lit && countreg == A_IDX && !isRegDead(A_IDX, ic))
     {
@@ -16104,8 +16071,8 @@ genRightShift (const iCode * ic)
       }
 
       bool save_a = (!isRegDead(A_IDX, ic) && !pushed_a) || (countreg == A_IDX && !shift_by_lit) &&
-            !(left->aop->type == AOP_REG && result->aop->type != AOP_REG ||
-            !IS_SM83 && (left->aop->type == AOP_STK && canAssignToPtr3 (result->aop) || result->aop->type == AOP_STK && canAssignToPtr3 (left->aop)));
+            !(left->aop->type == AOP_REG && result->aop->type != AOP_REG || // Dropped: "!IS_SM83 &&" (unconditionally true in this file).
+            (left->aop->type == AOP_STK && canAssignToPtr3 (result->aop) || result->aop->type == AOP_STK && canAssignToPtr3 (left->aop)));
 
       bool hl_dead = isRegDead (HL_IDX, ic) && (countreg != L_IDX && countreg != H_IDX || shift_by_lit);
       bool de_dead = isRegDead (DE_IDX, ic) && (countreg != E_IDX && countreg != D_IDX || shift_by_lit);
@@ -16131,7 +16098,7 @@ genRightShift (const iCode * ic)
      cannot double as the loop counter. When the only free counter register is
      A (e.g. a wide result occupies B), unroll the literal shift instead of
      looping - this needs no counter at all. */
-  bool unroll_8080 = IS_8080LIKE && shift_by_lit && shiftcount > 1 && countreg == A_IDX;
+  bool unroll_8080 = shift_by_lit && shiftcount > 1 && countreg == A_IDX; // IS_8080LIKE unconditionally true in this file; dropped from the condition.
 
   if (!regalloc_dry_run)
     {
@@ -16164,22 +16131,9 @@ genRightShift (const iCode * ic)
       emit2 ("ld %s, !immedbyte", i8085_regsZ80[countreg].name, (unsigned)shiftcount);
       cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
     }
-  else if (!IS_8080LIKE && !optimize.codeSize && !shift_by_lit && !aopIsNotLitVal (right->aop, 0, 1, 0) &&
-    !right->aop->valinfo.anything && (right->aop->valinfo.knownbitsmask & 0x7) == 0x7 && !(right->aop->valinfo.knownbits & 0x7))
-    {
-      if (shiftop->regs[countreg] >= 0)
-        UNIMPLEMENTED;
-      shift_bytewise = true;
-      emit2 ("srl %s", i8085_regsZ80[countreg].name);
-      cost2 (2, 2, -1, -1, 8, 7, 4, 4, 8, 4, -1, -1, -1, 2, 2);
-      emit2 ("srl %s", i8085_regsZ80[countreg].name);
-      cost2 (2, 2, -1, -1, 8, 7, 4, 4, 8, 4, -1, -1, -1, 2, 2);
-      emit2 ("srl %s", i8085_regsZ80[countreg].name);
-      cost2 (2, 2, -1, -1, 8, 7, 4, 4, 8, 4, -1, -1, -1, 2, 2);
-      emit2 ("inc %s", i8085_regsZ80[countreg].name);
-      cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
-      emitJP (tlbl1, NULL, 1.0f, true);
-    }
+  // !IS_8080LIKE-gated "srl/srl/srl/inc" bytewise-shift-detection arm
+  // removed here (IS_8080LIKE unconditionally true in this file, so
+  // !IS_8080LIKE is unconditionally false).
   else if (!shift_by_lit && !aopIsNotLitVal (right->aop, 0, 1, 0))
     {
       if (shiftop->regs[countreg] >= 0)
@@ -16202,68 +16156,31 @@ genRightShift (const iCode * ic)
 
   regalloc_dry_run_state_scale = shift_by_lit ? shiftcount : 2;
 
-  if (shift_bytewise)
-    genMove_o (shiftop, 0, shiftop, 1, result->aop->size, isRegDead (A_IDX, ic) && countreg != A_IDX, isRegDead (HL_IDX, ic) && countreg != L_IDX && countreg != H_IDX, false, false, true);
-  else
+  // shift_bytewise removed: it was only ever set true in the
+  // !IS_8080LIKE-gated bytewise-shift-detection arm above (now removed
+  // as dead - IS_8080LIKE is unconditionally true in this file), so it
+  // was always false here; the "if (shift_bytewise) genMove_o (...);"
+  // arm was correspondingly always dead and removed too.
+    // IS_8080LIKE unconditionally true in this file, so the while loop
+    // body always takes this arm; the four IS_RAB-/IS_R4K-/IS_R5K-/
+    // IS_R6K-gated "else if" arms that followed (unconditionally
+    // unreachable) were removed along with the "first"/"byteoffset"
+    // bookkeeping only they needed.
     while (size)
       {
-        if (IS_8080LIKE)
-          {
-            int reps = unroll_8080 ? shiftcount : 1;
-            for (int r = 0; r < reps; r++)
-              emitRsh2 (shiftop, size, is_signed);
-            offset -= size;
-            size = 0;
-          }
-        else if (IS_RAB && !(is_signed && first) && size >= 2 && byteoffset < 2 && shiftop->type == AOP_REG &&
-        (getPairId_o (shiftop, offset - 1) == PAIR_HL || getPairId_o (shiftop, offset - 1) == PAIR_DE || getPairId_o (shiftop, offset - 1) == PAIR_IY ||
-          ((IS_R4K || IS_R5K || IS_R6K) && getPairId_o (shiftop, offset - 1) == PAIR_BC)))
-        {
-          if (first)
-            {
-              emit3 (A_CP, ASMOP_A, ASMOP_A);
-              first = 0;
-            }
-          emit3w_o (A_RR, shiftop, offset - 1, 0, 0);
-          if (getPairId_o (shiftop, offset - 1) == PAIR_IY || getPairId_o (shiftop, offset - 1) == PAIR_BC)
-            cost (2, 4);
-          else
-            cost (1, 2);
-            size -= 2, offset -= 2;
-          }
-        else if (!is_signed && first && byteoffset--) // Skip known 0 bytes
-          size--, offset--;
-        else if (size >= 2 && shiftop->type == AOP_STK && IS_RAB && !first &&
-          isRegDead (HL_IDX, ic) && shiftop->regs[L_IDX] < 0 && shiftop->regs[H_IDX] < 0 && countreg != L_IDX && countreg != HL_IDX)
-        {
-          genMove_o (ASMOP_HL, 0, shiftop, offset - 1, 2, false, true, false, false, false);
-          emit3w (A_RR, ASMOP_HL, 0);
-          genMove_o (shiftop, offset - 1, ASMOP_HL, 0, 2, false, true, false, false, false);
-          size -= 2, offset -= 2;
-        }
-        else if (first)
-          {
-            emit3_o (is_signed ? A_SRA : A_SRL, shiftop, offset, 0, 0);
-            first = 0;
-            size--, offset--;
-          }
-        else
-          {
-            emit3_o (A_RR, shiftop, offset, 0, 0);
-            size--, offset--;
-          }
+        int reps = unroll_8080 ? shiftcount : 1;
+        for (int r = 0; r < reps; r++)
+          emitRsh2 (shiftop, size, is_signed);
+        offset -= size;
+        size = 0;
       }
 
   if (!shift_by_one && !unroll_8080)
     {
       emitLabel (tlbl1);
-      if (!IS_SM83 && !IS_8080LIKE && countreg == B_IDX)
-        {
-          if (!regalloc_dry_run)
-            emit2 ("djnz !tlabel", labelKey2num (tlbl->key));
-          cost2 (2, 2, -1, -1, 13, 9, 5, 6, -1, 10, -1, -1, -1, 4, 2); // Assume jump taken.
-        }
-      else
+      // (!IS_SM83 && !IS_8080LIKE)-gated "djnz" arm removed here
+      // (unconditionally false in this file: IS_8080LIKE is always
+      // true, so !IS_8080LIKE is always false).
         {
           emit2 ("dec %s", i8085_regsZ80[countreg].name);
           cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
