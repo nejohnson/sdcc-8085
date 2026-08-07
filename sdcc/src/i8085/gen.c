@@ -1462,13 +1462,12 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       else
         cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3, 1, 1);
       return;
-    case A_SUB:
-      wassert (IS_R4K || IS_R5K || IS_R6K || IS_TLCS90);
-      if (IS_RAB)
-        cost (2, 4);
-      else // TLCS-90
-        cost (2, 8);
-      return;
+    // "case A_SUB:" removed: it was gated by "wassert (IS_R4K || IS_R5K ||
+    // IS_R6K || IS_TLCS90);" (unconditionally false in this file), and no
+    // word-level (emit3w/emit3w_o) call site anywhere in this file - live or
+    // dead - ever passes A_SUB (16-bit "sub hl, ..." is not an i8080/i8085
+    // instruction; every A_SUB use in this file is 8-bit, via emit3/emit3_o,
+    // which is costed by emit3Cost, not this function).
     case A_ADC:
     case A_SBC:
       cost2 (2, 2, -1, 2, 15, 10, 4, 4, 0, 8, -1, 4, 3, 2, 2);
@@ -1486,9 +1485,9 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       return;
     case A_AND:
     case A_OR:
-      if (IS_RAB && aopInReg (op1, offset1, IY_IDX))
-        cost (2, 4);
-      else if (op2->type == AOP_LIT || op2->type == AOP_IMMD)
+      // "if (IS_RAB && aopInReg (op1, offset1, IY_IDX)) cost (2, 4); else"
+      // dropped (IS_RAB unconditionally false in this file).
+      if (op2->type == AOP_LIT || op2->type == AOP_IMMD)
         cost2 (-1, 3, -1, 4, -1, -1, -1, -1, -1, 6, -1, 4, 4, -1, -1);
       else
         cost2 (1, 2, -1, 2, -1, -1, 2, 2, -1, 8, -1, 4, 3, -1, -1);   
@@ -17679,7 +17678,6 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
 {
   operand *dst, *c, *n;
   bool direct_c, direct_cl;
-  bool indirect_c;
   bool preinc = FALSE;
   unsigned long sizecost_ldir, sizecost_direct, sizecost_loop;
   bool double_loop;
@@ -17709,19 +17707,22 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
               c->aop->aopu.aop_reg[0]->rIdx != H_IDX && c->aop->aopu.aop_reg[0]->rIdx != L_IDX &&
               c->aop->aopu.aop_reg[0]->rIdx != IYH_IDX && c->aop->aopu.aop_reg[0]->rIdx != IYL_IDX &&
               c->aop->aopu.aop_reg[0]->rIdx != B_IDX);
-  indirect_c = (IS_R3KA || IS_R4K || IS_R5K || IS_R6K) && ulFromVal (n->aop->aopu.aop_lit) > 1 && c->aop->type == AOP_IY;
+  // indirect_c removed: it was "(IS_R3KA||IS_R4K||IS_R5K||IS_R6K) && ...",
+  // unconditionally false in this file (all four macros unconditionally
+  // false), so the "if (indirect_c)" arm further below and the "indirect_c
+  // ? 11 : ..." ternary here are both simplified accordingly.
 
   double_loop = (size > 255 || optimize.codeSpeed);
 
   int sizecost_ld_a_caop =
     aopInReg (c->aop, 0, A_IDX) ? 0 :
-    ((aopInReg (c->aop, 0, IYL_IDX) || aopInReg (c->aop, 0, IYH_IDX)) && !HAS_IYL_INST) ? ld_cost (ASMOP_A, 0, ASMOP_L, 0, false) + 4 :
+    (aopInReg (c->aop, 0, IYL_IDX) || aopInReg (c->aop, 0, IYH_IDX)) ? ld_cost (ASMOP_A, 0, ASMOP_L, 0, false) + 4 : // "&& !HAS_IYL_INST" dropped (unconditionally true in this file).
     ld_cost (ASMOP_A, 0, c->aop, 0, false);
   sizecost_direct = 3 + 2 * size - 1 + !direct_c * sizecost_ld_a_caop;
   sizecost_direct += (live_HL) * 2;
   sizecost_loop = 9 + double_loop * 2 + ((size % 2) && double_loop) * 2 + !direct_cl * sizecost_ld_a_caop;
   sizecost_loop += (live_HL + live_B) * 2;
-  sizecost_ldir = indirect_c ? 11 : (12 + !direct_c * sizecost_ld_a_caop - ((IS_R3KA || IS_R4K || IS_R5K || IS_R6K) && !optimize.codeSpeed));
+  sizecost_ldir = 12 + !direct_c * sizecost_ld_a_caop; // "indirect_c ? 11 : (... - ((IS_R3KA||IS_R4K||IS_R5K||IS_R6K) && !optimize.codeSpeed))" simplified: indirect_c always false, and the subtracted macro term is unconditionally 0.
   sizecost_ldir += (live_HL + live_DE + live_BC) * 2;
 
   if (sizecost_direct <= sizecost_loop && sizecost_direct < sizecost_ldir) // straight-line code.
@@ -17783,13 +17784,10 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
               emit2 ("ld !*hl, %s", aopGet (direct_cl ? c->aop : ASMOP_A, 0, FALSE));
               emit2 ("inc hl");
             }
-          if (IS_8080LIKE)
-            {
-              emit2 ("dec b");
-              emit2 ("jp NZ, !tlabel", labelKey2num (tlbl1->key));
-            }
-          else
-            emit2 ("djnz !tlabel", labelKey2num (tlbl1->key));
+          // "if (IS_8080LIKE) {...} else djnz ..." collapsed to the
+          // IS_8080LIKE arm (unconditionally true in this file).
+          emit2 ("dec b");
+          emit2 ("jp NZ, !tlabel", labelKey2num (tlbl1->key));
         }
       regalloc_dry_run_cost += (double_loop ? 6 : 4);
     }
@@ -17810,34 +17808,32 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
           _push (PAIR_BC);
           saved_BC = true;
         }
-      if (indirect_c)
-        {
-          fetchPair (PAIR_DE, dst->aop);
-          pointPairToAop (PAIR_HL, c->aop, 0);
-        }
-      else
-        {
-          setupForMemset (ic, dst, c, direct_c);
+      // "if (indirect_c) {fetchPair (PAIR_DE, dst->aop); pointPairToAop
+      // (PAIR_HL, c->aop, 0);} else" dropped (indirect_c unconditionally
+      // false in this file - see removed declaration above).
+      setupForMemset (ic, dst, c, direct_c);
 
-          if (!regalloc_dry_run)
-            emit2 ("ld !*hl, %s", aopGet (direct_c ? c->aop : ASMOP_A, 0, FALSE));
-          regalloc_dry_run_cost += (direct_c && c->aop->type == AOP_LIT) ? 2 : 1;
-          if (ulFromVal (n->aop->aopu.aop_lit) <= 1)
-            goto done;
+      if (!regalloc_dry_run)
+        emit2 ("ld !*hl, %s", aopGet (direct_c ? c->aop : ASMOP_A, 0, FALSE));
+      regalloc_dry_run_cost += (direct_c && c->aop->type == AOP_LIT) ? 2 : 1;
+      if (ulFromVal (n->aop->aopu.aop_lit) <= 1)
+        goto done;
 
-          emit3 (A_LD, ASMOP_E, ASMOP_L);
-          emit3 (A_LD, ASMOP_D, ASMOP_H);
-          if (!(IS_R3KA || IS_R4K || IS_R5K || IS_R6K) || optimize.codeSpeed)
-            {
-              emit3w (A_INC, ASMOP_DE, 0);
-              preinc = true;
-            }
-        }
+      emit3 (A_LD, ASMOP_E, ASMOP_L);
+      emit3 (A_LD, ASMOP_D, ASMOP_H);
+      // "if (!(IS_R3KA||IS_R4K||IS_R5K||IS_R6K) || optimize.codeSpeed)"
+      // simplified to unconditional (the macro combination is
+      // unconditionally false in this file, so "!(...)" is unconditionally
+      // true, making the whole "||" condition unconditionally true).
+      emit3w (A_INC, ASMOP_DE, 0);
+      preinc = true;
       emit2 ("ld bc, !immedword", (unsigned)(size - preinc));
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-      // The Rabbit 2000 to Rabbit 3000 (i.e. r2k and r2ka port) have a ldir wait state bug that affects copies between different types of memory.
-      // That is not a problem here, as we copy within an object, and thus within one memory.
-      emit2 ((IS_R3KA || IS_R4K || IS_R5K || IS_R6K) ? "lsidr" : "ldir");
+      // "(IS_R3KA||IS_R4K||IS_R5K||IS_R6K) ? \"lsidr\" : \"ldir\"" simplified
+      // to just "ldir" (the macro combination is unconditionally false in
+      // this file, so "lsidr" - and the Rabbit r2k/r2ka ldir wait-state-bug
+      // comment that motivated considering it - no longer applies here).
+      emit2 ("ldir");
       regalloc_dry_run_cost += 2;
     }
 
