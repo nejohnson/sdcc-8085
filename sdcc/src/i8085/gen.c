@@ -5450,11 +5450,8 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
         csize = 0;
       if (csize == 1 && aopInReg (result, roffset, A_IDX) && aopIsLitVal (source, soffset, 1, 0x00) && f_dead)
         emit3 (A_XOR, ASMOP_A, ASMOP_A);
-      else if (IS_RAB && csize == 2 && aopInReg (result, roffset, HL_IDX) && aopIsLitVal (source, soffset, 2, 0x0000) && f_dead)
-        {
-          emit3w (A_BOOL, ASMOP_HL, 0);
-          emit3 (A_LD, ASMOP_L, ASMOP_H);
-        }
+      // IS_RAB-gated "bool hl; ld l, h" arm removed here (IS_RAB
+      // unconditionally false in this file).
       else
         genCopy (result, roffset, source, soffset, csize, a_dead_global, hl_dead_global, de_dead_global, iy_dead_global, jk_dead_global, f_dead);
       roffset += csize;
@@ -5478,233 +5475,23 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
       bool iy_dead = iy_dead_global && source->regs[IYL_IDX] <= soffset + i && source->regs[IYH_IDX] <= soffset + i && (result->regs[IYL_IDX] < 0 || result->regs[IYL_IDX] >= roffset + i) && (result->regs[IYH_IDX] < 0 || result->regs[IYH_IDX] >= roffset + i);
       bool bc_dead = bc_dead_global && source->regs[C_IDX] <= soffset + i && source->regs[B_IDX] <= soffset + i && (result->regs[C_IDX] < 0 || result->regs[C_IDX] >= roffset + i) && (result->regs[B_IDX] < 0 || result->regs[B_IDX] >= roffset + i);
 
-      if (i + 2 < size && IS_EZ80 && result->type == AOP_FDIR && source->type == AOP_FDIR && (hl_dead || de_dead || bc_dead || iy_dead))
-        {
-          PAIR_ID pair = hl_dead ? PAIR_HL : de_dead ? PAIR_DE : bc_dead ? PAIR_BC : PAIR_IY;
-          emit2 ("ld.lil %s, (%s + %d)", _pairs[pair].name, source->aopu.aop_dir, soffset + i);
-          emit2 ("ld.lil (%s + %d), %s", result->aopu.aop_dir, roffset + i, _pairs[pair].name);
-          i += 3;
-          spillPair (pair);
-          continue;
-        }
-#if 0 // Looks like by just supplies the upper address bits, i.e. we could do a 16-bit read only if the destination is known to be 16-bit aligned.
-      else if (i + 1 < size && IS_TLCS90 && result->type == AOP_FDIR && source->type == AOP_FDIR && (hl_dead || de_dead || bc_dead))
-        {
-          PAIR_ID pair = hl_dead ? PAIR_HL : de_dead ? PAIR_DE : PAIR_BC;
-          if (!iy_dead)
-            _push (PAIR_IY);
-          //emit2 ("ld (by), #((%s + %d) >> 16)", source->aopu.aop_dir, soffset + i); todo: fix once 1930 is fixed!
-          emit2 ("ld (by), #0");
-          cost (3, 10);
-          emit2 ("ld iy, #(%s + %d)", source->aopu.aop_dir, soffset + i);
-          cost (3, 6);
-          emit2 ("ld %s, (iy)", _pairs[pair].name);
-          cost (2, 8);
-          spillPair (pair);
-          //emit2 ("ld (by), #((%s + %d) >> 16)", result->aopu.aop_dir, roffset + i); todo: fix once 1930 is fixed!
-          emit2 ("ld (by), #0");
-          cost (3, 10);
-          emit2 ("ld iy, #(%s + %d)", result->aopu.aop_dir, roffset + i);
-          cost (3, 6);
-          emit2 ("ld (iy), %s", _pairs[pair].name);
-          cost (2, 8);
-          emit2 ("ld (by), #0x00");
-          cost (3, 10);
-          if (!iy_dead)
-            _pop (PAIR_IY);
-          i += 2;
-          continue;
-        }
-#endif
-      else if (i + 1 < size && source->type == AOP_FDIR && (IS_R4K || IS_R5K || IS_R6K /*|| IS_TLCS90 alignment issue - see above*/) && getPairId_o (result, roffset + i) != PAIR_INVALID && getPairId_o (result, roffset + i) != PAIR_JK)
-        {
-          if (i + 3 < size && (IS_R4K || IS_R5K || IS_R6K) &&
-            (getPairId_o (result, roffset + i) == PAIR_DE && getPairId_o (result, roffset + i + 2) == PAIR_BC ||
-              getPairId_o (result, roffset + i) == PAIR_HL && getPairId_o (result, roffset + i + 2) == PAIR_JK))
-            {
-              emit2 ("ldf %s%s, (%s + %d)", _pairs[getPairId_o(result, roffset + i + 2)].name, _pairs[getPairId_o(result, roffset + i)].name, source->aopu.aop_dir, soffset + i);
-              cost (5, 19);
-              i += 4;
-              spillPair (getPairId_o (result, roffset + i + 2));
-            }
-          else if (IS_TLCS90)
-            {
-              if (!iy_dead)
-                _push (PAIR_IY);
-              emit2 ("ld (by), #((%s + %d) >> 16)", source->aopu.aop_dir, soffset + i);
-              cost (3, 10);
-              emit2 ("ld iy, #(%s + %d)", source->aopu.aop_dir, soffset + i);
-              cost (3, 6);
-              emit2 ("ld %s, (iy)", _pairs[getPairId_o(result, roffset + i)].name);
-              cost (2, 8);
-              emit2 ("ld (by), #0x00");
-              cost (3, 10);
-              i += 2;
-              if (!iy_dead)
-                _pop (PAIR_IY);
-            }
-          else
-            {
-              emit2 ("ldf %s, (%s + %d)", _pairs[getPairId_o(result, roffset + i)].name, source->aopu.aop_dir, soffset + i);
-              cost (5, 15);
-              i += 2;
-            }
-          spillPair (getPairId_o (result, roffset + i));
-          continue;
-        }
-      else if (i + 1 < size && source->type == AOP_FDIR && (IS_R4K || IS_R5K || IS_R6K) && hl_dead && (result->type == AOP_STK || result->type == AOP_DIR))
-        {
-          emit2 ("ldf hl, (%s + %d)", source->aopu.aop_dir, soffset + i);
-          cost (5, 15);
-          spillPair (PAIR_HL);
-          genMove_o (result, roffset + i, ASMOP_HL, 0, 2, a_dead, true, de_dead, iy_dead, f_dead);
-          i += 2;
-          continue;
-        }
-      else if (i + 1 < size && result->type == AOP_FDIR && (IS_R4K || IS_R5K || IS_R6K /*|| IS_TLCS90 && getPairId_o (source, soffset + i) != PAIR_IY alignment issue - see above*/) && getPairId_o (source, soffset + i) != PAIR_INVALID && getPairId_o (source, soffset + i) != PAIR_JK)
-        {
-          if (i + 3 < size && (IS_R4K || IS_R5K || IS_R6K) &&
-            (getPairId_o (source, soffset + i) == PAIR_DE && getPairId_o (source, soffset + i + 2) == PAIR_BC ||
-              getPairId_o (source, soffset + i) == PAIR_HL && getPairId_o (source, soffset + i + 2) == PAIR_JK))
-            {
-              emit2 ("ldf (%s + %d), %s%s", result->aopu.aop_dir, roffset + i, _pairs[getPairId_o(source, soffset + i + 2)].name, _pairs[getPairId_o(source, soffset + i)].name);
-              cost (5, 23);
-              i += 4;
-            }
-          else if (IS_TLCS90)
-            {
-              wassert (getPairId_o(source, soffset + i) != PAIR_IY);
-              if (!iy_dead)
-                _push (PAIR_IY);
-              emit2 ("ld (by), #((%s + %d) >> 16)", result->aopu.aop_dir, roffset + i);
-              cost (3, 10);
-              emit2 ("ld iy, #(%s + %d)", result->aopu.aop_dir, roffset + i);
-              cost (3, 6);
-              emit2 ("ld (iy), %s", _pairs[getPairId_o(source, soffset + i)].name);
-              cost (2, 8);
-              emit2 ("ld (by), #0x00");
-              cost (3, 10);
-              i += 2;
-              if (!iy_dead)
-                _pop (PAIR_IY);
-            }
-          else
-            {
-              emit2 ("ldf (%s + %d), %s", result->aopu.aop_dir, roffset + i, _pairs[getPairId_o(source, soffset + i)].name);
-              cost (5, 17);
-              i += 2;
-            }
-          continue;
-        }
-      else if (i + 1 < size && result->type == AOP_FDIR && (IS_R4K || IS_R5K || IS_R6K) && hl_dead && (source->type == AOP_LIT || source->type == AOP_IMMD || aopOnStack (source, soffset + i, 2)))
-        {
-          genMove_o (ASMOP_HL, 0, source, soffset + i, 2, a_dead, true, de_dead, iy_dead, f_dead);
-          emit2 ("ldf (%s + %d), hl", result->aopu.aop_dir, roffset + i);
-          cost (5, 17);
-          i += 2;
-          continue;
-        }
-      else if (source->type == AOP_FDIR && IS_RAB && (hl_dead || iy_dead && aopInReg (result, roffset + i, IYL_IDX)))
-        {
-          if (!a_dead)
-            _push (PAIR_AF);
-          emit2 ("ld a, #((%s + %d) >> 16)", source->aopu.aop_dir, soffset + i);
-          cost (2, 4);
-          if (iy_dead && aopInReg (result, roffset + i, IYL_IDX))
-            {
-              emit2 ("ldp iy, (%s + %d)", source->aopu.aop_dir, soffset + i);
-              cost (4, 13);
-              spillPair (PAIR_IY);
-            }
-          else
-            {
-              emit2 ("ldp hl, (%s + %d)", source->aopu.aop_dir, soffset + i);
-              cost (4, 13);
-              spillPair (PAIR_HL);
-              genMove_o (result, roffset + i, ASMOP_L, 0, 1, true, true, de_dead, iy_dead, f_dead);
-            }
-          if (!a_dead)
-            _pop (PAIR_AF);
-          i++; // Can only get one byte at a time, since ldp might get the wrong upper byte when the source is not even-aligned.
-          continue;
-        }
-      else if (result->type == AOP_FDIR && (IS_R4K || IS_R5K || IS_R6K) && aopInReg (source, soffset + i, A_IDX))
-        {
-          emit2 ("ldf (%s + %d), a", result->aopu.aop_dir, roffset + i);
-          cost (5, 15);
-          i++;
-          continue;
-        }
-      else if (result->type == AOP_FDIR && IS_RAB && hl_dead &&
-        (source->type == AOP_LIT || source->type == AOP_IMMD || aopInReg (source, soffset + i, B_IDX) || aopInReg (source, soffset + i, C_IDX) || aopInReg (source, soffset + i, D_IDX) || aopInReg (source, soffset + i, E_IDX) || aopInReg (source, soffset + i, A_IDX) && de_dead))
-        {
-          // Need to do this bitfield-write-style. Can't honor volatile.
-          if (!a_dead)
-            _push (PAIR_AF);
-          bool via_e = aopInReg (source, soffset + i, A_IDX);
-          if (via_e)
-            emit3 (A_LD, ASMOP_E, ASMOP_A);
-          emit2 ("ld a, #((%s + %d) >> 16)", result->aopu.aop_dir, soffset + i);
-          cost (2, 4);
-          emit2 ("ldp hl, (%s + %d)", result->aopu.aop_dir, roffset + i);
-          cost (4, 13);
-          spillPair (PAIR_HL);
-          if (via_e)
-            emit3 (A_LD, ASMOP_L, ASMOP_E);
-          else
-            emit3_o (A_LD, ASMOP_L, 0, source, soffset + i);
-          spillPair (PAIR_HL);
-          emit2 ("ldp (%s + %d), hl", result->aopu.aop_dir, roffset + i);
-          cost (4, 15);
-          i++;
-          if (!a_dead)
-            _pop (PAIR_AF);
-          continue;
-        }
-      else if (source->type == AOP_STL && (soffset + i) >= 2)
+      // Removed here (unconditionally false in this file - IS_EZ80,
+      // IS_R4K, IS_R5K, IS_R6K, and IS_RAB are all unconditionally
+      // false): a chain of seven else-if arms handling AOP_FDIR
+      // (far-pointer / banked-memory direct addressing) source/result
+      // operands for eZ80/Rabbit-family targets, none of which apply
+      // to i8080/i8085. Includes one already-disabled "#if 0" block
+      // (IS_TLCS90-gated), left inert either way.
+      if (source->type == AOP_STL && (soffset + i) >= 2)
         {
           genMove_o (result, roffset + i, ASMOP_ZERO, 0, size - i, a_dead, hl_dead, false, iy_dead, f_dead);
           return;
         }
-      else if ((IS_TLCS90 || IS_EZ80) && source->type == AOP_STL && !(soffset + i) && getPairId_o(result, roffset + i) != PAIR_INVALID &&
-        !_G.omitFramePtr && abs(fpOffset (source->aopu.aop_stk)) <= 127)
-        {
-          int abso = source->aopu.aop_stk + _G.stack.offset + (source->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
-          int pair = getPairId_o(result, roffset + i);
-          if ((_G.pairs[pair].last_type == AOP_STK || _G.pairs[pair].last_type == AOP_EXSTK) && abs (_G.pairs[pair].offset - abso) < (f_dead ? 3 : 5))
-            adjustPair (_pairs[pair].name, &_G.pairs[PAIR_HL].offset, abso);
-          else
-            {
-              emit2 (IS_TLCS90 ? "lda %s, ix, !immed%d" : "lea %s, ix, !immed%d", _pairs[pair].name, fpOffset (source->aopu.aop_stk));
-              cost (3, IS_TLCS90 ? 10 : 3);
-            }
-          if (pair == PAIR_HL)
-            {
-              _G.pairs[pair].last_type = AOP_EXSTK;
-              _G.pairs[pair].offset = abso;
-            }
-          else // todo make caching work for other pairs, too.
-            spillPair (pair);
-          i += 2;
-          continue;
-        }
-      else if (!IS_8080LIKE && source->type == AOP_STL && !(soffset + i) && getPairId_o(result, roffset) == PAIR_IY)
-        {
-          int abso = source->aopu.aop_stk + _G.stack.offset + (source->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
-          if (!f_dead)
-            _push (PAIR_AF);
-          emit2 ("ld iy, !immed%d", spOffset (source->aopu.aop_stk));
-          cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
-          emit2 ("add iy, sp");
-          cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
-          if (!f_dead)
-            _pop (PAIR_AF);
-          _G.pairs[PAIR_IY].last_type = AOP_EXSTK;
-          _G.pairs[PAIR_IY].offset = abso;
-          i += 2;
-          continue;
-        }
-      else if (!IS_SM83 && source->type == AOP_STL && !(soffset + i) && size == 2 && getPairId_o(result, roffset) == PAIR_DE) // For result in de, we don't need hl dead.
+      // (IS_TLCS90||IS_EZ80)-gated "lda/lea rr, ix, n" caching arm and
+      // !IS_8080LIKE-gated "ld iy, n; add iy, sp" arm removed here
+      // (unconditionally false in this file: IS_8080LIKE is always
+      // true, so !IS_8080LIKE is always false).
+      else if (source->type == AOP_STL && !(soffset + i) && size == 2 && getPairId_o(result, roffset) == PAIR_DE) // For result in de, we don't need hl dead. Dropped: "!IS_SM83 &&" (unconditionally true in this file).
         {
           if (!hl_dead)
             emit3w (A_EX, ASMOP_DE, ASMOP_HL);
@@ -5768,19 +5555,10 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
         }
       else
 #endif
-      if ((IS_RAB || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1 || IS_EZ80) && i + 1 < size && result->type == AOP_STK &&
-        source->type == AOP_LIT && (value_hl >= 0 && aopIsLitVal (source, soffset + i, 2, value_hl) || hl_dead))
-        {
-          if (value_hl < 0 || !aopIsLitVal (source, soffset + i, 2, value_hl))
-            fetchLitPair (PAIR_HL, source, soffset + i, f_dead, false);
-          if (!regalloc_dry_run)
-            emit2 ("ld %s, hl", aopGet (result, roffset + i, false));
-          cost2 (2 + IS_EZ80, 3, -1, 3, -1, -1, 11, 12, -1, 12, -1, 6, 5, 5, -1);
-          value_hl = ullFromVal (source->aopu.aop_lit) >> ((soffset + i) * 8) & 0xffff;
-          i += 2;
-          continue;
-        }
-      else if (result->type == AOP_STK && i + 1 == size && value_hl >= 0 && (aopIsLitVal (source, soffset + i, 1, value_hl & 0xff) || aopIsLitVal (source, soffset + i, 1, (value_hl >> 8 )& 0xff)))
+      // (IS_RAB||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1||IS_EZ80)-gated
+      // "ld rr, n (sp)" cached-literal arm removed here (all five
+      // macros unconditionally false in this file).
+      if (result->type == AOP_STK && i + 1 == size && value_hl >= 0 && (aopIsLitVal (source, soffset + i, 1, value_hl & 0xff) || aopIsLitVal (source, soffset + i, 1, (value_hl >> 8 )& 0xff)))
         {
           if (!regalloc_dry_run)
             emit2 ("ld %s, %s", aopGet (result, roffset + i, false), aopIsLitVal (source, soffset + i, 1, value_hl & 0xff) ? "l" : "h");
@@ -5788,30 +5566,14 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           i++;
           continue;
         }
-      else if (IS_SM83 && i + 1 < size && result->type != AOP_REG && requiresHL (result) && source->type == AOP_REG && requiresHL (source) && // word through de is cheaper than direct byte-by-byte, since it requires fewer updates of hl.
-        de_dead_global && source->regs[E_IDX] <= i + 1 && source->regs[D_IDX] <= i + 1 &&
-        hl_dead_global && source->regs[L_IDX] <= i + 1 && source->regs[H_IDX] <= i + 1)
-        {
-          cheapMove (ASMOP_E, 0, source, i, a_dead);
-          cheapMove (ASMOP_D, 0, source, i + 1, a_dead);
-          cheapMove (result, i, ASMOP_E, 0, a_dead);
-          cheapMove (result, i + 1, ASMOP_D, 0, a_dead);
-          i += 2;
-          continue;
-        }
-      else if((IS_R4K || IS_R5K || IS_R6K) && i + 3 < size &&
-        (result->type == AOP_IY || result->type == AOP_DIR || result->type == AOP_HL) &&
-        (getPairId_o (source, soffset + i + 2) == PAIR_BC && getPairId_o (source, soffset + i) == PAIR_DE || getPairId_o (source, soffset + i + 2) == PAIR_JK && getPairId_o (source, soffset + i) == PAIR_HL))
-        {
-          emit2 ("ld !mems, %s%s", aopGetLitWordLong (result, roffset + i, false), _pairs[getPairId_o (source, soffset + i + 2)].name, _pairs[getPairId_o (source, soffset + i)].name);
-          cost (4, 21);
-          i += 4;
-          continue;
-        }
-      else if (!IS_SM83 && i + 1 < size && getPairId_o(source, soffset + i) != PAIR_INVALID &&
+      // IS_SM83-gated "word through de" arm and two
+      // (IS_R4K||IS_R5K||IS_R6K)-gated "ld (mems), rr"/"ld rr, (mems)"
+      // 32-bit-pair arms removed here (unconditionally false/dead in
+      // this file).
+      else if (i + 1 < size && getPairId_o(source, soffset + i) != PAIR_INVALID && // Dropped: "!IS_SM83 &&" (unconditionally true in this file).
         /* 8080/8085: only ld (nn),hl (SHLD) exists; ld (nn),de/bc are Z80
            ED-prefix ops, so let non-HL pairs fall through to a byte-wise store. */
-        (!IS_8080LIKE || getPairId_o(source, soffset + i) == PAIR_HL) &&
+        (getPairId_o(source, soffset + i) == PAIR_HL) && // Dropped: "!IS_8080LIKE ||" (unconditionally false in this file).
         (result->type == AOP_IY || result->type == AOP_DIR || result->type == AOP_HL && (getPairId_o(source, soffset + i) == PAIR_HL || !hl_dead)))
         {
           emit2 ("ld !mems, %s", aopGetLitWordLong (result, roffset + i, false), _pairs[getPairId_o(source, soffset + i)].name);
@@ -5822,28 +5584,12 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           i += 2;
           continue;
         }
-      else if ((IS_R4K || IS_R5K || IS_R6K) && i + 3 < size &&
-        (source->type == AOP_IY || source->type == AOP_DIR || source->type == AOP_HL) &&
-        (getPairId_o (result, roffset + i + 2) == PAIR_BC && getPairId_o (result, roffset + i) == PAIR_DE || getPairId_o (result, roffset + i + 2) == PAIR_JK && getPairId_o (result, roffset + i) == PAIR_HL))
-        {
-          emit2 ("ld %s%s, !mems", _pairs[getPairId_o (result, roffset + i + 2)].name, _pairs[getPairId_o (result, roffset + i)].name, aopGetLitWordLong (source, soffset + i, false));
-          cost (4, 17);
-          i += 4;
-          continue;
-        }
-      else if ((IS_R4K || IS_R5K || IS_R6K) && i + 3 < size &&
-        (source->type == AOP_LIT && aopIsLitVal (source, i + 1, 3, (byteOfVal (source->aopu.aop_lit, i) & 0x80) ? 0xffffff : 0x000000)) &&
-        (getPairId_o (result, roffset + i + 2) == PAIR_BC && getPairId_o (result, roffset + i) == PAIR_DE || getPairId_o (result, roffset + i + 2) == PAIR_JK && getPairId_o (result, roffset + i) == PAIR_HL))
-        {
-          emit2 ("ld %s%s, !immed%d", _pairs[getPairId_o (result, roffset + i + 2)].name, _pairs[getPairId_o (result, roffset + i)].name, (signed char)(byteOfVal (source->aopu.aop_lit, i)));
-          cost (3, 4);
-          i += 4;
-          continue;
-        }
-      else if (!IS_SM83 && i + 1 < size && soffset + i + 1 < source->size && getPairId_o(result, roffset + i) != PAIR_INVALID &&
+      // Two more (IS_R4K||IS_R5K||IS_R6K)-gated 32-bit-pair arms
+      // removed here (unconditionally false in this file).
+      else if (i + 1 < size && soffset + i + 1 < source->size && getPairId_o(result, roffset + i) != PAIR_INVALID && // Dropped: "!IS_SM83 &&" (unconditionally true in this file).
         /* 8080/8085: only ld hl,(nn) (LHLD) exists; ld bc/de,(nn) are Z80
            ED-prefix ops, so let non-HL pairs fall through to a byte-wise load. */
-        (!IS_8080LIKE || getPairId_o(result, roffset + i) == PAIR_HL) &&
+        (getPairId_o(result, roffset + i) == PAIR_HL) && // Dropped: "!IS_8080LIKE ||" (unconditionally false in this file).
         (source->type == AOP_IY || source->type == AOP_DIR || source->type == AOP_HL && (getPairId_o(result, roffset + i) == PAIR_HL || !hl_dead)))
         {
           emit2 ("ld %s, !mems", _pairs[getPairId_o (result, roffset + i)].name, aopGetLitWordLong (source, soffset + i, false));
@@ -5862,7 +5608,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           i += 2;
           continue;
         }
-      else if (!IS_SM83 && i + 1 < size &&
+      else if (i + 1 < size && // Dropped: "!IS_SM83 &&" (unconditionally true in this file).
         (result->type == AOP_IY || result->type == AOP_DIR || result->type == AOP_HL) &&
         source->type == AOP_IMMD && hl_dead)
         {
@@ -5872,16 +5618,11 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           i += 2;
           continue;
         }
-      else if(IS_RAB && aopIsLitVal (source, soffset + i, 1, 0x00) && aopInReg (result, roffset + i, H_IDX) && hl_dead && f_dead)
-        {
-          emit3w (A_BOOL, ASMOP_HL, 0);
-          value_hl = -1;
-          i++;
-          continue;
-        }
+      // IS_RAB-gated "bool hl" zero-value arm removed here (IS_RAB
+      // unconditionally false in this file).
 
       // 16-bit load into register might be cheaper than 8-bit, if the latter has to go through a. For bc and de it is only worth it if a would have to be saved.
-      if ((optimize.allow_unsafe_read || i + 1 == size && soffset + i + 1 <= source->size) && !IS_SM83 && !IS_TLCS90 && result->type == AOP_REG && !aopInReg (result, roffset + i, A_IDX) &&
+      if ((optimize.allow_unsafe_read || i + 1 == size && soffset + i + 1 <= source->size) && result->type == AOP_REG && !aopInReg (result, roffset + i, A_IDX) && // Dropped: "!IS_SM83 && !IS_TLCS90 &&" (both unconditionally true in this file).
         (i + 1 == size || soffset + i + 1 >= source->size) && (source->type == AOP_HL && fetchLitPair (PAIR_HL, source, soffset + i, f_dead, true) || source->type == AOP_IY))
         {
           bool upper = aopInReg (result, roffset + i, B_IDX) || aopInReg (result, roffset + i, D_IDX) || aopInReg (result, roffset + i, H_IDX) || aopInReg (result, roffset + i, IYH_IDX);
@@ -5899,7 +5640,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
              ED-prefix ops, so this "load a whole pair from a direct address"
              shortcut is only legal for HL. Let non-HL pairs fall through to the
              byte-wise load below. */
-          if (pair != PAIR_INVALID && (!IS_8080LIKE || pair == PAIR_HL) && soffset + i - upper >= 0 && (optimize.allow_unsafe_read || upper || soffset + i + 1 < source->size))
+          if (pair != PAIR_INVALID && (pair == PAIR_HL) && soffset + i - upper >= 0 && (optimize.allow_unsafe_read || upper || soffset + i + 1 < source->size)) // Dropped: "!IS_8080LIKE ||" (unconditionally false in this file).
             {
               emit2 ("ld %s, !mems", _pairs[pair].name, aopGetLitWordLong (source, soffset + i - upper, false));
               if (pair == PAIR_HL)
@@ -5962,15 +5703,8 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
             (source->type == AOP_HL && fetchLitPair (PAIR_HL, source, soffset + i, f_dead, true) || source->type == AOP_IY && fetchLitPair (PAIR_IY, source, soffset + i, f_dead, true)) &&
             result->type == AOP_REG && (i + 1 > size || soffset + i < source->size))
             {
-              if (IS_TLCS90 && result->type == AOP_REG && !aopInReg (result, roffset + i, IYL_IDX) && !aopInReg (result, roffset + i, IYH_IDX))
-                {
-                  if (!regalloc_dry_run)
-                    emit2 ("ld %s, !mems", aopGet (result, roffset + i, false), aopGetLitWordLong (source, soffset + i, false));
-                  cost (4, 10);
-                  i++;
-                  continue;
-                }
-              else
+              // IS_TLCS90-gated "ld r, (mems)" arm removed here
+              // (IS_TLCS90 unconditionally false in this file).
                 {
                   emit2 ("ld a, !mems", aopGetLitWordLong (source, soffset + i, false));
                   cost2 (3, 4, -1, 4, 13, 12, 9, 9, 16, 10, -1, 5, 5, 4, 4);
@@ -17646,19 +17380,8 @@ genAssign (const iCode *ic)
 
   // In the long term, shis should probably just use genMove for all non-volatile cases.
 
-  // SM83 has special instruction for access to addresses 0xff00 to 0xffff, so use them here, when possible
-  if (IS_SM83 && size == 1 && aopInReg (result->aop, 0, A_IDX) && right->aop->type == AOP_HL && SPEC_ABSA (OP_SYM_ETYPE (right)) && (SPEC_ADDR (OP_SYM_ETYPE (right)) & 0xff00) == 0xff00)
-    {
-      emit2 ("ldh a, !mems", right->aop->aopu.aop_dir);
-      cost (2, 12);
-      goto release;
-    }
-  else if (IS_SM83 && size == 1 && aopInReg (right->aop, 0, A_IDX) && result->aop->type == AOP_HL && SPEC_ABSA (OP_SYM_ETYPE (result)) && (SPEC_ADDR (OP_SYM_ETYPE (result)) & 0xff00) == 0xff00)
-    {
-      emit2 ("ldh (#%x), a", result->aop->aopu.aop_dir);
-      cost (2, 12);
-      goto release;
-    }
+  // IS_SM83-gated "ldh" 0xff00-0xffff special-case pair removed here
+  // (IS_SM83 unconditionally false in this file).
 
   if (result->aop->type == AOP_FDIR || right->aop->type == AOP_FDIR)
     genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
@@ -17666,33 +17389,31 @@ genAssign (const iCode *ic)
     isPair (right->aop) && result->aop->type == AOP_IY && size == 2)
     genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
   else if (size == 2 && isPairDead (PAIR_HL, ic) &&
-    (!IS_SM83 && (right->aop->type == AOP_STK && !_G.omitFramePtr || right->aop->type == AOP_IY || right->aop->type == AOP_LIT) && result->aop->type == AOP_IY || // Use ld (nn), hl
-    !IS_SM83 && right->aop->type == AOP_IY && (result->aop->type == AOP_STK && !_G.omitFramePtr || result->aop->type == AOP_IY) || // Use ld hl, (nn)
-    !IS_SM83 && right->aop->type == AOP_LIT && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) && (result->aop->aopu.aop_stk + offset + _G.stack.offset + (result->aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) + _G.stack.pushed) == 0 || // Use ex (sp), hl
-    (IS_RAB || IS_TLCS90) && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) && (right->aop->type == AOP_LIT || right->aop->type == AOP_IMMD))) // Use ld d(sp), hl
+    // Dropped from the three disjuncts below: "!IS_SM83 &&" (unconditionally
+    // true in this file). Dropped entirely: "(IS_RAB || IS_TLCS90) &&
+    // (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) &&
+    // (right->aop->type == AOP_LIT || right->aop->type == AOP_IMMD)"
+    // ("Use ld d(sp), hl" disjunct - unconditionally false in this file).
+    ((right->aop->type == AOP_STK && !_G.omitFramePtr || right->aop->type == AOP_IY || right->aop->type == AOP_LIT) && result->aop->type == AOP_IY || // Use ld (nn), hl
+    right->aop->type == AOP_IY && (result->aop->type == AOP_STK && !_G.omitFramePtr || result->aop->type == AOP_IY) || // Use ld hl, (nn)
+    right->aop->type == AOP_LIT && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) && (result->aop->aopu.aop_stk + offset + _G.stack.offset + (result->aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) + _G.stack.pushed) == 0)) // Use ex (sp), hl
     {
       fetchPair (PAIR_HL, right->aop);
       genMove (result->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic));
     }
   else if (size == 2 && getPairId (right->aop) != PAIR_INVALID)
     genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic));
-  else if (size <= 2 && requiresHL (right->aop) && requiresHL (result->aop) && IS_SM83)
-    genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic));
+  // (size<=2 && requiresHL(right->aop) && requiresHL(result->aop) &&
+  // IS_SM83)-gated arm removed here (IS_SM83 unconditionally false in
+  // this file).
   else if (getPairId (right->aop) == PAIR_IY && result->aop->type != AOP_REG)
     {
       while (size--)
         {
           if (size == 0)
             {
-              if (IS_TLCS90) // f needs to be preserved for tlcs90.
-                {
-                  emit2 ("push iy");
-                  emit2 ("ld a, 0(sp)");
-                  emit2 ("inc sp");
-                  emit2 ("inc sp");
-                  cost (5, 26);
-                }
-              else
+              // IS_TLCS90-gated "push iy; ld a, 0(sp)" arm removed here
+              // (IS_TLCS90 unconditionally false in this file).
                 {
                   emit3w (A_PUSH, ASMOP_IY, 0);
                   emit2 ("dec sp");
@@ -17716,7 +17437,7 @@ genAssign (const iCode *ic)
                   cost2 (4, 4, -1, 4, 20, 19, 15, 15, -1, 12, -1, 6, 6, 6, 6);
                   size--;
                 }
-              else if (result->aop->type == AOP_EXSTK || IS_TLCS90) /* Take care not to overwrite iy or f */
+              else if (result->aop->type == AOP_EXSTK) /* Take care not to overwrite iy or f. Dropped: "|| IS_TLCS90" (unconditionally false in this file). */
                 {
                   bool pushed_pair = FALSE;
                   PAIR_ID pair = getDeadPairId (ic);
@@ -17752,7 +17473,7 @@ genAssign (const iCode *ic)
             }
         }
     }
-  else if (size == 4 && (requiresHL (right->aop) && right->aop->type != AOP_REG) && (requiresHL (result->aop) && result->aop->type != AOP_REG ) && isPairDead (PAIR_DE, ic) && (IS_SM83 || IY_RESERVED))
+  else if (size == 4 && (requiresHL (right->aop) && right->aop->type != AOP_REG) && (requiresHL (result->aop) && result->aop->type != AOP_REG ) && isPairDead (PAIR_DE, ic)) // Dropped: "&& (IS_SM83 || IY_RESERVED)" (unconditionally true in this file - IY_RESERVED alone is already unconditionally true).
     {
       /* Special case - simple memcpy */
       if (!regalloc_dry_run)
@@ -17803,42 +17524,20 @@ genAssign (const iCode *ic)
           const bool bc_alive = !isPairDead (PAIR_BC, ic);
           bool l_better;
 
-          if (IS_EZ80 && result->aop->type == AOP_STK && right->aop->type == AOP_STK) // eZ80: Use 16-Bit loads, except for odd trailing byte.
-            sizecost_n = (size / 2 * 6) + (size % 2 * 6);
-          else if (IS_RAB && result->aop->type == AOP_STK && right->aop->type == AOP_STK) // Rabbit: Use 16-Bit loads, except for odd trailing byte.
-            sizecost_n = (size / 2 * 4) + (size % 2 * 6);
-          else // Use 8-Bit loads: Z80, Z180, Z80N.
-            sizecost_n = 6 * size;
+          // Simplified below: IS_EZ80, IS_RAB, and IS_Z180 are all
+          // unconditionally false in this file, so every gated arm of
+          // these three cost cascades (16-bit-load size/cycle costs for
+          // eZ80/Rabbit, and eZ80/Z180/Rabbit cyclecost_l variants) is
+          // unreachable, leaving only the generic Z80/Z80N cost model.
+          sizecost_n = 6 * size; // Use 8-Bit loads: Z80, Z180, Z80N.
 
           sizecost_l = 13 + hl_alive * 2 + de_alive * 2 + bc_alive * 2 -
             (right->aop->type == AOP_DIR || right->aop->type == AOP_IY) -
             (result->aop->type == AOP_DIR || result->aop->type == AOP_IY) * 2;
 
-          if (IS_EZ80 && result->aop->type == AOP_STK && right->aop->type == AOP_STK)
-            cyclecost_n = (size / 2 * 10) + (size % 2 * 8);
-          else if (IS_RAB && result->aop->type == AOP_STK && right->aop->type == AOP_STK)
-            cyclecost_n = (size / 2 * 18) + (size % 2 * 18);
-          else if (IS_EZ80)
-            cyclecost_n = 8 * size;
-          else if (IS_Z180)
-            cyclecost_n = 30 * size;
-          else if (IS_RAB)
-            cyclecost_n = 18 * size;
-          else // Z80, Z80N
-            cyclecost_n = 38 * size;
+          cyclecost_n = 38 * size; // Z80, Z80N
 
-          if (IS_EZ80)
-            cyclecost_l = 2 * size + 9 + hl_alive * 6 + de_alive * 6 + bc_alive * 6; // lea is as fast as ld rr, nn. So it does not matter if the operands are on stack.
-          else if (IS_Z180)
-            cyclecost_l = 14 * size + 42 + hl_alive * 22 + de_alive * 22 + bc_alive * 22 -
-              (right->aop->type == AOP_DIR || right->aop->type == AOP_IY) * 7 -
-              (result->aop->type == AOP_DIR || result->aop->type == AOP_IY) * 10;
-          else if (IS_RAB)
-            cyclecost_l = 7 * size + 34 + hl_alive * 17 + de_alive * 17 + bc_alive * 17 -
-              (right->aop->type == AOP_DIR || right->aop->type == AOP_IY) * 4 -
-              (result->aop->type == AOP_DIR || result->aop->type == AOP_IY) * 6;    
-          else // Z80
-            cyclecost_l = 21 * size + 51 + hl_alive * 21 + de_alive * 21 + bc_alive * 21 -
+          cyclecost_l = 21 * size + 51 + hl_alive * 21 + de_alive * 21 + bc_alive * 21 - // Z80
               (right->aop->type == AOP_DIR || right->aop->type == AOP_IY) * 11 -
               (result->aop->type == AOP_DIR || result->aop->type == AOP_IY) * 15;
 
@@ -17882,16 +17581,17 @@ genAssign (const iCode *ic)
               else
                 pointPairToAop (PAIR_HL, right->aop, 0);
 
-              if (size <= 2 + (!IS_RAB && optimize.codeSpeed) ||
-                // Early Rabbits (up to Rabbit 3000) have a wait state bug when ldir copies between different types of memory.
-                (IS_R2K || IS_R2KA) && !((right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK) && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK)))
+              // Dropped: "(!IS_RAB && ...)" simplifies to "optimize.codeSpeed"
+              // (IS_RAB unconditionally false, so !IS_RAB unconditionally
+              // true), and the "(IS_R2K || IS_R2KA) && ..." disjunct is
+              // dropped entirely (unconditionally false in this file).
+              if (size <= 2 + optimize.codeSpeed)
                 for(int i = 0; i < size; i++)
-                  IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
+                  emit8080Ldi (); // IS_8080LIKE unconditionally true in this file.
               else
                 {
                   emit2 ("ld bc, !immed%d", size);
-                  if (IS_8080LIKE) emit8080Ldir (); else
-      emit2 ("ldir");
+                  emit8080Ldir (); // IS_8080LIKE unconditionally true in this file.
                   regalloc_dry_run_cost += 5;
                 }
               spillPair (PAIR_HL);
@@ -17916,7 +17616,7 @@ genAssign (const iCode *ic)
             const bool hl_free = hl_dead &&
               (right->aop->regs[L_IDX] <= offset) && (right->aop->regs[H_IDX] <= offset) &&
               (result->aop->regs[L_IDX] < 0 || result->aop->regs[L_IDX] >= offset) && (result->aop->regs[H_IDX] < 0 || result->aop->regs[H_IDX] >= offset);
-            const bool save_hl = !hl_free && ((IS_SM83 || IY_RESERVED) && (requiresHL (right->aop) || requiresHL (result->aop)));
+            const bool save_hl = !hl_free && (requiresHL (right->aop) || requiresHL (result->aop)); // Dropped: "(IS_SM83 || IY_RESERVED) &&" (unconditionally true in this file - IY_RESERVED alone is already unconditionally true).
 
             if (save_hl)
               _push (PAIR_HL);
