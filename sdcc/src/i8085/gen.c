@@ -11005,24 +11005,19 @@ genIfxJump (iCode *ic, const char *jval)
       else if (!strcmp (jval, "z") || !strcmp (jval, "nz") || !strcmp (jval, "c") || !strcmp (jval, "nc") ||
         !strcmp (jval, "m") || !strcmp (jval, "p") || !strcmp (jval, "po") || !strcmp (jval, "pe"))
         inst = jval;
-      else if ((IS_R4K || IS_R5K || IS_R6K) &&
-        (!strcmp (jval, "gt") || !strcmp (jval, "lt") || !strcmp (jval, "gtu")))
-        inst = jval;
+      // Dropped: an (IS_R4K||IS_R5K||IS_R6K)-gated "gt"/"lt"/"gtu" arm and an
+      // IS_TLCS90-gated "ge"/"lt"/"gt"/"le"/"ugt"/"ule" arm (both
+      // unconditionally dead in this file). The IS_R6K_NOTYET-gated arm
+      // below is left untouched: IS_R6K_NOTYET is #define'd to false
+      // unconditionally project-wide, not just in this file, and is
+      // explicitly out of scope for this pass.
       else if (IS_R6K_NOTYET &&
         (!strcmp (jval, "ge") || !strcmp (jval, "le") || !strcmp (jval, "leu")))
-        inst = jval;
-      else if (IS_TLCS90 &&
-        (!strcmp (jval, "ge") || !strcmp (jval, "lt") || !strcmp (jval, "gt") || !strcmp (jval, "le") || !strcmp (jval, "ugt") || !strcmp (jval, "ule")))
         inst = jval;
       else
         {
           /* The buffer contains the bit on A that we should test */
-          if (IS_8080LIKE)
-            emit8080Bit (ASMOP_A, 0, atoi (jval));
-          else {
-          emit2 ("bit %s, a", jval);
-          cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-          }
+          emit8080Bit (ASMOP_A, 0, atoi (jval)); // "if (IS_8080LIKE) ... else {bit %s, a ...}" collapsed to the IS_8080LIKE arm (unconditionally true in this file).
           inst = "nz";
         }
     }
@@ -11073,21 +11068,14 @@ genIfxJump (iCode *ic, const char *jval)
         inst = "ge";
       else if (IS_R6K_NOTYET && !strcmp (jval, "gtu"))
         inst = "leu";
-       else if ((IS_R4K || IS_R5K || IS_R6K || IS_TLCS90) && !strcmp (jval, "le"))
-        inst = "gt";
-      else if ((IS_R4K || IS_R5K || IS_R6K || IS_TLCS90) && !strcmp (jval, "ge"))
-        inst = "lt";
-      else if ((IS_R4K || IS_R5K || IS_R6K) && !strcmp (jval, "leu"))
-        inst = "gtu";
+      // Dropped: (IS_R4K||IS_R5K||IS_R6K||IS_TLCS90)-gated "le"/"ge" arms and
+      // an (IS_R4K||IS_R5K||IS_R6K)-gated "leu" arm (all unconditionally dead
+      // in this file). The IS_R6K_NOTYET-gated arms above are left untouched
+      // (out of scope - see note above).
       else
         {
           /* The buffer contains the bit on A that we should test */
-          if (IS_8080LIKE)
-            emit8080Bit (ASMOP_A, 0, atoi (jval));
-          else {
-          emit2 ("bit %s, a", jval);
-          cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-          }
+          emit8080Bit (ASMOP_A, 0, atoi (jval)); // "if (IS_8080LIKE) ... else {bit %s, a ...}" collapsed to the IS_8080LIKE arm (unconditionally true in this file).
           inst = "z";
         }
     }
@@ -14001,21 +13989,8 @@ genRotW (const iCode *ic)
 
   wassert (s == 1 || s == lbits - 1);
 
-  if ((IS_Z80N || IS_R4K || IS_R5K || IS_R6K) && size == 2 &&
-    (aopInReg (result->aop, 0, DE_IDX) || aopInReg (left->aop, 0, DE_IDX) && isRegDead (DE_IDX, ic)) && (isRegDead (B_IDX, ic) || !IS_Z80N))
-    {
-      genMove (ASMOP_DE, left->aop, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), true, isRegDead (IY_IDX, ic));
-      if (IS_Z80N)
-        {
-          emit2 ("ld b, !immedbyte", s);
-          emit2 ("brlc de, b");
-          cost (4, 15);
-        }
-      else
-        emit3w (s == 1 ? A_RLC : A_RRC, ASMOP_DE, 0);
-      genMove (result->aop, ASMOP_DE, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), true, isRegDead (IY_IDX, ic));
-      goto release;
-    }
+  // Dropped: an (IS_Z80N||IS_R4K||IS_R5K||IS_R6K)-gated "de rotate via
+  // brlc/rlc/rrc" fast-path arm (unconditionally dead in this file).
 
   if (left->aop->type == AOP_REG || result->aop->type == AOP_STK ||
     result->aop->type == AOP_HL || result->aop->type == AOP_IY ||
@@ -14031,12 +14006,13 @@ genRotW (const iCode *ic)
         {
           asmop *rotaop = result->aop;
 
-          if (size == 2 && (aopInReg (left->aop, 0, HL_IDX) && isRegDead (HL_IDX, ic) || IS_RAB && aopInReg (left->aop, 0, DE_IDX) && isRegDead (DE_IDX, ic)))
+          // "|| IS_RAB && aopInReg (left->aop, 0, DE_IDX) && isRegDead (DE_IDX, ic)" dropped (IS_RAB unconditionally false in this file).
+          if (size == 2 && aopInReg (left->aop, 0, HL_IDX) && isRegDead (HL_IDX, ic))
             rotaop = left->aop;
           genMove (rotaop, left->aop, true, isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
           cheapMove (ASMOP_A, 0, rotaop, size - 1, true);
           emit3 (A_RLA, 0, 0);
-          if ((IS_SM83 || IS_8080LIKE) && requiresHL (rotaop) && rotaop->type != AOP_REG)
+          if (requiresHL (rotaop) && rotaop->type != AOP_REG) // "(IS_SM83 || IS_8080LIKE) &&" dropped (unconditionally true in this file).
             { /* ldhl sp,N / add hl,sp changes CARRY. Point HL at byte 0 now
                  (with the wrap bit stashed in A across the address setup via
                  rra/rla) so the following rl reuses HL and keeps the carry. */
@@ -14045,25 +14021,13 @@ genRotW (const iCode *ic)
                 aopGet (rotaop, 0, false);
               emit3_o (A_RLA, 0, 0, 0, 0);
             }
-          for (int i = 0; i < size;)
-            {
-              if (!IS_SM83 && !IS_8080LIKE && i + 1 < size && aopInReg (rotaop, i, HL_IDX))
-                {
-                  emit3w (A_ADC, ASMOP_HL, ASMOP_HL);
-                  i += 2;
-                }
-              else if (IS_RAB && i + 1 < size && aopInReg (rotaop, i, DE_IDX) ||
-                (IS_R4K || IS_R5K || IS_R6K) && aopInReg (rotaop, i, BC_IDX))
-                {
-                  emit3w_o (A_RL, rotaop, i, 0, 0);
-                  i += 2;
-                }
-              else
-                {
-                  emit3_o (A_RL, rotaop, i, 0, 0);
-                  i++;
-                }
-            }
+          // Dropped: a "!IS_SM83 && !IS_8080LIKE && ..." "adc hl, hl" arm and
+          // an "IS_RAB && ... || (IS_R4K||IS_R5K||IS_R6K) && ..." wide-pair
+          // "rl" arm - both unconditionally false in this file (IS_8080LIKE
+          // is unconditionally true here, so "!IS_8080LIKE" is unconditionally
+          // false; IS_RAB, IS_R4K, IS_R5K, IS_R6K are unconditionally false).
+          for (int i = 0; i < size; i++)
+            emit3_o (A_RL, rotaop, i, 0, 0);
           genMove (result->aop, rotaop, true, isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
         }
       else
@@ -14080,16 +14044,13 @@ genRotW (const iCode *ic)
           cheapMove (ASMOP_A, 0, left->aop, offset, true);
           emit3_o (A_RRA, 0, 0, 0, 0);
 
+          // Dropped: an "offset > 0 && IS_RAB && (...) || (IS_R4K||IS_R5K||
+          // IS_R6K) && ..." wide-pair "rr" arm (unconditionally false in
+          // this file - IS_RAB, IS_R4K, IS_R5K, IS_R6K all unconditionally
+          // false).
           while (--offset >= 0)
-            {
-              if (offset > 0 &&
-                IS_RAB && (aopInReg (left->aop, offset - 1, DE_IDX) || aopInReg (left->aop, offset - 1, HL_IDX) || aopInReg (left->aop, offset - 1, IY_IDX) ||
-                (IS_R4K || IS_R5K || IS_R6K) && aopInReg (left->aop, offset - 1, BC_IDX)))
-                emit3w_o (A_RR, left->aop, --offset, 0, 0);
-              else
-                emit3_o (A_RR, left->aop, offset, 0, 0);
-            }
-          if ((IS_SM83 || IS_8080LIKE) && requiresHL (left->aop))
+            emit3_o (A_RR, left->aop, offset, 0, 0);
+          if (requiresHL (left->aop)) // "(IS_SM83 || IS_8080LIKE) &&" dropped (unconditionally true in this file).
             { /* ldhl sp,N / add hl,sp changes CARRY. Point HL at the top byte
                  now (with the wrap bit stashed in A across the address setup via
                  rra/rla) so the following rr reuses HL and keeps the carry. */
@@ -14143,7 +14104,9 @@ genRotW (const iCode *ic)
         }
     }
 
-release:
+  // "release:" label removed: its only "goto release;" was in the now-
+  // removed (IS_Z80N||IS_R4K||IS_R5K||IS_R6K)-gated fast-path arm above;
+  // every other path already falls through to here naturally.
   if (pushed_a)
     _pop (PAIR_AF);
 
