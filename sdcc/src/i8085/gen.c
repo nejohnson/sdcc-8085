@@ -10604,163 +10604,25 @@ genMultOneChar (const iCode * ic)
   bool savedB = false;
 
   asmop *result = ic->result->aop;
-  int resultsize = result->size;
+  // resultsize removed: only read by the removed hardware-multiply
+  // blocks above.
 
   if (ic->left->aop->size > 1 || ic->right->aop->size > 2)
     wassertl (0, "Large multiplication is handled through support function calls.");
 
-  if (IS_SM83)
-    {
-      wassertl (0, "Multiplication is handled through support function calls on sm83");
-      return;
-    }
-
-  if ((IS_Z180 || IS_EZ80 || IS_Z80N) && ic->result->aop->type == AOP_REG)
-    {
-      if (!IS_Z80N && (resultsize > 1 ? result->aopu.aop_reg[1]->rIdx == B_IDX : isRegDead (B_IDX, ic))
-          && result->aopu.aop_reg[0]->rIdx == C_IDX)
-        {
-          if (IC_LEFT (ic)->aop->type == AOP_REG && IC_LEFT (ic)->aop->aopu.aop_reg[0]->rIdx == C_IDX ||
-              IC_RIGHT (ic)->aop->type == AOP_REG && IC_RIGHT (ic)->aop->aopu.aop_reg[0]->rIdx == B_IDX)
-            {
-              cheapMove (ASMOP_C, 0, IC_LEFT (ic)->aop, LSB, true);
-              cheapMove (ASMOP_B, 0, IC_RIGHT (ic)->aop, LSB, true);
-            }
-          else
-            {
-              cheapMove (ASMOP_B, 0, IC_LEFT (ic)->aop, LSB, true);
-              cheapMove (ASMOP_C, 0, IC_RIGHT (ic)->aop, LSB, true);
-            }
-          emit2 ("mlt bc");
-          cost2 (2, -1, 2, 2, 8, 17, -1, -1, -1, -1, 8, 8, 13, 6, -1);
-          return;
-        }
-      if ((resultsize > 1 ? result->aopu.aop_reg[1]->rIdx == D_IDX : isRegDead (D_IDX, ic))
-          && result->aopu.aop_reg[0]->rIdx == E_IDX)
-        {
-          if (IC_LEFT (ic)->aop->type == AOP_REG && IC_LEFT (ic)->aop->aopu.aop_reg[0]->rIdx == E_IDX ||
-              IC_RIGHT (ic)->aop->type == AOP_REG && IC_RIGHT (ic)->aop->aopu.aop_reg[0]->rIdx == D_IDX)
-            {
-              cheapMove (ASMOP_E, 0, IC_LEFT (ic)->aop, LSB, true);
-              cheapMove (ASMOP_D, 0, IC_RIGHT (ic)->aop, LSB, true);
-            }
-          else
-            {
-              cheapMove (ASMOP_D, 0, IC_LEFT (ic)->aop, LSB, true);
-              cheapMove (ASMOP_E, 0, IC_RIGHT (ic)->aop, LSB, true);
-            }
-          emit2 ("mlt de");
-          cost2 (2, -1, 2, 2, 8, 17, -1, -1, -1, -1, 8, 8, 13, 6, -1);
-          return;
-        }
-      if (!IS_Z80N && IC_LEFT (ic)->aop->type == AOP_REG && IC_RIGHT (ic)->aop->type == AOP_REG &&
-          ((IC_LEFT (ic)->aop->aopu.aop_reg[0]->rIdx == H_IDX && IC_RIGHT (ic)->aop->aopu.aop_reg[0]->rIdx == L_IDX ||
-            IC_LEFT (ic)->aop->aopu.aop_reg[0]->rIdx == L_IDX && IC_RIGHT (ic)->aop->aopu.aop_reg[0]->rIdx == H_IDX) &&
-           (resultsize > 1 ? result->aopu.aop_reg[1]->rIdx == H_IDX : isRegDead (H_IDX, ic))
-           && result->aopu.aop_reg[0]->rIdx == L_IDX))
-        {
-          emit2 ("mlt hl");
-          spillPair (PAIR_HL);
-          cost2 (2, -1, 2, 2, 8, 17, -1, -1, -1, -1, 8, 8, 13, 6, -1);
-          return;
-        }
-    }
-
-  if (IS_RAB && !IS_R2K && isPairDead (PAIR_HL, ic) && isPairDead (PAIR_BC, ic)) // A wait state bug makes mul unuseable in most scenarios on the original Rabbit 2000.
-    {
-      const bool save_de = (resultsize > 1 && !isRegDead (D_IDX, ic) ||
-        !isRegDead (E_IDX, ic) && !(IC_LEFT (ic)->aop->type == AOP_REG && IC_LEFT (ic)->aop->aopu.aop_reg[0]->rIdx == E_IDX) && !(IC_RIGHT (ic)->aop->type == AOP_REG && IC_RIGHT (ic)->aop->aopu.aop_reg[0]->rIdx == E_IDX));
-      if (save_de)
-        _push (PAIR_DE);
-
-      if (aopInReg (ic->right->aop, 0, E_IDX))
-        cheapMove (ASMOP_C, 0, ic->left->aop, 0, true);
-      else if (aopInReg (ic->left->aop, 0, E_IDX))
-        cheapMove (ASMOP_C, 0, ic->right->aop, 0, true);
-      else if (aopInReg (ic->right->aop, 0, C_IDX))
-        cheapMove (ASMOP_E, 0, ic->left->aop, 0, true);
-      else if (aopInReg (ic->left->aop, 0, C_IDX))
-        cheapMove (ASMOP_E, 0, ic->right->aop, 0, true);
-      else
-        {
-          cheapMove (ASMOP_C, 0, IC_LEFT (ic)->aop, 0, true);
-          cheapMove (ASMOP_E, 0, IC_RIGHT (ic)->aop, 0, true);
-        }
-
-      if (resultsize > 1)
-        {
-          cheapMove (ASMOP_D, 0, ASMOP_ZERO, 0, true);
-          cheapMove (ASMOP_B, 0, ASMOP_D, 0, true);
-        }
-
-      emit2 ("mul");
-      cost (1, 12);
-      spillPair (PAIR_HL);
-
-      genMove (result, resultsize > 1 ? ASMOP_BC : ASMOP_C, !isRegDead (A_IDX, ic), true, false, true);
-
-      if (save_de)
-        _pop (PAIR_DE);
-      return;
-    }
-
-  if (IS_R800 && isRegDead (HL_IDX, ic) && isRegDead (A_IDX, ic))
-    {
-      if (aopInReg (ic->right->aop, 0, C_IDX) || aopInReg (ic->right->aop, 0, B_IDX) || aopInReg (ic->right->aop, 0, E_IDX) || aopInReg (ic->right->aop, 0, D_IDX))
-        {
-          cheapMove (ASMOP_A, 0, ic->left->aop, 0, true);
-          if (!regalloc_dry_run)
-            emit2 ("multu a, %s", aopGet (ic->right->aop, 0, false));
-          cost (2, 14);
-          goto store_hl;
-        }
-      else if (aopInReg (ic->left->aop, 0, C_IDX) || aopInReg (ic->left->aop, 0, B_IDX) || aopInReg (ic->left->aop, 0, E_IDX) || aopInReg (ic->left->aop, 0, D_IDX))
-        {
-          cheapMove (ASMOP_A, 0, ic->right->aop, 0, true);
-          if (!regalloc_dry_run)
-            emit2 ("multu a, %s", aopGet (ic->left->aop, 0, false));
-          cost (2, 14);
-          goto store_hl;
-        }
-      else if (isRegDead (B_IDX, ic))
-        {
-          if (aopInReg (ic->right->aop, 0, A_IDX))
-            cheapMove (ASMOP_B, 0, ic->left->aop, 0, false);
-          else
-            {
-              cheapMove (ASMOP_A, 0, ic->left->aop, 0, true);
-              cheapMove (ASMOP_B, 0, ic->right->aop, 0, false);
-            }
-          emit2 ("multu a, b");
-          cost (2, 14);
-          goto store_hl;
-        }
-    }
-  else if (IS_TLCS90 && isRegDead (HL_IDX, ic))
-    {
-      if (aopInReg (ic->left->aop, 0, L_IDX) && (aopInReg (ic->right->aop, 0, C_IDX) || aopInReg (ic->right->aop, 0, B_IDX) || aopInReg (ic->right->aop, 0, E_IDX) || aopInReg (ic->right->aop, 0, D_IDX) || aopInReg (ic->right->aop, 0, H_IDX) || ic->right->aop->type == AOP_STK || ic->right->aop->type == AOP_DIR))
-        {
-          if (!regalloc_dry_run)
-            emit2 ("mul hl, %s", aopGet (ic->right->aop, 0, false));
-          cost (2 + (ic->right->aop->type == AOP_STK) + 2 * (ic->right->aop->type == AOP_DIR), ic->right->aop->type == AOP_REG ? 16 : 22);
-          goto store_hl;
-        }
-      else if (aopInReg (ic->right->aop, 0, L_IDX) && (aopInReg (ic->left->aop, 0, C_IDX) || aopInReg (ic->left->aop, 0, B_IDX) || aopInReg (ic->left->aop, 0, E_IDX) || aopInReg (ic->left->aop, 0, D_IDX) || aopInReg (ic->left->aop, 0, H_IDX) || ic->left->aop->type == AOP_STK || ic->left->aop->type == AOP_DIR))
-        {
-          if (!regalloc_dry_run)
-            emit2 ("mul hl, %s", aopGet (ic->left->aop, 0, false));
-          cost (2 + (ic->left->aop->type == AOP_STK) + 2 * (ic->left->aop->type == AOP_DIR), ic->left->aop->type == AOP_REG ? 16 : 22);
-          goto store_hl;
-        }
-    }
+  // Removed here (unconditionally false/dead in this file): an
+  // IS_SM83-gated early-return, an (IS_Z180||IS_EZ80||IS_Z80N)-gated
+  // "mlt bc/de/hl" hardware-multiply block, an (IS_RAB && !IS_R2K)-
+  // gated Rabbit "mul" block, and an IS_R800-gated "multu"/IS_TLCS90-
+  // gated "mul hl, r" block. All of IS_SM83/IS_Z180/IS_EZ80/IS_Z80N/
+  // IS_RAB/IS_R800/IS_TLCS90 are unconditionally false in this file.
 
   if (!isPairDead (PAIR_DE, ic))
     {
       _push (PAIR_DE);
       _G.stack.pushedDE = TRUE;
     }
-  if (IS_RAB && !isPairDead (PAIR_BC, ic) ||
-  !(IS_Z180 || IS_EZ80) && !isRegDead (B_IDX, ic))
+  if (!isRegDead (B_IDX, ic)) // Dropped: "IS_RAB && !isPairDead (PAIR_BC, ic) ||" (unconditionally false) and "!(IS_Z180 || IS_EZ80) &&" (unconditionally true) in this file.
     {
       _push (PAIR_BC);
       savedB = TRUE;
@@ -10780,29 +10642,10 @@ genMultOneChar (const iCode * ic)
       cheapMove (ASMOP_H, 0, IC_LEFT (ic)->aop, 0, true);
     }
 
-  if (IS_Z180 || IS_EZ80)
-    {
-      emit3 (A_LD, ASMOP_L, ASMOP_E);
-      emit2 ("mlt hl");
-      cost2 (2, -1, 2, 2, 8, 17, -1, -1, -1, -1, 8, 8, 13, 6, -1);
-    }
-  else if (IS_TLCS90)
-    {
-      emit3 (A_LD, ASMOP_L, ASMOP_E);
-      emit2 ("mul hl, h");
-      cost (2, 16);
-    }
-  else if (IS_RAB && !IS_R2K) // A wait state bug makes mul unuseable in most scenarios on the original Rabbit 2000.
-    {
-      emit3 (A_LD, ASMOP_C, ASMOP_H);
-      emit3 (A_LD, ASMOP_D, ASMOP_ZERO);
-      emit3 (A_LD, ASMOP_B, ASMOP_D);
-      emit2 ("mul");
-      cost (1, 12);
-      emit3 (A_LD, ASMOP_L, ASMOP_C);
-      emit3 (A_LD, ASMOP_H, ASMOP_B);
-    }
-  else
+  // Removed here (unconditionally false in this file): an
+  // (IS_Z180||IS_EZ80)-gated "mlt hl" arm, an IS_TLCS90-gated
+  // "mul hl, h" arm, and an (IS_RAB && !IS_R2K)-gated Rabbit "mul" arm
+  // - leaving only the generic software shift-and-add multiply loop.
     {
       tlbl1 = regalloc_dry_run ? 0 : newiTempLabel (0);
       tlbl2 = regalloc_dry_run ? 0 : newiTempLabel (0);
@@ -10813,25 +10656,23 @@ genMultOneChar (const iCode * ic)
       regalloc_dry_run_state_scale = 8.0f;
       emitLabel (tlbl1);
       emit3w (A_ADD, ASMOP_HL, ASMOP_HL);
-      emitJP (tlbl2, "nc", 0.5f, !IS_SM83);
+      emitJP (tlbl2, "nc", 0.5f, true); // Dropped: "!IS_SM83" (unconditionally true in this file).
       regalloc_dry_run_state_scale = 4.0f;
       emit3w (A_ADD, ASMOP_HL, ASMOP_DE);
       emitLabel (tlbl2);
-      if (IS_8080LIKE)
+      // IS_8080LIKE unconditionally true in this file, so the djnz
+      // alternative below is unreachable and was removed.
         {
           emit3 (A_DEC, ASMOP_B, 0);
           emitJP (tlbl1, "nz", 1.0f, true);
         }
-      else
-        {
-          if (!regalloc_dry_run)
-            emit2 ("djnz !tlabel", labelKey2num (tlbl1->key));
-          cost2 (2, 2, -1, -1, 12.375f, 8.75f, 5.0f, 6.0f, -1.0f, 10.0f, -1.0f, -1.0f, -1.0f, 3.75f, 2.0f);
-        }
       regalloc_dry_run_state_scale = 1.0f;
     }
 
-store_hl:
+  // store_hl: label removed - only jumped to (via "goto store_hl;")
+  // from the removed hardware-multiply blocks above; this point is
+  // now reached only by falling through from the software multiply
+  // loop directly above.
   spillPair (PAIR_HL);
 
   if (savedB)
@@ -12899,9 +12740,9 @@ genOr (const iCode * ic, iCode * ifx)
             {
               if (!regalloc_dry_run)
                 {
-                  if (IS_RAB && options.model != MODEL_SMALL) // We need to handle the shifting XPC window.
-                    emit2 ("jp nz, (((!tlabel & 0xf000) ^ !tlabel) | 0xe000)", currFunc->name, labelKey2num (tlbl->key));
-                 else
+                  // IS_RAB-gated "jp nz, (...)" XPC-window-shift arm
+                  // removed here (IS_RAB unconditionally false in this
+                  // file).
                    emit2 ("jp nz, !tlabel", labelKey2num (tlbl->key));
                 }
               regalloc_dry_run_cost += 3;
@@ -12923,9 +12764,9 @@ genOr (const iCode * ic, iCode * ifx)
       bool hl_free = isRegDead (HL_IDX, ic) &&
         (left->aop->regs[L_IDX] < i && left->aop->regs[H_IDX] < i && right->aop->regs[L_IDX] < i && right->aop->regs[H_IDX] < i) &&
         (result->aop->regs[L_IDX] < 0 || result->aop->regs[L_IDX] >= i) && (result->aop->regs[H_IDX] < 0 || result->aop->regs[H_IDX] >= i);
-      bool de_free = isRegDead (DE_IDX, ic) &&
-        (left->aop->regs[E_IDX] < i && left->aop->regs[D_IDX] < i && right->aop->regs[E_IDX] < i && right->aop->regs[D_IDX] < i) &&
-        (result->aop->regs[E_IDX] < 0 || result->aop->regs[E_IDX] >= i) && (result->aop->regs[D_IDX] < 0 || result->aop->regs[D_IDX] >= i);
+      // de_free removed: only read by the IS_RAB-/IS_TLCS90-/IS_EZ80-
+      // gated arms removed above, all unconditionally dead in this
+      // file.
 
       if (isRegDead (A_IDX, ic) && left->aop->regs[A_IDX] <= i && right->aop->regs[A_IDX] <= i && (result->aop->regs[A_IDX] < 0 || result->aop->regs[A_IDX] >= i))
         a_free = true;
@@ -12997,157 +12838,26 @@ genOr (const iCode * ic, iCode * ifx)
             (result->aop->type == AOP_STK || result->aop->type == AOP_DIR || result->aop->type == AOP_REG && !aopInReg (result->aop, i, IYL_IDX) && !aopInReg (result->aop, i, IYH_IDX)))
             {
               cheapMove (result->aop, i, left->aop, i, a_free);
-              if (IS_8080LIKE)
-                emit8080SetRes (result->aop, i, isLiteralBit (bytelit), true, a_free);
-              else {
-              if (!regalloc_dry_run)
-                emit2 ("set %d, %s", isLiteralBit (bytelit), aopGet (result->aop, i, false));
-              if (result->aop->type == AOP_STK)
-                cost2 (4, 3, -1, 3, 23, 19, 13, 14, -1, 14, -1, 6, 6, 5, 7); // set b, d(ix)
-              else if (result->aop->type == AOP_DIR || result->aop->type == AOP_EXSTK)
-                cost2 (2, 2, 2, 2, 15, 13, 10, 10, 16, 10, 4, 4, 4, 3, 5); // set b, (hl)
-              else
-                cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 3, 3, 3, 2, 2); // set b, r
-              }
+              emit8080SetRes (result->aop, i, isLiteralBit (bytelit), true, a_free); // IS_8080LIKE unconditionally true in this file.
               if (aopInReg (result->aop, i, A_IDX))
                 a_free = false;
               i++;
               continue;
             }
-          else if (IS_RAB &&
-            (aopInReg (result->aop, i, HL_IDX) && (aopInReg (left->aop, i, HL_IDX) && !isPairInUse (PAIR_DE, ic) || aopInReg (left->aop, i, DE_IDX)) ||
-            aopInReg (result->aop, i, H_IDX) && aopInReg (result->aop, i + 1, L_IDX) && (aopInReg (left->aop, i, H_IDX) && aopInReg (left->aop, i + 1, L_IDX) && !isPairInUse (PAIR_DE, ic) || aopInReg (left->aop, i, D_IDX) && aopInReg (left->aop, i + 1, E_IDX))))
-            {
-              unsigned int mask = aopInReg (result->aop, i, L_IDX) ? (bytelit + (byteOfVal (right->aop->aopu.aop_lit, i + 1) << 8)) : (byteOfVal (right->aop->aopu.aop_lit, i + 1) + (bytelit << 8));
-              bool mask_in_de = (aopInReg (left->aop, i, L_IDX) || aopInReg (left->aop, i, H_IDX));
-              emit2 (mask_in_de ? "ld de, !immedword" : "ld hl, !immedword", mask);
-              cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-              emit3w (A_OR, ASMOP_HL, ASMOP_DE);
-              i += 2;
-              continue;
-            }
-          else if (IS_RAB &&
-            (aopInReg (result->aop, i, IY_IDX) && (aopInReg (left->aop, i, IY_IDX) && !isPairInUse (PAIR_DE, ic) || aopInReg (left->aop, i, DE_IDX)) ||
-            aopInReg (result->aop, i, IYH_IDX) && aopInReg (result->aop, i + 1, IYL_IDX) && (aopInReg (left->aop, i, IYH_IDX) && aopInReg (left->aop, i + 1, IYL_IDX) && !isPairInUse (PAIR_DE, ic) || aopInReg (left->aop, i, D_IDX) && aopInReg (left->aop, i + 1, E_IDX))))
-            {
-              unsigned int mask = aopInReg (result->aop, i, IYL_IDX) ? (bytelit + (byteOfVal (right->aop->aopu.aop_lit, i + 1) << 8)) : (byteOfVal (right->aop->aopu.aop_lit, i + 1) + (bytelit << 8));
-              bool mask_in_de = (aopInReg (left->aop, i, IYL_IDX) || aopInReg (left->aop, i, IYH_IDX));
-              emit2 (mask_in_de ? "ld de, !immedword" : "ld iy, !immedword", mask);
-              cost (3 + !mask_in_de, 6 + 2 * !mask_in_de);
-              emit3w (A_OR, ASMOP_IY, ASMOP_DE);
-              i += 2;
-              continue;
-            }
-          else if (IS_TLCS90 &&
-            (aopInReg (left->aop, i, HL_IDX) && aopInReg (result->aop, i, HL_IDX) || aopInReg (left->aop, i, H_IDX) && aopInReg (left->aop, i + 1, L_IDX) && aopInReg (result->aop, i, H_IDX) && aopInReg (result->aop, i + 1, L_IDX)))
-            {
-              unsigned int mask = aopInReg (result->aop, i, L_IDX) ? (bytelit + (byteOfVal (right->aop->aopu.aop_lit, i + 1) << 8)) : (byteOfVal (right->aop->aopu.aop_lit, i + 1) + (bytelit << 8));
-              emit2 ("or hl, !immedword", mask);
-              cost (3, 6);
-              i += 2;
-              continue;
-            }
+          // Two IS_RAB-gated 16-bit literal-mask arms (hl/iy) and one
+          // IS_TLCS90-gated "or hl, !immedword" arm removed here (both
+          // macros unconditionally false in this file).
         }
 
-      if ((IS_R6K || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && i + 1 < size && aopInReg (result->aop, i, HL_IDX) &&
-        ((aopInReg (left->aop, i, HL_IDX) || aopOnStack (left->aop, i, 2) || left->aop->type == AOP_DIR || left->aop->type == AOP_IY) && aopOnStack (right->aop, i, 2) ||
-         (aopInReg (right->aop, i, HL_IDX) || aopOnStack (right->aop, i, 2) || right->aop->type == AOP_DIR || right->aop->type == AOP_IY) && aopOnStack (left->aop, i, 2)))
-        {
-          const struct asmop *stk_aop = (aopOnStack (right->aop, i, 2) ? right : left)->aop;
-          struct asmop *other_aop = (aopOnStack (right->aop, i, 2) ? left : right)->aop;
-          bool a_free = isRegDead (A_IDX, ic) && left->aop->regs[A_IDX] <= i && right->aop->regs[A_IDX] <= i && (result->aop->regs[A_IDX] < 0 || result->aop->regs[A_IDX] >= i);
-          int sp_offset = spOffset (stk_aop->aopu.aop_stk) + i;
-          int fp_offset = fpOffset (stk_aop->aopu.aop_stk) + i;
-          if (sp_offset <= (IS_R6K ? 255 : 127))
-            {
-              genMove_o (ASMOP_HL, 0, other_aop, i, 2, a_free, true, false, false, true);
-              emit2 ("or hl, %d (sp)", sp_offset);
-              cost2 (3, 3, -1, 3, -1, -1, -1, 12, -1, 12, -1, 7, 6, -1, -1);
-              spillPair (PAIR_HL);
-              i += 2;
-              continue;
-            }
-          else if (-128 <= fp_offset && fp_offset <= 127)
-            {
-              genMove_o (ASMOP_HL, 0, other_aop, i, 2, a_free, true, false, false, true);
-              emit2 ("or hl, %d (ix)", fp_offset);
-              cost2 (3, 3, -1, 3, -1, -1, -1, 12, -1, 12, -1, 7, 6, -1, -1);
-              spillPair (PAIR_HL);
-              i += 2;
-              continue;
-            }
-        }
+      // (IS_R6K||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1)-gated "or hl,
+      // n (sp)/(ix)" arm and an entirely IS_RAB-gated block (byte-pair
+      // "or hl/iy, de" recognition, including a nested PAIR_IY-keyed
+      // sub-check that is unreachable along with it) removed here (all
+      // named macros unconditionally false in this file).
 
-      if (IS_RAB)
-        {
-          const bool this_byte_l = aopInReg (result->aop, i, L_IDX) &&
-            (aopInReg (left->aop, i, L_IDX) && aopInReg (right->aop, i, E_IDX) || aopInReg (left->aop, i, E_IDX) && aopInReg (right->aop, i, L_IDX));
-          const bool this_byte_h = aopInReg (result->aop, i, H_IDX) &&
-            (aopInReg (left->aop, i, H_IDX) && aopInReg (right->aop, i, D_IDX) || aopInReg (left->aop, i, D_IDX) && aopInReg (right->aop, i, H_IDX));
-          const bool next_byte_l = aopInReg (result->aop, i + 1, L_IDX) &&
-            (aopInReg (left->aop, i + 1, L_IDX) && aopInReg (right->aop, i + 1, E_IDX) || aopInReg (left->aop, i + 1, E_IDX) && aopInReg (right->aop, i + 1, L_IDX));
-          const bool next_byte_h = aopInReg (result->aop, i + 1, H_IDX) &&
-            (aopInReg (left->aop, i + 1, H_IDX) && aopInReg (right->aop, i + 1, D_IDX) || aopInReg (left->aop, i + 1, D_IDX) && aopInReg (right->aop, i + 1, H_IDX));
-
-          const bool this_byte_hl = this_byte_l || this_byte_h;
-          const bool next_byte_hl = next_byte_l || next_byte_h;
-
-          const int next_byte_hl_idx = this_byte_l ? H_IDX : L_IDX;
-          const bool next_byte_hl_unused = isRegDead (next_byte_hl_idx, ic) &&
-            left->aop->regs[next_byte_hl_idx] <= i && right->aop->regs[next_byte_hl_idx] <= i &&
-            (result->aop->regs[next_byte_hl_idx] < 0 || result->aop->regs[next_byte_hl_idx] >= i);
-
-          if (this_byte_hl && (next_byte_hl || next_byte_hl_unused))
-            {
-              emit3w (A_OR, ASMOP_HL, ASMOP_DE);
-              i += (1 + next_byte_hl);
-              continue;
-            }
-            
-          if (aopInReg (result->aop, i, IY_IDX) &&
-           (aopInReg (left->aop, i, IY_IDX) && aopInReg (right->aop, i, DE_IDX) || aopInReg (left->aop, i, DE_IDX) && aopInReg (right->aop, i, IY_IDX)))
-            {
-              emit3w (A_OR, ASMOP_IY, ASMOP_DE);
-              i += 2;
-              continue;
-            }
-          else if (aopInReg (right->aop, i, DE_IDX) &&
-            (left->aop->type == AOP_STK || left->aop->type == AOP_DIR || left->aop->type == AOP_IY) &&
-            (aopInReg (result->aop, i, HL_IDX) || isPairDead(PAIR_HL, ic) && right->aop->regs[L_IDX] < i + 2 && right->aop->regs[H_IDX] < i + 2 && (result->aop->type == AOP_DIR || result->aop->type == AOP_IY || result->aop->type == AOP_STK)))
-            {
-              fetchPairLong (PAIR_HL, left->aop, ic, i);
-              emit3w (A_OR, ASMOP_HL, ASMOP_DE);
-              genMove_o (result->aop, i, ASMOP_HL, 0, 2, a_free, true, de_free, false, true);
-              i += 2;
-              continue;
-            }
-        }
-
-      if (i + 1 < size && (IS_RAB || IS_TLCS90) && hl_free && de_free &&
-        left->aop->type == AOP_STK && right->aop->type == AOP_STK && result->aop->type == AOP_STK)
-        {
-          genMove_o (ASMOP_DE, 0, left->aop, i, 2, a_free, true, true, false, true);
-          genMove_o (ASMOP_HL, 0, right->aop, i, 2, a_free, true, false, false, true);
-          emit3w (A_OR, ASMOP_HL, ASMOP_DE);
-          genMove_o (result->aop, i, ASMOP_HL, 0, 2, a_free, true, true, false, true);
-          i += 2;
-          continue;
-        }
-      else if (i + 1 < size && (IS_RAB || IS_TLCS90 || IS_EZ80) && a_free && hl_free &&
-        left->aop->type == AOP_STK && right->aop->type == AOP_STK && result->aop->type == AOP_STK)
-        {
-          genMove_o (ASMOP_HL, 0, left->aop, i, 2, a_free, true, de_free, false, true);
-          emit3 (A_LD, ASMOP_A, ASMOP_L);
-          emit3_o (A_OR, ASMOP_A, 0, right->aop, i);
-          emit3 (A_LD, ASMOP_L, ASMOP_A);
-          emit3 (A_LD, ASMOP_A, ASMOP_H);
-          emit3_o (A_OR, ASMOP_A, 0, right->aop, i + 1);
-          emit3 (A_LD, ASMOP_H, ASMOP_A);
-          spillPair (PAIR_HL);
-          genMove_o (result->aop, i, ASMOP_HL, 0, 2, a_free, true, de_free, false, true);
-          i += 2;
-          continue;
-        }
+      // Two (IS_RAB||IS_TLCS90||[IS_EZ80])-gated stack "or hl, de"/
+      // byte-wise-through-a arms removed here (unconditionally false
+      // in this file).
 
       // Use plain or in a.
       if (!a_free)
@@ -13159,19 +12869,19 @@ genOr (const iCode * ic, iCode * ifx)
         }
 
       if (aopInReg (right->aop, i, A_IDX) || right->aop->type == AOP_SFR ||
-        !HAS_IYL_INST && (aopInReg (right->aop, i, IYL_IDX) || aopInReg (right->aop, i, IYH_IDX)))
+        (aopInReg (right->aop, i, IYL_IDX) || aopInReg (right->aop, i, IYH_IDX))) // Dropped: "!HAS_IYL_INST &&" (unconditionally true in this file).
         {
           cheapMove (ASMOP_A, 0, right->aop, i, true);
 
           if (requiresHL (left->aop) && left->aop->type != AOP_REG && !hl_free)
             _push (PAIR_HL);
-          if ((left->aop->type == AOP_SFR || (aopInReg (right->aop, i, IYL_IDX) || aopInReg (right->aop, i, IYH_IDX)) && !HAS_IYL_INST) && hl_free)
+          if ((left->aop->type == AOP_SFR || (aopInReg (right->aop, i, IYL_IDX) || aopInReg (right->aop, i, IYH_IDX))) && hl_free) // Dropped: "&& !HAS_IYL_INST" (unconditionally true in this file).
             {
               cheapMove (ASMOP_L, 0, left->aop, i, false);
               emit3 (A_OR, ASMOP_A, ASMOP_L);
             }
           else if (left->aop->type == AOP_SFR || aopInReg (right->aop, i, A_IDX) ||
-            !HAS_IYL_INST && (aopInReg (right->aop, i, IYL_IDX) || aopInReg (right->aop, i, IYH_IDX)))
+            (aopInReg (right->aop, i, IYL_IDX) || aopInReg (right->aop, i, IYH_IDX))) // Dropped: "!HAS_IYL_INST &&" (unconditionally true in this file).
             UNIMPLEMENTED;
           else
             emit3_o (A_OR, ASMOP_A, 0, left->aop, i);
