@@ -4272,9 +4272,9 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
       if (to->aopu.aop_reg[to_offset] == from->aopu.aop_reg[from_offset])
         return;
 
-      if (!index ||
-        // eZ80 can assign between any byte of an index register and any non-hl register.
-        HAS_IYL_INST && !aopInReg (to, to_offset, L_IDX) && !aopInReg (to, to_offset, H_IDX) && !aopInReg (from, from_offset, L_IDX) && !aopInReg (from, from_offset, H_IDX))
+      // Dropped: "|| HAS_IYL_INST && ..." (eZ80 any-byte-of-index-register
+      // shortcut, unconditionally false in this file).
+      if (!index)
         {
           if (!regalloc_dry_run)
             aopPut (to, aopGet (from, from_offset, false), to_offset);
@@ -4298,26 +4298,8 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
       cheapMove (to, to_offset, ASMOP_ZERO, 0, a_dead);
       return;
     }
-  else if (HAS_IYL_INST && to_index && (from->type == AOP_LIT || from->type == AOP_IMMD))
-    {
-      if (!regalloc_dry_run)
-        aopPut (to, aopGet (from, from_offset, false), to_offset);
-      ld_cost (to, 0, from_offset < from->size ? from : ASMOP_ZERO, from_offset, true);
-      return;
-    }
-  else if (to_index && HAS_IYL_INST)
-    {
-      if (!a_dead)
-        _push (PAIR_AF);
-      cheapMove (ASMOP_A, 0, from, from_offset, true);
-      if (!regalloc_dry_run)
-        aopPut (to, "a", to_offset);
-      ld_cost (to, to_offset, ASMOP_A, 0, true);
-      spillPairReg (to->aopu.aop_reg[to_offset]->name);
-      if (!a_dead)
-        _pop (PAIR_AF);
-      return;
-    }
+  // Two HAS_IYL_INST-gated arms removed here (HAS_IYL_INST
+  // unconditionally false in this file).
 
   if (to->type == AOP_REG && from_index && !to_index && - _G.stack.pushed - _G.stack.offset >= -128 && !_G.omitFramePtr)
     {
@@ -4343,10 +4325,10 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
     {
       _push (PAIR_IY);
       emit2 ("ex (sp), hl");
-      cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
+      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // Dropped: "+ IS_RAB" (IS_RAB unconditionally false, i.e. 0, in this file).
       cheapMove (to, to_offset, aopInReg (from, from_offset, IYL_IDX) ? ASMOP_L : ASMOP_H, 0, a_dead);
       emit2 ("ex (sp), hl");
-      cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
+      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // Dropped: "+ IS_RAB" (IS_RAB unconditionally false, i.e. 0, in this file).
       _pop (PAIR_IY);
       return;
     }
@@ -4354,10 +4336,10 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
     {
       _push (PAIR_IY);
       emit2 ("ex (sp), hl");
-      cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
+      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // Dropped: "+ IS_RAB" (IS_RAB unconditionally false, i.e. 0, in this file).
       cheapMove (aopInReg (to, to_offset, IYL_IDX) ? ASMOP_L : ASMOP_H, 0, from, from_offset, a_dead);
       emit2 ("ex (sp), hl");
-      cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
+      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // Dropped: "+ IS_RAB" (IS_RAB unconditionally false, i.e. 0, in this file).
       _pop (PAIR_IY);
       return;
     }
@@ -4367,10 +4349,10 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
       _push (PAIR_IY);
       emit3w (A_EX, ASMOP_DE, ASMOP_HL);
       emit2 ("ex (sp), hl");
-      cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
+      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // Dropped: "+ IS_RAB" (IS_RAB unconditionally false, i.e. 0, in this file).
       cheapMove (aopInReg (to, to_offset, L_IDX) ? ASMOP_E : ASMOP_D, 0, aopInReg (from, from_offset, IYL_IDX) ? ASMOP_L : ASMOP_H, 0, a_dead);
       emit2 ("ex (sp), hl");
-      cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
+      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // Dropped: "+ IS_RAB" (IS_RAB unconditionally false, i.e. 0, in this file).
       emit3w (A_EX, ASMOP_DE, ASMOP_HL);
       _pop (PAIR_IY);
       return;
@@ -4381,10 +4363,10 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
       _push (PAIR_IY);
       emit3w (A_EX, ASMOP_DE, ASMOP_HL);
       emit2 ("ex (sp), hl");
-      cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
+      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // Dropped: "+ IS_RAB" (IS_RAB unconditionally false, i.e. 0, in this file).
       cheapMove (aopInReg (to, to_offset, IYL_IDX) ? ASMOP_L : ASMOP_H, 0, aopInReg (from, from_offset, L_IDX) ? ASMOP_E : ASMOP_D, 0, a_dead);
       emit2 ("ex (sp), hl");
-      cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
+      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // Dropped: "+ IS_RAB" (IS_RAB unconditionally false, i.e. 0, in this file).
       emit3w (A_EX, ASMOP_DE, ASMOP_HL);
       _pop (PAIR_IY);
       return;
@@ -4393,10 +4375,10 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
     {
       _push (PAIR_IY);
       emit2 ("ex (sp), hl");
-      cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
+      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // Dropped: "+ IS_RAB" (IS_RAB unconditionally false, i.e. 0, in this file).
       cheapMove (aopInReg (to, to_offset, IYL_IDX) ? ASMOP_L : ASMOP_H, 0, aopInReg (to, to_offset, IYL_IDX) ? ASMOP_L : ASMOP_H, 0, a_dead);
       emit2 ("ex (sp), hl");
-      cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
+      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // Dropped: "+ IS_RAB" (IS_RAB unconditionally false, i.e. 0, in this file).
       _pop (PAIR_IY);
       return;
     }
@@ -5796,47 +5778,29 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
     emitDebug("; adjustStack by %d", n);
   _G.stack.pushed -= n;
   
-  iy_free &= !IS_SM83 && !IS_8080LIKE;
+  iy_free = false; // Dropped: "&= !IS_SM83 && !IS_8080LIKE;" simplifies to "= false" (!IS_8080LIKE is unconditionally false in this file).
 
+  // Simplified below: IS_RAB and IS_SM83 are both unconditionally
+  // false in this file, so the "Assume sequence of add sp, #d" arm
+  // (gated on IS_RAB||IS_SM83) is unreachable, and the IS_RAB/IS_SM83/
+  // IS_R800 cost cascades in the other two arms reduce to their Z80
+  // fallback values (IS_R800 is also unconditionally false).
   int loop_bytes, loop_cycles;
-  if (abs(n) > 0 && (IS_RAB || IS_SM83)) // Assume sequence of add sp, #d
-    {
-      loop_bytes = (abs(n) / 127 + 1) * 2;
-      loop_cycles = (abs(n) / 127 + 1) * (IS_RAB ? 4 : 16);
-    }
-  else if (n > 0 && (IS_Z80 || IS_Z80N || optimize.codeSize) && // Assume sequence of pop rr
-    (!IS_TLCS90 && af_free || bc_free || de_free || hl_free || IS_TLCS90 && iy_free)) 
+  if (n > 0 && optimize.codeSize && // Assume sequence of pop rr. Dropped: "(IS_Z80 || IS_Z80N || ...)" (both unconditionally false in this file).
+    (af_free || bc_free || de_free || hl_free)) // Dropped: "!IS_TLCS90 &&" (unconditionally true) and "|| IS_TLCS90 && iy_free" (unconditionally false).
     {
       loop_bytes = n / 2 + n % 2;
-      if (IS_RAB)
-        loop_cycles = n / 2 * 7 + n % 2 * 2;
-      else if (IS_SM83)
-        loop_cycles = n / 2 * 12 + n % 2 * 8;
-      else if (IS_R800)
-        loop_cycles = n / 2 * 4 + n % 2;
-      else // Z80
-        loop_cycles = n / 2 * 10 + n % 2 * 6;
+      loop_cycles = n / 2 * 10 + n % 2 * 6; // Z80
     }
   else // Assume sequence of inc / dec sp
     {
       loop_bytes = abs(n);
-      if (IS_RAB)
-        loop_cycles = abs(n) * 2;
-      else if (IS_SM83)
-        loop_cycles = abs(n) * 8;
-      else if (IS_R800)
-        loop_cycles = abs(n);
-      else // Z80
-        loop_cycles = abs(n) * 6;
+      loop_cycles = abs(n) * 6; // Z80
     }
 
-  if (IS_TLCS90 && abs(n) > (optimize.codeSize ? 2 + (bc_free || de_free || hl_free || iy_free || n < 0) * 2 : 1))
-    {
-      emit2 ("add sp, !immed%d", n);
-      cost (3, 6);
-      n -= n;
-    }
-  else if ((optimize.codeSpeed ?
+  // IS_TLCS90-gated "add sp, !immed" arm removed here (IS_TLCS90
+  // unconditionally false in this file).
+  if ((optimize.codeSpeed ?
     (loop_cycles >= 27) :
     (loop_bytes >= 5)) &&
     hl_free)
@@ -5852,7 +5816,7 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
       n -= n;
     }
   else if ((optimize.codeSpeed ?
-    (loop_cycles >= (IS_RAB ? 14 : 35)) :
+    (loop_cycles >= 35) : // Dropped: "IS_RAB ? 14 :" (IS_RAB unconditionally false in this file).
     (loop_bytes >= 7)) &&
     hl_free)
     {
@@ -5867,20 +5831,9 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
       spillPair (PAIR_DE);
       n -= n;
     }
-  else if ((optimize.codeSpeed ?
-    (loop_cycles >= (IS_RAB ? 16 : 39)) :
-    (loop_bytes >= (IS_TLCS90 ? 7 : 8))) &&
-    iy_free)
-    {
-      emit2 ("ld iy, !immed%d", n);
-      cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
-      emit2 ("add iy, sp");
-      cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
-      emit2 ("ld sp, iy");
-      cost2 (2, 1, -1, 2, 10, 7, 2, 4, -1, 4, -1, 2, 2, 2, 2);
-      spillPair (PAIR_IY);
-      n -= n;
-    }
+  // iy_free-gated "ld iy, !immed; add iy, sp; ld sp, iy" arm removed
+  // here (iy_free is unconditionally false in this file - it is set
+  // to "false" unconditionally near the top of this function).
   else if (loop_bytes >= 9 && bc_free)
     {
       emit3 (A_LD, ASMOP_C, ASMOP_L);
@@ -5898,53 +5851,40 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
 
   while (abs(n))
     {
-      if ((IS_RAB && abs(n) > (optimize.codeSize ? 2 : 1) ) || (IS_SM83 && abs(n) > 2))
-        { // on sm83 inc/dec is nicer for 2B because it touches no flags
-          int d;
-          if (n > 127)
-            d = 127;
-          else if (n < -128)
-            d = -128;
-          else
-            d = n;
-          emit2 ("add sp, !immed%d", d);
-          cost (2, 4);
-          n -= d;
-        }
+      // (IS_RAB && ...) || (IS_SM83 && ...)-gated "add sp, !immed"
+      // batching arm removed here (both macros unconditionally false
+      // in this file).
       // on sm83 pop is smaller and faster, but that makes detection of uninitialized memory harder
       // On TLCS-90 pop af messes up interrupts (unless we have a valid value for f on the stack from previous push af).
-      else if (!IS_SM83 && !IS_TLCS90 && n >= 2 && af_free && ((IS_Z80 || IS_Z80N) || optimize.codeSize))
+      if (n >= 2 && af_free && optimize.codeSize) // Dropped: "!IS_SM83 && !IS_TLCS90 &&" (both unconditionally true) and "(IS_Z80 || IS_Z80N) ||" (both unconditionally false) in this file.
         {
           emit2 ("pop af");
           cost2 (1, 1, 2, 1, 10, 9, 7, 7, 12, 10, 5, 4, 4, 3, 4);
           n -= 2;
         }
-      else if (!IS_SM83 && n <= -2 && ((IS_Z80 || IS_Z80N) || optimize.codeSize))
+      else if (n <= -2 && optimize.codeSize) // Dropped: "!IS_SM83 &&" and "(IS_Z80 || IS_Z80N) ||" (unconditionally true/false respectively) in this file.
         {
           emit2 ("push af");
           cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4);
           n += 2;
         }
-      else if (!IS_SM83 && n >= 2 && bc_free && ((IS_Z80 || IS_Z80N) || optimize.codeSize))
+      else if (n >= 2 && bc_free && optimize.codeSize) // Dropped: "!IS_SM83 &&" and "(IS_Z80 || IS_Z80N) ||" (unconditionally true/false respectively) in this file.
         {
           emit3w (A_POP, ASMOP_BC, 0);
           n -= 2;
         }
-      else if (!IS_SM83 && n >= 2 && de_free && ((IS_Z80 || IS_Z80N) || optimize.codeSize))
+      else if (n >= 2 && de_free && optimize.codeSize) // Dropped: "!IS_SM83 &&" and "(IS_Z80 || IS_Z80N) ||" (unconditionally true/false respectively) in this file.
         {
           emit3w (A_POP, ASMOP_DE, 0);
           n -= 2;
         }
-      else if (!IS_SM83 && n >= 2 && hl_free && ((IS_Z80 || IS_Z80N) || optimize.codeSize))
+      else if (n >= 2 && hl_free && optimize.codeSize) // Dropped: "!IS_SM83 &&" and "(IS_Z80 || IS_Z80N) ||" (unconditionally true/false respectively) in this file.
         {
           emit3w (A_POP, ASMOP_HL, 0);
           n -= 2;
         }
-      else if (IS_TLCS90 && n >= 2 && iy_free && optimize.codeSize)
-        {
-          emit3w (A_POP, ASMOP_IY, 0);
-          n -= 2;
-        }
+      // IS_TLCS90-gated "pop iy" arm removed here (IS_TLCS90
+      // unconditionally false in this file).
       else if (n >= 1)
         {
           emit2 ("inc sp");
