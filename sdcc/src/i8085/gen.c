@@ -292,10 +292,13 @@ static struct asmop *const ASMOP_LDE = &asmop_lde;
    for the same reason: their only uses were in the to_far/from_far
    eZ80-specific blocks of genPointerSet/genPointerGet, both removed as
    dead (IS_EZ80 is unconditionally false in this file). Same treatment:
-   the underlying storage and init calls are left alone. */
+   the underlying storage and init calls are left alone.
+   ASMOP_HLBC (alias for asmop_hlbc) is now unused for the same reason:
+   its only use was in genMultTwoChar, removed entirely as dead (its
+   defining condition, "IS_RAB && !IS_R2K || IS_R800", is unconditionally
+   false in this file). Same treatment. */
 static struct asmop *const ASMOP_DEHL = &asmop_dehl;
 static struct asmop *const ASMOP_HLDE = &asmop_hlde;
-static struct asmop *const ASMOP_HLBC = &asmop_hlbc;
 static struct asmop *const ASMOP_BCDE = &asmop_bcde;
 static struct asmop *const ASMOP_JKHL = &asmop_jkhl;
 static struct asmop *const ASMOP_ZERO = &asmop_zero;
@@ -7593,33 +7596,15 @@ genFunction (const iCode * ic)
         }
 
       emit2 ("push af");
-      if (IS_EZ80) // Need to save 24-bit pairs (to spl stack). Even if the ISR doesn't use 24-bit pairs, since a write to a 16-bit pair leavses the upper byte of the 24-bit pair unspecified.
-        {
-          // Using individual ADL mode pushes is faster than the alternative of using mixed-mode interrupts with implicit ADL mode pushes followed by a call to get back into Z80 mode.
-          emit2 ("push.l hl");
-          emit2 ("push.l bc");
-          emit2 ("push.l de");
-          emit2 ("push.l iy");
-        }
-      else if (IS_R4K || IS_R5K || IS_R6K)
-        {
-          emit2 ("push jkhl");
-          emit2 ("push bcde");
-          emit2 ("push iy");
-        }
-      else
-        {
-          if (IS_TLCS90) // Could optimize this out for ISR that contain no __far access.
-            {
-              emit2 ("ld a, (by)");
-              emit2 ("push af");
-            }
-          emit2 ("push hl");
-          emit2 ("push bc");
-          emit2 ("push de");
-          if (!IS_SM83)
-            emit2 ("push iy");
-        }
+      // "if (IS_EZ80) {...} else if (IS_R4K||IS_R5K||IS_R6K) {...} else
+      // {if (IS_TLCS90) {...}; push hl; push bc; push de; if (!IS_SM83)
+      // push iy;}" collapsed to just the surviving else-branch content
+      // (IS_EZ80/IS_R4K/IS_R5K/IS_R6K/IS_TLCS90 unconditionally false in
+      // this file, !IS_SM83 unconditionally true).
+      emit2 ("push hl");
+      emit2 ("push bc");
+      emit2 ("push de");
+      emit2 ("push iy");
     }
   else
     {
@@ -7627,25 +7612,11 @@ genFunction (const iCode * ic)
          If critical function then turn interrupts off */
       if (IFFUNC_ISCRITICAL (sym->type))
         {
-          if (IS_SM83 || IS_RAB || IS_TLCS90 || IS_8080LIKE)
-            {
-              emit2 ("!di");
-            }
-          else
-            {
-              if (z80_opts.nmosZ80)
-                emit2 ("call ___sdcc_critical_enter");
-              else
-                {
-                  //get interrupt enable flag IFF2 into P/O
-                  emit2 ("ld a,i");
-                  //disable interrupts
-                  emit2 ("!di");
-                }
-              //save P/O flag
-              emit2 ("push af");
-              _G.stack.param_offset += 2;
-            }
+          // "if (IS_SM83||IS_RAB||IS_TLCS90||IS_8080LIKE) {!di} else {...}"
+          // collapsed to just the IS_8080LIKE arm (IS_8080LIKE unconditionally
+          // true in this file, making the whole "||" chain unconditionally
+          // true).
+          emit2 ("!di");
         }
     }
 
@@ -7670,14 +7641,7 @@ genFunction (const iCode * ic)
                   break;
                 case D_IDX:
                 case E_IDX:
-                  if (!IS_SM83)
-                    {
-                      deInUse = true;
-                    }
-                  else
-                    {
-                      /* Other systems use DE as a temporary. */
-                    }
+                  deInUse = true; // "if (!IS_SM83) ... else /* Other systems use DE as a temporary. */" collapsed (!IS_SM83 unconditionally true in this file).
                   break;
                 }
             }
@@ -7719,40 +7683,21 @@ genFunction (const iCode * ic)
 
   _G.omitFramePtr = i8085_should_omit_frame_ptr;
 
-  if (!IS_SM83 && !z80_opts.noOmitFramePtr && !stackParm && !sym->stack)
+  if (!z80_opts.noOmitFramePtr && !stackParm && !sym->stack) // "!IS_SM83 &&" dropped (unconditionally true in this file).
     {
       if (!regalloc_dry_run)
         _G.omitFramePtr = true;
     }
   else if (sym->stack)
     {
-      if (IS_EZ80 && !_G.omitFramePtr && -sym->stack > -128 && -sym->stack <= -3 && (i8085_IsParmInCall (sym->type, "l") || i8085_IsParmInCall (sym->type, "h")))
-        {
-          emit2 ("push ix");
-          cost (2, 4);
-          emit2 ("ld ix, !immed%d", -sym->stack);
-          cost (4, 4);
-          emit2 ("add ix, sp");
-          cost (2, 2);
-          emit2 ("ld sp, ix");
-          cost (2, 2);
-          emit2 ("lea ix, ix, !immed%d", sym->stack);
-          cost (3, 3);
-        }
-      else
-        {
-          if (!_G.omitFramePtr)
-            emit2 ((optimize.codeSize && !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h")) ? "!enters" : "!enter");
-          if (IS_EZ80 && !_G.omitFramePtr && -sym->stack > -128 && -sym->stack <= -3 && !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h"))
-            {
-              emit2 ("lea hl, ix, !immed%d", -sym->stack);
-              cost (3, 3);
-              emit2 ("ld sp, hl");
-              cost (1, 1);
-            }
-          else
-            adjustStack (-sym->stack, !i8085_IsParmInCall (sym->type, "a"), !i8085_IsParmInCall (sym->type, "c") && !i8085_IsParmInCall (sym->type, "v"), !i8085_IsParmInCall (sym->type, "e") && !i8085_IsParmInCall (sym->type, "d"), !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h"), !IY_RESERVED);
-        }
+      // Dropped: an "IS_EZ80 && ..." push-ix/lea-ix fast-path arm (and its
+      // nested "IS_EZ80 && ..." lea-hl/ld-sp,hl sub-arm further below) -
+      // both unconditionally dead in this file (IS_EZ80 unconditionally
+      // false), leaving just the surviving else content (!enters/!enter
+      // then adjustStack).
+      if (!_G.omitFramePtr)
+        emit2 ((optimize.codeSize && !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h")) ? "!enters" : "!enter");
+      adjustStack (-sym->stack, !i8085_IsParmInCall (sym->type, "a"), !i8085_IsParmInCall (sym->type, "c") && !i8085_IsParmInCall (sym->type, "v"), !i8085_IsParmInCall (sym->type, "e") && !i8085_IsParmInCall (sym->type, "d"), !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h"), false); // "!IY_RESERVED" simplified to "false" (IY_RESERVED unconditionally true in this file).
       _G.stack.pushed = 0;
     }
   else if (!_G.omitFramePtr)
@@ -10557,109 +10502,15 @@ genMultOneChar (const iCode * ic)
 }
 
 /*----------------------------------------------------------------------*/
-/* genMultTwoChar - generates code for 16x16->(16 to 32) multiplication */
-/*----------------------------------------------------------------------*/
-static void
-genMultTwoChar (const iCode *ic)
-{
-  operand *left = IC_LEFT (ic);
-  operand *right = IC_RIGHT (ic);
-  wassert (IS_RAB && !IS_R2K || IS_R800); // mul instruction is broken on original Rabbit 2000.
-  wassert (isPairDead (PAIR_HL, ic));
-
-  bool save_bc = !isPairDead(PAIR_BC, ic);
-  bool save_de = !isPairDead(PAIR_DE, ic) && (IS_R800 || getPairId (left->aop) != PAIR_DE && getPairId (right->aop) != PAIR_DE);
-
-  if (IS_R800)
-    {
-      if (save_de)
-        _push (PAIR_DE);
-      if (save_bc)
-        _push (PAIR_BC);
-    }
-  else
-    {
-      if (save_bc)
-        _push (PAIR_BC);
-      if (save_de)
-        _push (PAIR_DE);
-    }
-
-  if (getPairId (left->aop) == PAIR_BC || getPairId (right->aop) == (IS_RAB ? PAIR_DE : PAIR_HL))
-    {
-      if (right->aop->regs[C_IDX] >= 0 || right->aop->regs[B_IDX] >= 0)
-        UNIMPLEMENTED;
-      genMove (ASMOP_BC, left->aop, isRegDead (A_IDX, ic), right->aop->regs[L_IDX] < 0 && right->aop->regs[H_IDX] < 0, right->aop->regs[E_IDX] < 0 && right->aop->regs[D_IDX] < 0, true);
-      genMove (IS_RAB ? ASMOP_DE : ASMOP_HL, right->aop, isRegDead (A_IDX, ic), true, save_de || isPairDead(PAIR_DE, ic), isPairDead(PAIR_IY, ic));
-    }
-  else
-    {
-      if (left->aop->regs[C_IDX] >= 0 || left->aop->regs[B_IDX] >= 0)
-        UNIMPLEMENTED;
-      genMove (ASMOP_BC, right->aop, isRegDead (A_IDX, ic), left->aop->regs[L_IDX] < 0 && left->aop->regs[H_IDX] < 0, left->aop->regs[E_IDX] < 0 && left->aop->regs[D_IDX] < 0, true);
-      genMove (IS_RAB ? ASMOP_DE : ASMOP_HL, left->aop, isRegDead (A_IDX, ic), true, save_de || isPairDead(PAIR_DE, ic), isPairDead(PAIR_IY, ic));
-    }
-
-  if (IS_R800)
-    {
-      emit2 ("multuw hl, bc");
-      cost (2, 36);
-      spillPair (PAIR_DE);
-    }
-  else if ((IS_R4K || IS_R5K || IS_R6K) && ic->result->aop->size > 2 &&
-    SPEC_USIGN (getSpec (operandType (ic->left))) && SPEC_USIGN (getSpec (operandType (ic->right))))
-    {
-      emit2 ("mulu");
-      cost (2, 14);
-      spillPair (PAIR_BC);
-    }
-  else
-    {
-      emit2 ("mul");
-      cost (1, 12);
-      spillPair (PAIR_BC);
-    }
-  spillPair (PAIR_HL);
-
-  if (IS_R800)
-    {
-      if (save_bc)
-        _pop (PAIR_BC);
-    }
-  else
-    {
-      if (save_de)
-        _pop (PAIR_DE);
-    }
-
-  genMove (ic->result->aop, IS_RAB ? ASMOP_HLBC : ASMOP_DEHL, isRegDead (A_IDX, ic), true, isPairDead(PAIR_DE, ic), isPairDead(PAIR_IY, ic));
-
-  if (IS_R800)
-    {
-      if (save_de)
-        {
-          if (ic->result->aop->regs[D_IDX] >= 0)
-            poppairwithsavedreg (PAIR_DE, D_IDX, -1);
-          else if (ic->result->aop->regs[E_IDX] >= 0)
-            poppairwithsavedreg (PAIR_DE, E_IDX, -1);
-          else
-            _pop (PAIR_DE);
-        }
-    }
-  else
-    {
-      if (save_bc)
-        {
-          if (ic->result->aop->regs[B_IDX] >= 0)
-            poppairwithsavedreg (PAIR_BC, B_IDX, -1);
-          else if (ic->result->aop->regs[C_IDX] >= 0)
-            poppairwithsavedreg (PAIR_BC, C_IDX, -1);
-          else
-            _pop (PAIR_BC);
-        }
-    }
-}
-
+/* genMultTwoChar removed: it generated 16x16->(16 to 32) multiplication
+   code using a hardware "mul"/"multuw" instruction, and both its own
+   top-level "wassert (IS_RAB && !IS_R2K || IS_R800);" and its sole call
+   site in genMult (guarded by the identical "(IS_RAB && !IS_R2K ||
+   IS_R800) && ...") were unconditionally false/dead in this file - i8080
+   and i8085 have no hardware multiply instruction. See genMultOneChar
+   (the genuinely reachable software shift-and-add fallback, used via
+   the "else if (IC_RIGHT (ic)->aop->type != AOP_LIT)" arm just below
+   where genMultTwoChar used to be called) for the real multiply path. */
 /*-----------------------------------------------------------------*/
 /* genMult - generates code for multiplication                     */
 /*-----------------------------------------------------------------*/
@@ -10691,12 +10542,10 @@ genMult (iCode *ic)
       IC_LEFT (ic) = t;
     }
 
-  if ((IS_RAB && !IS_R2K || IS_R800) && (ic->right->aop->type != AOP_LIT || ic->result->aop->size > 2) && !byteResult && ic->left->aop->size == 2 && ic->right->aop->size == 2)
-    {
-      genMultTwoChar (ic);
-      goto release;
-    }  
-  else if (IC_RIGHT (ic)->aop->type != AOP_LIT)
+  // Dropped: an "(IS_RAB && !IS_R2K || IS_R800) && ..." hardware-multiply
+  // ("genMultTwoChar") arm (unconditionally dead in this file - see the
+  // comment where genMultTwoChar used to be defined, above).
+  if (IC_RIGHT (ic)->aop->type != AOP_LIT)
     {
       genMultOneChar (ic);
       goto release;
