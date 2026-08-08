@@ -1530,26 +1530,15 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       else
         cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4);
       return;
-    case A_RL:
-      wassert (IS_RAB);
-      cost (1 + !aopInReg (op1, offset1, DE_IDX), 2 + 2 * !aopInReg (op1, offset1, DE_IDX));
-      return;
-    case A_RLC:
-      wassert (IS_R4K || IS_R5K || IS_R6K);
-      cost (2, 4);
-      return;
-    case A_RR:
-      wassert (IS_RAB);
-      cost (1 + (aopInReg (op1, offset1, BC_IDX) || aopInReg (op1, offset1, IY_IDX)), 2 + 2 * (aopInReg (op1, offset1, BC_IDX) || aopInReg (op1, offset1, IY_IDX)));
-      return;
-    case A_RRC:
-      wassert (IS_R4K || IS_R5K || IS_R6K);
-      cost (2, 4);
-      return;
-    case A_SWAP:
-      wassert (IS_R6K);
-      cost (2, 4);
-      return;
+    // "case A_RL:", "case A_RLC:", "case A_RR:", "case A_RRC:", and
+    // "case A_SWAP:" removed: each was gated solely by a "wassert (IS_RAB);"
+    // / "wassert (IS_R4K||IS_R5K||IS_R6K);" / "wassert (IS_R6K);"
+    // (unconditionally false in this file). They were flagged as pending in
+    // the previous checkpoint (their only word-level callers were inside
+    // now-removed IS_RAB-gated dead blocks in shiftR2Left2Result and
+    // shiftL2Left2Result); a full-file grep now confirms zero remaining
+    // callers of any kind for A_RL/A_RLC/A_RR/A_RRC/A_SWAP via emit3w/
+    // emit3w_o, so these cases are removed here.
     case A_XOR:
       if (op2->type == AOP_LIT || op2->type == AOP_IMMD)
         cost2 (-1, 3, -1, 4, -1, -1, -1, -1, -1, 6, -1, 4, 4, -1, -1);
@@ -13064,202 +13053,47 @@ emit8080SetRes (asmop *aop, int offset, int bit, bool set, bool a_dead)  /* set/
 static void
 shiftR2Left2Result (const iCode *ic, operand *left, int offl, operand *result, int offr, int shCount, int is_signed)
 {
-  int size = 2;
-  symbol *tlbl;
-
   wassert (shCount >= 0 && shCount <= 16);
 
   /* 8080/8085: no CB shifts. Move into place and shift byte-wise via rra. */
-  if (IS_8080LIKE)
+  // "if (IS_8080LIKE) {...}" unwrapped into the whole function body:
+  // IS_8080LIKE is unconditionally true in this file, and every path inside
+  // this block already ended in "return;", so the general-Z80/IS_RAB/
+  // IS_SM83/IS_TLCS870-gated CB-shift-instruction shift loop that used to
+  // follow it was unconditionally unreachable - removed. This orphaned the
+  // "size" local (only read by the removed tail, which used "size" instead
+  // of the literal 2 used in the surviving code) and the "tlbl" local (only
+  // used by the removed tail) - both removed.
+  /* 8085 undocumented ARHL: a signed 16-bit right shift is one byte per
+     step (HL = HL >> 1 arithmetic) when done in HL. Do the shift in HL and
+     move the result out, replacing the ~8-instruction rlca/rrca/rra
+     synthesis per step. Fires whenever HL is free to use (or is itself the
+     result), which is the common case; otherwise fall through. */
+  if (IS_8085 && options.allow_undoc_inst && is_signed && shCount > 0 &&
+      (isPairDead (PAIR_HL, ic) || aopInReg (result->aop, offr, HL_IDX)))
     {
-      /* 8085 undocumented ARHL: a signed 16-bit right shift is one byte per
-         step (HL = HL >> 1 arithmetic) when done in HL. Do the shift in HL and
-         move the result out, replacing the ~8-instruction rlca/rrca/rra
-         synthesis per step. Fires whenever HL is free to use (or is itself the
-         result), which is the common case; otherwise fall through. */
-      if (IS_8085 && options.allow_undoc_inst && is_signed && shCount > 0 &&
-          (isPairDead (PAIR_HL, ic) || aopInReg (result->aop, offr, HL_IDX)))
-        {
-          genMove_o (ASMOP_HL, 0, left->aop, offl, 2, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true, true);
-          while (shCount-- > 0)
-            {
-              emit2 ("arhl");
-              cost2 (1, 1, 1, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7);
-            }
-          genMove_o (result->aop, offr, ASMOP_HL, 0, 2, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true, true);
-          return;
-        }
-      if (result->aop != left->aop || offr != offl)
-        genMove_o (result->aop, offr, left->aop, offl, 2, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true, true);
-      /* emitRsh2 routes bytes that are not already in A through A; if A holds a
-         live value not part of the shifted operand, preserve it (the register
-         allocator does not model this scratch use of A). */
-      bool save_a = !isRegDead (A_IDX, ic)
-        && !aopInReg (result->aop, offr, A_IDX) && !aopInReg (result->aop, offr + 1, A_IDX);
-      if (save_a)
-        _push (PAIR_AF);
+      genMove_o (ASMOP_HL, 0, left->aop, offl, 2, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true, true);
       while (shCount-- > 0)
-        emitRsh2 (result->aop, 2, is_signed);
-      if (save_a)
-        _pop (PAIR_AF);
+        {
+          emit2 ("arhl");
+          cost2 (1, 1, 1, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7);
+        }
+      genMove_o (result->aop, offr, ASMOP_HL, 0, 2, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true, true);
       return;
     }
-
-  if (IS_RAB && !is_signed && shCount < 4 && (aopInReg (result->aop, 0, HL_IDX) || aopInReg (result->aop, 0, DE_IDX)))
-    {
-      genMove (ic->result->aop, left->aop, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
-      while (shCount--)
-        {
-          emit3 (A_CP, ASMOP_A, ASMOP_A);
-          emit3w (A_RR, ic->result->aop, 0);
-        }
-      return;
-    }
-  else if (!IS_SM83 && !IS_RAB && !IS_8080LIKE && !is_signed && aopSame (result->aop, offr, left->aop, offl, 2) && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
-    (shCount == 4 || shCount == 5) &&
-    (result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY))
-    {
-      emit3 (A_XOR, ASMOP_A, ASMOP_A);
-      emit2 ("ld hl, !hashedstr+1", result->aop->aopu.aop_dir);
-      cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-      emit3 (A_RRD, 0, 0);
-      if (shCount == 5)
-        {
-          emit2 ("srl (hl)");
-          cost2 (2, 2, -1, -1, 15, 6, 10, 10, 16, 8, -1, -1, -1, 5, 5);
-        }
-      emit3w (A_DEC, ASMOP_HL, 0);
-      emit3 (A_RRD, 0, 0);
-      if (shCount == 5)
-        {
-          emit2 ("rr (hl)");
-          cost2 (2, 2, -1, -1, 15, 6, 10, 10, 16, 8, -1, -1, -1, 5, 5);
-        }
-      return;
-    }
-  else if (IS_RAB && !is_signed && shCount >= 2 && isPairDead (PAIR_HL, ic) && isPairDead (PAIR_DE, ic) &&
-      ((isPair (left->aop) && getPairId (left->aop) == PAIR_HL || isPair (result->aop)
-        && getPairId (result->aop) == PAIR_HL) || isPair (left->aop) && getPairId (left->aop) == PAIR_DE))
-    {
-      bool op_de = (getPairId (left->aop) == PAIR_DE);
-      if (op_de)
-        emit2 ("ld hl, !immedword", 0xffffu >> shCount);
-      else
-        {
-          fetchPair (PAIR_HL, left->aop);
-          emit2 ("ld de, !immedword", 0xffffu >> shCount);
-        }
-      cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-      while (shCount--)
-        emit3w (A_RR, op_de ? ASMOP_DE : ASMOP_HL, 0);
-      emit3w (A_AND, ASMOP_HL, ASMOP_DE);
-      genMove (IC_RESULT (ic)->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true);
-      return;
-    }
-  else if (!optimize.nosidechannels &&
-    (getPairId (result->aop) == PAIR_HL || getPairId (left->aop) == PAIR_HL) && isPairDead (PAIR_HL, ic) &&
-    shCount == 7 && is_signed)
-    {
-      tlbl = regalloc_dry_run ? 0 : newiTempLabel (NULL);
-      genMove (ASMOP_HL, left->aop, isRegDead (A_IDX, ic), true, isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
-      emit3w (A_ADD, ASMOP_HL, ASMOP_HL);
-      emit3 (A_LD, ASMOP_L, ASMOP_H);
-      emit3 (A_LD, ASMOP_H, ASMOP_ZERO);
-      if (!regalloc_dry_run)
-        emit2 ("jr nc, !tlabel", labelKey2num (tlbl->key));
-      emit2 ("dec h");
-      spillPair (PAIR_HL);
-      emitLabel (tlbl);
-      cost (3, 11.5f);
-      genMove (result->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
-      return;
-    }
-  // If the leading bits are all the same, we can shift the other way, and use efficient 16-bit addition for shifts.
-  else if ((!optimize.nosidechannels || !is_signed)  &&
-    shCount < 8 &&
-    aopInReg (left->aop, 0, HL_IDX) && aopInReg (result->aop, 0, H_IDX) && isRegDead (L_IDX, ic) && isRegDead (A_IDX, ic) &&
-    shCount >= 5 - !optimize.codeSpeed) // Smaller code size for 4 and above, but at least for Z80(N), only faster from 5.
-    {
-      emit3 (A_XOR, ASMOP_A, ASMOP_A);
-      emit3w (A_ADD, ASMOP_HL, ASMOP_HL);
-      if (is_signed && (left->aop->valinfo.anything || left->aop->valinfo.min < 0))
-        {
-          tlbl = regalloc_dry_run ? 0 : newiTempLabel (0);
-          emitJP (tlbl, "nc", 0.5f, true);
-          emit2 ("dec a");
-          cost2 (1, 1, 1, 1, 2.0f, 2.0f, 1.0f, 2.0f, 2.0f, 1.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f);
-          emitLabel (tlbl);
-        }
-      else if (!is_signed)
-        emit3 (A_RLA, 0, 0);
-      for (int i = 1; i < (8 - shCount); i++)
-        {
-          emit3w (A_ADD, ASMOP_HL, ASMOP_HL);
-          emit3 (A_RLA, 0, 0);
-        }
-      genMove_o (result->aop, 1, ASMOP_A, 0, 1, true, false, isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic), true);
-      return;
-    }
-
-  if (isPair (result->aop) && !offr)
-    fetchPairLong (getPairId (result->aop), left->aop, ic, offl);
-  else
+  if (result->aop != left->aop || offr != offl)
     genMove_o (result->aop, offr, left->aop, offl, 2, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true, true);
-
-  if (shCount == 0)
-    return;
-
-  /* Left is already in result - so now do the shift */
-  /* Optimizing for speed by default. */
-  if (!optimize.codeSize || shCount <= 2)
-    {
-      while (shCount--)
-        emitRsh2 (result->aop, size, is_signed);
-    }
-  else
-    {
-      asmop *caop = ASMOP_A;
-      
-      if ((!IS_SM83 && !IS_TLCS870 && !IS_TLCS870C && !IS_TLCS870C1 || !isRegDead (A_IDX, ic) || result->aop->regs[A_IDX] >= 0) && // Some targets do not have djnz, so there is no reason to prefer b.
-        isRegDead (B_IDX, ic) && result->aop->regs[B_IDX] < 0)
-        caop = ASMOP_B;
-      else if ((!isRegDead (A_IDX, ic) || result->aop->regs[A_IDX] >= 0) && isRegDead (E_IDX, ic) && result->aop->regs[E_IDX] < 0)
-        caop = ASMOP_E;
-      else if ((!isRegDead (A_IDX, ic) || result->aop->regs[A_IDX] >= 0) && isRegDead (L_IDX, ic) && !requiresHL (result->aop))
-        caop = ASMOP_L;
-      else if (!isRegDead (A_IDX, ic) || result->aop->regs[A_IDX] >= 0)
-        UNIMPLEMENTED;
-
-      tlbl = regalloc_dry_run ? 0 : newiTempLabel (NULL);
-      
-      if (requiresHL (result->aop))
-        spillPair (PAIR_HL);
-
-      if (!regalloc_dry_run)
-        emit2 ("ld %s, !immedbyte", aopGet (caop, 0, false), (unsigned)shCount);
-      cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-
-      regalloc_dry_run_state_scale *= (unsigned)shCount;
-
-      emitLabel (tlbl);
-
-      emitRsh2 (result->aop, size, is_signed);
-
-      if (aopInReg (caop, 0, B_IDX) && !IS_SM83 && !IS_8080LIKE && !IS_TLCS870 && !IS_TLCS870C && !IS_TLCS870C1)
-        {
-          if (!regalloc_dry_run)
-            emit2 ("djnz !tlabel", labelKey2num (tlbl->key));
-          cost2 (2, 2, -1, -1, 13, 9, 5, 6, -1, 10, -1, -1, -1, 4, 2); // Assume jump taken.
-        }
-      else
-        {
-          emit3 (A_DEC, caop, 0);
-          emitJP (tlbl, "nz", 1.0f, true);
-        }
-      spillPairReg (i8085_regsZ80[caop->aopu.aop_reg[0]->rIdx].name);
-
-      regalloc_dry_run_state_scale = 1.0f;
-    }
+  /* emitRsh2 routes bytes that are not already in A through A; if A holds a
+     live value not part of the shifted operand, preserve it (the register
+     allocator does not model this scratch use of A). */
+  bool save_a = !isRegDead (A_IDX, ic)
+    && !aopInReg (result->aop, offr, A_IDX) && !aopInReg (result->aop, offr + 1, A_IDX);
+  if (save_a)
+    _push (PAIR_AF);
+  while (shCount-- > 0)
+    emitRsh2 (result->aop, 2, is_signed);
+  if (save_a)
+    _pop (PAIR_AF);
 }
 
 /*-----------------------------------------------------------------*/
@@ -13268,229 +13102,45 @@ shiftR2Left2Result (const iCode *ic, operand *left, int offl, operand *result, i
 static void
 shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic)
 {
-  asmop *shiftaop = result->aop;
-
   /* 8080/8085: no CB shifts. Move into place and shift byte-wise via add a,a / rla. */
-  if (IS_8080LIKE)
-    {
-      if (result->aop != left->aop)
-        genMove_o (result->aop, 0, left->aop, 0, 2, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true, true);
-      /* emit8080Lsh1 uses A as scratch for any byte not in A; preserve a live A
-         that is not part of the shifted operand (allocator doesn't model it). */
-      bool save_a = !isRegDead (A_IDX, ic)
-        && !aopInReg (result->aop, 0, A_IDX) && !aopInReg (result->aop, 1, A_IDX);
-      if (save_a)
-        _push (PAIR_AF);
-      while (shCount-- > 0)
-        {
-          emit8080Lsh1 (result->aop, 0, false);  /* sla low byte  */
-          emit8080Lsh1 (result->aop, 1, true);   /* rl  high byte */
-        }
-      /* Mask the top byte down to the bit width for a sub-byte-width unsigned
-         _BitInt result (a left shift can push bits past the width). The
-         generic path below does this too; the 8080/8085 path returns early. */
-      {
-        sym_link *rtype = operandType (IC_RESULT (ic));
-        unsigned tbmask = (IS_BITINT (rtype) && SPEC_USIGN (rtype) && (SPEC_BITINTWIDTH (rtype) % 8)) ?
-          (0xffu >> (8 - SPEC_BITINTWIDTH (rtype) % 8)) : 0xffu;
-        if (tbmask != 0xffu)
-          {
-            cheapMove (ASMOP_A, 0, result->aop, 1, true);
-            emit2 ("and a, #0x%02x", tbmask);
-            cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-            cheapMove (result->aop, 1, ASMOP_A, 0, true);
-          }
-      }
-      if (save_a)
-        _pop (PAIR_AF);
-      return;
-    }
-
-  if (shCount == 7 && aopIsLitVal (left->aop, 1, 1, 0x00) && result->aop->type == AOP_REG &&
-    result->aop->aopu.aop_reg[0]->rIdx != IYL_IDX && result->aop->aopu.aop_reg[1]->rIdx != IYL_IDX && result->aop->aopu.aop_reg[0]->rIdx != IYH_IDX && result->aop->aopu.aop_reg[1]->rIdx != IYH_IDX)
-    {
-      genMove_o (result->aop, 1, left->aop, 0, 1, isRegDead(A_IDX, ic), false, false, false, true);
-      bool reuse_zero = left->aop->type == AOP_REG && !aopInReg (left->aop, 1, IYL_IDX) && !aopInReg (left->aop, 1, IYH_IDX) && !aopInReg (left->aop, 1, result->aop->aopu.aop_reg[1]->rIdx);
-      genMove_o (result->aop, 0, reuse_zero ? left->aop : ASMOP_ZERO, 1, 1, isRegDead(A_IDX, ic) && !aopInReg (result->aop, 1, A_IDX), false, false, false, true);
-      emit3_o (A_SRL, result->aop, 1, 0, 0);
-      if (aopInReg (result->aop, 0, A_IDX))
-        emit3 (A_RRA, 0, 0);
-      else
-        emit3 (A_RR, result->aop, 0);
-      return;
-    }
-  /* For a shift of 7 we can use cheaper right shifts */
-  else if (shCount == 7 && left->aop->type == AOP_REG && !bitVectBitValue (ic->rSurv, left->aop->aopu.aop_reg[0]->rIdx) && result->aop->type == AOP_REG &&
-    left->aop->aopu.aop_reg[0]->rIdx != IYL_IDX && left->aop->aopu.aop_reg[1]->rIdx != IYL_IDX && left->aop->aopu.aop_reg[0]->rIdx != IYH_IDX && left->aop->aopu.aop_reg[1]->rIdx != IYH_IDX &&
-    result->aop->aopu.aop_reg[0]->rIdx != IYL_IDX && result->aop->aopu.aop_reg[1]->rIdx != IYL_IDX && result->aop->aopu.aop_reg[0]->rIdx != IYH_IDX && result->aop->aopu.aop_reg[1]->rIdx != IYH_IDX &&
-    (optimize.codeSpeed || getPairId (result->aop) != PAIR_HL || getPairId (left->aop) != PAIR_HL)) /* but a sequence of add hl, hl might still be cheaper code-size wise */
-    {
-      // Handling the low byte in A with xor clearing is cheaper.
-      bool special_a = (isRegDead (A_IDX, ic) && !aopInReg (left->aop, 0, A_IDX) && !aopInReg (left->aop, 1, A_IDX));
-      asmop *lowbyte = special_a ? ASMOP_A : result->aop;
-
-      if (special_a)
-        emit3 (A_XOR, ASMOP_A, ASMOP_A);
-      emit3_o (A_RR, left->aop, 1, 0, 0);
-      if (!aopSame (result->aop, 1, left->aop, 0, 1))
-        emit3_o (A_LD, result->aop, 1, left->aop, 0);
-      emit3_o (A_RR, result->aop, 1, 0, 0);
-      if (!special_a)
-        emit3_o (A_LD, result->aop, 0, ASMOP_ZERO, 0);
-      if (aopInReg (lowbyte, 0, A_IDX))
-        emit3 (A_RRA, 0, 0);
-      else
-        emit3 (A_RR, lowbyte, 0);
-      if (special_a)
-        cheapMove (result->aop, 0, lowbyte, 0, true);
-      return;
-    }
-  if ((result->aop->type == AOP_HL || result->aop->type == AOP_IY || IS_RAB && result->aop->type == AOP_STK) && // Being able to use cheap add hl, hl is worth it in most cases.
-    (left->aop->type == AOP_HL || left->aop->type == AOP_IY || IS_RAB && left->aop->type == AOP_STK) &&
-    !IS_SM83 && isRegDead (HL_IDX, ic) &&
-    (shCount > 1 || !sameRegs (result->aop, left->aop)) ||
-    isPairDead (PAIR_HL, ic) && !IS_SM83 && getPairId (result->aop) == PAIR_DE && getPairId (left->aop) != PAIR_DE || // Shift in hl if we can cheaply move to de via ex later.
-    ((IS_RAB || IS_EZ80 || IS_TLCS90) && isRegDead (HL_IDX, ic) && !aopSame (result->aop, 0, left->aop, 0, 2)) && result->aop->type == AOP_STK && left->aop->type == AOP_STK)
-    {
-      shiftaop = ASMOP_HL;
-      genMove (ASMOP_HL, left->aop, isRegDead (A_IDX, ic), true, isRegDead (DE_IDX, ic), true);
-    }
-  else if (result->aop->type != AOP_REG && left->aop->type == AOP_REG && left->aop->size >= 2 && !bitVectBitValue (ic->rSurv, left->aop->aopu.aop_reg[0]->rIdx) && !bitVectBitValue (ic->rSurv, left->aop->aopu.aop_reg[1]->rIdx) ||
-    getPairId (left->aop) == PAIR_HL && isPairDead (PAIR_HL, ic))
-    shiftaop = left->aop;
-  else
+  // "if (IS_8080LIKE) {...}" unwrapped into the whole function body:
+  // IS_8080LIKE is unconditionally true in this file, and every path inside
+  // this block already ended in "return;", so the general-Z80/IS_RAB/
+  // IS_SM83/pair-shift ("add hl, hl" etc.) fallback that used to follow it
+  // was unconditionally unreachable - removed. This orphaned the
+  // "shiftaop" local (declared "= result->aop" but only ever read by the
+  // removed tail; the surviving block operates on result->aop/left->aop
+  // directly) - removed.
+  if (result->aop != left->aop)
     genMove_o (result->aop, 0, left->aop, 0, 2, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true, true);
-
-  if (shCount == 0)
-    ;
-  else if (getPairId (shiftaop) == PAIR_HL || getPairId (shiftaop) == PAIR_IY)
+  /* emit8080Lsh1 uses A as scratch for any byte not in A; preserve a live A
+     that is not part of the shifted operand (allocator doesn't model it). */
+  bool save_a = !isRegDead (A_IDX, ic)
+    && !aopInReg (result->aop, 0, A_IDX) && !aopInReg (result->aop, 1, A_IDX);
+  if (save_a)
+    _push (PAIR_AF);
+  while (shCount-- > 0)
     {
-      while (shCount--)
-        emit3w (A_ADD, shiftaop, shiftaop);
+      emit8080Lsh1 (result->aop, 0, false);  /* sla low byte  */
+      emit8080Lsh1 (result->aop, 1, true);   /* rl  high byte */
     }
-  else if (IS_RAB && getPairId (shiftaop) == PAIR_DE && shCount <= 2 + optimize.codeSpeed)
-    {
-      while (shCount--)
-        {
-          emit3 (A_CP, ASMOP_A, ASMOP_A);
-          emit3w (A_RL, ASMOP_DE, 0);
-        }
-    }
-  else if (!IS_SM83 && getPairId (shiftaop) == PAIR_DE)
-    {
-      emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-      while (shCount--)
-        emit3w (A_ADD, ASMOP_HL, ASMOP_HL);
-      emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-    }
-  else
-    {
-      int size = 2;
-      int offset = 0;
-      
-      bool use_b = (!IS_SM83 && isRegDead (B_IDX, ic)
-        && (shiftaop->type != AOP_REG || shiftaop->aopu.aop_reg[0]->rIdx != B_IDX && shiftaop->aopu.aop_reg[1]->rIdx != B_IDX));
-                         
-      symbol *tlbl = regalloc_dry_run ? 0 : newiTempLabel (0);
-
-      if (shiftaop->type == AOP_REG)
-        {
-          /* On the 8080/8085 there are no CB shifts, so shifting a byte that is
-             not already in A goes through A (emit8080Lsh1).  If A holds a live
-             value that is not part of shiftaop, that value would be clobbered -
-             the register allocator does not model this A use - so preserve it. */
-          bool save_a = IS_8080LIKE && !isRegDead (A_IDX, ic)
-            && !aopInReg (shiftaop, 0, A_IDX) && !aopInReg (shiftaop, 1, A_IDX);
-          if (save_a)
-            _push (PAIR_AF);
-          while (shCount--)
-            {
-              for (offset = 0; offset < size; offset++)
-                if (aopInReg (shiftaop, offset, A_IDX))
-                  emit3 (offset ? A_ADC : A_ADD, ASMOP_A, ASMOP_A);
-                else
-                  if (IS_8080LIKE)
-                    emit8080Lsh1 (shiftaop, offset, offset != 0);
-                  else
-                    emit3_o (offset ? A_RL : A_SLA, shiftaop, offset, 0, 0);
-            }
-          if (save_a)
-            _pop (PAIR_AF);
-        }
-      else
-        {
-          if (!use_b && !isRegDead (A_IDX, ic))
-            _push (PAIR_AF);
-
-          /* Left is already in result - so now do the shift */
-          if (shCount > 1)
-            {
-              if (!regalloc_dry_run)
-                {
-                  emit2 ("ld %s, !immedbyte", use_b ? "b" : "a", (unsigned)shCount);
-                  emitLabel (tlbl);
-                }
-              cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-              
-              if (requiresHL (shiftaop))
-                spillPair (PAIR_HL);
-            }
-
-          while (size--)
-            {
-              if (IS_8080LIKE)
-                emit8080Lsh1 (shiftaop, offset, offset != 0);
-              else
-                emit3_o (offset ? A_RL : A_SLA, shiftaop, offset, 0, 0);
-
-              offset++;
-            }
-          if (shCount > 1)
-            {
-              if (use_b && !IS_8080LIKE)
-                {
-                  if (!regalloc_dry_run)
-                    emit2 ("djnz !tlabel", labelKey2num (tlbl->key));
-                  cost2 (2, 2, -1, -1, 13, 9, 5, 6, -1, 10, -1, -1, -1, 4, 2); // Assume jump taken.
-                }
-              else
-                {
-                  emit3 (A_DEC, use_b ? ASMOP_B : ASMOP_A, 0);
-                  emitJP (tlbl, "nz", 1.0f, true);
-                }
-            }
-          if (!use_b && !isRegDead (A_IDX, ic))
-            _pop (PAIR_AF);
-        }
-    }
-
-  sym_link *resulttype = operandType (IC_RESULT (ic));
-  unsigned topbytemask = (IS_BITINT (resulttype) && SPEC_USIGN (resulttype) && (SPEC_BITINTWIDTH (resulttype) % 8)) ?
-    (0xff >> (8 - SPEC_BITINTWIDTH (resulttype) % 8)) : 0xff;
-  bool maskedtopbyte = (topbytemask != 0xff);
-  if (maskedtopbyte)
-    {
-      bool pushed_a = false;
-      if (!isRegDead (A_IDX, ic) || shiftaop->regs[A_IDX] >= 0 && shiftaop->regs[A_IDX] != result->aop->size - 1)
-        {
-          _push (PAIR_AF);
-          pushed_a = true;
-        }
-      cheapMove (ASMOP_A, 0, shiftaop, result->aop->size - 1, true);
-      emit2 ("and a, #0x%02x", topbytemask);
-      cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-      cheapMove (shiftaop, result->aop->size - 1, ASMOP_A, 0, true);
-      if (pushed_a)
-        _pop (PAIR_AF);
-    }
-
-  if (shiftaop != result->aop)
-    {
-      if (isPair (result->aop))
-        fetchPairLong (getPairId (result->aop), shiftaop, ic, 0);
-      else
-        genMove_o (result->aop, 0, shiftaop, 0, 2, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true, true);
-    }
+  /* Mask the top byte down to the bit width for a sub-byte-width unsigned
+     _BitInt result (a left shift can push bits past the width). The
+     generic path below does this too; the 8080/8085 path returns early. */
+  {
+    sym_link *rtype = operandType (IC_RESULT (ic));
+    unsigned tbmask = (IS_BITINT (rtype) && SPEC_USIGN (rtype) && (SPEC_BITINTWIDTH (rtype) % 8)) ?
+      (0xffu >> (8 - SPEC_BITINTWIDTH (rtype) % 8)) : 0xffu;
+    if (tbmask != 0xffu)
+      {
+        cheapMove (ASMOP_A, 0, result->aop, 1, true);
+        emit2 ("and a, #0x%02x", tbmask);
+        cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
+        cheapMove (result->aop, 1, ASMOP_A, 0, true);
+      }
+  }
+  if (save_a)
+    _pop (PAIR_AF);
 }
 
 /*-----------------------------------------------------------------*/
