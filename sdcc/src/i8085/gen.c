@@ -13058,18 +13058,14 @@ shiftL1Left2Result (operand *left, int offl, operand *result, int offr, unsigned
   if (!shCount)
     cheapMove (result->aop, offr, left->aop, offl, isRegDead (A_IDX, ic));
   // add hl, hl is cheap in code size. On Rabbits it is also fastest.
-  else if (sameRegs (result->aop, left->aop) && aopInReg (result->aop, offr, L_IDX) && isPairDead(PAIR_HL, ic) && offr == offl && (!optimize.codeSpeed || IS_RAB))
+  else if (sameRegs (result->aop, left->aop) && aopInReg (result->aop, offr, L_IDX) && isPairDead(PAIR_HL, ic) && offr == offl && !optimize.codeSpeed) // "|| IS_RAB" dropped (unconditionally false in this file).
     {
       while (shCount--)
         emit3w (A_ADD, ASMOP_HL, ASMOP_HL);
     }
-  else if (!IS_SM83 && !IS_RAB && !IS_8080LIKE && aopSame (result->aop, offr, left->aop, offr, 1) && !offr && shCount == 4 && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
-    (result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY))
-    {
-      emit3 (A_XOR, ASMOP_A, ASMOP_A);
-      pointPairToAop (PAIR_HL, result->aop, 0);
-      emit3 (A_RLD, 0, 0);
-    }
+  // Dropped: a "!IS_SM83 && !IS_RAB && !IS_8080LIKE && ..." RLD-based arm
+  // (unconditionally dead - IS_8080LIKE is unconditionally true in this
+  // file, so "!IS_8080LIKE" is unconditionally false).
   /* If operand and result are the same we can shift in place.
      However shifting in acc using add is cheaper than shifting
      in place using sla; when shifting by more than 2 shifting in
@@ -13078,43 +13074,24 @@ shiftL1Left2Result (operand *left, int offl, operand *result, int offr, unsigned
     {
       /* 8080/8085: emit8080Lsh1 uses A as scratch (the byte is not in A here);
          preserve A if it holds a live value. */
-      bool save_a = IS_8080LIKE && !isRegDead (A_IDX, ic);
+      bool save_a = !isRegDead (A_IDX, ic); // "IS_8080LIKE &&" dropped (unconditionally true in this file).
       if (save_a)
         _push (PAIR_AF);
       while (shCount--)
-        {
-          if (IS_8080LIKE)
-            emit8080Lsh1 (result->aop, offr, false);
-          else
-            emit3_o (A_SLA, result->aop, offr, 0, 0);
-        }
+        emit8080Lsh1 (result->aop, offr, false); // "if (IS_8080LIKE) ... else emit3_o (A_SLA, ...);" simplified (IS_8080LIKE unconditionally true in this file).
       if (save_a)
         _pop (PAIR_AF);
     }
-  else if ((IS_Z180 && !optimize.codeSpeed || IS_EZ80 || IS_Z80N) && // Try to use mlt
-    (!IS_Z80N && aopInReg (result->aop, offr, C_IDX) && isPairDead(PAIR_BC, ic) || aopInReg (result->aop, offr, E_IDX) && isPairDead(PAIR_DE, ic) || !IS_Z80N && aopInReg (result->aop, offr, L_IDX) && isPairDead(PAIR_HL, ic)))
-    {
-      PAIR_ID pair = aopInReg (result->aop, offr, C_IDX) ? PAIR_BC : (aopInReg (result->aop, offr, E_IDX) ? PAIR_DE : PAIR_HL);
-
-      bool top = aopInReg (left->aop, offl, _pairs[pair].h_idx);
-      if (!top)
-        cheapMove (pair == PAIR_BC ? ASMOP_C : (pair == PAIR_DE ? ASMOP_E : ASMOP_L), 0, left->aop, offl, isRegDead (A_IDX, ic));
-
-      emit2 ("ld %s, !immed%d", top ? _pairs[pair].l : _pairs[pair].h, 1 << shCount);
-      cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-      emit2 ("mlt %s", _pairs[pair].name);
-      cost2 (2, -1, 2, 2, 8, 17, -1, -1, -1, -1, 8, 8, 13, 6, -1);
-    }
+  // Dropped: an "(IS_Z180 && !optimize.codeSpeed || IS_EZ80 || IS_Z80N) &&
+  // ..." mlt-instruction fast-path arm (unconditionally dead - IS_Z180,
+  // IS_EZ80, and IS_Z80N are all unconditionally false in this file).
   else if (shCount == 1 && !isRegDead (A_IDX, ic) &&
-    (left->aop->type == AOP_REG && (HAS_IYL_INST || !aopInReg (left->aop, offl, IYL_IDX) && !aopInReg (left->aop, offl, IYH_IDX)) || left->aop->type == AOP_STK) &&
+    (left->aop->type == AOP_REG && (!aopInReg (left->aop, offl, IYL_IDX) && !aopInReg (left->aop, offl, IYH_IDX)) || left->aop->type == AOP_STK) && // "HAS_IYL_INST ||" dropped (unconditionally false in this file).
     (aopInReg (result->aop, offr, B_IDX) || aopInReg (result->aop, offr, C_IDX) || aopInReg (result->aop, offr, D_IDX) || aopInReg (result->aop, offr, E_IDX) || aopInReg (result->aop, offr, H_IDX) || aopInReg (result->aop, offr, L_IDX)))
     {
       if (!aopSame (result->aop, offr, left->aop, offl, 1))
         emit3_o (A_LD, result->aop, offr, left->aop, offl);
-      if (IS_8080LIKE)
-        emit8080Lsh1 (result->aop, offr, false);
-      else
-        emit3_o (A_SLA, result->aop, offr, 0, 0);
+      emit8080Lsh1 (result->aop, offr, false); // "if (IS_8080LIKE) ... else emit3_o (A_SLA, ...);" simplified (IS_8080LIKE unconditionally true in this file).
     }
   else
     {
@@ -15704,12 +15681,13 @@ genAddrOf (const iCode *ic)
     {
       int fp_offset = sym->stack + (sym->stack > 0 ? _G.stack.param_offset : 0) + (int)operandLitValue (right);
       int sp_offset = fp_offset + _G.stack.pushed + _G.stack.offset;
-      bool in_fp_range = !_G.omitFramePtr && (fp_offset >= -128 && fp_offset < 128);
+      // "in_fp_range" removed: it was only read by the two now-removed
+      // IS_EZ80/IS_TLCS90-gated conditions below.
 
-      if (IS_EZ80 && in_fp_range && getPairId (ic->result->aop) != PAIR_INVALID)
-        pair = getPairId (ic->result->aop);
-      else
-        pair = (getPairId (ic->result->aop) == PAIR_IY) ? PAIR_IY : PAIR_HL;
+      // "if (IS_EZ80 && in_fp_range && getPairId (ic->result->aop) !=
+      // PAIR_INVALID) pair = ...; else" dropped (IS_EZ80 unconditionally
+      // false in this file).
+      pair = (getPairId (ic->result->aop) == PAIR_IY) ? PAIR_IY : PAIR_HL;
 
       if (pair == PAIR_HL && !isRegDead (HL_IDX, ic))
         {
@@ -15720,26 +15698,14 @@ genAddrOf (const iCode *ic)
           pushed_pair = true;
         }
 
-      if ((IS_TLCS90 || IS_EZ80) && in_fp_range)
-        {
-          emit2 (IS_TLCS90 ? "lda %s, ix, !immed%d" : "lea %s, ix, !immed%d", _pairs[pair].name, fp_offset);
-          cost (3, IS_TLCS90 ? 10 : 3);
-          spillPair (pair);
-        }
-      else
-        setupPairFromSP (pair, sp_offset);
+      // "if ((IS_TLCS90 || IS_EZ80) && in_fp_range) {lda/lea ...} else"
+      // dropped (IS_TLCS90 and IS_EZ80 both unconditionally false in this
+      // file).
+      setupPairFromSP (pair, sp_offset);
     }
-  else if (IS_EZ80 && ic->result->aop->size == 3 && ic->result->aop->type == AOP_FDIR &&
-    (isPairDead (PAIR_HL, ic) || isPairDead (PAIR_DE, ic) || isPairDead (PAIR_BC, ic)))
-    {
-      pair = isPairDead (PAIR_HL, ic) ? PAIR_HL : isPairDead (PAIR_DE, ic) ? PAIR_DE : PAIR_BC;
-      emit2 ("ld.lil %s, !hashedstr+%ld", _pairs[pair].name, sym->rname, (long)(operandLitValue (right)));
-      cost (5, 5);
-      emit2 ("ld.lil (%s), %s", ic->result->aop->aopu.aop_dir, _pairs[pair].name);
-      cost (5 + (pair != PAIR_HL), 8 + (pair != PAIR_HL));
-      spillPair (pair);
-      goto release;
-    }
+  // Dropped: an "IS_EZ80 && ic->result->aop->size == 3 && ic->result->aop->
+  // type == AOP_FDIR && ..." "ld.lil" far-pointer-to-far-storage arm
+  // (unconditionally dead - IS_EZ80 unconditionally false in this file).
   else
     {
       pair = getPairId (ic->result->aop);
@@ -15794,7 +15760,9 @@ genAddrOf (const iCode *ic)
         }
     }
 
-release:
+  // "release:" label removed: its only "goto release;" was in the now-
+  // removed IS_EZ80-gated "ld.lil" far-pointer arm above; the only other
+  // path already falls through to here naturally.
   freeAsmop (ic->result, NULL);
 }
 
