@@ -4467,38 +4467,22 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
     return;
 
   /* Stack positions will change, so do not assume this is possible in the cost function. */
-  if (!regalloc_dry_run && !IS_SM83 && (aop->type == AOP_STK || aop->type == AOP_EXSTK) && !sp_offset
-      && ((!IS_RAB && id == PAIR_HL) || id == PAIR_IY) && !dont_destroy)
+  // "!IS_SM83 &&" dropped (unconditionally true in this file); "(!IS_RAB &&
+  // id == PAIR_HL)" simplified to "id == PAIR_HL" (IS_RAB unconditionally
+  // false in this file).
+  if (!regalloc_dry_run && (aop->type == AOP_STK || aop->type == AOP_EXSTK) && !sp_offset
+      && (id == PAIR_HL || id == PAIR_IY) && !dont_destroy)
     {
       emit2 ("ex (sp), %s", _pairs[id].name);
       if (id == PAIR_IY)
         cost2 (2, 2, -1, 3, 23, 19, 15, 15, -1, 14, -1, 8, 8, 6, 6);
       else
-        cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
+        cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // "1 + IS_RAB" simplified to "1" (IS_RAB unconditionally 0 in this file).
       spillPair (id);
     }
-  else if ((IS_RAB || IS_TLCS90) && (aop->type == AOP_STK || aop->type == AOP_EXSTK) && (id == PAIR_HL || id == PAIR_IY) &&
-           (id == PAIR_HL && abs (fp_offset) <= 127 && aop->type == AOP_STK || abs (sp_offset) <= 127))
-    {
-      if (abs (sp_offset) <= 127)
-        {
-          emit2 ("ld %d (sp), %s", sp_offset, id == PAIR_IY ? "iy" : "hl");       /* Relative to stack pointer. */
-          if (id == PAIR_HL || IS_TLCS90)
-            cost2 (2, 3, -1, 3, -1, -1, 11, 12, -1, 12, -1, 5, 5, -1, -1);
-          else
-            cost2 (3, 3, -1, 3, -1, -1, 13, 14, -1, 12, -1, 5, 5, -1, -1);
-        }
-      else
-        {
-          emit2 ("ld %d (ix), hl", fp_offset);    /* Relative to frame pointer. */
-          cost2 (2 + IS_EZ80, 3, -1, 3, -1, -1, 11, 12, -1, 12, -1, 6, 5, 5, -1);
-        }
-    }
-  else if (IS_EZ80 && aop->type == AOP_STK)
-    {
-      emit2 ("ld %d (ix), %s", fp_offset, _pairs[id].name);
-      cost (3, 5);
-    }
+  // Dropped: an (IS_RAB||IS_TLCS90)-gated "ld d (sp)/(ix), hl/iy" arm and
+  // an IS_EZ80-gated "ld d (ix), <pair>" arm - both unconditionally dead in
+  // this file.
   else if (!regalloc_dry_run && (aop->type == AOP_STK || aop->type == AOP_EXSTK) && !sp_offset)
     {
       emit2 ("inc sp");
