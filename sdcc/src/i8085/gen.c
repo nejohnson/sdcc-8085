@@ -4497,7 +4497,10 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
     }
 
   /* PENDING: Verify this. */
-  else if (id == PAIR_HL && requiresHL (aop) && (IS_SM83 || IY_RESERVED && aop->type != AOP_HL && aop->type != AOP_IY))
+  // "(IS_SM83 || IY_RESERVED && ...)" simplified to just the "&& ..." part
+  // (IS_SM83 unconditionally false, IY_RESERVED unconditionally true in
+  // this file).
+  else if (id == PAIR_HL && requiresHL (aop) && aop->type != AOP_HL && aop->type != AOP_IY)
     {
       if (!isRegDead (D_IDX, ic))
         _push (PAIR_DE);
@@ -4518,17 +4521,16 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
     {
       /* Special cases */
       /* 8080/8085: only ld (nn),hl (SHLD) exists; ld (nn),de/bc are Z80
-         ED-prefix ops, so restrict this direct store to HL and let other
-         pairs use the byte-wise path below. */
-      if ((aop->type == AOP_IY || aop->type == AOP_HL) && !IS_SM83 && aop->size == 2 &&
-          (!IS_8080LIKE || id == PAIR_HL))
+         ED-prefix ops, so this direct store is restricted to HL, and other
+         pairs always use the byte-wise path below. */
+      // "!IS_SM83 &&" dropped (unconditionally true in this file);
+      // "(!IS_8080LIKE || id == PAIR_HL)" simplified to "id == PAIR_HL"
+      // (IS_8080LIKE unconditionally true in this file).
+      if ((aop->type == AOP_IY || aop->type == AOP_HL) && aop->size == 2 && id == PAIR_HL)
         {
           if (!regalloc_dry_run)
             emit2 ("ld !mems, %s", aopGetLitWordLong (aop, 0, FALSE), _pairs[id].name);
-          if (id == PAIR_HL)
-            cost2 (3, 4, -1, 4, 16, 16, 13, 13, -1, 12, -1, 6, 6, 5, 5);
-          else
-            cost2 (4, 4, -1, 4, 20, 19, 15, 15, -1, 12, -1, 6, 6, 6, 6);
+          cost2 (3, 4, -1, 4, 16, 16, 13, 13, -1, 12, -1, 6, 6, 5, 5); // "if (id == PAIR_HL) ... else ..." collapsed: id == PAIR_HL is now guaranteed by the outer condition, so the "else" arm (for other pairs) was already unreachable.
         }
       else
         {
@@ -4539,7 +4541,7 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
               cheapMove (aop, 1, ASMOP_B, 0, true);
               break;
             case PAIR_DE:
-              if (!IS_SM83 && aop->type == AOP_REG && aop->aopu.aop_reg[0]->rIdx == L_IDX && aop->aopu.aop_reg[1]->rIdx == H_IDX && !dont_destroy)
+              if (aop->type == AOP_REG && aop->aopu.aop_reg[0]->rIdx == L_IDX && aop->aopu.aop_reg[1]->rIdx == H_IDX && !dont_destroy) // "!IS_SM83 &&" dropped (unconditionally true in this file).
                 {
                   emit3w (A_EX, ASMOP_DE, ASMOP_HL);
                   swapPairs (PAIR_DE, PAIR_HL);
@@ -4562,7 +4564,7 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
                   cheapMove (aop, 1, ASMOP_H, 0, true);
                   cheapMove (aop, 0, ASMOP_L, 0, true);
                 }
-              else if (!IS_SM83 && aop->type == AOP_REG && aop->aopu.aop_reg[0]->rIdx == E_IDX && aop->aopu.aop_reg[1]->rIdx == D_IDX && !dont_destroy)
+              else if (aop->type == AOP_REG && aop->aopu.aop_reg[0]->rIdx == E_IDX && aop->aopu.aop_reg[1]->rIdx == D_IDX && !dont_destroy) // "!IS_SM83 &&" dropped (unconditionally true in this file).
                 {
                   emit3w (A_EX, ASMOP_DE, ASMOP_HL);
                   swapPairs (PAIR_DE, PAIR_HL);
@@ -17029,7 +17031,7 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
     }
   else if (n == 2)
     {
-      IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
+      emit8080Ldi (); // "IS_8080LIKE ? ... : emit3 (A_LDI, 0, 0)" simplified (IS_8080LIKE unconditionally true in this file).
       emit2 ("ld a, !*hl");
       cost2 (1, 2, 1, 1, 7, 6, 5, 5, 8, 6, 2, 2, 2, 2, 2);
       emit2 ("ld !mems, a", "de");
@@ -17037,15 +17039,13 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
       if (!isPairDead (PAIR_BC, ic)) /* Restore bc. */
         emit3w (A_INC, ASMOP_BC, 0);
     }
-  else if (n <= 4 && IS_Z80 && optimize.codeSpeed || (IS_R2K || IS_R2KA) && n <= 5)
-    {
-      for(unsigned int i = 0; i < n; i++)
-        IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
-    }
+  // Dropped: an "n <= 4 && IS_Z80 && optimize.codeSpeed || (IS_R2K ||
+  // IS_R2KA) && n <= 5"-gated per-byte-ldi unrolled-loop arm (unconditionally
+  // dead - IS_Z80, IS_R2K, and IS_R2KA are all unconditionally false in this
+  // file).
   else
     {
       symbol *tlbl = 0;
-      bool to_from_stack = isOperandOnStack (to) && isOperandOnStack (from);
       if (count->aop->type != AOP_REG) // If in reg: Has been fetched early by setupForMemcpy() above.
         fetchPair (PAIR_BC, count->aop);
       if (count->aop->type != AOP_LIT)
@@ -17055,42 +17055,13 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
           tlbl = regalloc_dry_run ? NULL : newiTempLabel (NULL);
           emitJP (tlbl, "z", 0.0f, true);
         }
-      if ((IS_R2K || IS_R2KA) && !to_from_stack && optimize.codeSpeed && n != UINT_MAX) // Work around Rabbit 2000 to Rabbit 3000 ldir wait state bug, but care for speed
-        {
-          wassert (n > 3);
-          if (n % 2)
-            IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
-          const symbol *tlbl2 = regalloc_dry_run ? NULL : newiTempLabel (NULL);
-          emitLabel (tlbl2);
-          regalloc_dry_run_state_scale = n / 2;
-          IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
-          IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
-          regalloc_dry_run_state_scale = 1.0f;
-          emitJP (tlbl2, "lo", (float)((n / 2) - 1) / (n / 2), true);      
-        }
-      else if ((IS_R2K || IS_R2KA) && !to_from_stack) // Work around Rabbit 2000 to Rabbit 3000 ldir wait state bug.
-        {
-          if (n == UINT_MAX)
-            {
-              if (!count->aop->valinfo.anything && count->aop->valinfo.min >= 0 && count->aop->valinfo.max < UINT_MAX / 2)
-                n = (count->aop->valinfo.min + count->aop->valinfo.max) / 2;
-              else 
-                n = 8; // Just a guess.
-            }
-          const symbol *tlbl2 = regalloc_dry_run ? NULL : newiTempLabel (NULL);
-          emitLabel (tlbl2);
-          regalloc_dry_run_state_scale = n;
-          IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
-          regalloc_dry_run_state_scale = 1.0f;
-          emitJP (tlbl2, "lo", (float)(n - 1) / n, true);
-          regalloc_dry_run_cost += 3;
-        }
-      else
-        {
-          if (IS_8080LIKE) emit8080Ldir (); else
-      emit2 ("ldir");
-          regalloc_dry_run_cost += 2;
-        }
+      // Dropped: two (IS_R2K||IS_R2KA)-gated Rabbit-2000-to-3000
+      // ldir-wait-state-bug workaround arms (unconditionally dead - IS_R2K
+      // and IS_R2KA are both unconditionally false in this file). This
+      // orphaned the "to_from_stack" local (only read by these two removed
+      // arms) - removed.
+      emit8080Ldir (); // "if (IS_8080LIKE) ... else emit2 (\"ldir\");" simplified (IS_8080LIKE unconditionally true in this file).
+      regalloc_dry_run_cost += 2;
       emitLabel (tlbl);
     }
 
