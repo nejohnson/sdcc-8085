@@ -3151,28 +3151,14 @@ pop (const asmop *aop, int offset, int size)
     _pop (getPairId_o (aop, offset));
   else if (size == 4 && getPairId_o (aop, offset) == PAIR_DE && getPairId_o (aop, offset + 2) == PAIR_BC)
     {
-      if (IS_R4K || IS_R5K || IS_R6K)
-        {
-          emit2 ("pop bcde");
-          cost (2, 13);
-          _G.stack.pushed -= 4;
-          spillPair (PAIR_BC);
-          spillPair (PAIR_DE);
-        }
-      else
-        {
-          _pop (PAIR_DE);
-          _pop (PAIR_BC);
-        }
+      // "if (IS_R4K||IS_R5K||IS_R6K) {pop bcde ...} else" dropped
+      // (unconditionally false in this file).
+      _pop (PAIR_DE);
+      _pop (PAIR_BC);
     }
-  else if (size == 4 && (IS_R4K || IS_R5K || IS_R6K) && getPairId_o (aop, offset + 2) == PAIR_JK && getPairId_o (aop, offset) == PAIR_HL)
-    {
-      emit2 ("pop jkhl");
-      cost (2, 13);
-      _G.stack.pushed -= 4;
-      spillPair (PAIR_JK);
-      spillPair (PAIR_HL);
-    }
+  // Dropped: a "size == 4 && (IS_R4K||IS_R5K||IS_R6K) && ..." "pop jkhl" arm
+  // (unconditionally dead - IS_R4K, IS_R5K, and IS_R6K are all
+  // unconditionally false in this file).
   else
     wassert (0);
 }
@@ -5965,7 +5951,7 @@ _castBoolean (const operand *right)
   if (right->aop->size == 1 && !aopInReg (right->aop, 0, A_IDX))
     {
       emit3 (A_XOR, ASMOP_A, ASMOP_A);
-      if (!HAS_IYL_INST && (aopInReg (right->aop, 0, IYL_IDX) || aopInReg (right->aop, 0, IYH_IDX)))
+      if (aopInReg (right->aop, 0, IYL_IDX) || aopInReg (right->aop, 0, IYH_IDX)) // "!HAS_IYL_INST &&" dropped (unconditionally true in this file).
         UNIMPLEMENTED;
       else
         emit3 (A_CP, ASMOP_A, right->aop);
@@ -5973,10 +5959,12 @@ _castBoolean (const operand *right)
   else
     {
       _toBoolean (right, false);
-      if (IS_Z80 || IS_SM83 || IS_8080LIKE || IS_TLCS870 || IS_TLCS870C || IS_TLCS870C1) // Only for the original Z80 is the addition faster than neg. SM83, 8080/8085 and TLCS-870(C)(C1) don't have neg.
-        emit3 (A_ADD, ASMOP_A, ASMOP_MONE);
-      else
-        emit3 (A_NEG, /*ASMOP_A*/0, 0); // Todo: Make eZ80 assembler support "neg a" instead of just "neg"!
+      // "if (IS_Z80||IS_SM83||IS_8080LIKE||IS_TLCS870||IS_TLCS870C||
+      // IS_TLCS870C1) ... else emit3 (A_NEG, ...);" simplified to just the
+      // ADD arm (IS_8080LIKE unconditionally true in this file, so the
+      // whole "||" chain is unconditionally true; i8080/8085 have no "neg"
+      // instruction anyway).
+      emit3 (A_ADD, ASMOP_A, ASMOP_MONE);
       emit3 (A_LD, ASMOP_A, ASMOP_ZERO);
     }
   emit3 (A_RLA, 0, 0);
