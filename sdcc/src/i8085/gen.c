@@ -3403,7 +3403,7 @@ setupPairFromSP (PAIR_ID id, int offset)
       return;
     }
 
-  if (id == PAIR_DE && !IS_SM83) // TODO: Could hl be in use for sm83, so it needs to be saved and restored?
+  if (id == PAIR_DE) // "&& !IS_SM83" dropped (unconditionally true in this file).
     emit3w (A_EX, ASMOP_DE, ASMOP_HL);
 
   if (offset < INT8MIN || offset > INT8MAX || id == PAIR_IY)
@@ -3428,22 +3428,18 @@ setupPairFromSP (PAIR_ID id, int offset)
     {
       wassert (id == PAIR_DE || id == PAIR_HL);
       emit2 ("!ldahlsp", offset);
-      if (IS_SM83)
-        cost (2, 12);
-      else
-        {
-          cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-          cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3 , 1, 1);
-        }
+      // "if (IS_SM83) cost (2, 12); else" dropped (unconditionally false in
+      // this file).
+      cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
+      cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3 , 1, 1);
     }
 
-  if (id == PAIR_DE && !IS_SM83)
+  // "if (id == PAIR_DE && !IS_SM83) {...} else if (id == PAIR_DE) {...}"
+  // simplified to just the first arm (IS_SM83 unconditionally false in
+  // this file, so "!IS_SM83" is unconditionally true, making the second
+  // "else if" unreachable).
+  if (id == PAIR_DE)
     emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-  else if (id == PAIR_DE)
-    {
-      genMovePairPair (PAIR_HL, PAIR_DE);
-      spillPair (PAIR_HL);
-    }
 
   if (_G.preserveCarry)
     {
@@ -6362,16 +6358,13 @@ _saveRegsForCall (const iCode *ic, bool saveHLifused, bool dontsaveIY)
       const bool push_bc = !isRegDead (B_IDX, ic) && !call_preserves_b || !isRegDead (C_IDX, ic) && !call_preserves_c;
       const bool push_de = !isRegDead (D_IDX, ic) && !call_preserves_d || !isRegDead (E_IDX, ic) && !call_preserves_e;
       const bool push_iy = !dontsaveIY && (!isRegDead (IYH_IDX, ic) || !isRegDead (IYL_IDX, ic));
-      const bool push_jk = (IS_R4K || IS_R5K || IS_R6K) && (!isRegDead (J_IDX, ic) || !isRegDead (K_IDX, ic));
-      const bool push_ix = FUNC_ISDYNAMICC (ftype) && !IS_SM83;
+      // "push_jk" removed: it was "(IS_R4K||IS_R5K||IS_R6K) && ...", so
+      // always false in this file, and the "if (push_jk) {push (ASMOP_JKHL,
+      // ...); ...}" arm it guarded (there is no jk pair on i8080/i8085) is
+      // unconditionally dead - removed.
+      const bool push_ix = FUNC_ISDYNAMICC (ftype); // "&& !IS_SM83" dropped (unconditionally true in this file).
 
-      if (push_jk) // there is no separate jk push instruction.
-        {
-          push (ASMOP_JKHL, 0, 4);
-          _G.stack.pushedJK = true;
-          _G.stack.pushedHL = true;
-        }
-      else if (push_hl)
+      if (push_hl)
         {
           push (ASMOP_HL, 0, 2);
           _G.stack.pushedHL = true;
