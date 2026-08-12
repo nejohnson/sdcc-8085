@@ -14174,14 +14174,13 @@ genUnpackBits (operand *result, int offset, int blen, int bstr)
           // signed bit-field: sign extension with 0x00 or 0xff
           emit3 (A_RLA, 0, 0);
 
-          if (!IS_SM83 && !IS_8080LIKE && !IS_TLCS870 && rsize == 2 && aopInReg (result->aop, offset, HL_IDX))
-            emit3w (A_SBC, ASMOP_HL, ASMOP_HL);
-          else
-            {
-              emit3 (A_SBC, ASMOP_A, ASMOP_A);
-              while (rsize--)
-                cheapMove (result->aop, offset++, ASMOP_A, 0, true);
-            }
+          // "if (!IS_SM83 && !IS_8080LIKE && !IS_TLCS870 && ...) emit3w
+          // (A_SBC, ASMOP_HL, ASMOP_HL); else" dropped (unconditionally
+          // false in this file - IS_8080LIKE is unconditionally true here,
+          // so "!IS_8080LIKE" is unconditionally false).
+          emit3 (A_SBC, ASMOP_A, ASMOP_A);
+          while (rsize--)
+            cheapMove (result->aop, offset++, ASMOP_A, 0, true);
         }
     }
 }
@@ -16809,23 +16808,18 @@ genBuiltInStrcpy (const iCode *ic, int nParams, operand **pparams)
     {
       symbol *tlbl = newiTempLabel (NULL);
       emitLabel (tlbl);
-      if (IS_8080LIKE) // No ldi: copy through A (sentinel is 0, so "or a,a" tests for NUL).
-        {
-          emit2 ("ld a, (hl)");
-          emit2 ("ld (de), a");
-          emit2 ("inc hl");
-          emit2 ("inc de");
-          emit2 ("or a, a");
-          emit2 ("jp NZ, !tlabel", labelKey2num (tlbl->key));
-        }
-      else
-        {
-          emit2 ("cp a, !*hl");
-          emit2 ("ldi");
-          emit2 ("jr nz, !tlabel", labelKey2num (tlbl->key));
-        }
+      // "if (IS_8080LIKE) {...} else {cp a, !*hl; ldi; jr nz, ...}"
+      // collapsed to just the IS_8080LIKE arm (IS_8080LIKE unconditionally
+      // true in this file). No ldi: copy through A (sentinel is 0, so
+      // "or a,a" tests for NUL).
+      emit2 ("ld a, (hl)");
+      emit2 ("ld (de), a");
+      emit2 ("inc hl");
+      emit2 ("inc de");
+      emit2 ("or a, a");
+      emit2 ("jp NZ, !tlabel", labelKey2num (tlbl->key));
     }
-  regalloc_dry_run_cost += (IS_8080LIKE ? 8 : 5);
+  regalloc_dry_run_cost += 8; // "(IS_8080LIKE ? 8 : 5)" simplified (IS_8080LIKE unconditionally true in this file).
 
   spillPair (PAIR_HL);
 
