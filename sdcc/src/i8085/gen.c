@@ -1392,15 +1392,14 @@ emit3Cost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, i
     case A_LD:
       ld_cost (op1, offset1, op2, offset2, true);
       return;
-    case A_LDD:
-    case A_LDI:
-      wassert (!IS_SM83 && !IS_TLCS870 && !IS_TLCS870C && !IS_TLCS870C1);
-      cost2 (2, 2, -1, -1, 16, 12, 10, 10, -1, 14, -1, -1, -1, 5, 4);
-      return;
-    case A_LDF:
-      wassert (IS_R4K || IS_R5K || IS_R6K);
-      cost (5, 13 + op1->type == AOP_FDIR);
-      return;
+    // "case A_LDD:"/"case A_LDI:" removed: no emit3/emit3_o call site
+    // anywhere in this file passes A_LDD or A_LDI (the only remaining
+    // reference, emit8080Ldi(), directly emits its own assembly/cost and
+    // never dispatches through here).
+    // "case A_LDF:" removed: it was gated by "wassert (IS_R4K || IS_R5K ||
+    // IS_R6K);" (unconditionally false in this file), and no emit3/emit3_o
+    // call site anywhere in this file passes A_LDF (i8080/i8085 have no
+    // far-pointer "ldf" instruction).
     case A_ADD:
     case A_ADC:
     case A_AND:
@@ -17616,11 +17615,10 @@ i8085_dryZ80iCode (iCode * ic)
   regalloc_dry_run_cost_bytes += regalloc_dry_run_cost;
   regalloc_dry_run_cost_states += regalloc_dry_run_cost * 4; // Assume 4 states per byte.
 
-  // Compensate for typically lower state count of some targets
-  if (IS_RAB || IS_TLCS90)
-    regalloc_dry_run_cost_states *= 2;
-  else if (IS_TLCS870 || IS_TLCS870C || IS_TLCS870C1 || IS_EZ80 || IS_R800)
-    regalloc_dry_run_cost_states *= 3;
+  // Dropped: a "compensate for typically lower state count of some targets"
+  // adjustment gated by IS_RAB/IS_TLCS90/IS_TLCS870/IS_TLCS870C/
+  // IS_TLCS870C1/IS_EZ80/IS_R800 (all unconditionally false in this file,
+  // so no adjustment ever applied).
 
   return (regalloc_dry_run_cost_bytes + regalloc_dry_run_cost_states * ic->count / state_cost_divider);
 }
