@@ -6221,14 +6221,12 @@ restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand
             poppairwithsavedreg (PAIR_DE, D_IDX, B_IDX);
           else if (d_live)
             poppairwithsavedreg (PAIR_DE, D_IDX, -1);
-          else if (e_live && !a_live && !IS_TLCS90) // TLCS-90 has interrupt settings in f, so we can't pop af unless we did push af before.
+          else if (e_live && !a_live) // "&& !IS_TLCS90" dropped (unconditionally true in this file); this also made the next "else if (e_live && !a_live) poppairwithsavedreg (PAIR_DE, E_IDX, A_IDX);" branch unreachable (identical, now-redundant condition) - removed.
             {
               /* Only restore D */
               _pop (PAIR_AF);
               emit3 (A_LD, ASMOP_D, ASMOP_A);
             }
-          else if (e_live && !a_live)
-            poppairwithsavedreg (PAIR_DE, E_IDX, A_IDX);
           else if (e_live && !l_live)
             poppairwithsavedreg (PAIR_DE, E_IDX, L_IDX);
           else if (e_live && !c_live)
@@ -6251,14 +6249,12 @@ restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand
             poppairwithsavedreg (PAIR_BC, B_IDX, L_IDX);
           else if (b_live)
             poppairwithsavedreg (PAIR_BC, B_IDX, -1);
-          else if (c_live && !a_live && !IS_TLCS90)
+          else if (c_live && !a_live) // "&& !IS_TLCS90" dropped (unconditionally true in this file); this also made the next "else if (c_live && !a_live) poppairwithsavedreg (PAIR_BC, C_IDX, A_IDX);" branch unreachable (identical, now-redundant condition) - removed.
             {
               /* Only restore B */
               _pop (PAIR_AF);
               emit3 (A_LD, ASMOP_B, ASMOP_A);
             }
-          else if (c_live && !a_live)
-            poppairwithsavedreg (PAIR_BC, C_IDX, A_IDX);
           else if (c_live && !l_live)
             poppairwithsavedreg (PAIR_BC, C_IDX, L_IDX);
           else if (c_live && !h_live)
@@ -6293,14 +6289,12 @@ restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand
         poppairwithsavedreg (PAIR_HL, H_IDX, E_IDX);
       else if (h_live)
         poppairwithsavedreg (PAIR_HL, H_IDX, -1);
-      else if (l_live && !a_live && !IS_TLCS90)
+      else if (l_live && !a_live) // "&& !IS_TLCS90" dropped (unconditionally true in this file); this also made the next "else if (l_live && !a_live) poppairwithsavedreg (PAIR_HL, L_IDX, A_IDX);" branch unreachable (identical, now-redundant condition) - removed.
         {
           /* Only restore H */
           _pop (PAIR_AF);
           emit3 (A_LD, ASMOP_H, ASMOP_A);
         }
-      else if (l_live&& !a_live )
-        poppairwithsavedreg (PAIR_HL, L_IDX, A_IDX);
       else if (l_live && !bc && !c_live )
         poppairwithsavedreg (PAIR_HL, L_IDX, C_IDX);
       else if (l_live && !de && !e_live )
@@ -8341,42 +8335,44 @@ setupToPreserveCarry (asmop *result, asmop *left, asmop *right)
 {
   wassert (left && right);
 
-  if (!IS_SM83)
+  // "if (!IS_SM83) {...}" unwrapped into the whole function body
+  // (unconditionally true in this file).
+  if (couldDestroyCarry (right) && couldDestroyCarry (result))
     {
-      if (couldDestroyCarry (right) && couldDestroyCarry (result))
+      shiftIntoPair (PAIR_HL, right);
+      /* check result again, in case right == result */
+      if (couldDestroyCarry (result))
         {
-          shiftIntoPair (PAIR_HL, right);
-          /* check result again, in case right == result */
-          if (couldDestroyCarry (result))
-            {
-              /* 8080/8085 have no IY, so the result would be parked in DE - but
-                 if a register operand lives in D/E that shift would clobber it
-                 (seen in compare-1: a signed compare with one operand in DE).
-                 A compare produces its result in A (the sign fixup) and stores
-                 it after the carry is already consumed, so leaving it in memory
-                 and addressing it via HL later needs no DE preservation. */
-              if (IS_8080LIKE &&
-                (aopInReg (left, 0, E_IDX) || aopInReg (left, 0, D_IDX) ||
-                 aopInReg (right, 0, E_IDX) || aopInReg (right, 0, D_IDX)))
-                ;
-              else if (couldDestroyCarry (left))
-                shiftIntoPair (PAIR_DE, result);
-              else
-                shiftIntoPair (IS_8080LIKE ? PAIR_DE : PAIR_IY, result); // 8080/8085 have no IY
-            }
-        }
-      else if (couldDestroyCarry (right))
-        {
-          if (getPairId (result) == PAIR_HL)
-            _G.preserveCarry = TRUE;
+          /* 8080/8085 have no IY, so the result would be parked in DE - but
+             if a register operand lives in D/E that shift would clobber it
+             (seen in compare-1: a signed compare with one operand in DE).
+             A compare produces its result in A (the sign fixup) and stores
+             it after the carry is already consumed, so leaving it in memory
+             and addressing it via HL later needs no DE preservation. */
+          if (aopInReg (left, 0, E_IDX) || aopInReg (left, 0, D_IDX) ||
+              aopInReg (right, 0, E_IDX) || aopInReg (right, 0, D_IDX)) // "IS_8080LIKE &&" dropped (unconditionally true in this file).
+            ;
           else
-            shiftIntoPair (PAIR_HL, right);
+            // "if (couldDestroyCarry (left)) shiftIntoPair (PAIR_DE, result);
+            // else shiftIntoPair (IS_8080LIKE ? PAIR_DE : PAIR_IY, result);"
+            // simplified: once "IS_8080LIKE ? PAIR_DE : PAIR_IY" collapses to
+            // the unconditionally-true IS_8080LIKE arm (8080/8085 have no
+            // IY), both arms of the couldDestroyCarry(left) check become
+            // identical, making the check itself redundant.
+            shiftIntoPair (PAIR_DE, result);
         }
-      else if (couldDestroyCarry (result))
-        {
-          if (!requiresHL (left))
-            shiftIntoPair (PAIR_HL, result);
-        }
+    }
+  else if (couldDestroyCarry (right))
+    {
+      if (getPairId (result) == PAIR_HL)
+        _G.preserveCarry = TRUE;
+      else
+        shiftIntoPair (PAIR_HL, right);
+    }
+  else if (couldDestroyCarry (result))
+    {
+      if (!requiresHL (left))
+        shiftIntoPair (PAIR_HL, result);
     }
 }
 
