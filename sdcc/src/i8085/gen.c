@@ -3628,10 +3628,8 @@ aopGet (asmop *aop, int offset, bool bit16)
                 case 2:
                   if (aop->banked)
                     dbuf_tprintf (&dbuf, "!bankimmeds", aop->aopu.aop_immd);
-                  else if (IS_RAB || IS_TLCS90 || IS_EZ80)
-                    dbuf_tprintf (&dbuf, "#(%s >> 16)", aop->aopu.aop_immd); // Rabbit __xdata / __xconst.
                   else
-                    dbuf_tprintf (&dbuf, "#0", aop->aopu.aop_immd); // Rabbit __xdata / __xconst.
+                    dbuf_tprintf (&dbuf, "#0", aop->aopu.aop_immd); // "else if (IS_RAB||IS_TLCS90||IS_EZ80) ..." dropped (unconditionally false in this file).
                   break;
 
                 case 1:
@@ -3664,24 +3662,9 @@ aopGet (asmop *aop, int offset, bool bit16)
 
         case AOP_SFR:
           wassertl (!IS_TLCS90, "TLCS-90 does not have a separate I/O space");
-          if (IS_SM83)
-            {
-              emit2 ("!rldh", aop->aopu.aop_dir, offset);
-              cost (2, 12);
-              dbuf_append_char (&dbuf, 'a');
-            }
-          else if (IS_RAB)
-            {
-              emit2 ("ioi");
-              // todo cost
-              emit2 ("ld a, !mems", aop->aopu.aop_dir);
-              cost2 (3, 4, -1, 4, 13, 12, 9, 9, 16, 10, -1, 5, 5, 4, 4);
-              emit2 ("nop");    /* Workaround for Rabbit 2000 hardware bug. see TN302 for details. */
-              // todo cost
-              dbuf_append_char (&dbuf, 'a');
-            }
-          else
-            {
+          // "if (IS_SM83) {...} else if (IS_RAB) {...} else" dropped
+          // (IS_SM83 and IS_RAB both unconditionally false in this file).
+          {
               /*.p.t.20030716 handling for i/o port read access for Z80 */
               if (aop->banked)
                 {
@@ -3703,7 +3686,7 @@ aopGet (asmop *aop, int offset, bool bit16)
                 }
 
               dbuf_append_char (&dbuf, 'a');
-            }
+          }
           break;
 
         case AOP_REG:
@@ -16202,14 +16185,8 @@ genCast (const iCode *ic)
     }
 
   /* casting to bool */
-  if (IS_BOOL (resulttype) && IS_RAB && right->aop->size == 2 &&
-    (aopInReg (right->aop, 0, HL_IDX) && isPairDead (PAIR_HL, ic) || aopInReg (right->aop, 0, IY_IDX) && isPairDead (PAIR_IY, ic)))
-    {
-      bool iy = aopInReg (right->aop, 0, IY_IDX);
-      emit2 ("bool %s", _pairs[getPairId (right->aop)].name);
-      cheapMove (result->aop, 0, iy ? ASMOP_IYL : ASMOP_L, 0, isRegDead (A_IDX, ic));
-      goto release;
-    }
+  // Dropped: an "IS_BOOL (resulttype) && IS_RAB && ..." "bool hl/iy" arm
+  // (unconditionally dead - IS_RAB unconditionally false in this file).
   if (IS_BOOL (resulttype))
     {
       if (!isRegDead (A_IDX, ic))
@@ -16220,8 +16197,10 @@ genCast (const iCode *ic)
     }
 
   // if they are the same size or less
-  if (result->aop->size <= right->aop->size &&
-    !(IS_RAB && IS_FARPTR (righttype))) // Except Rabbit pointers to __far, which needs special handling.
+  // "&& !(IS_RAB && IS_FARPTR (righttype))" dropped (IS_RAB unconditionally
+  // false in this file, so "IS_RAB && ..." is unconditionally false and its
+  // negation is unconditionally true).
+  if (result->aop->size <= right->aop->size)
     {
       genAssign (ic);
       goto release;
@@ -16235,80 +16214,16 @@ genCast (const iCode *ic)
   /* Unsigned or not an integral type - fill with zeros */
   if (IS_BOOL (righttype) || !IS_SPEC (righttype) || SPEC_USIGN (righttype) || right->aop->type == AOP_CRY)
     {
-      if (IS_RAB && right->aop->size == 1 && result->aop->size == 2 && aopInReg (result->aop, 0, HL_IDX) &&
-        (aopInReg (right->aop, 0, A_IDX) || aopInReg (right->aop, 0, B_IDX) || aopInReg (right->aop, 0, C_IDX) || aopInReg (right->aop, 0, D_IDX) || aopInReg (right->aop, 0, E_IDX)))
-        {
-          emit3w (A_BOOL, ASMOP_HL, 0);
-          emit3 (A_LD, ASMOP_L, right->aop);
-        }
-      else if (IS_RAB && IS_FARPTR (resulttype) && IS_PTR (righttype) && !IS_FARPTR (righttype) &&
-        !(!right->aop->valinfo.anything && right->aop->valinfo.max < options.data_loc)) // If we know we are not in ram, just fall through to unconditional zero-extension.
-        {
-          genMove_o (result->aop, 0, right->aop, 0, right->aop->size, !surviving_a, isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic), true);
-          surviving_a |= (result->aop->regs[A_IDX] >= 0 && result->aop->regs[A_IDX] < right->aop->size);
-          if (surviving_a && !pushed_a)
-            _push (PAIR_AF), pushed_a = true;
-
-          // Mapping flash into __far space is just zero extension, mapping RAM is harder.
-          // This assumes that data RAM is always at physical address 0x80000.
-          symbol *tlbl = NULL;
-          if (right->aop->valinfo.anything || right->aop->valinfo.min < options.data_loc) // Test at run-time if we don't know that the pointer points to RAM.
-            {
-              tlbl = regalloc_dry_run ? NULL : newiTempLabel (NULL);
-              cheapMove (ASMOP_A, 0, result->aop, 1, true);
-              emit2 ("cp a, !immedbyte", (options.data_loc >> 8));
-              cost (2, 4);
-              emit3 (A_LD, ASMOP_A, ASMOP_ZERO);
-              emitJP (tlbl, "c", 0.5f, true);
-            }
-          cheapMove (ASMOP_A, 0, result->aop, 1, true);
-          emit2 ("sub a, !immedbyte", (options.data_loc >> 8));
-          cost (2, 4);
-          cheapMove (result->aop, 1, ASMOP_A, 0, true);
-          emit2 ("ld a, !immedbyte", 0x08);
-          cost (2, 4);
-          emitLabel (tlbl);
-          cheapMove (result->aop, 2, ASMOP_A, 0, true);
-        }
-      else if (IS_RAB && IS_PTR (resulttype) && !IS_FARPTR (resulttype) && IS_FARPTR (righttype) &&
-        !(!right->aop->valinfo.anything && right->aop->valinfo.max < 0x80000)) // If we know we are not in ram, just fall through to unconditional zero-extension. This assumes that data RAM is always at physical address 0x80000.
-        {
-          symbol *tlbl = regalloc_dry_run ? NULL : newiTempLabel (NULL);
-          if (aopInReg (right->aop, 2, A_IDX) || aopInReg (right->aop, 2, B_IDX) || aopInReg (right->aop, 2, C_IDX) || aopInReg (right->aop, 2, D_IDX) || aopInReg (right->aop, 2, E_IDX) || aopInReg (right->aop, 2, H_IDX) || aopInReg (right->aop, 2, L_IDX))
-            {
-              emit2 ("bit 3, %s", aopGet (right->aop, 2, false));
-              cost (2, 4);
-            }
-          else
-            {
-              if (right->aop->regs[A_IDX] >= 0 && right->aop->regs[A_IDX] < 2)
-                UNIMPLEMENTED;
-              if (surviving_a && !pushed_a)
-                _push (PAIR_AF), pushed_a = true;
-              cheapMove (ASMOP_A, 0, right->aop, 2, true);
-              emit2 ("bit 3, a");
-              cost (2, 4);
-            }
-          genMove_o (result->aop, 0, right->aop, 0, 2, !surviving_a || pushed_a, isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic), false);
-          surviving_a |= (result->aop->regs[A_IDX] >= 0 && result->aop->regs[A_IDX] < result->aop->size);
-          if (surviving_a && !pushed_a)
-            _push (PAIR_AF), pushed_a = true;
-          emitJP (tlbl, "z", 0.5f, true);
-          cheapMove (ASMOP_A, 0, result->aop, 1, true);
-          emit2 ("add a, !immedbyte", (options.data_loc >> 8));
-          cost (2, 4);
-          cheapMove (result->aop, 1, ASMOP_A, 0, true);
-          emitLabel (tlbl);
-        }
-      else
-        {
-          genMove_o (result->aop, 0, right->aop, 0, right->aop->size, !surviving_a, isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic), true);
-          surviving_a |= (result->aop->regs[A_IDX] >= 0 && result->aop->regs[A_IDX] < right->aop->size);
-          bool hl_dead = isPairDead (PAIR_HL, ic) && (result->aop->regs[L_IDX] < 0 || result->aop->regs[L_IDX] >= right->aop->size) && (result->aop->regs[H_IDX] < 0 || result->aop->regs[H_IDX] >= right->aop->size);
-          bool de_dead = isPairDead (PAIR_DE, ic) && (result->aop->regs[E_IDX] < 0 || result->aop->regs[E_IDX] >= right->aop->size) && (result->aop->regs[D_IDX] < 0 || result->aop->regs[D_IDX] >= right->aop->size);
-          bool iy_dead = isPairDead (PAIR_DE, ic) && (result->aop->regs[IYL_IDX] < 0 || result->aop->regs[IYL_IDX] >= right->aop->size) && (result->aop->regs[IYH_IDX] < 0 || result->aop->regs[IYH_IDX] >= right->aop->size);
-          genMove_o (result->aop, right->aop->size, ASMOP_ZERO, 0, size, !surviving_a, hl_dead, de_dead, iy_dead, true);
-        }
+      // Dropped: an IS_RAB-gated "bool hl; ld l, ..." arm, an IS_RAB-gated
+      // __far-pointer flash-vs-RAM zero-extension arm, and an IS_RAB-gated
+      // __far-to-near-pointer zero-extension-with-bit-3-check arm - all
+      // unconditionally dead in this file (IS_RAB unconditionally false).
+      genMove_o (result->aop, 0, right->aop, 0, right->aop->size, !surviving_a, isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic), true);
+      surviving_a |= (result->aop->regs[A_IDX] >= 0 && result->aop->regs[A_IDX] < right->aop->size);
+      bool hl_dead = isPairDead (PAIR_HL, ic) && (result->aop->regs[L_IDX] < 0 || result->aop->regs[L_IDX] >= right->aop->size) && (result->aop->regs[H_IDX] < 0 || result->aop->regs[H_IDX] >= right->aop->size);
+      bool de_dead = isPairDead (PAIR_DE, ic) && (result->aop->regs[E_IDX] < 0 || result->aop->regs[E_IDX] >= right->aop->size) && (result->aop->regs[D_IDX] < 0 || result->aop->regs[D_IDX] >= right->aop->size);
+      bool iy_dead = isPairDead (PAIR_DE, ic) && (result->aop->regs[IYL_IDX] < 0 || result->aop->regs[IYL_IDX] >= right->aop->size) && (result->aop->regs[IYH_IDX] < 0 || result->aop->regs[IYH_IDX] >= right->aop->size);
+      genMove_o (result->aop, right->aop->size, ASMOP_ZERO, 0, size, !surviving_a, hl_dead, de_dead, iy_dead, true);
     }
   else
     {
@@ -16337,21 +16252,10 @@ genCast (const iCode *ic)
       /* we need to extend the sign */
       emit3 (A_RLCA, 0, 0);
 
-      if (!IS_SM83 && !IS_8080LIKE && !maskedtopbyte && hl_dead &&
-        (size == 2 && (aopInReg (result->aop, offset, HL_IDX) || aopInReg (result->aop, offset, DE_IDX) || result->aop->type == AOP_IY) ||
-        (IS_RAB || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1 || IS_EZ80) && size >= 2 && result->aop->type == AOP_STK)) // Rabbit, most TLCS and eZ80 have efficient hl-to-stack store.
-        {
-          emit3w (A_SBC, ASMOP_HL, ASMOP_HL);
-          spillPair (PAIR_HL);
-          while (size > 0)
-            {
-              genMove_o (result->aop, offset, ASMOP_HL, 0, size >= 2 ? 2 : 1, true, true, de_dead, iy_dead, false);
-              offset += 2;
-              size -= 2;
-            }
-        }
-      else
-        {
+      // Dropped: a "!IS_SM83 && !IS_8080LIKE && ..." hl-to-stack sign-extend
+      // fast path (unconditionally dead - IS_8080LIKE is unconditionally
+      // true in this file, so "!IS_8080LIKE" is unconditionally false).
+      {
           unsigned topbytemask = (IS_BITINT (resulttype) && (SPEC_BITINTWIDTH (resulttype) % 8)) ?
             (0xff >> (8 - SPEC_BITINTWIDTH (resulttype) % 8)) : 0xff;
 
@@ -16365,7 +16269,7 @@ genCast (const iCode *ic)
                 }
               cheapMove (result->aop, offset++, ASMOP_A, 0, true);
             }
-        }
+      }
     }
 
 release:
