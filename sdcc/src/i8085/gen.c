@@ -10019,22 +10019,19 @@ genMinus (const iCode *ic, const iCode *ifx)
     {
       wassert (ic->result->aop->size == 1 && IS_OP_LITERAL (ic->right) && ullFromVal (OP_VALUE (ic->right)) == 1);
 
-      if (ic->result->aop->type == AOP_REG && (!aopInReg (ic->result->aop, 0, IYL_IDX) && !aopInReg (ic->result->aop, 0, IYH_IDX) || HAS_IYL_INST))
+      if (ic->result->aop->type == AOP_REG && (!aopInReg (ic->result->aop, 0, IYL_IDX) && !aopInReg (ic->result->aop, 0, IYH_IDX))) // "|| HAS_IYL_INST" dropped (unconditionally false in this file).
         {
           cheapMove (ic->result->aop, 0, ic->left->aop, 0, isRegDead (A_IDX, ic));
           emit3 (A_DEC, ic->result->aop, 0);
-          if (!IS_SM83 && aopInReg (ic->result->aop, 0, B_IDX) && IC_TRUE (ifx)) // This jump can likely be optimized to djnz.
+          if (aopInReg (ic->result->aop, 0, B_IDX) && IC_TRUE (ifx)) // This jump can likely be optimized to djnz. "!IS_SM83 &&" dropped (unconditionally true in this file).
             {
               // cost2 can't handle negative costs, so we do this manually.
-              regalloc_dry_run_cost_bytes--; 
-              if (IS_Z80 || IS_Z80N || IS_Z180)
-                regalloc_dry_run_cost_states += -3.0 * regalloc_dry_run_state_scale;
-              else if (IS_RAB)
-                regalloc_dry_run_cost_states += -2.0 * regalloc_dry_run_state_scale;
-              else if (IS_TLCS90)
-                regalloc_dry_run_cost_states += +2.0 * regalloc_dry_run_state_scale; // For the TLCS-90, djnz is slower (typically still worth it for code size, though).
-              else if (IS_EZ80 || IS_R800)
-                regalloc_dry_run_cost_states += -1.0 * regalloc_dry_run_state_scale;
+              regalloc_dry_run_cost_bytes--;
+              // Dropped: a cost-model adjustment chain gated by IS_Z80/
+              // IS_Z80N/IS_Z180/IS_RAB/IS_TLCS90/IS_EZ80/IS_R800 (all
+              // unconditionally false in this file, so no adjustment ever
+              // applied - which matches i8080/i8085 correctly, since they
+              // have no djnz-timing quirks to model here).
             }
         }
       else
@@ -10525,130 +10522,15 @@ genMult (iCode *ic)
   val = (int) ulFromVal (IC_RIGHT (ic)->aop->aopu.aop_lit);
   wassertl (val != 1, "Can't multiply by 1");
 
-  // Try to use mlt.
-  if ((IS_Z180 || IS_EZ80 || IS_Z80N) && ic->left->aop->size == 1 && ic->right->aop->size == 1 &&
-    (byteResult || SPEC_USIGN (getSpec (operandType (IC_LEFT (ic)))) && SPEC_USIGN (getSpec (operandType (ic->right)))) ||
-    (IS_Z80N || IS_Z180 && val >= 5 || IS_EZ80 && val >= 5 && (!optimize.codeSpeed || val >= 13)) && // eZ80 has very fast add hl, rr.
-      ic->left->aop->size == 2 && aopIsLitVal (ic->left->aop, 1, 1, 0x00) && val > 0 && val <= 255)
-    {
-      pair = getPairId (IC_RESULT (ic)->aop);
-      if (pair == PAIR_INVALID && IC_RESULT (ic)->aop->type == AOP_REG)
-        {
-          if (isRegDead (H_IDX, ic) && IC_RESULT (ic)->aop->aopu.aop_reg[0]->rIdx == L_IDX)
-            pair = PAIR_HL;
-          else if (isRegDead (D_IDX, ic) && IC_RESULT (ic)->aop->aopu.aop_reg[0]->rIdx == E_IDX)
-            pair = PAIR_HL;
-          else if (isRegDead (B_IDX, ic) && IC_RESULT (ic)->aop->aopu.aop_reg[0]->rIdx == C_IDX)
-            pair = PAIR_HL;
-        }
-      else if (pair == PAIR_INVALID)
-        pair = getDeadPairId (ic);
-
-      if (pair == PAIR_INVALID)
-        {
-          if (!(IC_RESULT (ic)->aop->type == AOP_REG &&
-            (IC_RESULT (ic)->aop->aopu.aop_reg[0]->rIdx == L_IDX || IC_RESULT (ic)->aop->aopu.aop_reg[0]->rIdx == H_IDX ||
-            !byteResult && (IC_RESULT (ic)->aop->aopu.aop_reg[1]->rIdx == L_IDX || IC_RESULT (ic)->aop->aopu.aop_reg[1]->rIdx == H_IDX))))
-            pair = PAIR_HL;
-          else if (!(IC_RESULT (ic)->aop->type == AOP_REG &&
-            (IC_RESULT (ic)->aop->aopu.aop_reg[0]->rIdx == E_IDX || IC_RESULT (ic)->aop->aopu.aop_reg[0]->rIdx == D_IDX ||
-            !byteResult && (IC_RESULT (ic)->aop->aopu.aop_reg[1]->rIdx == E_IDX || IC_RESULT (ic)->aop->aopu.aop_reg[1]->rIdx == D_IDX))))
-            pair = PAIR_DE;
-          else
-            pair = PAIR_BC;
-        }
-
-      // For 8x8->8 under low register pressure, the standard approach is better than the mlt one.
-      if (byteResult && val <= 6 && isPairDead (PAIR_HL, ic) && (isPairDead (PAIR_DE, ic) || isPairDead (PAIR_BC, ic)) &&
-        !(IC_RESULT (ic)->aop->type == AOP_REG && (IC_RESULT (ic)->aop->aopu.aop_reg[0]->rIdx == E_IDX || IC_RESULT (ic)->aop->aopu.aop_reg[0]->rIdx == C_IDX)))
-        goto no_mlt;
-
-      if (IS_Z80N && pair != PAIR_DE)
-        goto no_mlt;
-
-      asmop *pairop = pair == PAIR_HL ? ASMOP_HL : (pair == PAIR_DE ? ASMOP_DE : ASMOP_BC);
-
-      if (!isPairDead (pair, ic))
-        _push (pair);
-
-      switch (pair)
-        {
-        case PAIR_HL:
-          if (IC_LEFT (ic)->aop->type == AOP_REG && IC_LEFT (ic)->aop->aopu.aop_reg[0]->rIdx == H_IDX)
-            cheapMove (ASMOP_L, 0, IC_RIGHT (ic)->aop, 0, true);
-          else
-            {
-              cheapMove (ASMOP_L, 0, IC_LEFT (ic)->aop, 0, true);
-              cheapMove (ASMOP_H, 0, IC_RIGHT (ic)->aop, 0, true);
-            }
-          break;
-        case PAIR_DE:
-          if (IC_LEFT (ic)->aop->type == AOP_REG && IC_LEFT (ic)->aop->aopu.aop_reg[0]->rIdx == D_IDX)
-            cheapMove (ASMOP_E, 0, IC_RIGHT (ic)->aop, 0, true);
-          else
-            {
-              cheapMove (ASMOP_E, 0, IC_LEFT (ic)->aop, 0, true);
-              cheapMove (ASMOP_D, 0, IC_RIGHT (ic)->aop, 0, true);
-            }
-          break;
-        default:
-          wassert (pair == PAIR_BC);
-          if (IC_LEFT (ic)->aop->type == AOP_REG && IC_LEFT (ic)->aop->aopu.aop_reg[0]->rIdx == B_IDX)
-            cheapMove (ASMOP_C, 0, IC_RIGHT (ic)->aop, 0, true);
-          else
-            {
-              cheapMove (ASMOP_C, 0, IC_LEFT (ic)->aop, 0, true);
-              cheapMove (ASMOP_B, 0, IC_RIGHT (ic)->aop, 0, true);
-            }
-          break;
-        }
-
-      emit2 ("mlt %s", _pairs[pair].name);
-      cost2 (2, -1, 2, 2, 8, 17, -1, -1, -1, -1, 8, 8, 13, 6, -1);
-
-      genMove_o (IC_RESULT (ic)->aop, 0, pairop, 0, 2 - byteResult, true, pair == PAIR_HL || isPairDead (PAIR_HL, ic), pair == PAIR_DE || isPairDead (PAIR_DE, ic), true, true);
-
-      if (!isPairDead (pair, ic))
-        _pop (pair);
-
-      goto release;
-    }
-no_mlt:
-
-  if (IS_RAB && !IS_R2K && isPairDead(PAIR_DE, ic) && isPairDead(PAIR_BC, ic) && // mul might be cheaper than a series of additions. mul is broken on the original Rabbit 2000.
-    !byteResult && (IC_LEFT (ic)->aop->size > 1 || SPEC_USIGN (getSpec (operandType (IC_LEFT (ic))))))
-    {
-      int num_add = 0;
-      bool active = false;
-      unsigned int i = val;
-      for (int count = 0; count < 16; count++)
-        {
-          if (count != 0 && active)
-            num_add++;
-          if (i & 0x8000u)
-            {
-              active = true;
-              num_add += active;
-            }
-          i <<= 1;
-        }
-
-      if(num_add > (optimize.codeSize ? 4 : 6))
-        {
-          if (getPairId (IC_LEFT (ic)->aop) == PAIR_BC)
-            fetchPair (PAIR_DE, IC_RIGHT (ic)->aop);
-          else
-            {
-              fetchPairLong (PAIR_DE, IC_LEFT(ic)->aop, ic, 0);
-              fetchPair (PAIR_BC, IC_RIGHT (ic)->aop);
-            }
-          emit2 ("mul");
-          cost (1, 12);
-          spillPair (PAIR_HL);
-          genMove (IC_RESULT (ic)->aop, ASMOP_BC, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
-          goto release;
-        }
-    }
+  // Dropped: an "(IS_Z180||IS_EZ80||IS_Z80N) && ... || (IS_Z80N||IS_Z180 &&
+  // ...||IS_EZ80 && ...) && ..."-gated mlt-instruction fast path
+  // (unconditionally dead - IS_Z180, IS_EZ80, and IS_Z80N are all
+  // unconditionally false in this file), including its "no_mlt:" label
+  // (only reachable via "goto no_mlt;" statements that were inside this
+  // now-removed block).
+  // Dropped: an "IS_RAB && !IS_R2K && ..." "mul" hardware-multiply-
+  // instruction arm (unconditionally dead - IS_RAB unconditionally false
+  // in this file).
 
   pair = PAIR_DE;
   if (getPairId (IC_LEFT (ic)->aop) == PAIR_BC ||
@@ -13158,17 +13040,9 @@ genRot1 (const iCode *ic)
 
   int s = operandLitValueUll (right) % 8;
   
-  if (IS_SM83 && s == 4 && result->aop->type == AOP_REG)
-    {
-      cheapMove (result->aop, 0, left->aop, 0, true);
-      emit3 (A_SWAP, result->aop, 0);
-    }
-  else if (IS_SM83 && s == 4 && left->aop->type == AOP_REG && !bitVectBitValue (ic->rSurv, left->aop->aopu.aop_reg[0]->rIdx))
-    {
-      emit3 (A_SWAP, left->aop, 0);
-      cheapMove (result->aop, 0, left->aop, 0, true);
-    }        
-  else if ((s == 1 || s == 7) && result->aop->type == AOP_REG && !aopInReg (result->aop, 0, A_IDX) && !(aopInReg (left->aop, 0, A_IDX) && isRegDead (A_IDX, ic)))
+  // Dropped: two IS_SM83-gated "swap" arms (unconditionally dead - IS_SM83
+  // unconditionally false in this file).
+  if ((s == 1 || s == 7) && result->aop->type == AOP_REG && !aopInReg (result->aop, 0, A_IDX) && !(aopInReg (left->aop, 0, A_IDX) && isRegDead (A_IDX, ic)))
     {
       cheapMove (result->aop, 0, left->aop, 0, true);
       emit3 (s == 1 ? A_RLC : A_RRC, result->aop, 0);
@@ -13187,44 +13061,13 @@ genRot1 (const iCode *ic)
       while (s--)
         emit3w (A_ADD, ASMOP_HL, ASMOP_HL);
     }
-  else if (IS_RAB && (s == 1 && aopInReg (result->aop, 0, D_IDX) && isRegDead (E_IDX, ic) || s == 7 && aopInReg (result->aop, 0, E_IDX) && isRegDead (D_IDX, ic)) &&
-    (aopInReg (left->aop, 0, D_IDX) || aopInReg (left->aop, 0, E_IDX)))
-    {
-      if (aopInReg (left->aop, 0, D_IDX))
-        emit3_o (A_LD, ASMOP_DE, 0, ASMOP_DE, 1);
-      else
-        emit3_o (A_LD, ASMOP_DE, 1, ASMOP_DE, 0);
-      if (s == 1)
-        emit2 ("rl de");
-      else
-        emit2 ("rr de");
-      cost (1, 2);
-    }
-  else if (s == 4 && !IS_SM83 && !IS_RAB && !IS_8080LIKE && (aopInReg (left->aop, 0, A_IDX) || aopSame (result->aop, 0, left->aop, 0, 1)) &&
-    (result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY) && isPairDead (PAIR_HL, ic))
-    {
-      if (!isRegDead (A_IDX, ic))
-        _push (PAIR_AF);
-      if (!aopSame (result->aop, 0, left->aop, 0, 1))
-        cheapMove (result->aop, 0, ASMOP_A, 0, false);
-      else
-        cheapMove (ASMOP_A, 0, result->aop, 0, true);
-      pointPairToAop (PAIR_HL, result->aop, 0);
-      emit3 (A_RRD, 0, 0);
-      if (!isRegDead (A_IDX, ic))
-        _pop (PAIR_AF);
-    }
-  else if ((s == 1 || s == 7) && !IS_8080LIKE && aopSame (result->aop, 0, left->aop, 0, 1) &&
-    (result->aop->type == AOP_EXSTK || result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY) && isPairDead (PAIR_HL, ic))
-    {
-      pointPairToAop (PAIR_HL, result->aop, 0);
-      emit2 (s == 1 ? "rlc (hl)" : "rrc (hl)");
-      cost2 (2, 2, -1, -1, 15, 6, 10, 10, 16, 8, -1, -1, -1, 5, 5);
-    }
-  else if ((s == 1 || s == 7) && aopSame (result->aop, 0, left->aop, 0, 1) && result->aop->type == AOP_STK && !IS_SM83 && !IS_8080LIKE)
-    {
-      emit3 (s == 1 ? A_RLC : A_RRC, result->aop, 0);
-    }
+  // Dropped: an IS_RAB-gated "rl de"/"rr de" arm, a "s == 4 && !IS_SM83 &&
+  // !IS_RAB && !IS_8080LIKE && ..." RRD-based arm, an "(s==1||s==7) &&
+  // !IS_8080LIKE && ..." "rlc (hl)"/"rrc (hl)" arm, and an "(s==1||s==7) &&
+  // ... && !IS_SM83 && !IS_8080LIKE" stack-operand arm - all unconditionally
+  // dead in this file (IS_8080LIKE is unconditionally true in this file, so
+  // "!IS_8080LIKE" is unconditionally false; IS_RAB and IS_SM83 are both
+  // unconditionally false).
   else
     {
       if (!isRegDead (A_IDX, ic))
@@ -13950,27 +13793,12 @@ genrshOne (operand *result, operand *left, int shCount, int is_signed, const iCo
 
   bool a_dead = isRegDead (A_IDX, ic);
 
-  if ((IS_Z180 || IS_EZ80 || IS_Z80N) && !is_signed && shCount >= 3 && shCount <= 6 + a_dead && // Try to use mlt.
-    (!IS_Z80N && aopInReg (result->aop, 0, B_IDX) && isPairDead(PAIR_BC, ic) || aopInReg (result->aop, 0, D_IDX) && isPairDead(PAIR_DE, ic) || !IS_Z80N && aopInReg (result->aop, 0, H_IDX) && isPairDead(PAIR_HL, ic)))
-    {
-      PAIR_ID pair = aopInReg (result->aop, 0, B_IDX) ? PAIR_BC : (aopInReg (result->aop, 0, D_IDX) ? PAIR_DE : PAIR_HL);
-      bool top = aopInReg (left->aop, 0, _pairs[pair].h_idx);
-      if (!top)
-        cheapMove (pair == PAIR_BC ? ASMOP_C : (pair == PAIR_DE ? ASMOP_E : ASMOP_L), 0, left->aop, 0, a_dead);
-
-      emit2 ("ld %s, !immed%d", top ? _pairs[pair].l : _pairs[pair].h, 1 << (8 - shCount));
-      cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-      emit2 ("mlt %s", _pairs[pair].name);
-      cost2 (2, -1, 2, 2, 8, 17, -1, -1, -1, -1, 8, 8, 13, 6, -1);
-    }
-  else if (!IS_SM83 && !IS_RAB && !IS_8080LIKE && !is_signed && aopSame (result->aop, 0, left->aop, 0, 1) && shCount == 4 && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
-    (result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY))
-    {
-      emit3 (A_XOR, ASMOP_A, ASMOP_A);
-      pointPairToAop (PAIR_HL, result->aop, 0);
-      emit3 (A_RRD, 0, 0);
-    }
-  else if (!is_signed && // Shifting in the accumulator is cheap for unsigned operands.
+  // Dropped: an "(IS_Z180||IS_EZ80||IS_Z80N) && ..." mlt-instruction fast
+  // path and a "!IS_SM83 && !IS_RAB && !IS_8080LIKE && ..." RRD-based arm -
+  // both unconditionally dead in this file (IS_8080LIKE is unconditionally
+  // true in this file, so "!IS_8080LIKE" is unconditionally false; IS_Z180,
+  // IS_EZ80, and IS_Z80N are all unconditionally false).
+  if (!is_signed && // Shifting in the accumulator is cheap for unsigned operands.
     (aopInReg (result->aop, 0, A_IDX) ||
     result->aop->type != AOP_REG ||
     (shCount >= 4 + 2 * a_dead || shCount >= 2 * a_dead && aopInReg (left->aop, 0, A_IDX))))
@@ -13988,12 +13816,7 @@ genrshOne (operand *result, operand *left, int shCount, int is_signed, const iCo
       cheapMove (result->aop, 0, left->aop, 0, a_dead);
 
       while (shCount--)
-        {
-          if (IS_8080LIKE)
-            emitRsh2 (result->aop, 1, is_signed);
-          else
-            emit3 (is_signed ? A_SRA : A_SRL, result->aop, 0);
-        }
+        emitRsh2 (result->aop, 1, is_signed); // "if (IS_8080LIKE) ... else emit3 (...);" simplified (IS_8080LIKE unconditionally true in this file).
     }
   else
     {
@@ -14001,12 +13824,7 @@ genrshOne (operand *result, operand *left, int shCount, int is_signed, const iCo
         _push (PAIR_AF);
       cheapMove (ASMOP_A, 0, left->aop, 0, true);
       while (shCount--)
-        {
-          if (IS_8080LIKE)
-            emitRsh2 (ASMOP_A, 1, is_signed);
-          else
-            emit3 (is_signed ? A_SRA : A_SRL, ASMOP_A, 0);
-        }
+        emitRsh2 (ASMOP_A, 1, is_signed); // "if (IS_8080LIKE) ... else emit3 (...);" simplified (IS_8080LIKE unconditionally true in this file).
       cheapMove (result->aop, 0, ASMOP_A, 0, true);
       if (!a_dead)
         _pop (PAIR_AF);
@@ -15177,21 +14995,13 @@ genPackBits (PAIR_ID pair, operand *right, int roffset, int blen, int bstr, PAIR
 
   mask = ((0xffu << (blen + bstr)) | (0xffu >> (8 - bstr))) & 0xffu;
 
-  if (right->aop->type == AOP_LIT && blen == 1 && !IS_8080LIKE && (pair == PAIR_HL || pair == PAIR_IX || pair == PAIR_IY))
-    {
-      litval = ullFromVal (right->aop->aopu.aop_lit) >> (roffset * 8);
-      emit2 (litval & 1 ? "set %d, !mems" : "res %d, !mems", bstr, _pairs[pair].name);
-      regalloc_dry_run_cost += (pair == PAIR_IX || pair == PAIR_IY) ? 4 : 2;
-      return;
-    }
-  else if (blen == 4 && bstr % 4 == 0 && pair == PAIR_HL && !aopInReg (right->aop, 0, A_IDX) && !requiresHL (right->aop) && (IS_Z80 || IS_Z80N || IS_Z180 || IS_TLCS90 || IS_R800 || IS_EZ80))
-    {
-      emit3 ((bstr ? A_RLD : A_RRD), 0, 0);
-      cheapMove (ASMOP_A, 0, right->aop, roffset, true);
-      emit3 ((bstr ? A_RRD : A_RLD), 0, 0);
-      return;
-    }
-  else if (right->aop->type == AOP_LIT)
+  // Dropped: a "right->aop->type == AOP_LIT && blen == 1 && !IS_8080LIKE &&
+  // ..." single-bit set/res arm (unconditionally dead - IS_8080LIKE is
+  // unconditionally true in this file, so "!IS_8080LIKE" is unconditionally
+  // false), and a "blen == 4 && bstr % 4 == 0 && ... && (IS_Z80||IS_Z80N||
+  // IS_Z180||IS_TLCS90||IS_R800||IS_EZ80)"-gated nibble-swap-via-RLD/RRD
+  // arm (unconditionally dead - all six macros unconditionally false).
+  if (right->aop->type == AOP_LIT)
     {
       litval = ullFromVal (right->aop->aopu.aop_lit) >> (roffset * 8);
       litval <<= bstr;
@@ -15216,17 +15026,9 @@ genPackBits (PAIR_ID pair, operand *right, int roffset, int blen, int bstr, PAIR
     {
       cheapMove (ASMOP_A, 0, right->aop, roffset, true);
 
-      if ((IS_R4K || IS_R5K || IS_R6K) && (pair == PAIR_HL && extrapair == PAIR_DE || pair == PAIR_DE && extrapair == PAIR_HL))
-        {
-          AccRol (bstr);
-          if (extrapair == PAIR_HL)
-            genMove (ASMOP_HL, ASMOP_DE, true, false, false, false);
-          else
-            genMove (ASMOP_DE, ASMOP_HL, true, false, false, false);
-          emit2 ("cbm !immedbyte", ~mask & 0xffu);
-          cost (3, 15);
-          return;
-        }
+      // Dropped: an "(IS_R4K||IS_R5K||IS_R6K) && ..." "cbm" fast-path arm
+      // (unconditionally dead - IS_R4K, IS_R5K, and IS_R6K are all
+      // unconditionally false in this file).
 
       if (blen + bstr == 8)
         AccLsh (bstr);
