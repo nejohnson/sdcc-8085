@@ -8045,55 +8045,12 @@ genRet (const iCode *ic)
         }
       while (--size);
     }
-  // gbz80 doesn't have have ldir. Rabbit 2000 to Rabbit 3000 (i.e. r2k and r2ka port) have an ldir wait state bug that affects copies between different types of memory.
-  else if (!IS_8080LIKE && (!IS_SM83 && (ic->left->aop->type == AOP_STK || ic->left->aop->type == AOP_EXSTK) ||
-    !IS_SM83 && !IS_R2K && !IS_R2KA && (ic->left->aop->type == AOP_DIR || ic->left->aop->type == AOP_IY)))
-    {
-      if (IFFUNC_ISDYNAMICC (currFunc->type))
-        {
-            int stackparmbytes = 0;
-            for (value *arg = FUNC_ARGS (currFunc->type); arg; arg = arg->next)
-              {
-                wassert (arg->sym);
-                int argsize = getSize (arg->sym->type);
-                if (argsize == 1 && !IS_STRUCT (arg->sym->type)) // Dynamic C calling conventions passes 8-bit stack arguments as 16 bit.
-                  argsize++;
-                if (argsize == 3 && !IS_STRUCT (arg->sym->type)) // Dynamic C calling conventions passes pointer to__far as 32 bits.
-                  argsize++;
-                stackparmbytes += argsize;
-              }
-          setupPairFromSP (PAIR_DE, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr ? 0 : 2) + stackparmbytes);
-        }
-      else
-        {
-          setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr ? 0 : 2));
-          emit2 ("ld e, !*hl");
-          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
-          emit3w (A_INC, ASMOP_HL, 0);
-          emit2 ("ld d, !*hl");
-          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
-        }
-      if (IC_LEFT (ic)->aop->type == AOP_STK || IC_LEFT (ic)->aop->type == AOP_EXSTK)
-        {
-          int sp_offset, fp_offset;
-          fp_offset =
-            IC_LEFT (ic)->aop->aopu.aop_stk + (IC_LEFT (ic)->aop->aopu.aop_stk >
-                0 ? _G.stack.param_offset : 0);
-          sp_offset = fp_offset + _G.stack.pushed + _G.stack.offset;
-          // TODO: find out if offset is okay
-          emit2 ("!ldahlsp", sp_offset);
-          spillPair (PAIR_HL);
-          regalloc_dry_run_cost += 4;
-        }
-      else
-        fetchLitPair (PAIR_HL, IC_LEFT (ic)->aop, 0, true, false);
-      emit2 ("ld bc, !immed%d", size);
-      cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-      if (IS_8080LIKE) emit8080Ldir (); else
-      emit2 ("ldir");
-      cost2 (2, 2, -1, -1, 21 * size -5, 14 * size - 2, 7 * size - 1, 7* size - 1, -1, 18 * size - 4, -1, -1, -1, 2 * size - 1, 4 * size);
-      updatePair (PAIR_HL, size);
-    }
+  // Dropped: an "!IS_8080LIKE && (...)"-gated ldir-based struct-return arm
+  // (unconditionally dead in this file - IS_8080LIKE is unconditionally
+  // true here, so "!IS_8080LIKE" is unconditionally false; the comment
+  // above it about gbz80/Rabbit-2000-to-3000 no longer applies to this
+  // fork). The byte-wise fallback loop below now handles every case this
+  // arm used to special-case.
   else
     {
       if (IFFUNC_ISDYNAMICC (currFunc->type))
@@ -17116,48 +17073,33 @@ genBuiltInStrncpy (const iCode *ic, int nparams, operand **pparams)
       symbol *tlbl1 = newiTempLabel (0);
       symbol *tlbl2 = newiTempLabel (0);
       symbol *tlbl3 = newiTempLabel (0);
-      if (IS_8080LIKE) // No ldi / P-V-from-bc: test bc explicitly, copy through A, then pad.
-        {
-          emitLabel (tlbl2);            // copy phase: while bc, copy; stop at NUL
-          emit2 ("ld a, b");
-          emit2 ("or a, c");
-          emit2 ("jp Z, !tlabel", labelKey2num (tlbl1->key));
-          emit2 ("ld a, (hl)");
-          emit2 ("ld (de), a");
-          emit2 ("inc hl");
-          emit2 ("inc de");
-          emit2 ("dec bc");
-          emit2 ("or a, a");
-          emit2 ("jp NZ, !tlabel", labelKey2num (tlbl2->key));
-          emitLabel (tlbl3);            // pad phase: while bc, store 0
-          emit2 ("ld a, b");
-          emit2 ("or a, c");
-          emit2 ("jp Z, !tlabel", labelKey2num (tlbl1->key));
-          emit2 ("xor a, a");
-          emit2 ("ld (de), a");
-          emit2 ("inc de");
-          emit2 ("dec bc");
-          emit2 ("jp !tlabel", labelKey2num (tlbl3->key));
-          emitLabel (tlbl1);
-        }
-      else {
-      emitLabel (tlbl2);
-      emit2 ("cp a, !*hl");
-      emit2 ("ldi");
-      if (IS_RAB && options.model != MODEL_SMALL) // We need to handle the shifting XPC window.
-        emit2 ("jp lz, (((!tlabel & 0xf000) ^ !tlabel) | 0xe000)", currFunc->name, labelKey2num (tlbl1->key));
-      else
-        emit2 (IS_RAB ? "jp lz, !tlabel" : "jp po, !tlabel", labelKey2num (tlbl1->key));
-      emit2 ("jr nz, !tlabel", labelKey2num (tlbl2->key));
-      emitLabel (tlbl3);
-      emit2 ("dec hl");
-      emit2 ("ldi");
-      if (IS_RAB && options.model != MODEL_SMALL) // We need to handle the shifting XPC window.
-        emit2 ("jp (((!tlabel & 0xf000) ^ !tlabel) | 0xe000)", currFunc->name, labelKey2num (tlbl3->key));
-      else
-        emit2 (IS_RAB ? "jp LO, !tlabel" : "jp PE, !tlabel", labelKey2num (tlbl3->key));
+      // "if (IS_8080LIKE) {...} else {ldi/P-V-based copy-then-pad loop,
+      // including two IS_RAB-gated shifting-XPC-window jump variants}"
+      // collapsed to just the IS_8080LIKE arm (IS_8080LIKE unconditionally
+      // true in this file; i8080/i8085 have no ldi instruction or P/V-from-
+      // bc flag to test bc against, hence the explicit bc test here). No ldi
+      // / P-V-from-bc: test bc explicitly, copy through A, then pad.
+      emitLabel (tlbl2);            // copy phase: while bc, copy; stop at NUL
+      emit2 ("ld a, b");
+      emit2 ("or a, c");
+      emit2 ("jp Z, !tlabel", labelKey2num (tlbl1->key));
+      emit2 ("ld a, (hl)");
+      emit2 ("ld (de), a");
+      emit2 ("inc hl");
+      emit2 ("inc de");
+      emit2 ("dec bc");
+      emit2 ("or a, a");
+      emit2 ("jp NZ, !tlabel", labelKey2num (tlbl2->key));
+      emitLabel (tlbl3);            // pad phase: while bc, store 0
+      emit2 ("ld a, b");
+      emit2 ("or a, c");
+      emit2 ("jp Z, !tlabel", labelKey2num (tlbl1->key));
+      emit2 ("xor a, a");
+      emit2 ("ld (de), a");
+      emit2 ("inc de");
+      emit2 ("dec bc");
+      emit2 ("jp !tlabel", labelKey2num (tlbl3->key));
       emitLabel (tlbl1);
-      }
     }
   regalloc_dry_run_cost += 14; // todo: fix cycle costs
 
