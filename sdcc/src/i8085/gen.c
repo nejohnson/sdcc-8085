@@ -16056,64 +16056,16 @@ genDummyRead (const iCode * ic)
 static void
 genCritical (const iCode * ic)
 {
-  symbol *tlbl = regalloc_dry_run ? 0 : newiTempLabel (0);
-
-  if (IS_SM83 || IS_RAB || IS_TLCS90 || IS_8080LIKE)
-    {
-      emit2 ("!di");
-      regalloc_dry_run_cost += 1;
-    }
-  else if (IC_RESULT (ic))
-    {
-      aopOp (IC_RESULT (ic), ic, true, false);
-      cheapMove (IC_RESULT (ic)->aop, 0, ASMOP_ZERO, 0, true);
-      // todo: fix cycle costs
-      if (!regalloc_dry_run)
-        {
-          if (z80_opts.nmosZ80)
-            {
-              emit2 ("call ___sdcc_critical_enter");
-            }
-          else
-            {
-              //get interrupt enable flag IFF2 into P/O
-              emit2 ("ld a,i");
-              //disable interrupt
-              emit2 ("!di");
-            }
-          //parity odd <==> P/O=0 <==> interrupt enable flag IFF2=0
-          if (IS_RAB && options.model != MODEL_SMALL) // We need to handle the shifting XPC window.
-            emit2 ("jp po, (((!tlabel & 0xf000) ^ !tlabel) | 0xe000)", currFunc->name, labelKey2num (tlbl->key));
-          else
-            emit2 ("jp po, !tlabel", labelKey2num (tlbl->key));
-        }
-      regalloc_dry_run_cost += 5;
-      cheapMove (IC_RESULT (ic)->aop, 0, ASMOP_ONE, 0, true);
-      if (!regalloc_dry_run)
-        {
-          emit2 ("!tlabeldef", labelKey2num ((tlbl->key)));
-          genLine.lineCurr->isLabel = 1;
-        }
-      freeAsmop (IC_RESULT (ic), NULL);
-    }
-  else
-    {
-      if (z80_opts.nmosZ80)
-        emit2 ("call ___sdcc_critical_enter");
-      else
-        {
-          //get interrupt enable flag IFF2 into P/O
-          emit2 ("ld a,i");
-          //disable interrupt
-          emit2 ("!di");
-        }
-      regalloc_dry_run_cost += 3;
-      //save P/O flag
-      if (!regalloc_dry_run)    // _push unbalances _G.stack.pushed.
-        _push (PAIR_AF);
-      else
-        cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4);
-    }
+  // "if (IS_SM83||IS_RAB||IS_TLCS90||IS_8080LIKE) {!di} else if
+  // (IC_RESULT (ic)) {...critical_enter/ld a,i+!di, jp po ...} else
+  // {...critical_enter/ld a,i+!di; push af;}" collapsed to just the
+  // IS_8080LIKE arm (IS_8080LIKE unconditionally true in this file, making
+  // the whole "||" chain unconditionally true, so the other two branches -
+  // including their IC_RESULT(ic)/z80_opts.nmosZ80/IS_RAB-gated XPC-window
+  // content - are unconditionally unreachable). This orphaned the "tlbl"
+  // local (only used by the removed IC_RESULT(ic) branch) - removed.
+  emit2 ("!di");
+  regalloc_dry_run_cost += 1;
 }
 
 /*-----------------------------------------------------------------*/
@@ -16122,37 +16074,15 @@ genCritical (const iCode * ic)
 static void
 genEndCritical (const iCode * ic)
 {
-  symbol *tlbl = regalloc_dry_run ? 0 : newiTempLabel (0);
-
-  if (IS_SM83 || IS_TLCS90 || IS_RAB || IS_8080LIKE)
-    {
-      emit2 ("!ei");
-      cost2old (1, 4, 3, 0, 4, 2, 1, 1);
-    }
-  else if (IC_RIGHT (ic))
-    {
-      aopOp (IC_RIGHT (ic), ic, FALSE, TRUE);
-      _toBoolean (IC_RIGHT (ic), TRUE);
-      emitJP (tlbl, "z", 0.0f, true);
-      emit2 ("!ei");
-      regalloc_dry_run_cost++;
-      emitLabelSpill (tlbl);
-      freeAsmop (IC_RIGHT (ic), NULL);
-    }
-  else
-    {
-      //restore P/O flag
-      if (!regalloc_dry_run)    // _pop unbalances _G.stack.pushed.
-        _pop (PAIR_AF);
-      else
-        regalloc_dry_run_cost++;
-      //parity odd <==> P/O=0 <==> interrupt enable flag IFF2 was 0 <==>
-      //don't enable interrupts as they were off before
-      emitJP (tlbl, "po", 0.0f, true);
-      emit2 ("!ei");
-      regalloc_dry_run_cost++;
-      emitLabel (tlbl);
-    }
+  // "if (IS_SM83||IS_TLCS90||IS_RAB||IS_8080LIKE) {!ei} else if
+  // (IC_RIGHT (ic)) {...} else {...restore P/O flag...}" collapsed to just
+  // the IS_8080LIKE arm, mirroring the identical simplification in
+  // genCritical (IS_8080LIKE unconditionally true in this file, making the
+  // whole "||" chain unconditionally true, so the other two branches are
+  // unconditionally unreachable). This orphaned the "tlbl" local (only
+  // used by the removed branches) - removed.
+  emit2 ("!ei");
+  cost2old (1, 4, 3, 0, 4, 2, 1, 1);
 }
 
 enum
