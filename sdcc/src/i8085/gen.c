@@ -6799,11 +6799,11 @@ genPointerPush (const iCode *ic)
   wassert (!offset);
   wassert (!smallc);
 
-  if (!isRegDead (HL_IDX, ic) && !(isRegDead (DE_IDX, ic) && !IS_SM83) || !isRegDead (A_IDX, ic))
+  if (!isRegDead (HL_IDX, ic) && !isRegDead (DE_IDX, ic) || !isRegDead (A_IDX, ic)) // "&& !IS_SM83" dropped (unconditionally true in this file).
     UNIMPLEMENTED;
 
    bool swap_de = false;
-  if (!isRegDead (HL_IDX, ic) && !IS_SM83)
+  if (!isRegDead (HL_IDX, ic)) // "&& !IS_SM83" dropped (unconditionally true in this file).
     {
       if (aopInReg (ic->left->aop, 0, HL_IDX))
         {
@@ -6839,20 +6839,15 @@ genPointerPush (const iCode *ic)
     {
       if (i + 1 < size && isRegDead (BC_IDX, ic))
         {
-          if (IS_TLCS || IS_EZ80)
-            {
-              emit3w (A_DEC, ASMOP_HL, 0);
-              emit2 ("ld bc, (hl)");
-              cost2 (2, 2, 2, 2, -1, -1, -1, -1, -1, 8, 4, 4, 4, 4, -1);
-            }
-          else
-            {
-              emit2 ("ld b, !*hl");
-              cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
-              emit3w (A_DEC, ASMOP_HL, 0);
-              emit2 ("ld c, !*hl");
-              cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
-            }
+          // "if (IS_TLCS || IS_EZ80) {ld bc, (hl) ...} else" dropped
+          // (unconditionally false in this file - IS_TLCS is
+          // IS_TLCS90||IS_TLCS870||IS_TLCS870C||IS_TLCS870C1, and IS_EZ80,
+          // both unconditionally false).
+          emit2 ("ld b, !*hl");
+          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
+          emit3w (A_DEC, ASMOP_HL, 0);
+          emit2 ("ld c, !*hl");
+          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
           emit3w (A_PUSH, ASMOP_BC, 0);
           _G.stack.pushed += 2;
           i += 2;
@@ -6874,7 +6869,7 @@ genPointerPush (const iCode *ic)
         emit3w (A_DEC, ASMOP_HL, 0);
     }
 
-  if (swap_de && !IS_SM83)
+  if (swap_de) // "&& !IS_SM83" dropped (unconditionally true in this file).
     emit3w (A_EX, ASMOP_DE, ASMOP_HL);
 
   freeAsmop (ic->left, 0);
@@ -12797,20 +12792,13 @@ AccRol (int shCount)
 
   switch (shCount)
     {
+    // Dropped: three "if (IS_SM83 || IS_Z80N) {swap ...; break;}" fast paths
+    // under cases 4, 3, and 5 (unconditionally dead - IS_SM83 and IS_Z80N
+    // are both unconditionally false in this file), leaving each case's
+    // plain rlca/rrca fallthrough as unconditional.
     case 4:
-      if (IS_SM83 || IS_Z80N)
-        {
-          emit3 (A_SWAP, ASMOP_A, 0);
-          break;
-        }
       emit3 (A_RLCA, 0, 0);
     case 3:
-      if (IS_SM83 || IS_Z80N)
-        {
-          emit3 (A_SWAP, ASMOP_A, 0);
-          emit3 (A_RRCA, 0, 0);
-          break;
-        }
       emit3 (A_RLCA, 0, 0);
     case 2:
       emit3 (A_RLCA, 0, 0);
@@ -12819,12 +12807,6 @@ AccRol (int shCount)
     case 0:
       break;
     case 5:
-      if (IS_SM83 || IS_Z80N)
-        {
-          emit3 (A_SWAP, ASMOP_A, 0);
-          emit3 (A_RLCA, 0, 0);
-          break;
-        }
       emit3 (A_RRCA, 0, 0);
     case 6:
       emit3 (A_RRCA, 0, 0);
