@@ -13083,34 +13083,19 @@ genSwap (const iCode *ic)
           genMove (&swapped_result_aop, left->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
           break;
         }
+      // "&& (!IS_SM83 || isPairDead(PAIR_DE, ic) || isPairDead(PAIR_BC, ic))"
+      // simplified away (IS_SM83 unconditionally false in this file, so
+      // "!IS_SM83" is unconditionally true, making the whole "||" chain
+      // unconditionally true).
       if (operandsEqu (result, left) && left->aop->type == AOP_STK &&
-          spOffset (left->aop->aopu.aop_stk) == 0 && isPairDead (PAIR_HL, ic) &&
-          (!IS_SM83 || isPairDead(PAIR_DE, ic) || isPairDead(PAIR_BC, ic)))
+          spOffset (left->aop->aopu.aop_stk) == 0 && isPairDead (PAIR_HL, ic))
         { /* result & left are top of stack and there are free register pairs */
-          if (IS_SM83)
-            {
-              if (isPairDead(PAIR_DE, ic))
-                {
-                  _pop (PAIR_DE);
-                  _pop (PAIR_HL);
-                  _push (PAIR_DE);
-                  _push (PAIR_HL);
-                }
-              else
-                {
-                  _pop (PAIR_BC);
-                  _pop (PAIR_HL);
-                  _push (PAIR_BC);
-                  _push (PAIR_HL);
-                }
-            }
-          else
-            {
-              _pop (PAIR_HL);
-              emit2 ("ex (sp), hl");
-              cost2 (1 + IS_RAB, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
-              _push (PAIR_HL);
-            }
+          // "if (IS_SM83) {...} else" dropped (unconditionally false in
+          // this file).
+          _pop (PAIR_HL);
+          emit2 ("ex (sp), hl");
+          cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // "1 + IS_RAB" simplified to "1" (IS_RAB unconditionally 0 in this file).
+          _push (PAIR_HL);
           break;
         }
 
@@ -13145,10 +13130,11 @@ genSwap (const iCode *ic)
           else if (dead_de &&
                    (left->aop->type != AOP_REG || !aopInReg (left->aop, 0, DE_IDX)))
             tmp = ASMOP_DE;
-          else if (!IS_SM83 && !IY_RESERVED && isPairDead (PAIR_IY, ic) &&
-                   (left->aop->type != AOP_REG || !aopInReg (left->aop, 0, IY_IDX)))
-            tmp = ASMOP_IY;
-          else 
+          // Dropped: an "!IS_SM83 && !IY_RESERVED && ..." "tmp = ASMOP_IY"
+          // arm (unconditionally dead in this file - IY_RESERVED is
+          // unconditionally true here, so "!IY_RESERVED" is unconditionally
+          // false).
+          else
             {
               pushed = true;
               if ((left->aop->type != AOP_REG || !aopInReg (left->aop, 0, HL_IDX)))
@@ -15790,22 +15776,8 @@ genJumpTab (const iCode *ic)
   if (!regalloc_dry_run)
     jtab = newiTempLabel (NULL);
 
-  if (IS_TLCS90 && // Use lda hl, hl, a
-    (jtcond->aop->size == 1 || aopIsLitVal (jtcond->aop, 1, jtcond->aop->size - 1, 0)) &&
-    (isRegDead (A_IDX, ic) || aopInReg (jtcond->aop, 0, A_IDX)) &&
-    !aopInReg (jtcond->aop, 0, C_IDX) && !aopInReg (jtcond->aop, 0, E_IDX))
-    {
-      
-      genMove (ASMOP_A, jtcond->aop, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic));
-      if (!regalloc_dry_run)
-        emit2 ("ld hl, !immed!tlabel", labelKey2num (jtab->key));
-      cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-      emit2 ("lda hl, hl, a");
-      cost (2, 14);
-      emit2 ("ld hl, a(hl)");
-      cost (2 , 16);
-      goto jump;
-    }
+  // Dropped: an IS_TLCS90-gated "lda hl, hl, a" fast path (unconditionally
+  // dead - IS_TLCS90 unconditionally false in this file).
 
   // Choose extra pair DE or BC for addition
   if (jtcond->aop->type == AOP_REG && jtcond->aop->aopu.aop_reg[0]->rIdx == E_IDX && isPairDead (PAIR_DE, ic))
@@ -15832,27 +15804,18 @@ genJumpTab (const iCode *ic)
   cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3, 1, 1);
   spillPair (PAIR_HL);
 
-  if (IS_TLCS90 || IS_EZ80)
-    {
-      emit2 ("ld hl, (hl)");
-      cost (2, IS_TLCS90 ? 8 : 4);
-    }
-  else if (IS_RAB)
-    {
-      emit2 ("ld hl, 0(hl)");
-      cost (3, 11);
-    }
-  else
-    {
-      emit2 ("ld %s, !*hl", _pairs[pair].l);
-      cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
-      emit3w (A_INC, ASMOP_HL, 0);
-      emit2 ("ld h, !*hl");
-      cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
-      emit3 (A_LD, ASMOP_L, pair == PAIR_DE ? ASMOP_E : ASMOP_C);
-    }
+  // "if (IS_TLCS90||IS_EZ80) {ld hl, (hl)} else if (IS_RAB) {ld hl, 0(hl)}
+  // else" dropped (all three unconditionally false in this file).
+  emit2 ("ld %s, !*hl", _pairs[pair].l);
+  cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
+  emit3w (A_INC, ASMOP_HL, 0);
+  emit2 ("ld h, !*hl");
+  cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
+  emit3 (A_LD, ASMOP_L, pair == PAIR_DE ? ASMOP_E : ASMOP_C);
 
-jump:
+  // "jump:" label removed: its only "goto jump;" was in the now-removed
+  // IS_TLCS90-gated "lda hl, hl, a" arm above; the only other path already
+  // falls through to here naturally.
   if (pushed_pair)
     _pop (pair);
 
