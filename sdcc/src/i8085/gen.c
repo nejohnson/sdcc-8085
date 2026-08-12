@@ -2991,12 +2991,9 @@ fetchLitPair (PAIR_ID pairId, asmop *left, int offset, bool f_dead, bool dry)
 
           if (new_low == old_low && new_high == old_high)
             goto adjusted;
-          else if (IS_RAB && !new_high && (new_low == 1 && (old_high || old_low)) && f_dead)
-            {
-              emit2 ("bool hl");
-              cost (1, 2);
-              goto adjusted;
-            }
+          // Dropped: an IS_RAB-gated "bool hl" single-bit-clear arm
+          // (unconditionally dead - IS_RAB unconditionally false in this
+          // file).
           else if (new_high == old_high && new_low == old_high)
             {
               emit3_o (A_LD, ASMOP_L, 0, ASMOP_H, 0);
@@ -3027,25 +3024,14 @@ fetchLitPair (PAIR_ID pairId, asmop *left, int offset, bool f_dead, bool dry)
 
   // Both a lit on the right and a true symbol on the left
   // Weirdly, offset has a different meaning here for AOP_IMMD, than for AOP_LIT.
-  if (IS_RAB && pairId == PAIR_HL && left->type == AOP_LIT && aopIsLitVal (left, offset, 2, 0x0000) && f_dead)
-    {
-      emit2 ("bool hl");
-      emit2 ("ld l, h");
-      cost (1 + 1, 2 + 2);
-    }
-  else if ((IS_R4K || IS_R5K || IS_R6K) && pairId == PAIR_HL && left->type == AOP_LIT && aopIsLitVal (left, offset, 2, 0x0000))
-    {
-      emit2 ("clr hl");
-      cost (2, 4);
-    }
+  // Dropped: an IS_RAB-gated "bool hl; ld l, h" arm and an (IS_R4K||IS_R5K||
+  // IS_R6K)-gated "clr hl" arm (both unconditionally dead - IS_RAB, IS_R4K,
+  // IS_R5K, and IS_R6K are all unconditionally false in this file).
+  emit2 ("ld %s, !hashedstr", pair, l);
+  if (pairId == PAIR_IX || pairId == PAIR_IY || pairId == PAIR_JK)
+    cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
   else
-    {
-      emit2 ("ld %s, !hashedstr", pair, l);
-      if (pairId == PAIR_IX || pairId == PAIR_IY || pairId == PAIR_JK)
-        cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
-      else
-        cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-    }
+    cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
 
 adjusted:
   _G.pairs[pairId].last_type = left->type;
@@ -3834,26 +3820,9 @@ aopPut (asmop *aop, const char *s, int offset)
 
     case AOP_SFR:
       wassertl (!IS_TLCS90, "TLCS-90 does not have a separate I/O space");
-      if (IS_SM83)
-        {
-          if (strcmp (s, "a"))
-            emit2 ("ld a, %s", s);
-          emit2 ("!lldh", aop->aopu.aop_dir, offset);
-        }
-      else if (IS_RAB)
-        {
-          if (strcmp (s, "a"))
-            emit2 ("ld a, %s", s);
-
-          /* LM 20110928: Need to fix to emit either "ioi" or "ioe"
-           * (for internal vs. external I/O space
-           */
-          emit2 ("ioi");
-          emit2 ("ld !mems, a", aop->aopu.aop_dir);
-          emit2 ("nop");        /* Workaround for Rabbit 2000 hardware bug. see TN302 for details. */
-        }
-      else
-        {
+      // "if (IS_SM83) {...} else if (IS_RAB) {...} else" dropped
+      // (IS_SM83 and IS_RAB both unconditionally false in this file).
+      {
           /*.p.t.20030716 handling for i/o port read access for Z80 */
           if (aop->banked)
             {
@@ -3888,7 +3857,7 @@ aopPut (asmop *aop, const char *s, int offset)
                 emit2 ("ld a, %s", s);
               emit2 ("out (%s), a", aop->aopu.aop_dir);
             }
-        }
+      }
       break;
 
     case AOP_REG:
