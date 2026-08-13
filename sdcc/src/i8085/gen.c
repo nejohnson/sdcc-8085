@@ -12444,11 +12444,9 @@ genGetAbit (const iCode * ic)
   /* get the needed byte into a */
   cheapMove (ASMOP_A, 0, left->aop, shCount / 8, true);
   shCount %= 8;
-  if (shCount == 4 && (IS_SM83 || IS_Z80N))
-    {
-      emit3_o (A_SWAP, ASMOP_A, 0, 0, 0);
-      shCount -= 4;
-    }
+  // Dropped: a "shCount == 4 && (IS_SM83 || IS_Z80N)" "swap a" arm
+  // (unconditionally dead - IS_SM83 and IS_Z80N are both unconditionally
+  // false in this file).
   if (result->aop->type == AOP_CRY)
     {
       
@@ -14241,7 +14239,7 @@ init_stackop (asmop *stackop, int size, long int stk_off)
   memset (stackop->regs, -1, sizeof(stackop->regs));
   stackop->aopu.aop_stk = stk_off;
 
-  if (IS_SM83 || IS_TLCS870 || (_G.omitFramePtr || stk_off < INT8MIN || stk_off > (int) (INT8MAX - size)))
+  if (_G.omitFramePtr || stk_off < INT8MIN || stk_off > (int) (INT8MAX - size)) // "IS_SM83 || IS_TLCS870 ||" dropped (both unconditionally false in this file).
     stackop->type = AOP_EXSTK;
   else
     stackop->type = AOP_STK;
