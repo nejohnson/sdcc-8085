@@ -9773,7 +9773,7 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
               pushed_hl = true;
             }
 
-          if ((aopInReg (right, offset, IYL_IDX)  || aopInReg (right, offset, IYH_IDX)) && !HAS_IYL_INST) // From here on all codepaths needs to use right as operand.
+          if (aopInReg (right, offset, IYL_IDX) || aopInReg (right, offset, IYH_IDX)) // "&& !HAS_IYL_INST" dropped (unconditionally true in this file). From here on all codepaths needs to use right as operand.
             UNIMPLEMENTED;
           else if (right->type == AOP_STL && offset < 2)
             {
@@ -11892,10 +11892,9 @@ genAnd (const iCode *ic, iCode *ifx)
             {
               if (!regalloc_dry_run)
                 {
-                  if (IS_RAB && options.model != MODEL_SMALL) // We need to handle the shifting XPC window.
-                    emit2 ("jp %s, (((!tlabel & 0xf000) ^ !tlabel) | 0xe000)", jumpcond, currFunc->name, labelKey2num (tlbl->key));
-                  else
-                    emit2 ("jp %s, !tlabel", jumpcond, labelKey2num (tlbl->key));
+                  // Dropped: "if (IS_RAB && options.model != MODEL_SMALL)" shifting-XPC-window
+                  // arm (IS_RAB unconditionally false in this file).
+                  emit2 ("jp %s, !tlabel", jumpcond, labelKey2num (tlbl->key));
                 }
               regalloc_dry_run_cost += 3;
             }
@@ -15532,7 +15531,7 @@ genAssign (const iCode *ic)
           if (!regalloc_dry_run && result->aop->aopu.aop_stk > right->aop->aopu.aop_stk && result->aop->aopu.aop_stk < right->aop->aopu.aop_stk + size)
             down = true;
 
-      if (!IS_SM83 && !down && // sm83 doesn't have ldir, Rabbit 2000 to Rabbit 3000 (i.e. r2k and r2ka ports) ldir is affected by a wait state bug when copying between different types of memory.
+      if (!down && // "!IS_SM83 &&" dropped (unconditionally true in this file); sm83 doesn't have ldir, Rabbit 2000 to Rabbit 3000 (i.e. r2k and r2ka ports) ldir is affected by a wait state bug when copying between different types of memory.
           (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK || result->aop->type == AOP_DIR
            || result->aop->type == AOP_IY) && (right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK
                || right->aop->type == AOP_DIR || right->aop->type == AOP_IY) && size >= 2)
