@@ -11109,7 +11109,7 @@ genCmpGt (iCode * ic, iCode * ifx)
       if ((requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG || requiresHL (left->aop) && left->aop->type != AOP_REG || requiresHL (right->aop) && right->aop->type != AOP_REG) &&
         (left->aop->regs[L_IDX] > 0 || left->aop->regs[H_IDX] > 0 || right->aop->regs[L_IDX] > 0 || right->aop->regs[H_IDX] > 0) || !isPairDead (PAIR_HL, ic))
         UNIMPLEMENTED;
-      else if (!(IS_8080LIKE && max (left->aop->size, right->aop->size) > 1 &&
+      else if (!(max (left->aop->size, right->aop->size) > 1 && // "IS_8080LIKE &&" dropped (unconditionally true in this file).
                  left->aop->type != AOP_REG && requiresHL (left->aop) && left->aop->type != AOP_STL &&
                  right->aop->type != AOP_REG && requiresHL (right->aop) && right->aop->type != AOP_STL))
         /* On the 8080/8085 the two-memory-operand signed compare in genCmp walks its
@@ -11167,7 +11167,7 @@ genCmpLt (iCode * ic, iCode * ifx)
       if ((requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG || requiresHL (left->aop) && left->aop->type != AOP_REG || requiresHL (right->aop) && right->aop->type != AOP_REG) &&
         (left->aop->regs[L_IDX] > 0 || left->aop->regs[H_IDX] > 0 || right->aop->regs[L_IDX] > 0 || right->aop->regs[H_IDX] > 0) || !isPairDead (PAIR_HL, ic))
         UNIMPLEMENTED;
-      else if (!(IS_8080LIKE && max (left->aop->size, right->aop->size) > 1 &&
+      else if (!(max (left->aop->size, right->aop->size) > 1 && // "IS_8080LIKE &&" dropped (unconditionally true in this file).
                  left->aop->type != AOP_REG && requiresHL (left->aop) && left->aop->type != AOP_STL &&
                  right->aop->type != AOP_REG && requiresHL (right->aop) && right->aop->type != AOP_STL))
         /* On the 8080/8085 the two-memory-operand signed compare in genCmp walks its
