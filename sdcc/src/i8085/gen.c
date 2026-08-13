@@ -6073,29 +6073,8 @@ genNot (const iCode *ic)
       cheapMove (result->aop, 0, ASMOP_A, 0, true);
       goto release;
     }
-  else if (IS_RAB && left->aop->size == 2 && aopInReg (left->aop, 0, HL_IDX) && isPairDead (PAIR_HL, ic) && aopInReg (result->aop, 0, L_IDX))
-    {
-      emit2 ("bool hl");
-      emit2 ("rr hl");
-      emit2 ("ccf");
-      emit2 ("adc hl, hl");
-      cost (5, 10);
-      goto release;
-    }
-  else if (IS_RAB && left->aop->size == 2 && aopInReg (left->aop, 0, HL_IDX) && isPairDead (PAIR_HL, ic))
-    {
-      if (!a_dead)
-        {
-          _push (PAIR_AF);
-          pushed_a = true;
-        }
-      emit2 ("bool hl");
-      emit2 ("ld a, l");
-      emit2 ("xor a, #0x01");
-      cost (4, 8);
-      cheapMove (result->aop, 0, ASMOP_A, 0, true);
-      goto release;
-    }
+  // Dropped: two IS_RAB-gated "bool hl"-based 16-bit logical-not arms
+  // (unconditionally dead in this file - IS_RAB unconditionally false).
 
   if (!a_dead)
     {
@@ -14110,11 +14089,10 @@ unpackMaskA (bool sign, int len, bool c_dead)
       emit3(A_RRA, 0, 0);
       emit3(A_SBC, ASMOP_A, ASMOP_A);
     }
-  else if (sign && len == 7 && !IS_8080LIKE) // 3B (sra a is a CB-prefix op, not on 8080/8085)
-    {
-      emit3(A_RLA, 0, 0);
-      emit3(A_SRA, ASMOP_A, 0);
-    }
+  // Dropped: a "sign && len == 7 && !IS_8080LIKE" "sra a" arm (unconditionally
+  // dead in this file - IS_8080LIKE is unconditionally true here, so
+  // "!IS_8080LIKE" is unconditionally false; sra a is a CB-prefix op not on
+  // 8080/8085 anyway).
   else
     {
       emit2 ("and a, !immedbyte", 0xff >> (8 - len));
@@ -14122,30 +14100,23 @@ unpackMaskA (bool sign, int len, bool c_dead)
     
       if (sign)
         {
-          if (optimize.nosidechannels || IS_8080LIKE) // 7B (if c free); the 6B path below uses "bit", a CB-prefix op absent on 8080/8085
-            {
-              if (!c_dead)
-                _push (PAIR_BC);
-              emit3 (A_LD, ASMOP_C, ASMOP_A);
-              emit2 ("ld a, !immedbyte",  0xff >> (9 - len));
-              cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-              emit3 (A_SUB, ASMOP_A, ASMOP_C);
-              emit2 ("and a, !immedbyte", (0xff00 >> (8 - len)) & 0xff);
-              cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-              emit3 (A_OR, ASMOP_A, ASMOP_C);
-              if (!c_dead)
-                _pop (PAIR_BC);
-            }
-          else // 6B
-            {
-              emit2 ("bit %d, a", len - 1);
-              cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-              symbol *tlbl = regalloc_dry_run ? NULL : newiTempLabel (NULL);
-              emitJP (tlbl, "z", 1.0f, true); // Assume nonnegative, jp optimized to jr.
-              emit2 ("or a, !immedbyte", ((0xffu << len) & 0xffu));
-              cost (2, 0);
-              emitLabel (tlbl);
-            }
+          // "if (optimize.nosidechannels || IS_8080LIKE) {...} else {...bit
+          // %d, a...}" collapsed to just the first arm (IS_8080LIKE
+          // unconditionally true in this file, making the whole "||"
+          // unconditionally true; the "6B" else arm used "bit", a CB-prefix
+          // op absent on 8080/8085, so it's unconditionally unreachable
+          // here anyway). 7B (if c free).
+          if (!c_dead)
+            _push (PAIR_BC);
+          emit3 (A_LD, ASMOP_C, ASMOP_A);
+          emit2 ("ld a, !immedbyte",  0xff >> (9 - len));
+          cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
+          emit3 (A_SUB, ASMOP_A, ASMOP_C);
+          emit2 ("and a, !immedbyte", (0xff00 >> (8 - len)) & 0xff);
+          cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
+          emit3 (A_OR, ASMOP_A, ASMOP_C);
+          if (!c_dead)
+            _pop (PAIR_BC);
         }
     }
 }
