@@ -2842,21 +2842,11 @@ adjustPair (const char *pair, int *pold, int new_val)
 
   while (*pold < new_val)
     {
-      if (IS_R6K && *pold + 1 < new_val && !strcmp (pair, "iy") && !_G.preserveCarry)
-        {
-          int d = new_val - *pold;
-          if (d >= 128)
-            d = 127;
-          emit2 ("add iy, #%d", d);
-          cost (3, 6);
-          (*pold) += d;
-        }
-      else
-        {
-          emit2 ("inc %s", pair);
-          cost2 (1, 1, 1, 1 , 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
-          (*pold)++;
-        }
+      // "if (IS_R6K && ...) {add iy, #%d ...} else" dropped (IS_R6K
+      // unconditionally false in this file).
+      emit2 ("inc %s", pair);
+      cost2 (1, 1, 1, 1 , 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
+      (*pold)++;
     }
   while (*pold > new_val)
     {
@@ -12742,7 +12732,7 @@ AccLsh (unsigned int shCount)
     0xFF, 0xFE, 0xFC, 0xF8, 0xF0, 0xE0, 0xC0, 0x80, 0x00
   };
 
-  if (shCount <= 3 + !IS_SM83)
+  if (shCount <= 4) // "3 + !IS_SM83" simplified to "4" (IS_SM83 unconditionally false in this file).
     while (shCount--)
       emit3 (A_ADD, ASMOP_A, ASMOP_A);
   else
@@ -13591,12 +13581,7 @@ AccRsh (int shCount)
       cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
     }
   else if(shCount)
-    {
-      if (IS_8080LIKE)
-        emitRsh2 (ASMOP_A, 1, false);
-      else
-        emit3 (A_SRL, ASMOP_A, 0);
-    }
+    emitRsh2 (ASMOP_A, 1, false); // "if (IS_8080LIKE) ... else emit3 (A_SRL, ...);" simplified (IS_8080LIKE unconditionally true in this file).
 }
 
 /*-----------------------------------------------------------------*/
