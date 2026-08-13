@@ -13682,12 +13682,7 @@ shiftR1Left2Result (operand *left, int offl, operand *result, int offr, int shCo
   if (sign)
     {
       while (shCount--)
-        {
-          if (IS_8080LIKE)
-            emitRsh2 (ASMOP_A, 1, true);
-          else
-            emit3 (sign ? A_SRA : A_SRL, ASMOP_A, 0);
-        }
+        emitRsh2 (ASMOP_A, 1, true); // "if (IS_8080LIKE) ... else emit3 (...);" simplified (IS_8080LIKE unconditionally true in this file).
     }
   else
     AccRsh (shCount);
@@ -13700,16 +13695,9 @@ shiftR1Left2Result (operand *left, int offl, operand *result, int offr, int shCo
 static void
 genrshTwo (const iCode *ic, operand *result, operand *left, int shCount, int sign)
 {
-  if (IS_Z80N &&
-    aopInReg (result->aop, 0, DE_IDX) && isRegDead (B_IDX, ic) &&
-    shCount != 8)
-    {
-      genMove (ASMOP_DE, left->aop, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), true, true);
-      emit2 ("ld b, !immedbyte", (unsigned)shCount);
-      emit2 (sign ? "bsra de, b" : "bsrl de, b");
-      cost (4, 15);
-    }
-  else if (shCount >= 8)
+  // Dropped: an IS_Z80N-gated "bsra/bsrl de, b" fast path (unconditionally
+  // dead - IS_Z80N unconditionally false in this file).
+  if (shCount >= 8)
     {
       shCount -= 8;
       if (shCount)
