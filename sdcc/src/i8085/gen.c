@@ -7655,7 +7655,7 @@ genEndFunction (iCode *ic)
   // condition included "(IS_RAB && ... || IS_TLCS90 && ...)", which is
   // unconditionally false in this file (both macros are unconditionally
   // false), making the whole arm unreachable.
-  if (!IS_TLCS870 && !_G.omitFramePtr && sym->stack > (optimize.codeSize ? 2 : 1)) // Dropped: "!IS_SM83 &&" (unconditionally true in this file).
+  if (!_G.omitFramePtr && sym->stack > (optimize.codeSize ? 2 : 1)) // Dropped: "!IS_SM83 &&" and "!IS_TLCS870 &&" (both unconditionally true in this file).
     {
       emit2 ("ld sp, ix");
       cost2 (2, 1, -1, 2, 10, 7, 2, 4, -1, 4, -1, 2, 2, 2, 2);
@@ -7668,7 +7668,7 @@ genEndFunction (iCode *ic)
       hl_free,
       iy_free);
 
-  if(!IS_TLCS870 && !_G.omitFramePtr) // Dropped: "!IS_SM83 &&" (unconditionally true in this file).
+  if(!_G.omitFramePtr) // Dropped: "!IS_SM83 &&" and "!IS_TLCS870 &&" (both unconditionally true in this file).
     {
       emit2 ("pop ix");
       cost2 (2, 1, -1, 2, 14, 12, 9, 9, -1, 10, -1, 5, 5, 4, 5);
