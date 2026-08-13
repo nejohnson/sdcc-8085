@@ -8281,14 +8281,11 @@ shiftIntoPair (PAIR_ID id, asmop *aop)
       break;
     case PAIR_DE:
       _push (PAIR_DE);
-      if (IS_8080LIKE) // No IY: set DE up directly (setupPairFromSP preserves HL via ex de, hl).
-        setupPair (PAIR_DE, aop, 0);
-      else
-        {
-          setupPair (PAIR_IY, aop, 0);
-          emit2 ("push iy");
-          emit2 ("pop %s", _pairs[id].name);
-        }
+      // "if (IS_8080LIKE) ... else {setupPair (PAIR_IY, ...); push iy; pop
+      // ...}" collapsed to just the IS_8080LIKE arm (IS_8080LIKE
+      // unconditionally true in this file). No IY: set DE up directly
+      // (setupPairFromSP preserves HL via ex de, hl).
+      setupPair (PAIR_DE, aop, 0);
       break;
     case PAIR_IY:
       setupPair (PAIR_IY, aop, 0);
@@ -12857,17 +12854,9 @@ genlshTwo (operand *result, operand *left, unsigned int shCount, const iCode *ic
 
   wassert (size == 2);
 
-  if (IS_Z80N && !operandType (result) &&
-    aopInReg (result->aop, 0, DE_IDX) && isRegDead (B_IDX, ic) &&
-    shCount > 2 && shCount != 8) // Only worth it when shifting by more than 2 (we can get a cheap path using add hl, hl in shiftL2Left2Result (left, result, shCount, ic)).
-    {
-      genMove (ASMOP_DE, left->aop, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), true, true);
-      emit2 ("ld b, !immedbyte", (unsigned)shCount);
-      cost (2, 7);
-      emit2 ("bsla de, b");
-      cost (2, 8);
-    }
-  else if (shCount >= 8)
+  // Dropped: an IS_Z80N-gated "bsla de, b" fast path (unconditionally dead -
+  // IS_Z80N unconditionally false in this file).
+  if (shCount >= 8)
     {
       shCount -= 8;
       shiftL1Left2Result (left, 0, result, 1, shCount, ic);
