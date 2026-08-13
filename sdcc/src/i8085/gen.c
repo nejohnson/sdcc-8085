@@ -2886,7 +2886,7 @@ requiresHL (const asmop *aop)
     case AOP_STL:
       return true;
     case AOP_STK:
-      return (IS_SM83 || _G.omitFramePtr);
+      return (_G.omitFramePtr); // "IS_SM83 ||" dropped (unconditionally false in this file).
     case AOP_REG:
     {
       int i;
@@ -5885,19 +5885,13 @@ _toBoolean (const operand *oper, bool needflag)
     {
       if (skipbyte != size - 1)
         UNIMPLEMENTED;
-      if (IS_8080LIKE)
-        emit8080SetRes (ASMOP_A, 0, 7, false, true);   // clear sign bit
-      else
-        {
-          emit2 ("res 7, a");   // clear sign bit
-          cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 3, 3, 3, 2, 2);
-        }
+      emit8080SetRes (ASMOP_A, 0, 7, false, true);   // clear sign bit. "if (IS_8080LIKE) ... else {res 7, a ...}" simplified (IS_8080LIKE unconditionally true in this file).
       skipbyte = size - 1;
     }
   while (size--)
     if (size != skipbyte)
       {
-        if (!HAS_IYL_INST && (aopInReg (oper->aop, size, IYL_IDX) || aopInReg (oper->aop, size, IYH_IDX)))
+        if (aopInReg (oper->aop, size, IYL_IDX) || aopInReg (oper->aop, size, IYH_IDX)) // "!HAS_IYL_INST &&" dropped (unconditionally true in this file).
           UNIMPLEMENTED;
         else
           emit3_o (A_OR, ASMOP_A, 0, oper->aop, size);
