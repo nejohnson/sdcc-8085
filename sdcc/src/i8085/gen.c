@@ -7398,11 +7398,10 @@ resultRemat (const iCode * ic)
   return 0;
 }
 
-static bool
-isSoftInt (sym_link *ftype)
-{
-  return (IS_RAB && IFFUNC_ISISR (ftype) && FUNC_INTNO(ftype) >= 2 && FUNC_INTNO(ftype) <= 7);
-}
+/* isSoftInt() removed: it returned "IS_RAB && ...", unconditionally false
+   in this file (IS_RAB unconditionally false), and both call sites (in
+   genFunction's ISR-prologue guard) already had their "&& !isSoftInt (...)"
+   term dropped as unconditionally true, leaving no remaining caller. */
 
 /*-----------------------------------------------------------------*/
 /* genFunction - generated code for function entry                 */
@@ -7468,7 +7467,7 @@ genFunction (const iCode * ic)
 
   /* if this is an interrupt service routine
      then save all potentially used registers. */
-  if (IFFUNC_ISISR (sym->type) && !isSoftInt(sym->type))
+  if (IFFUNC_ISISR (sym->type)) // "&& !isSoftInt (sym->type)" dropped (isSoftInt() unconditionally returns false in this file, so "!isSoftInt (...)" is unconditionally true).
     {
       if (!IFFUNC_ISCRITICAL (sym->type))
         {
@@ -7682,7 +7681,7 @@ genEndFunction (iCode *ic)
 
   /* if this is an interrupt service routine
      then restore all potentially used registers. */
-  if (IFFUNC_ISISR (sym->type) && !isSoftInt(sym->type))
+  if (IFFUNC_ISISR (sym->type)) // "&& !isSoftInt (sym->type)" dropped (isSoftInt() unconditionally returns false in this file, so "!isSoftInt (...)" is unconditionally true).
     {
       // IS_EZ80-gated "pop.l ..." 24-bit-pair arm and
       // (IS_R4K||IS_R5K||IS_R6K)-gated "pop bcde/jkhl" arm removed here
@@ -12471,55 +12470,46 @@ genGetAbit (const iCode * ic)
 static void
 emitRsh2 (asmop * aop, int size, int is_signed)
 {
-  int offset = 0;
-
   /* The 8080/8085 has no CB-prefix shifts.  Synthesise the right shift by
      rotating each byte right through carry (rra), most-significant first.
      For the top byte we first establish the incoming carry: 0 for a logical
      shift, or the sign bit for an arithmetic shift.  "rlca; rrca" sets
      carry = bit 7 while leaving A unchanged (and needs no scratch register). */
-  if (IS_8080LIKE)
+  // "if (IS_8080LIKE) {...}" unwrapped into the whole function body:
+  // IS_8080LIKE is unconditionally true in this file, and every path inside
+  // this block already ended in "return;", so the general-Z80 CB-shift-
+  // instruction fallback that used to follow it was unconditionally
+  // unreachable - removed. This orphaned the "offset" local (only read by
+  // the removed tail) - removed.
+  /* 8085 undocumented ARHL: HL = HL >> 1 arithmetic (sign preserved, bit 0
+     into carry) in a single byte, replacing the per-byte rlca/rrca/rra
+     synthesis for a signed 16-bit shift whose value is in HL. Costing this
+     cheaply also nudges the allocator to keep such shifts in HL. */
+  if (IS_8085 && options.allow_undoc_inst && is_signed && size == 2 &&
+      aopInReg (aop, 0, L_IDX) && aopInReg (aop, 1, H_IDX))
     {
-      /* 8085 undocumented ARHL: HL = HL >> 1 arithmetic (sign preserved, bit 0
-         into carry) in a single byte, replacing the per-byte rlca/rrca/rra
-         synthesis for a signed 16-bit shift whose value is in HL. Costing this
-         cheaply also nudges the allocator to keep such shifts in HL. */
-      if (IS_8085 && options.allow_undoc_inst && is_signed && size == 2 &&
-          aopInReg (aop, 0, L_IDX) && aopInReg (aop, 1, H_IDX))
-        {
-          emit2 ("arhl");
-          cost2 (1, 1, 1, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7);
-          return;
-        }
-      for (int off = size - 1; off >= 0; off--)
-        {
-          bool inA = aopInReg (aop, off, A_IDX);
-          if (!inA)
-            emit3_o (A_LD, ASMOP_A, 0, aop, off);
-          if (off == size - 1)
-            {
-              if (is_signed)
-                {
-                  emit3 (A_RLCA, 0, 0);
-                  emit3 (A_RRCA, 0, 0);
-                }
-              else
-                emit3 (A_OR, ASMOP_A, ASMOP_A);
-            }
-          emit3 (A_RRA, 0, 0);
-          if (!inA)
-            emit3_o (A_LD, aop, off, ASMOP_A, 0);
-        }
+      emit2 ("arhl");
+      cost2 (1, 1, 1, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7);
       return;
     }
-
-  while (size--)
+  for (int off = size - 1; off >= 0; off--)
     {
-      if (offset == 0)
-        emit3_o (is_signed ? A_SRA : A_SRL, aop, size, 0, 0);
-      else
-        emit3_o (A_RR, aop, size, 0, 0);
-      offset++;
+      bool inA = aopInReg (aop, off, A_IDX);
+      if (!inA)
+        emit3_o (A_LD, ASMOP_A, 0, aop, off);
+      if (off == size - 1)
+        {
+          if (is_signed)
+            {
+              emit3 (A_RLCA, 0, 0);
+              emit3 (A_RRCA, 0, 0);
+            }
+          else
+            emit3 (A_OR, ASMOP_A, ASMOP_A);
+        }
+      emit3 (A_RRA, 0, 0);
+      if (!inA)
+        emit3_o (A_LD, aop, off, ASMOP_A, 0);
     }
 }
 
