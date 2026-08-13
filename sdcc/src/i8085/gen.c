@@ -1561,7 +1561,7 @@ emit3_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
   float statecost;
 
   /* 8080/8085 have no CB-prefix register rotates; synthesise them through A. */
-  if (IS_8080LIKE && !op2 &&
+  if (!op2 && // "IS_8080LIKE &&" dropped (unconditionally true in this file).
       (inst == A_RL || inst == A_RR || inst == A_RLC || inst == A_RRC))
     {
       if (emit8080RotateByte (inst, op1, offset1))
@@ -1709,7 +1709,7 @@ emit3w_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
 
   /* 8080/8085 have no adc/sbc hl,rr; synthesise them byte-wise, preserving A
      if the current iCode still needs it. */
-  if (IS_8080LIKE && (inst == A_ADC || inst == A_SBC) &&
+  if ((inst == A_ADC || inst == A_SBC) && // "IS_8080LIKE &&" dropped (unconditionally true in this file).
       op1 && getPairId (op1) == PAIR_HL && op2)
     {
       const iCode *cic = genLine.lineElement.ic;
