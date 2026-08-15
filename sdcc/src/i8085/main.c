@@ -58,31 +58,31 @@ static char _z80_defaultRules[] = {
 #include "peeph-z80.rul"
 };
 
-/* z80_opts is defined once in src/z80/main.c and shared across all
-   z80-family ports (including i8080/i8085) via the extern declaration
-   already in z80.h; only one definition may exist link-wide. */
+/* i8085_opts is this port's own copy of the option state (see z80.h) -
+   defined once here, no longer shared with src/z80/main.c's z80_opts. */
+I8085_OPTS i8085_opts;
 
 static OPTION _i8080_options[] = {
-  {0, OPTION_CALLEE_SAVES_BC, &z80_opts.calleeSavesBC, "Force a called function to always save BC"},
+  {0, OPTION_CALLEE_SAVES_BC, &i8085_opts.calleeSavesBC, "Force a called function to always save BC"},
   {0, OPTION_ASM,             NULL, "Define assembler name (asxxxx)"},
   {0, OPTION_CODE_SEG,        &options.code_seg, "<name> use this name for the code segment", CLAT_STRING},
   {0, OPTION_CONST_SEG,       &options.const_seg, "<name> use this name for the const segment", CLAT_STRING},
   {0, OPTION_DATA_SEG,        &options.data_seg, "<name> use this name for the data segment", CLAT_STRING},
   {0, OPTION_NO_STD_CRT0,     &options.no_std_crt0, "Do not link default crt0.rel"},
-  {0, OPTION_FRAMEPOINTER,    &z80_opts.noOmitFramePtr, "Do not omit frame pointer"},
+  {0, OPTION_FRAMEPOINTER,    &i8085_opts.noOmitFramePtr, "Do not omit frame pointer"},
   {0, OPTION_EMIT_EXTERNS,    NULL, "Emit externs list in generated asm"},
   {0, OPTION_SDCCCALL,        &options.sdcccall, "Set ABI version for default calling convention", CLAT_INTEGER},
   {0, NULL}
 };
 
 static OPTION _i8085_options[] = {
-  {0, OPTION_CALLEE_SAVES_BC, &z80_opts.calleeSavesBC, "Force a called function to always save BC"},
+  {0, OPTION_CALLEE_SAVES_BC, &i8085_opts.calleeSavesBC, "Force a called function to always save BC"},
   {0, OPTION_ASM,             NULL, "Define assembler name (asxxxx)"},
   {0, OPTION_CODE_SEG,        &options.code_seg, "<name> use this name for the code segment", CLAT_STRING},
   {0, OPTION_CONST_SEG,       &options.const_seg, "<name> use this name for the const segment", CLAT_STRING},
   {0, OPTION_DATA_SEG,        &options.data_seg, "<name> use this name for the data segment", CLAT_STRING},
   {0, OPTION_NO_STD_CRT0,     &options.no_std_crt0, "Do not link default crt0.rel"},
-  {0, OPTION_FRAMEPOINTER,    &z80_opts.noOmitFramePtr, "Do not omit frame pointer"},
+  {0, OPTION_FRAMEPOINTER,    &i8085_opts.noOmitFramePtr, "Do not omit frame pointer"},
   {0, OPTION_EMIT_EXTERNS,    NULL, "Emit externs list in generated asm"},
   {0, OPTION_SDCCCALL,        &options.sdcccall, "Set ABI version for default calling convention", CLAT_INTEGER},
   {0, OPTION_ALLOW_UNDOC_INST,&options.allow_undoc_inst, "Allow use of undocumented 8085 instructions and flags"},
@@ -129,14 +129,19 @@ static char *_keywords[] = {
   NULL
 };
 
-extern PORT sm83_port;
+/* "extern PORT sm83_port;" removed: it was only used by the "rgbds"/"isas"
+   --asm= branches in _parseOptions, both removed below as unreachable
+   (Game Boy/SM83-specific, and i8080_port/i8085_port are the only ports
+   this file ever runs as). */
 
-/* The ASM_MAPPINGS tables in mappings.i are defined once in
-   src/z80/main.c (which #includes mappings.i); i8080/i8085 share them
-   via extern rather than re-including the file, to avoid duplicate
-   definitions when both port.a archives link into the same sdcc binary. */
-extern const ASM_MAPPINGS _isas_gb, _rgbds_gb, _asxxxx_z80,
-                           _z80asm_z80, _gas_z80;
+/* The _asxxxx_z80 ASM_MAPPINGS table is defined once in src/z80/main.c
+   (which #includes mappings.i); i8080/i8085 share it via extern rather
+   than re-including the file, to avoid duplicate definitions when both
+   port.a archives link into the same sdcc binary. The other four tables
+   here (_isas_gb, _rgbds_gb, _z80asm_z80, _gas_z80) are Game Boy/SM83-
+   specific and are no longer referenced now that the corresponding
+   --asm= branches have been removed from _parseOptions as unreachable. */
+extern const ASM_MAPPINGS _asxxxx_z80;
 
 // Dont have size_t here, so we just use unsigned int, which is size_t for these ports.
 static const char z80_builtins[] =
@@ -160,7 +165,7 @@ extern reg_info *i8085_regsZ80;
 static void
 _i8080_init (void)
 {
-  z80_opts.sub = SUB_8080;
+  i8085_opts.sub = SUB_8080;
   asm_addTree (&_asxxxx_z80);
 
   i8085_regsZ80 = i8085_gpr_regs;
@@ -170,7 +175,7 @@ _i8080_init (void)
 static void
 _i8085_init (void)
 {
-  z80_opts.sub = SUB_8085;
+  i8085_opts.sub = SUB_8085;
   asm_addTree (&_asxxxx_z80);
 
   i8085_regsZ80 = i8085_gpr_regs;
@@ -244,28 +249,16 @@ do_pragma (int id, const char *name, const char *cp)
             break;
 
           case TOKEN_INT:
-            switch (_G.asmType)
-              {
-              case ASM_TYPE_ASXXXX:
-                dbuf_printf (&buffer, "CODE_%d", token.val.int_val);
-                break;
-
-              case ASM_TYPE_RGBDS:
-                dbuf_printf (&buffer, "ROMX,BANK[%d]", token.val.int_val);
-                break;
-
-              case ASM_TYPE_ISAS:
-                /* PENDING: what to use for ISAS? */
-                dbuf_printf (&buffer, "CODE,BANK(%d)", token.val.int_val);
-                break;
-
-              case ASM_TYPE_GAS:
-                dbuf_printf (&buffer, ".ovly%04x", token.val.int_val);
-                break;
-
-              default:
-                wassert (0);
-              }
+            // "switch (_G.asmType) { case ASM_TYPE_ASXXXX: ...; case
+            // ASM_TYPE_RGBDS: ...; case ASM_TYPE_ISAS: ...; case
+            // ASM_TYPE_GAS: ...; default: wassert (0); }" collapsed to just
+            // the ASM_TYPE_ASXXXX arm: _G.asmType is only ever assigned
+            // ASM_TYPE_ASXXXX now (the "rgbds"/"isas"/"z80asm"/"gas" --asm=
+            // branches that used to set it to the other values were removed
+            // from _parseOptions as unreachable), and it is otherwise
+            // zero-initialized (ASM_TYPE_ASXXXX is the first/0 enumerator),
+            // so this switch can never take any other case.
+            dbuf_printf (&buffer, "CODE_%d", token.val.int_val);
             break;
 
           default:
@@ -312,19 +305,19 @@ do_pragma (int id, const char *name, const char *cp)
 
         if (!strcmp (str, "z80"))
           {
-            z80_opts.port_mode = 80;
+            i8085_opts.port_mode = 80;
           }
         else if (!strcmp (str, "z180"))
           {
-            z80_opts.port_mode = 180;
+            i8085_opts.port_mode = 180;
           }
         else if (!strcmp (str, "save"))
           {
-            z80_opts.port_back = z80_opts.port_mode;
+            i8085_opts.port_back = i8085_opts.port_mode;
           }
         else if (!strcmp (str, "restore"))
           {
-            z80_opts.port_mode = z80_opts.port_back;
+            i8085_opts.port_mode = i8085_opts.port_back;
           }
         else
           err = 1;
@@ -396,58 +389,10 @@ _process_pragma (const char *s)
   return process_pragma_tbl (pragma_tbl, s);
 }
 
-static const char *_sm83_rgbasmCmd[] = {
-  "rgbasm", "-o$1.rel", "$1.asm", NULL
-};
-
-static const char *_sm83_rgblinkCmd[] = {
-  "xlink", "-tg", "-n$1.sym", "-m$1.map", "-zFF", "$1.lnk", NULL
-};
-
-static void
-_sm83_rgblink (void)
-{
-  FILE *lnkfile;
-  struct dbuf_s lnkFileName;
-  char *buffer;
-
-  dbuf_init (&lnkFileName, PATH_MAX);
-
-  /* first we need to create the <filename>.lnk file */
-  dbuf_append_str (&lnkFileName, dstFileName);
-  dbuf_append_str (&lnkFileName, ".lk");
-  if (!(lnkfile = fopen (dbuf_c_str (&lnkFileName), "w")))
-    {
-      werror (E_OUTPUT_FILE_OPEN_ERR, dbuf_c_str (&lnkFileName), strerror (errno));
-      dbuf_destroy (&lnkFileName);
-      exit (1);
-    }
-  dbuf_destroy (&lnkFileName);
-
-  fprintf (lnkfile, "[Objects]\n");
-
-  fprintf (lnkfile, "%s.rel\n", dstFileName);
-
-  fputStrSet (lnkfile, relFilesSet);
-
-  fprintf (lnkfile, "\n[Libraries]\n");
-  /* additional libraries if any */
-  fputStrSet (lnkfile, libFilesSet);
-
-  fprintf (lnkfile, "\n[Output]\n" "%s.gb", dstFileName);
-
-  fclose (lnkfile);
-
-  buffer = buildCmdLine (port->linker.cmd, dstFileName, NULL, NULL, NULL, NULL);
-  /* call the linker */
-  if (sdcc_system (buffer))
-    {
-      Safe_free (buffer);
-      perror ("Cannot exec linker");
-      exit (1);
-    }
-  Safe_free (buffer);
-}
+/* _sm83_rgbasmCmd/_sm83_rgblinkCmd/_sm83_rgblink() removed: they existed
+   solely to support the "rgbds" --asm= branch in _parseOptions, removed
+   below as unreachable (Game Boy/SM83-specific; i8080_port/i8085_port are
+   the only ports this file ever runs as). */
 
 static bool
 _parseOptions (int *pargc, char **argv, int *i)
@@ -463,57 +408,16 @@ _parseOptions (int *pargc, char **argv, int *i)
         {
           char *asmblr = getStringArg (OPTION_ASM, argv, i, *pargc);
 
-          if (!strcmp (asmblr, "rgbds"))
-            {
-              asm_addTree (&_rgbds_gb);
-              // rgbds doesn't understand that
-              options.noOptsdccInAsm = true;
-
-              sm83_port.assembler.cmd = _sm83_rgbasmCmd;
-              sm83_port.linker.cmd = _sm83_rgblinkCmd;
-              sm83_port.linker.do_link = _sm83_rgblink;
-
-              if(!(options.code_seg && strcmp(options.code_seg, CODE_NAME)))
-                {
-                  if (options.code_seg)
-                    Safe_free (options.code_seg);
-                  options.code_seg = Safe_strdup ("ROMX");
-                }
-              if(!(options.data_seg && strcmp(options.data_seg, DATA_NAME)))
-                {
-                  if (options.data_seg)
-                    Safe_free (options.data_seg);
-                  options.data_seg = Safe_strdup ("WRAMX");
-                }
-
-              _G.asmType = ASM_TYPE_RGBDS;
-              return TRUE;
-            }
-          else if (!strcmp (asmblr, "asxxxx"))
+          // Dropped: "rgbds"/"isas"/"z80asm"/"gas" branches (Game Boy/
+          // SM83-specific assemblers, unreachable for i8080/i8085 -
+          // i8080_port/i8085_port are the only ports defined in this file,
+          // so this parser can never run while any other port is active;
+          // the removed "rgbds" branch even mutated sm83_port's fields
+          // directly regardless of which port is actually running, a clear
+          // tell it was never reachable here).
+          if (!strcmp (asmblr, "asxxxx"))
             {
               _G.asmType = ASM_TYPE_ASXXXX;
-              return TRUE;
-            }
-          else if (!strcmp (asmblr, "isas"))
-            {
-              asm_addTree (&_isas_gb);
-              /* Munge the function prefix */
-              sm83_port.fun_prefix = "";
-              _G.asmType = ASM_TYPE_ISAS;
-              return TRUE;
-            }
-          else if (!strcmp (asmblr, "z80asm"))
-            {
-              port->assembler.externGlobal = TRUE;
-              asm_addTree (&_z80asm_z80);
-              _G.asmType = ASM_TYPE_ISAS;
-              return TRUE;
-            }
-          else if (!strcmp (asmblr, "gas"))
-            {
-              port->assembler.externGlobal = TRUE;
-              asm_addTree (&_gas_z80);
-              _G.asmType = ASM_TYPE_GAS;
               return TRUE;
             }
         }
@@ -523,12 +427,12 @@ _parseOptions (int *pargc, char **argv, int *i)
 
           if (!strcmp (portmode, "z80"))
             {
-              z80_opts.port_mode = 80;
+              i8085_opts.port_mode = 80;
               return TRUE;
             }
           else if (!strcmp (portmode, "z180"))
             {
-              z80_opts.port_mode = 180;
+              i8085_opts.port_mode = 180;
               return TRUE;
             }
         }

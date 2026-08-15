@@ -91,7 +91,7 @@ static struct
 /* Intel 8080/8085: same GPR file as the SM83 (no IX/IY index registers).
    The z80_regs/sm83_regs/r4k_regs arrays that were here in the shared
    z80/ralloc.c (register files for the other z80-family sub-targets) are
-   dropped entirely: i8080/i8085 never select them (z80_opts.sub is always
+   dropped entirely: i8080/i8085 never select them (i8085_opts.sub is always
    SUB_8080/SUB_8085 in this file), and they'd collide (same non-static
    names) with z80/ralloc.c's own copies now that this file is genuinely
    forked and linked. */

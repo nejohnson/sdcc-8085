@@ -417,7 +417,7 @@ cost (unsigned int bytes, float states)
 static void // Count costs for register allocator.
 /* Every column here except z80_bytes/z80n_states picks out a cost for some
    other z80-family sub-target (TLCS90/870/EZ80/R800/Rabbit/SM83/...) that
-   never runs in this file - z80_opts.sub is always SUB_8080/SUB_8085, so
+   never runs in this file - i8085_opts.sub is always SUB_8080/SUB_8085, so
    IS_8080LIKE is unconditionally true and every other IS_* predicate below
    is unconditionally false. Collapsed to the two columns i8080/i8085
    actually use (reusing the z80 columns, per the original "reuse the z80
@@ -3630,7 +3630,7 @@ aopGet (asmop *aop, int offset, bool bit16)
                   emit2 ("ld a, !msbimmeds", aop->aopu.aop_dir);
                   emit2 ("in a, (!lsbimmeds)", aop->aopu.aop_dir);
                 }
-              else if (z80_opts.port_mode == 180)
+              else if (i8085_opts.port_mode == 180)
                 {
                   /* z180 in0/out0 mode */
                   emit2 ("in0 a, !mems", aop->aopu.aop_dir);
@@ -3830,7 +3830,7 @@ aopPut (asmop *aop, const char *s, int offset)
               else
                 spillPair (PAIR_BC);
             }
-          else if (z80_opts.port_mode == 180)
+          else if (i8085_opts.port_mode == 180)
             {
               /* z180 in0/out0 mode */
               emit2 ("ld a, %s", s);
@@ -7201,7 +7201,7 @@ genCall (const iCode *ic)
                legacy - only if --legacy-banking is specified
                a:bc - only for __z88dk_fastcall __banked functions
                e:hl - default (may have optimal bank switch routine) */
-          if (z80_opts.legacyBanking)
+          if (i8085_opts.legacyBanking)
             {
               emit2 ("call ___sdcc_bcall");
               emit2 ("!dws", name);
@@ -7489,7 +7489,7 @@ genFunction (const iCode * ic)
         }
     }
 
-  if (z80_opts.calleeSavesBC)
+  if (i8085_opts.calleeSavesBC)
     {
       bcInUse = TRUE;
     }
@@ -7552,7 +7552,7 @@ genFunction (const iCode * ic)
 
   _G.omitFramePtr = i8085_should_omit_frame_ptr;
 
-  if (!z80_opts.noOmitFramePtr && !stackParm && !sym->stack) // "!IS_SM83 &&" dropped (unconditionally true in this file).
+  if (!i8085_opts.noOmitFramePtr && !stackParm && !sym->stack) // "!IS_SM83 &&" dropped (unconditionally true in this file).
     {
       if (!regalloc_dry_run)
         _G.omitFramePtr = true;
@@ -14374,7 +14374,7 @@ genPointerGet (const iCode *ic)
       // enclosing "getPairId (left->aop) == PAIR_IY" check itself is
       // left untouched: there is no IY at all on i8080/i8085, but that
       // is a register-allocator invariant, not something derivable
-      // purely from a z80_opts.sub macro.
+      // purely from a i8085_opts.sub macro.
 
       if (!size)
         goto release;
@@ -15932,7 +15932,7 @@ genCritical (const iCode * ic)
   // {...critical_enter/ld a,i+!di; push af;}" collapsed to just the
   // IS_8080LIKE arm (IS_8080LIKE unconditionally true in this file, making
   // the whole "||" chain unconditionally true, so the other two branches -
-  // including their IC_RESULT(ic)/z80_opts.nmosZ80/IS_RAB-gated XPC-window
+  // including their IC_RESULT(ic)/i8085_opts.nmosZ80/IS_RAB-gated XPC-window
   // content - are unconditionally unreachable). This orphaned the "tlbl"
   // local (only used by the removed IC_RESULT(ic) branch) - removed.
   emit2 ("!di");
