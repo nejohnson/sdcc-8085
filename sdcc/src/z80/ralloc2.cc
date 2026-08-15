@@ -519,21 +519,6 @@ static bool operand_is_pair(const operand *o, const assignment &a, unsigned shor
   return(true);
 }
 
-// Return true, iff operand-node index v belongs to operand o at instruction i.
-template <class G_t>
-static bool operand_has_node(const operand *o, int v, unsigned short int i, const G_t &G)
-{
-  if(!o || !IS_SYMOP(o))
-    return(false);
-
-  operand_map_t::const_iterator oi, oi_end;
-  for(boost::tie(oi, oi_end) = G[i].operands.equal_range(OP_SYMBOL_CONST(o)->key); oi != oi_end; ++oi)
-    if(oi->second == v)
-      return(true);
-
-  return(false);
-}
-
 template <class G_t, class I_t>
 static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, const I_t &I)
 {
@@ -562,98 +547,6 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
   // Check if an input of this instruction is placed in A.
   bool input_in_A = operand_in_reg(left, REG_A, ia, i, G) || operand_in_reg(right, REG_A, ia, i, G);
 
-  // 8080/8085: the byte-wise shift/rotate body (emitRsh2 / emit8080Lsh1 / the
-  // 8080 register-rotate synthesis) uses A as scratch for every byte, so A must
-  // not hold a byte of the multi-byte value being shifted/rotated. That value is
-  // shifted in place in "shiftop", which is the result operand, or the left
-  // operand when the result is not in registers - so neither left nor result may
-  // have a byte in A. (The right operand is the shift count, which is moved to
-  // the count register first, so it is fine.) Single-byte shifts are done wholly
-  // in A and are unaffected.
-  if(IS_8080LIKE && (ic->op == LEFT_OP || ic->op == RIGHT_OP || ic->op == ROT) &&
-    getSize(operandType(IC_RESULT(ic))) > 1 &&
-    (result_in_A || operand_in_reg(left, REG_A, ia, i, G)))
-    return(false);
-
-  // 8080/8085: every shift/rotate is carried out through A (each operand byte is
-  // loaded into A and shifted with add a,a / rra / ...), so A is clobbered. The
-  // wider-value check above forbids the shifted value itself from being in A; on
-  // top of that, a value that is neither this shift/rotate's operand nor its
-  // result but is still live afterwards would be corrupted - so forbid keeping
-  // such a value in A across it. This applies at every width (the single-byte
-  // shift uses A as scratch too). The generic "A not used by this instruction"
-  // rejection further below is bypassed for LEFT_OP/RIGHT_OP, so handle it here.
-  if(IS_8080LIKE && (ic->op == LEFT_OP || ic->op == RIGHT_OP || ic->op == ROT) &&
-    !result_in_A && !input_in_A && ia.registers[REG_A][1] >= 0)
-    {
-      const cfg_dying_t &dying_sh = G[i].dying;
-      if(dying_sh.find(ia.registers[REG_A][1]) == dying_sh.end() &&
-        dying_sh.find(ia.registers[REG_A][0]) == dying_sh.end())
-        return(false);
-    }
-
-  // 8080/8085: a single-byte shift is carried out in A (ld a,x; add a,a / rrca
-  // ...), which destroys A. If the shifted value (left) is in A but is still
-  // live after this shift - e.g. the same value feeds two shifts, as in
-  // ((RV << 1) | (RV >> 7)) - its only copy is destroyed by this shift and the
-  // other shift then reads a stale A. So the input may only be in A when it
-  // dies here (or is also the result, an in-place shift). The wider-value case
-  // is already covered above; this handles size 1.
-  if(IS_8080LIKE && (ic->op == LEFT_OP || ic->op == RIGHT_OP) &&
-    getSize(operandType(IC_RESULT(ic))) == 1)
-    {
-      const cfg_dying_t &dying_sh1 = G[i].dying;
-      for(int s = 0; s < 2; s++)
-        {
-          const int v = ia.registers[REG_A][s];
-          if(v >= 0 && operand_has_node(left, v, i, G) &&
-            !operand_has_node(result, v, i, G) &&
-            dying_sh1.find(v) == dying_sh1.end())
-            return(false);
-        }
-    }
-
-  // 8080/8085: bitwise and/or/xor compute their result in A (and/or/xor a,x),
-  // clobbering whatever was there. z80 can test a bit non-destructively
-  // (bit n,r), but 8080 has no such instruction, so an operand kept in A that
-  // is still live after this instruction - and is not itself the result - is
-  // destroyed. Seen in mblen: `while (c & 0x80) c <<= 1;` keeps c in A across
-  // the `and a,#0x80`, which overwrites c before the shift reads it.
-  if(IS_8080LIKE && (ic->op == BITWISEAND || ic->op == '|' || ic->op == '^') &&
-    input_in_A && !result_in_A)
-    {
-      const cfg_dying_t &dying_bw = G[i].dying;
-      if(dying_bw.find(ia.registers[REG_A][1]) == dying_bw.end() &&
-        dying_bw.find(ia.registers[REG_A][0]) == dying_bw.end())
-        return(false);
-    }
-
-  // 8080/8085: and/or/xor and the (comparison + boolean) ops below carry out
-  // their work through A, so A cannot also hold an unrelated value that must
-  // survive the instruction. z80 has room (bit n,r, non-destructive tests) to
-  // keep a bystander in A; 8080 does not. If A holds a value that this
-  // instruction neither reads nor writes and that is still live afterwards, it
-  // would be clobbered - so reject. Seen in bitfields-bits2: the left boolean
-  // of `(var->bitN>0) != ((value&mask)>0)` was kept in A across the
-  // `value & mask` (result also in A), destroying it. IFX is included because
-  // testing its condition (when not already in A) loads it into A via
-  // ld a,<r> / or a,a - seen in printf's output_digit, where the hex char in A
-  // was destroyed by the `if (lower_case)` test (IC_COND is IC_LEFT).
-  if(IS_8080LIKE && (ic->op == BITWISEAND || ic->op == '|' || ic->op == '^' ||
-    ic->op == EQ_OP || ic->op == NE_OP || ic->op == IFX))
-    {
-      const cfg_dying_t &dying_bw2 = G[i].dying;
-      for(int s = 0; s < 2; s++)
-        {
-          const int v = ia.registers[REG_A][s];
-          if(v >= 0 && dying_bw2.find(v) == dying_bw2.end() &&
-            !operand_has_node(left, v, i, G) &&
-            !operand_has_node(right, v, i, G) &&
-            !operand_has_node(result, v, i, G))
-            return(false);
-        }
-    }
-
   // sfr access needs to go through a.
   if(input_in_A &&
     (IS_TRUE_SYMOP (left) && IN_REGSP (SPEC_OCLS (OP_SYMBOL (left)->etype)) ||
@@ -670,11 +563,6 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
     ic->op == LEFT_OP || ic->op == RIGHT_OP ||
     ic->op == RECEIVE || ic->op == '=' && !POINTER_SET (ic) || ic->op == CAST || ic->op == GET_VALUE_AT_ADDRESS)
     return(true);
-
-  // 8080/8085: integer negation is 0 - x, done in A (xor a,a; sub a,<x>). If x
-  // is in A, loading the 0 minuend clobbers it. Disallow the operand in A.
-  if (IS_8080LIKE && ic->op == UNARYMINUS && !IS_FLOAT (operandType (left)) && input_in_A)
-    return(false);
 
   if ((ic->op == '-' || ic->op == UNARYMINUS) && !IS_SM83)
     return(true);
@@ -1654,7 +1542,7 @@ template <class G_t>
 static bool omit_frame_ptr(const G_t &G)
 {
   // We have to omit the frame poitner if there is no useable ix.
-  if(IS_SM83 || IS_TLCS870 || IS_8080LIKE || options.omitFramePtr)
+  if(IS_SM83 || IS_TLCS870 || options.omitFramePtr)
     return(true);
 
   if(IY_RESERVED || z80_opts.noOmitFramePtr)

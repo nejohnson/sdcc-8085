@@ -441,8 +441,6 @@ cost2 (int z80_bytes /* also most other ports */, int tlcs90_bytes, int tlcs870_
     states = ez80_cycles;
   else if(IS_R800)
     states = r800_cycles;
-  else if(IS_8080LIKE)   /* reuse the z80 cost column for now; refine later */
-    states = z80n_states;
 
   wassert (bytes >= 0 && states >= 0.0f);
   regalloc_dry_run_cost_bytes += bytes;
@@ -454,14 +452,6 @@ cost2old (unsigned int bytes, unsigned int z80_states /* also z80n */, unsigned 
 {
   cost2 (bytes, bytes, bytes, bytes, z80_states, z180_states, r2k_clocks, r2k_clocks, sm83_cycles, tlcs90_states, -1, -1, -1, ez80_cycles, r800_cycles);
 }
-
-/* Forward declarations for the 8080/8085 CB-instruction synthesis helpers,
-   which are used earlier in the file than they are defined. */
-static void init_stackop (asmop *stackop, int size, long int stk_off);
-static void emit8080Bit (asmop *aop, int offset, int bit);
-static void emit8080SetRes (asmop *aop, int offset, int bit, bool set, bool a_dead);
-static void emit8080Ldir (void);
-static bool emit8080RotateByte (enum asminst inst, asmop *op1, int offset1);
 
 /*-----------------------------------------------------------------*/
 /* isRegIdxPair - true, if specified index is register pair,       */
@@ -1641,14 +1631,6 @@ emit3_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
   unsigned long cost, bytecost;
   float statecost;
 
-  /* 8080/8085 have no CB-prefix register rotates; synthesise them through A. */
-  if (IS_8080LIKE && !op2 &&
-      (inst == A_RL || inst == A_RR || inst == A_RLC || inst == A_RRC))
-    {
-      if (emit8080RotateByte (inst, op1, offset1))
-        return;
-    }
-
   emit3Cost (inst, op1, offset1, op2, offset2);
 
   if (regalloc_dry_run)
@@ -1674,129 +1656,11 @@ emit3_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
   // emitDebug(";emit3_o cost: total so far: cost %lu bytecost %lu", cost, bytecost);
 }
 
-/* Map a register-pair id to its 16-bit asmop, so raw "adc/sbc hl,rr" emissions
-   can be routed through emit3w (which synthesises the op byte-wise on the
-   8080/8085, where the ED-prefix form does not exist). */
-static asmop *
-pairAsmop (PAIR_ID p)
-{
-  switch (p)
-    {
-    case PAIR_HL: return ASMOP_HL;
-    case PAIR_DE: return ASMOP_DE;
-    case PAIR_BC: return ASMOP_BC;
-    case PAIR_IY: return ASMOP_IY;
-    default: return 0;
-    }
-}
-
-/* 8080/8085: there is no adc hl,rr / sbc hl,rr - those are Z80 ED-prefix ops.
-   Do the 16-bit add/subtract-with-carry byte-wise through A. "ld" does not
-   affect the carry, so the incoming carry/borrow chains correctly across the
-   two bytes. NOTE: this clobbers A; callers must ensure A is free (the register
-   allocator does not model this, so the emitting code paths that reach here for
-   two register pairs have A dead in practice - verified against the suite). */
-static void
-emit8080AdcSbcHL (bool sub, asmop *op2, int offset2, bool a_dead)
-{
-  const char *ins = sub ? "sbc" : "adc";
-  int i;
-  /* Cost of the six single-byte register ops (ld a,l / adc-sbc a,lo / ld l,a /
-     ld a,h / adc-sbc a,hi / ld h,a). Always counted (also during dry-run). */
-  for (i = 0; i < 6; i++)
-    cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
-  /* The byte-wise form clobbers A. If A holds a live value, preserve it with
-     push af / pop af. That restores the incoming flags (not the carry-out),
-     which is fine: the only paths that leave A live across an adc/sbc hl are
-     genPlus/genMinus, where the carry-out is not used afterwards. Where the
-     carry-out IS the result (genCmp) or the flags matter (shifts), A is dead. */
-  if (!a_dead)
-    {
-      cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4); /* push af */
-      cost2 (1, 1, 2, 1, 10, 9, 7, 7, 12, 10, 5, 4, 4, 3, 4);   /* pop af  */
-    }
-  if (regalloc_dry_run)
-    return;
-  /* op2 is the two-byte second operand of an "adc/sbc hl, rr"; read its two
-     bytes by name (works for non-canonical register pairs too). aopGet must
-     not be called during the dry run, hence the guard above. */
-  char *lo = Safe_strdup (aopGet (op2, offset2, false));
-  char *hi = Safe_strdup (aopGet (op2, offset2 + 1, false));
-  if (!a_dead)
-    emit2 ("push af");
-  emit2 ("ld a, l");
-  emit2 ("%s a, %s", ins, lo);
-  emit2 ("ld l, a");
-  emit2 ("ld a, h");
-  emit2 ("%s a, %s", ins, hi);
-  emit2 ("ld h, a");
-  if (!a_dead)
-    emit2 ("pop af");
-  Safe_free (lo);
-  Safe_free (hi);
-}
-
-/* 8080/8085: there are no CB-prefix register rotates (rl/rr/rlc/rrc r). Only the
-   accumulator forms rla/rra/rlca/rrca exist. Synthesise a single-byte rotate on
-   an arbitrary operand byte by shuttling it through A: "ld" does not touch the
-   flags, so the carry chains correctly across a multi-byte rotate loop. This
-   clobbers A; the only emitter that reaches here (genRotW) already saves A when
-   it is live, and the carry-out is preserved for the next byte. Returns true if
-   it handled the instruction. */
-static bool
-emit8080RotateByte (enum asminst inst, asmop *op1, int offset1)
-{
-  const char *accins;
-  switch (inst)
-    {
-    case A_RL:  accins = "rla";  break;
-    case A_RR:  accins = "rra";  break;
-    case A_RLC: accins = "rlca"; break;
-    case A_RRC: accins = "rrca"; break;
-    default:
-      return false;
-    }
-
-  bool in_a = aopInReg (op1, offset1, A_IDX);
-  /* cost: the accumulator rotate is one byte; a non-A byte also needs ld a,r
-     and ld r,a around it. */
-  cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
-  if (!in_a)
-    {
-      cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
-      cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
-    }
-  if (regalloc_dry_run)
-    return true;
-
-  if (in_a)
-    emit2 ("%s", accins);
-  else
-    {
-      char *r = Safe_strdup (aopGet (op1, offset1, false));
-      emit2 ("ld a, %s", r);
-      emit2 ("%s", accins);
-      emit2 ("ld %s, a", r);
-      Safe_free (r);
-    }
-  return true;
-}
-
 static void
 emit3w_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
 {
   unsigned int cost, bytecost;
   float statecost;
-
-  /* 8080/8085 have no adc/sbc hl,rr; synthesise them byte-wise, preserving A
-     if the current iCode still needs it. */
-  if (IS_8080LIKE && (inst == A_ADC || inst == A_SBC) &&
-      op1 && getPairId (op1) == PAIR_HL && op2)
-    {
-      const iCode *cic = genLine.lineElement.ic;
-      emit8080AdcSbcHL (inst == A_SBC, op2, offset2, !cic || isRegDead (A_IDX, cic));
-      return;
-    }
 
   emit3wCost (inst, op1, offset1, op2, offset2);
 
@@ -2136,12 +2000,6 @@ aopForSym (const iCode *ic, symbol *sym, bool result, bool requires_a)
           aop->aopu.aop_dir = sym->rname;
           aop->size = getSize (sym->type);
           aop->banked = FUNC_REGBANK (sym->type);
-          /* __banked __sfr means a 16-bit I/O address. The 8080/8085 have an
-             8-bit I/O space only (and lack the Z80 addressing the banked access
-             relies on), so reject it at compile time rather than emitting an
-             illegal in/out (c). */
-          if (aop->banked && IS_8080LIKE && !regalloc_dry_run)
-            werror (E_SFR_BANKED_UNSUPPORTED);
           aop->bcInUse = isPairInUse (PAIR_BC, ic);
           /* emitDebug (";Z80 AOP_SFR for %s banked:%d bc:%d", sym->rname, FUNC_REGBANK (sym->type), aop->bcInUse); */
 
@@ -3361,7 +3219,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
           _pop (PAIR_HL);
           return;
         }
-      else if (!IS_8080LIKE && pairId == PAIR_IY)
+      else if (pairId == PAIR_IY)
         {
           emit2 ("ld iy, !immed%d", spOffset(aop->aopu.aop_stk));
           cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
@@ -3430,36 +3288,6 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
           _pop (pairId);
           _push (pairId);
         }
-      /* The 8080/8085 has no "ld de/bc, (nn)" - that encoding is a Z80 ED-prefix
-         instruction (and 0xED is LHLX on the 8085). Only HL can be loaded from a
-         direct address, via LHLD. Load DE/BC byte-wise through A with LDA, which
-         leaves HL untouched. */
-      else if (IS_8080LIKE && pairId != PAIR_HL && (aop->type == AOP_IY || aop->type == AOP_HL) &&
-        (aop->size - offset >= 1))
-        {
-          bool pushed_a = ic && bitVectBitValue (ic->rMask, A_IDX);
-          if (pushed_a)
-            _push (PAIR_AF);
-          emit2 ("ld a, !mems", aopGetLitWordLong (aop, offset, FALSE));
-          cost2 (3, 3, 3, 3, 13, 10, 7, 7, 13, 7, 4, 4, 4, 4, 4);
-          emit2 ("ld %s, a", _pairs[pairId].l);
-          cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
-          if (aop->size - offset >= 2)
-            {
-              emit2 ("ld a, !mems", aopGetLitWordLong (aop, offset + 1, FALSE));
-              cost2 (3, 3, 3, 3, 13, 10, 7, 7, 13, 7, 4, 4, 4, 4, 4);
-              emit2 ("ld %s, a", _pairs[pairId].h);
-              cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
-            }
-          else
-            {
-              emit2 ("ld %s, !zero", _pairs[pairId].h);
-              cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-            }
-          if (pushed_a)
-            _pop (PAIR_AF);
-          spillPair (pairId);
-        }
       else if (!IS_SM83 && (aop->type == AOP_IY || aop->type == AOP_HL) &&
         (aop->size >= 2 || pairId != PAIR_IY && optimize.allow_unsafe_read))
         {
@@ -3525,7 +3353,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
               break;
             }
         }
-      else if (!IS_8080LIKE && pairId == PAIR_IY)
+      else if (pairId == PAIR_IY)
         {
           /* The Rabbit has the ld iy, n (sp) instruction. */
           int fp_offset = aop->aopu.aop_stk + offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
@@ -3663,22 +3491,6 @@ setupPairFromSP (PAIR_ID id, int offset)
     {
       _push (PAIR_AF);
       offset += 2;
-    }
-
-  /* 8085 undocumented LDSI: DE = SP + imm8 in a single two-byte instruction,
-     with no ex de, hl / add hl, sp dance and without disturbing HL. The
-     immediate is unsigned, so only a small non-negative offset qualifies. */
-  if (id == PAIR_DE && IS_8085 && options.allow_undoc_inst && offset >= 0 && offset <= 255)
-    {
-      emit2 ("ldsi !immedbyte", (unsigned)offset);
-      cost2 (2, 2, 2, 2, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
-      if (_G.preserveCarry)
-        {
-          _pop (PAIR_AF);
-          offset -= 2;
-        }
-      spillPair (PAIR_DE);
-      return;
     }
 
   if (id == PAIR_DE && !IS_SM83) // TODO: Could hl be in use for sm83, so it needs to be saved and restored?
@@ -3992,7 +3804,7 @@ aopGet (asmop *aop, int offset, bool bit16)
               break;
             }
             
-          if (aop->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE)
+          if (aop->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870)
             {
               if (IS_TLCS90 && sp_offset <= 127)
                 {
@@ -4246,7 +4058,7 @@ aopPut (asmop *aop, const char *s, int offset)
             emit2 ("ld (sp), %s", s);
           break;
         }
-      if(aop->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE)
+      if(aop->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870)
         {
           if (!canAssignToPtr (s))
             {
@@ -4840,11 +4652,7 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
   else
     {
       /* Special cases */
-      /* 8080/8085: only ld (nn),hl (SHLD) exists; ld (nn),de/bc are Z80
-         ED-prefix ops, so restrict this direct store to HL and let other
-         pairs use the byte-wise path below. */
-      if ((aop->type == AOP_IY || aop->type == AOP_HL) && !IS_SM83 && aop->size == 2 &&
-          (!IS_8080LIKE || id == PAIR_HL))
+      if ((aop->type == AOP_IY || aop->type == AOP_HL) && !IS_SM83 && aop->size == 2)
         {
           if (!regalloc_dry_run)
             emit2 ("ld !mems, %s", aopGetLitWordLong (aop, 0, FALSE), _pairs[id].name);
@@ -5220,7 +5028,7 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
           size -= 2;
           i += 2;
         }
-      else if (result->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE)
+      else if (result->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870)
         {
           if (!iy_free)
             _push (PAIR_IY);
@@ -5245,7 +5053,7 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
       else if (aopRS (source) && !aopOnStack (source, soffset + i, 1) && aopOnStack (result, roffset + i, 1))
         {
           bool pushed_iy = false;
-          if (result->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE && !iy_free)
+          if (result->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !iy_free)
             {
               _push (PAIR_IY);
               pushed_iy = true;
@@ -5896,7 +5704,7 @@ skip_byte:
         }
       else if (aopRS (result) && aopOnStack (source, soffset + i, 1) && !aopOnStack (result, roffset + i, 1))
         {
-          if (source->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870 && !IS_8080LIKE)
+          if (source->type == AOP_EXSTK && !IY_RESERVED && !IS_SM83 && !IS_TLCS870)
             {
               if (!iy_free)
                 _push (PAIR_IY);
@@ -6224,7 +6032,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           i += 2;
           continue;
         }
-      else if (!IS_8080LIKE && source->type == AOP_STL && !(soffset + i) && getPairId_o(result, roffset) == PAIR_IY)
+      else if (source->type == AOP_STL && !(soffset + i) && getPairId_o(result, roffset) == PAIR_IY)
         {
           int abso = source->aopu.aop_stk + _G.stack.offset + (source->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
           if (!f_dead)
@@ -6345,9 +6153,6 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           continue;
         }
       else if (!IS_SM83 && i + 1 < size && getPairId_o(source, soffset + i) != PAIR_INVALID &&
-        /* 8080/8085: only ld (nn),hl (SHLD) exists; ld (nn),de/bc are Z80
-           ED-prefix ops, so let non-HL pairs fall through to a byte-wise store. */
-        (!IS_8080LIKE || getPairId_o(source, soffset + i) == PAIR_HL) &&
         (result->type == AOP_IY || result->type == AOP_DIR || result->type == AOP_HL && (getPairId_o(source, soffset + i) == PAIR_HL || !hl_dead)))
         {
           emit2 ("ld !mems, %s", aopGetLitWordLong (result, roffset + i, false), _pairs[getPairId_o(source, soffset + i)].name);
@@ -6377,9 +6182,6 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           continue;
         }
       else if (!IS_SM83 && i + 1 < size && soffset + i + 1 < source->size && getPairId_o(result, roffset + i) != PAIR_INVALID &&
-        /* 8080/8085: only ld hl,(nn) (LHLD) exists; ld bc/de,(nn) are Z80
-           ED-prefix ops, so let non-HL pairs fall through to a byte-wise load. */
-        (!IS_8080LIKE || getPairId_o(result, roffset + i) == PAIR_HL) &&
         (source->type == AOP_IY || source->type == AOP_DIR || source->type == AOP_HL && (getPairId_o(result, roffset + i) == PAIR_HL || !hl_dead)))
         {
           emit2 ("ld %s, !mems", _pairs[getPairId_o (result, roffset + i)].name, aopGetLitWordLong (source, soffset + i, false));
@@ -6431,11 +6233,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           else if ((aopInReg (result, roffset + i, IYL_IDX) || aopInReg (result, roffset + i, IYH_IDX)) && iy_dead)
             pair = PAIR_IY;
 
-          /* 8080/8085: only ld hl,(nn) (LHLD) exists; ld bc/de,(nn) are Z80
-             ED-prefix ops, so this "load a whole pair from a direct address"
-             shortcut is only legal for HL. Let non-HL pairs fall through to the
-             byte-wise load below. */
-          if (pair != PAIR_INVALID && (!IS_8080LIKE || pair == PAIR_HL) && soffset + i - upper >= 0 && (optimize.allow_unsafe_read || upper || soffset + i + 1 < source->size))
+          if (pair != PAIR_INVALID && soffset + i - upper >= 0 && (optimize.allow_unsafe_read || upper || soffset + i + 1 < source->size))
             {
               emit2 ("ld %s, !mems", _pairs[pair].name, aopGetLitWordLong (source, soffset + i - upper, false));
               if (pair == PAIR_HL)
@@ -6598,7 +6396,7 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
     emitDebug("; adjustStack by %d", n);
   _G.stack.pushed -= n;
   
-  iy_free &= !IS_SM83 && !IS_8080LIKE;
+  iy_free &= !IS_SM83;
 
   int loop_bytes, loop_cycles;
   if (abs(n) > 0 && (IS_RAB || IS_SM83)) // Assume sequence of add sp, #d
@@ -6837,13 +6635,8 @@ _toBoolean (const operand *oper, bool needflag)
     {
       if (skipbyte != size - 1)
         UNIMPLEMENTED;
-      if (IS_8080LIKE)
-        emit8080SetRes (ASMOP_A, 0, 7, false, true);   // clear sign bit
-      else
-        {
-          emit2 ("res 7, a");   // clear sign bit
-          cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 3, 3, 3, 2, 2);
-        }
+      emit2 ("res 7, a");   // clear sign bit
+      cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 3, 3, 3, 2, 2);
       skipbyte = size - 1;
     }
   while (size--)
@@ -6876,7 +6669,7 @@ _castBoolean (const operand *right)
   else
     {
       _toBoolean (right, false);
-      if (IS_Z80 || IS_SM83 || IS_8080LIKE || IS_TLCS870 || IS_TLCS870C || IS_TLCS870C1) // Only for the original Z80 is the addition faster than neg. SM83, 8080/8085 and TLCS-870(C)(C1) don't have neg.
+      if (IS_Z80 || IS_SM83 || IS_TLCS870 || IS_TLCS870C || IS_TLCS870C1) // Only for the original Z80 is the addition faster than neg. SM83 and TLCS-870(C)(C1) don't have neg.
         emit3 (A_ADD, ASMOP_A, ASMOP_MONE);
       else
         emit3 (A_NEG, /*ASMOP_A*/0, 0); // Todo: Make eZ80 assembler support "neg a" instead of just "neg"!
@@ -7048,10 +6841,7 @@ genNot (const iCode *ic)
     }
 
   if (!a_dead)
-    {
-      _push (PAIR_AF);
-      pushed_a = true;
-    }
+    _push (PAIR_AF);
 
   _toBoolean (left, FALSE);
 
@@ -8607,7 +8397,7 @@ genCall (const iCode *ic)
       setupPairFromSP (PAIR_HL, ic->parmBytes);
       emit2 ("ld bc, !immed%d", size);
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-      if (IS_R2K || IS_SM83 || IS_8080LIKE || IS_TLCS870 || IS_TLCS870C || IS_TLCS870C1) // No useable ldir
+      if (IS_R2K || IS_SM83 || IS_TLCS870 || IS_TLCS870C || IS_TLCS870C1) // No useable ldir
         {
           // todo: scale cost.
           wassert (size <= 256);
@@ -8624,8 +8414,7 @@ genCall (const iCode *ic)
         }
       else
         {
-          if (IS_8080LIKE) emit8080Ldir (); else
-      emit2 ("ldir");
+          emit2 ("ldir");
           cost2 (2, 2, -1, -1, 21 * size -5, 14 * size - 2, 7 * size - 1, 7 * size - 1, -1, 18 * size - 4, -1, -1, -1, 2 * size - 1, 4 * size);
         }
       updatePair (PAIR_HL, size);
@@ -8812,7 +8601,7 @@ genFunction (const iCode * ic)
          If critical function then turn interrupts off */
       if (IFFUNC_ISCRITICAL (sym->type))
         {
-          if (IS_SM83 || IS_RAB || IS_TLCS90 || IS_8080LIKE)
+          if (IS_SM83 || IS_RAB || IS_TLCS90)
             {
               emit2 ("!di");
             }
@@ -9095,7 +8884,7 @@ genEndFunction (iCode *ic)
          If critical function then turn interrupts back on */
       if (IFFUNC_ISCRITICAL (sym->type))
         {
-          if (IS_SM83 || IS_TLCS90 || IS_RAB || IS_8080LIKE)
+          if (IS_SM83 || IS_TLCS90 || IS_RAB)
             emit2 ("!ei");
           else
             {
@@ -9265,17 +9054,6 @@ genEndFunction (iCode *ic)
         }
       else if (IS_SM83)
         emit3 (IFFUNC_ISCRITICAL (sym->type) ? A_RETI : A_RET, 0, 0);
-      else if (IS_8080LIKE)
-        {
-          /* 8080/8085 have no reti/retn; interrupts are auto-disabled on accept,
-             so a critical ISR re-enables with ei, then a plain ret. */
-          if (IFFUNC_ISCRITICAL (sym->type))
-            {
-              emit2 ("!ei");
-              cost2old (1, 4, 3, 0, 4, 2, 1, 1);
-            }
-          emit3 (A_RET, 0, 0);
-        }
       else
         {
           if (IFFUNC_ISCRITICAL (sym->type) && !is_nmi)
@@ -9442,8 +9220,8 @@ genRet (const iCode *ic)
       while (--size);
     }
   // gbz80 doesn't have have ldir. Rabbit 2000 to Rabbit 3000 (i.e. r2k and r2ka port) have an ldir wait state bug that affects copies between different types of memory.
-  else if (!IS_8080LIKE && (!IS_SM83 && (ic->left->aop->type == AOP_STK || ic->left->aop->type == AOP_EXSTK) ||
-    !IS_SM83 && !IS_R2K && !IS_R2KA && (ic->left->aop->type == AOP_DIR || ic->left->aop->type == AOP_IY)))
+  else if (!IS_SM83 && (ic->left->aop->type == AOP_STK || ic->left->aop->type == AOP_EXSTK) ||
+    !IS_SM83 && !IS_R2K && !IS_R2KA && (ic->left->aop->type == AOP_DIR || ic->left->aop->type == AOP_IY))
     {
       if (IFFUNC_ISDYNAMICC (currFunc->type))
         {
@@ -9485,7 +9263,6 @@ genRet (const iCode *ic)
         fetchLitPair (PAIR_HL, IC_LEFT (ic)->aop, 0, true, false);
       emit2 ("ld bc, !immed%d", size);
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-      if (IS_8080LIKE) emit8080Ldir (); else
       emit2 ("ldir");
       cost2 (2, 2, -1, -1, 21 * size -5, 14 * size - 2, 7 * size - 1, 7* size - 1, -1, 18 * size - 4, -1, -1, -1, 2 * size - 1, 4 * size);
       updatePair (PAIR_HL, size);
@@ -9811,14 +9588,9 @@ shiftIntoPair (PAIR_ID id, asmop *aop)
       break;
     case PAIR_DE:
       _push (PAIR_DE);
-      if (IS_8080LIKE) // No IY: set DE up directly (setupPairFromSP preserves HL via ex de, hl).
-        setupPair (PAIR_DE, aop, 0);
-      else
-        {
-          setupPair (PAIR_IY, aop, 0);
-          emit2 ("push iy");
-          emit2 ("pop %s", _pairs[id].name);
-        }
+      setupPair (PAIR_IY, aop, 0);
+      emit2 ("push iy");
+      emit2 ("pop %s", _pairs[id].name);
       break;
     case PAIR_IY:
       setupPair (PAIR_IY, aop, 0);
@@ -9846,20 +9618,10 @@ setupToPreserveCarry (asmop *result, asmop *left, asmop *right)
           /* check result again, in case right == result */
           if (couldDestroyCarry (result))
             {
-              /* 8080/8085 have no IY, so the result would be parked in DE - but
-                 if a register operand lives in D/E that shift would clobber it
-                 (seen in compare-1: a signed compare with one operand in DE).
-                 A compare produces its result in A (the sign fixup) and stores
-                 it after the carry is already consumed, so leaving it in memory
-                 and addressing it via HL later needs no DE preservation. */
-              if (IS_8080LIKE &&
-                (aopInReg (left, 0, E_IDX) || aopInReg (left, 0, D_IDX) ||
-                 aopInReg (right, 0, E_IDX) || aopInReg (right, 0, D_IDX)))
-                ;
-              else if (couldDestroyCarry (left))
+              if (couldDestroyCarry (left))
                 shiftIntoPair (PAIR_DE, result);
               else
-                shiftIntoPair (IS_8080LIKE ? PAIR_DE : PAIR_IY, result); // 8080/8085 have no IY
+                shiftIntoPair (PAIR_IY, result);
             }
         }
       else if (couldDestroyCarry (right))
@@ -10263,217 +10025,6 @@ genPlus (iCode * ic)
         }
     }
 
-  /* 8080/8085: a 16-bit addition cannot use the byte-wise loop below whenever
-     it would need to address more than one memory location. With no index
-     register a stack operand is reached through HL, and - unlike the sm83,
-     which has the flag-safe ld hl, sp+n - the 8080/8085 must point HL with
-     add hl, sp, which destroys the carry needed between the low and high byte.
-     Worse, when the result is in memory the byte loop repurposes DE as the
-     result-address pointer, clobbering a still-needed addend that was widened
-     into DE. Do the whole 16-bit add at once in HL via add hl, de (DAD D),
-     which is carry-clean. This is needed whenever at least two of {left, right,
-     result} are memory locations: both operands in memory (the byte loop has
-     only one HL to address them), or the result plus one operand in memory
-     (setting up the result pointer clobbers the other addend). */
-  if (IS_8080LIKE && size == 2 && !maskedtopbyte &&
-    ((requiresHL (leftop) && leftop->type != AOP_REG &&
-      requiresHL (rightop) && rightop->type != AOP_REG) ||
-     (requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG &&
-      (requiresHL (leftop) && leftop->type != AOP_REG ||
-       requiresHL (rightop) && rightop->type != AOP_REG))))
-    {
-      /* Pick which addend goes to HL and which to DE. An operand already
-         living in DE stays there; the memory operand is loaded into HL last.
-         Loading HL from a stack location only uses HL and A (add hl, sp; ld
-         via (hl)), so it preserves the DE addend - the same ordering the
-         both-memory case above relies on. */
-      asmop *deop, *hlop;
-      if (aopInReg (leftop, 0, DE_IDX))
-        { deop = leftop; hlop = rightop; }
-      else if (aopInReg (rightop, 0, DE_IDX))
-        { deop = rightop; hlop = leftop; }
-      /* A register addend must go to DE, so that loading the memory addend into
-         HL (via add hl, sp) preserves it. Loading the memory operand into DE
-         instead would clobber a register addend living in D/E (seen in tinyaes
-         KeyExpansion: `RoundKey + (k+3)` with the byte index in E). */
-      else if (leftop->type == AOP_REG && rightop->type != AOP_REG)
-        { deop = leftop; hlop = rightop; }
-      else if (rightop->type == AOP_REG && leftop->type != AOP_REG)
-        { deop = rightop; hlop = leftop; }
-      else
-        { deop = rightop; hlop = leftop; }
-      /* Save DE only when it holds a value live after this iCode. If an addend
-         is in DE it dies here (it is consumed), so no save is needed. */
-      bool save_de = !isPairDead (PAIR_DE, ic) &&
-        !aopInReg (leftop, 0, DE_IDX) && !aopInReg (rightop, 0, DE_IDX);
-      if (save_de)
-        _push (PAIR_DE);
-      if (!aopInReg (deop, 0, DE_IDX))
-        fetchPair (PAIR_DE, deop);
-      fetchPair (PAIR_HL, hlop);
-      emit3w (A_ADD, ASMOP_HL, ASMOP_DE);
-      spillPair (PAIR_HL);
-      /* Restore DE before moving the sum out of HL: the result may itself be in
-         D/E (a pointer in [d,a]), and popping after the move would clobber it.
-         The sum is safe in HL across the pop, and the register move that follows
-         writes only the result bytes, leaving the restored DE addend intact. */
-      if (save_de)
-        _pop (PAIR_DE);
-      genMove (IC_RESULT (ic)->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, !save_de, true);
-      goto release;
-    }
-
-  /* 8080/8085: a wider (e.g. 32-bit long) addition of memory operands. add hl,
-     de only covers 16 bits, and the byte-wise loop's add hl, sp between bytes
-     destroys the carry. Walk three pointers - DE=left, HL=right, BC=result -
-     with ld a,(de) / add-or-adc a,(hl) / ld (bc),a and inc de/hl/bc: only the
-     add/adc touches the carry, and inc/ld-indirect are carry-clean, so the
-     carry chains correctly. Reading (de) and (hl) before writing (bc) makes it
-     safe even when result aliases an operand. */
-  /* 8080/8085: a size-4 add of a register-pair operand and a memory operand
-     into a memory result. setupToPreserveCarry would park the result address
-     in DE, clobbering a register operand whose bytes live in D/E - e.g.
-     `long + (signed char)` in atol, where the sign-extended char sits in
-     B,C,D,E. Spill the register operand to a stack temp so both sources are in
-     memory, then use the carry-safe three-pointer walk below. Restricted to a
-     register operand that does not occupy H/L (so moving it to the temp, which
-     needs HL for addressing, cannot clash); a size-4 operand avoiding H/L is
-     exactly B,C,D,E, so BC and DE are free to use as pointers afterwards. */
-  if (IS_8080LIKE && size == 4 && !maskedtopbyte &&
-    requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG &&
-    /* The walk clobbers BC and DE (the pointers), which is exactly where the
-       register operand's bytes live (B,C,D,E). When the operand dies here that
-       is harmless; when it is live-after we reload it from the spill temp below.
-       The old generic byte loop cannot handle either case: it repurposes DE as
-       the result pointer and then reads the operand's high bytes from the now-
-       clobbered D/E (seen in 981001-1: `(a + 2*sub(...)) * a`, where the widened
-       `a` in [c b e d] fed __mullong with a garbage high word). */
-    ((leftop->type == AOP_REG && leftop->regs[L_IDX] < 0 && leftop->regs[H_IDX] < 0 && requiresHL (rightop) && rightop->type != AOP_REG) ||
-     (rightop->type == AOP_REG && rightop->regs[L_IDX] < 0 && rightop->regs[H_IDX] < 0 && requiresHL (leftop) && leftop->type != AOP_REG)))
-    {
-      struct asmop optmp;
-      asmop *lop = leftop, *rop = rightop;
-      asmop *regop = (leftop->type == AOP_REG) ? leftop : rightop;
-      bool regop_live = !(isPairDead (PAIR_BC, ic) && isPairDead (PAIR_DE, ic));
-      adjustStack (-size, false, false, false, false, false);   /* alloc temp */
-      init_stackop (&optmp, size, -(_G.stack.pushed + _G.stack.offset));
-      /* Spill the register operand (B,C,D,E) into the temp byte-by-byte.
-         cheapMove stores each register byte to the stack slot via HL, without
-         the push tricks genMove would use (which do not compose with the
-         adjustStack above). A is free here. */
-      for (int i = 0; i < size; i++)
-        cheapMove (&optmp, i, regop, i, true);
-      if (leftop->type == AOP_REG)
-        lop = &optmp;
-      else
-        rop = &optmp;
-      spillPair (PAIR_HL);
-      pointPairToAop (PAIR_HL, IC_RESULT (ic)->aop, 0);   /* BC = &result via HL */
-      emit3 (A_LD, ASMOP_C, ASMOP_L);
-      emit3 (A_LD, ASMOP_B, ASMOP_H);
-      spillPair (PAIR_HL);
-      pointPairToAop (PAIR_DE, lop, 0);   /* DE = &left  */
-      spillPair (PAIR_HL);
-      pointPairToAop (PAIR_HL, rop, 0);   /* HL = &right */
-      for (int i = 0; i < size; i++)
-        {
-          emit2 ("ld a, !mems", "de");
-          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
-          emit2 ("%s a, !*hl", i ? "adc" : "add");
-          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 3, 3, 2, 2);
-          emit2 ("ld !mems, a", "bc");
-          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
-          if (i + 1 < size)
-            {
-              emit3w (A_INC, ASMOP_DE, 0);
-              emit3w (A_INC, ASMOP_HL, 0);
-              emit3w (A_INC, ASMOP_BC, 0);
-            }
-        }
-      spillPair (PAIR_HL);
-      spillPair (PAIR_DE);
-      spillPair (PAIR_BC);
-      /* The walk clobbered BC and DE, i.e. the register operand's home. If it is
-         still needed after this iCode, restore it from the spill temp (it is a
-         source, so its value is unchanged by the add). */
-      if (regop_live)
-        {
-          spillPair (PAIR_HL);
-          for (int i = 0; i < size; i++)
-            cheapMove (regop, i, &optmp, i, true);
-        }
-      adjustStack (size, false, false, false, false, false);   /* free temp */
-      goto release;
-    }
-
-  if (IS_8080LIKE && size >= 1 && !maskedtopbyte &&
-    requiresHL (leftop) && leftop->type != AOP_REG &&
-    requiresHL (rightop) && rightop->type != AOP_REG)
-    {
-      /* Both source operands are in memory, so reading them needs the two
-         pointers DE (via ld a,(de)) and HL (via ld a,(hl)); the third pointer BC
-         addresses the destination. When the result is itself addressable
-         (memory), BC points at it directly. When it is not (e.g. it is in
-         registers - which cannot hold all four result bytes while DE and HL are
-         tied up as the source pointers), accumulate into a 4-byte stack temp and
-         move it into the result afterwards. NB: the earlier generic loop
-         mishandles two memory operands here (it has only one usable pointer and
-         reads (hl) for both), so this path must cover the register-result case
-         too. */
-      bool result_mem = requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG;
-      bool save_bc = !isPairDead (PAIR_BC, ic);
-      bool save_de = !isPairDead (PAIR_DE, ic);
-      struct asmop tmpaop;
-      if (save_bc)
-        _push (PAIR_BC);
-      if (save_de)
-        _push (PAIR_DE);
-      /* BC = &destination (setupPairFromSP only does HL/DE/IY, so go via HL). */
-      if (result_mem)
-        pointPairToAop (PAIR_HL, IC_RESULT (ic)->aop, 0);
-      else
-        {
-          adjustStack (-size, false, false, false, false, false);   /* alloc temp */
-          init_stackop (&tmpaop, size, -(_G.stack.pushed + _G.stack.offset)); /* temp at SP+0 */
-          pointPairToAop (PAIR_HL, &tmpaop, 0);
-        }
-      emit3 (A_LD, ASMOP_C, ASMOP_L);
-      emit3 (A_LD, ASMOP_B, ASMOP_H);
-      spillPair (PAIR_HL);
-      pointPairToAop (PAIR_DE, leftop, 0);   /* DE = &left  */
-      spillPair (PAIR_HL);
-      pointPairToAop (PAIR_HL, rightop, 0);  /* HL = &right */
-      for (int i = 0; i < size; i++)
-        {
-          emit2 ("ld a, !mems", "de");
-          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
-          emit2 ("%s a, !*hl", i ? "adc" : "add");
-          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 3, 3, 2, 2);
-          emit2 ("ld !mems, a", "bc");
-          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
-          if (i + 1 < size)
-            {
-              emit3w (A_INC, ASMOP_DE, 0);
-              emit3w (A_INC, ASMOP_HL, 0);
-              emit3w (A_INC, ASMOP_BC, 0);
-            }
-        }
-      spillPair (PAIR_HL);
-      spillPair (PAIR_DE);
-      spillPair (PAIR_BC);
-      if (!result_mem)
-        {
-          /* move the temp (still at SP+0..) into the register result, then free it */
-          genMove (IC_RESULT (ic)->aop, &tmpaop, true, true, true, true);
-          adjustStack (size, false, false, false, false, false);
-        }
-      if (save_de)
-        _pop (PAIR_DE);
-      if (save_bc)
-        _pop (PAIR_BC);
-      goto release;
-    }
-
   // Avoid overwriting operand in h or l when setupToPreserveCarry () loads hl - only necessary if carry is actually used during addition.
   premoved = FALSE;
   if (size > 1 &&
@@ -10561,11 +10112,8 @@ genPlus (iCode * ic)
           i += 2;
           continue;
         }
-      // Addition of interleaved pairs. The 8080/8085 have no adc hl, so they
-      // may only use this (add hl) for the first 16 bits; wider additions fall
-      // through to the byte-wise path once carry propagation has started.
+      // Addition of interleaved pairs.
       else if (!maskedword && (!premoved || i) && leftop->size - i >= 2 && rightop->size - i >= 2 &&
-        !(IS_8080LIKE && started) &&
         (aopInReg (IC_RESULT (ic)->aop, i, HL_IDX) || aopInReg (IC_RESULT (ic)->aop, i, IY_IDX) && !started))
         {
           const bool iy = aopInReg (IC_RESULT (ic)->aop, i, IY_IDX);
@@ -10591,8 +10139,8 @@ genPlus (iCode * ic)
               if (started)
                 {
                   wassert (!iy);
-                  /* route through emit3w so the 8080/8085 synthesises adc hl,rr */
-                  emit3w (A_ADC, ASMOP_HL, pairAsmop (pair));
+                  emit2 ("adc hl, %s", _pairs[pair].name);
+                  cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
                   spillPair (PAIR_HL);
                 }
               else
@@ -10782,8 +10330,8 @@ genPlus (iCode * ic)
           fetchPairLong (pair, IC_RIGHT (ic)->aop, 0, i);
           if (started)
             {
-              /* route through emit3w so the 8080/8085 synthesises adc hl,rr */
-              emit3w (A_ADC, ASMOP_HL, pairAsmop (pair));
+              emit2 ("adc hl, %s", _pairs[pair].name);
+              cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
             }
           else
             {
@@ -10805,8 +10353,8 @@ genPlus (iCode * ic)
                       || rightop->aopu.aop_reg[i]->rIdx == C_IDX) ? PAIR_BC : PAIR_DE;
           if (started)
             {
-              /* route through emit3w so the 8080/8085 synthesises adc hl,rr */
-              emit3w (A_ADC, ASMOP_HL, pairAsmop (pair));
+              emit2 ("adc hl, %s", _pairs[pair].name);
+              cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
             }
           else
             {
@@ -11205,249 +10753,6 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
         }
     }
 
-  /* 8085 undocumented DSUB: HL = HL - BC in a single byte. Worth it for a
-     16-bit subtract when both operands are already in register pairs - there is
-     then no memory operand fighting for HL, and by costing this path cheaply
-     the register allocator is nudged into placing the operands in HL/BC where
-     the surrounding code allows. Only for the 8085 with undocumented
-     instructions enabled (never -mi8080, never plain -mi8085). */
-  if (!maskedtopbyte && IS_8085 && options.allow_undoc_inst && size == 2 &&
-    isPairDead (PAIR_HL, ic) && isPairDead (PAIR_BC, ic) &&
-    getPairId (left) != PAIR_INVALID && getPairId (right) != PAIR_INVALID)
-    {
-      if (!(aopInReg (left, 0, HL_IDX) && aopInReg (right, 0, BC_IDX)))
-        {
-          /* Stash right on the stack, move left into HL, then pop right into
-             BC. Both operands are register pairs, so this needs no memory
-             access and has no swap hazard for any pair assignment. */
-          _push (getPairId (right));
-          if (!aopInReg (left, 0, HL_IDX))
-            fetchPair (PAIR_HL, left);
-          _pop (PAIR_BC);
-        }
-      emit2 ("dsub");
-      cost2 (1, 1, 1, 1, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
-      spillPair (PAIR_HL);
-      genMove (IC_RESULT (ic)->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true);
-      return;
-    }
-
-  /* 8080/8085: like the sm83 case above, a 16-bit subtraction where the right
-     operand is in memory cannot use the byte loop below - with no index
-     register the memory operand needs HL, and pointing HL at a stack operand
-     uses add hl, sp, which destroys the borrow between the low and high byte.
-     (setupToPreserveCarry would try to park the result in DE, clobbering a
-     left operand already held there - e.g. a pointer value in `ptr - i`.) Load
-     both operands into register pairs (left -> DE, right -> HL; fetchPair is a
-     no-op when an operand is already in the pair) and subtract byte-wise in
-     registers (carry-safe), then store. Fires when the right operand is in
-     memory and the left is either in memory or a register pair. */
-  if (!maskedtopbyte && IS_8080LIKE && size == 2 &&
-    requiresHL (right) && right->type != AOP_REG &&
-    ((requiresHL (left) && left->type != AOP_REG) ||
-     /* reg-pair left (e.g. a pointer value in `ptr - i`): only when the result
-        is also in memory, so storing it matches the proven both-memory path and
-        does not collide with a register result. */
-     (left->type == AOP_REG && left->size == 2 && requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG)))
-    {
-      bool save_de = !isPairDead (PAIR_DE, ic);
-      if (save_de)
-        _push (PAIR_DE);
-      fetchPair (PAIR_DE, left);   /* left -> DE */
-      fetchPair (PAIR_HL, right);  /* right -> HL (order matters: right may be HL) */
-      emit3 (A_LD, ASMOP_A, ASMOP_E);
-      emit3 (A_SUB, ASMOP_A, ASMOP_L);   /* a = left_lo - right_lo */
-      emit3 (A_LD, ASMOP_E, ASMOP_A);    /* result_lo -> e */
-      emit3 (A_LD, ASMOP_A, ASMOP_D);
-      emit3 (A_SBC, ASMOP_A, ASMOP_H);   /* a = left_hi - right_hi - borrow */
-      spillPair (PAIR_HL);
-      /* result_hi in a, result_lo in e; hl (was right) is now free to address a
-         memory result. */
-      cheapMove (IC_RESULT (ic)->aop, 1, ASMOP_A, 0, true);
-      cheapMove (IC_RESULT (ic)->aop, 0, ASMOP_E, 0, true);
-      if (save_de)
-        _pop (PAIR_DE);
-      return;
-    }
-
-  /* 8080/8085: a size-4 subtraction with one operand in a register pair and the
-     other in memory, into a memory result - the genPlus register-operand case,
-     for subtraction. The generic byte loop repurposes DE as the result pointer
-     and then reads the register operand's high bytes from the now-clobbered D/E
-     (seen in 950607-2: `p1.p_x - b.p_x` with the minuend in [c b e d], feeding a
-     garbage high word into __mulslong2slonglong). Spill the register operand to
-     a stack temp so both sources are in memory, use the carry-safe three-pointer
-     walk, then - if the register operand is still needed - reload it from the
-     temp (it is a source, unchanged by the subtraction). Restricted to a
-     register operand avoiding H/L, i.e. B,C,D,E, so BC and DE are free as
-     pointers. */
-  if (!maskedtopbyte && IS_8080LIKE && size == 4 &&
-    requiresHL (result) && result->type != AOP_REG &&
-    ((left->type == AOP_REG && left->regs[L_IDX] < 0 && left->regs[H_IDX] < 0 && requiresHL (right) && right->type != AOP_REG) ||
-     (right->type == AOP_REG && right->regs[L_IDX] < 0 && right->regs[H_IDX] < 0 && requiresHL (left) && left->type != AOP_REG)))
-    {
-      struct asmop optmp;
-      asmop *lop = left, *rop = right;
-      asmop *regop = (left->type == AOP_REG) ? left : right;
-      bool regop_live = !(isPairDead (PAIR_BC, ic) && isPairDead (PAIR_DE, ic));
-      adjustStack (-size, false, false, false, false, false);   /* alloc temp */
-      init_stackop (&optmp, size, -(_G.stack.pushed + _G.stack.offset));
-      for (int i = 0; i < size; i++)
-        cheapMove (&optmp, i, regop, i, true);
-      if (left->type == AOP_REG)
-        lop = &optmp;
-      else
-        rop = &optmp;
-      spillPair (PAIR_HL);
-      pointPairToAop (PAIR_HL, result, 0);   /* BC = &result via HL */
-      emit3 (A_LD, ASMOP_C, ASMOP_L);
-      emit3 (A_LD, ASMOP_B, ASMOP_H);
-      spillPair (PAIR_HL);
-      pointPairToAop (PAIR_DE, lop, 0);   /* DE = &left  */
-      spillPair (PAIR_HL);
-      pointPairToAop (PAIR_HL, rop, 0);   /* HL = &right */
-      for (int i = 0; i < size; i++)
-        {
-          emit2 ("ld a, !mems", "de");
-          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
-          emit2 ("%s a, !*hl", i ? "sbc" : "sub");
-          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 3, 3, 2, 2);
-          emit2 ("ld !mems, a", "bc");
-          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
-          if (i + 1 < size)
-            {
-              emit3w (A_INC, ASMOP_DE, 0);
-              emit3w (A_INC, ASMOP_HL, 0);
-              emit3w (A_INC, ASMOP_BC, 0);
-            }
-        }
-      spillPair (PAIR_HL);
-      spillPair (PAIR_DE);
-      spillPair (PAIR_BC);
-      if (regop_live)
-        {
-          spillPair (PAIR_HL);
-          for (int i = 0; i < size; i++)
-            cheapMove (regop, i, &optmp, i, true);
-        }
-      adjustStack (size, false, false, false, false, false);   /* free temp */
-      return;
-    }
-
-  /* 8080/8085: subtraction of two memory operands (any width, including a
-     single byte). Walk three pointers - DE=left, HL=right, BC=result - with
-     ld a,(de) / sub-or-sbc a,(hl) / ld (bc),a and inc de/hl/bc. Only the
-     sub/sbc touches the borrow; inc and indirect ld are borrow-clean, so it
-     chains correctly. Reading (de)/(hl) before writing (bc) is safe under
-     result aliasing. The generic byte loop below cannot do this - with no
-     index register it has only one usable pointer and would read (hl) for both
-     operands (computing left-left). When the result is not itself addressable
-     (it is in registers - which cannot hold the result while DE and HL are the
-     source pointers), accumulate into a stack temp and move it afterwards. */
-  if (!maskedtopbyte && IS_8080LIKE && size >= 1 &&
-    requiresHL (left) && left->type != AOP_REG &&
-    requiresHL (right) && right->type != AOP_REG)
-    {
-      bool result_mem = requiresHL (result) && result->type != AOP_REG;
-      bool save_bc = !isPairDead (PAIR_BC, ic);
-      bool save_de = !isPairDead (PAIR_DE, ic);
-      struct asmop tmpaop;
-      if (save_bc)
-        _push (PAIR_BC);
-      if (save_de)
-        _push (PAIR_DE);
-      /* BC = &destination (setupPairFromSP only does HL/DE/IY, so go via HL). */
-      if (result_mem)
-        pointPairToAop (PAIR_HL, result, 0);
-      else
-        {
-          adjustStack (-size, false, false, false, false, false);   /* alloc temp */
-          init_stackop (&tmpaop, size, -(_G.stack.pushed + _G.stack.offset)); /* temp at SP+0 */
-          pointPairToAop (PAIR_HL, &tmpaop, 0);
-        }
-      emit3 (A_LD, ASMOP_C, ASMOP_L);
-      emit3 (A_LD, ASMOP_B, ASMOP_H);
-      spillPair (PAIR_HL);
-      pointPairToAop (PAIR_DE, left, 0);      /* DE = &left  */
-      spillPair (PAIR_HL);
-      pointPairToAop (PAIR_HL, right, 0);     /* HL = &right */
-      for (int i = 0; i < size; i++)
-        {
-          emit2 ("ld a, !mems", "de");
-          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
-          emit2 ("%s a, !*hl", i ? "sbc" : "sub");
-          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 3, 3, 2, 2);
-          emit2 ("ld !mems, a", "bc");
-          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
-          if (i + 1 < size)
-            {
-              emit3w (A_INC, ASMOP_DE, 0);
-              emit3w (A_INC, ASMOP_HL, 0);
-              emit3w (A_INC, ASMOP_BC, 0);
-            }
-        }
-      spillPair (PAIR_HL);
-      spillPair (PAIR_DE);
-      spillPair (PAIR_BC);
-      if (!result_mem)
-        {
-          /* move the temp (still at SP+0..) into the register result, then free it */
-          genMove (result, &tmpaop, true, true, true, true);
-          adjustStack (size, false, false, false, false, false);
-        }
-      if (save_de)
-        _pop (PAIR_DE);
-      if (save_bc)
-        _pop (PAIR_BC);
-      return;
-    }
-
-  /* 8080/8085: result = <literal> - (memory), result also in memory. Same
-     single-pointer problem as the two-memory-operand walk above, but here the
-     left operand is a constant (genUminus passes 0 for -x), so there is no
-     left pointer: load each left byte as an immediate (ld/xor - kept borrow-
-     clean via _G.preserveCarry) and walk HL = &right, BC = &result. Reading
-     (hl) before writing (bc) is alias-safe. Without this the generic byte loop
-     below has only HL and would both read the source and store the result
-     through it, clobbering the source in memory - e.g. `x += -gull` negating
-     the global gull in place instead of into a temp. */
-  if (!maskedtopbyte && IS_8080LIKE && size >= 1 &&
-    left->type == AOP_LIT &&
-    requiresHL (right) && right->type != AOP_REG &&
-    requiresHL (result) && result->type != AOP_REG)
-    {
-      bool save_bc = !isPairDead (PAIR_BC, ic);
-      if (save_bc)
-        _push (PAIR_BC);
-      /* BC = &result (setupPairFromSP only does HL/DE/IY, so go via HL). */
-      pointPairToAop (PAIR_HL, result, 0);
-      emit3 (A_LD, ASMOP_C, ASMOP_L);
-      emit3 (A_LD, ASMOP_B, ASMOP_H);
-      spillPair (PAIR_HL);
-      pointPairToAop (PAIR_HL, right, 0);       /* HL = &right */
-      _G.preserveCarry = false;
-      for (int i = 0; i < size; i++)
-        {
-          cheapMove (ASMOP_A, 0, left, i, true);        /* left byte -> a; ld (preserveCarry) keeps borrow */
-          emit2 ("%s a, !*hl", i ? "sbc" : "sub");
-          cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 3, 3, 2, 2);
-          emit2 ("ld !mems, a", "bc");
-          cost2 (1, 2, 2, 2, 7, 6, 6, 6, 8, 6, 3, 3, 3, 2, 2);
-          _G.preserveCarry = (i + 1 < size);
-          if (i + 1 < size)
-            {
-              emit3w (A_INC, ASMOP_HL, 0);
-              emit3w (A_INC, ASMOP_BC, 0);
-            }
-        }
-      _G.preserveCarry = false;
-      spillPair (PAIR_HL);
-      spillPair (PAIR_BC);
-      if (save_bc)
-        _pop (PAIR_BC);
-      return;
-    }
-
   if ((requiresHL (result) && result->type != AOP_REG || requiresHL (left) && left->type != AOP_REG || requiresHL (right) && right->type != AOP_REG) &&
     (left->regs[L_IDX] > 0 || left->regs[H_IDX] > 0 || right->regs[L_IDX] > 0 || right->regs[H_IDX] > 0))
     UNIMPLEMENTED;
@@ -11534,7 +10839,7 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
               continue;
             }
         }
-      else if (!IS_SM83 && !IS_8080LIKE && size >= 2 && aopInReg (result, offset, HL_IDX) && (left->type == AOP_STK || left->type == AOP_DIR) &&
+      else if (!IS_SM83 && size >= 2 && aopInReg (result, offset, HL_IDX) && (left->type == AOP_STK || left->type == AOP_DIR) &&
         (aopInReg (right, offset, BC_IDX) || aopInReg (right, offset, DE_IDX) || (IS_R4K || IS_R5K || IS_R6K) && aopInReg (right, offset, JK_IDX) || IS_TLCS90 && aopInReg (right, offset, IY_IDX)))
         {
           genMove_o (ASMOP_HL, 0, left, offset, 2, a_dead, true, false, false, !offset);
@@ -11553,7 +10858,7 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
           _G.preserveCarry = !!size;
           continue;
         }
-      else if (!IS_SM83 && !IS_8080LIKE && !maskedword && size >= 2 &&
+      else if (!IS_SM83 && !maskedword && size >= 2 &&
         isPairDead (PAIR_HL, ic) &&
         (aopInReg (result, offset, HL_IDX) || aopInReg (result, offset, DE_IDX) || IS_RAB && result->type == AOP_STK) &&
         (result->regs[L_IDX] < 0 || result->regs[L_IDX] >= offset) && (result->regs[H_IDX] < 0 || result->regs[H_IDX] >= offset) &&
@@ -11582,8 +10887,8 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
             {
               if (!offset)
                 emit3 (A_CP, ASMOP_A, ASMOP_A);
-              /* route through emit3w so the 8080/8085 synthesises sbc hl,rr */
-              emit3w (A_SBC, ASMOP_HL, pairAsmop (rightpair));
+              emit2 ("sbc hl, %s", _pairs[rightpair].name);
+              cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
             }
           spillPair (PAIR_HL);
           genMove_o (result, offset, ASMOP_HL, 0, 2, a_dead, true, false, true, size <= 2);
@@ -11681,7 +10986,7 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
             }
           else if (!offset)
             {
-              if (!IS_SM83 && !IS_8080LIKE && aopIsLitVal (left, offset, 1, 0x00) && aopInReg (right, offset, A_IDX))
+              if (!IS_SM83 && aopIsLitVal (left, offset, 1, 0x00) && aopInReg (right, offset, A_IDX))
                 emit3 (A_NEG, /*ASMOP_A*/0, 0); // Todo: Make eZ80 assembler support "neg a" instead of just "neg"!
               else
                 {
@@ -11998,19 +11303,9 @@ genEor (const iCode *ic, iCode *ifx, asmop *result_aop, asmop *left_aop, asmop *
                   pushed_a = false;
               }
             genMove_o (result_aop, i, left_aop, i, end - i, a_free, hl_free, !isPairInUse (PAIR_DE, ic), true, true);
-            /* The move above writes a result register for every byte in [i, end).
-               If any of those registers still holds an operand byte needed at a
-               later byte (>= end) it is clobbered before use - not just the first
-               byte's register. Seen in blake2s: a rotate-by-8 lowered to
-               (x>>8)^(x<<24) put the wrapped byte in e, and copying the zero-run
-               wrote result byte 2 into e before byte 3 read it. */
-            if (result_aop->type == AOP_REG)
-              for (int j = i; j < end; j++)
-                if (left_aop->regs[result_aop->aopu.aop_reg[j]->rIdx] >= end || right_aop->regs[result_aop->aopu.aop_reg[j]->rIdx] >= end)
-                  {
-                    UNIMPLEMENTED;
-                    break;
-                  }
+            if (result_aop->type == AOP_REG &&
+              (left_aop->regs[result_aop->aopu.aop_reg[i]->rIdx] >= end || right_aop->regs[result_aop->aopu.aop_reg[i]->rIdx] >= end))
+              UNIMPLEMENTED;
             if (result_aop->regs[A_IDX] >= i && result_aop->regs[A_IDX] < end)
               a_free = false;
             i = end;
@@ -12479,17 +11774,9 @@ genMultOneChar (const iCode * ic)
       regalloc_dry_run_state_scale = 4.0f;
       emit3w (A_ADD, ASMOP_HL, ASMOP_DE);
       emitLabel (tlbl2);
-      if (IS_8080LIKE)
-        {
-          emit3 (A_DEC, ASMOP_B, 0);
-          emitJP (tlbl1, "nz", 1.0f, true);
-        }
-      else
-        {
-          if (!regalloc_dry_run)
-            emit2 ("djnz !tlabel", labelKey2num (tlbl1->key));
-          cost2 (2, 2, -1, -1, 12.375f, 8.75f, 5.0f, 6.0f, -1.0f, 10.0f, -1.0f, -1.0f, -1.0f, 3.75f, 2.0f);
-        }
+      if (!regalloc_dry_run)
+        emit2 ("djnz !tlabel", labelKey2num (tlbl1->key));
+      cost2 (2, 2, -1, -1, 12.375f, 8.75f, 5.0f, 6.0f, -1.0f, 10.0f, -1.0f, -1.0f, -1.0f, 3.75f, 2.0f);
       regalloc_dry_run_state_scale = 1.0f;
     }
 
@@ -12958,12 +12245,8 @@ genIfxJump (iCode *ic, const char *jval)
       else
         {
           /* The buffer contains the bit on A that we should test */
-          if (IS_8080LIKE)
-            emit8080Bit (ASMOP_A, 0, atoi (jval));
-          else {
           emit2 ("bit %s, a", jval);
           cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-          }
           inst = "nz";
         }
     }
@@ -13023,12 +12306,8 @@ genIfxJump (iCode *ic, const char *jval)
       else
         {
           /* The buffer contains the bit on A that we should test */
-          if (IS_8080LIKE)
-            emit8080Bit (ASMOP_A, 0, atoi (jval));
-          else {
           emit2 ("bit %s, a", jval);
           cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-          }
           inst = "z";
         }
     }
@@ -13159,16 +12438,12 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
               if (!(result->aop->type == AOP_CRY && result->aop->size) && ifx &&
                 (left->aop->type == AOP_REG || left->aop->type == AOP_STK))
                 {
-                  if (IS_8080LIKE)
-                    emit8080Bit (left->aop, left->aop->size - 1, 7);
-                  else {
                   if (!regalloc_dry_run)
                     emit2 ("bit 7, %s", aopGet (left->aop, left->aop->size - 1, FALSE));
                   if (left->aop->type == AOP_REG)
                     cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
                   else
                     cost2 (4, 3, -1, 3, 20, 15, 10, 11, -1, 10, -1, 5, 5, 5 , 5);
-                  }
                   genIfxJump (ifx, "nz");
                   return;
                 }
@@ -13214,28 +12489,6 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
               if (size != 0)
                 emit3w (A_INC, ASMOP_HL, 0);
               offset++;
-            }
-          if (sign && IS_8080LIKE)
-            {
-              /* Signed fixup done here, directly off the pointers (DE->top of
-                 left, HL->top of right, carry = unsigned borrow), so it works
-                 whether or not DE was live/pushed: the D/E approach used for
-                 SM83 needs the top bytes preloaded into D/E, but on 8080 a live
-                 DE is popped below, which would clobber them. signed_lt =
-                 borrow XOR left.sign XOR right.sign, landing in A bit 7 (which
-                 release: shifts out); no carry needs preserving afterwards. */
-              emit3 (A_SBC, ASMOP_A, ASMOP_A);   /* A = borrow ? 0xff : 0x00 */
-              emit2 ("xor a, !*hl");             /* ^ right top byte */
-              cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
-              emit3w (A_EX, ASMOP_DE, ASMOP_HL); /* HL -> top of left */
-              emit2 ("xor a, !*hl");             /* ^ left top byte */
-              cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
-              result_in_carry = false;
-              spillPair (PAIR_DE);
-              spillPair (PAIR_HL);
-              if (!isPairDead (PAIR_DE, ic))
-                _pop (PAIR_DE);
-              goto release;
             }
           if (sign && IS_SM83)
             {
@@ -13310,34 +12563,6 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
           goto fix;
         }
 
-      /* 8080/8085 signed compare: the post-subtraction sign fixups used below
-         rely on "bit 7, r" (which preserves the carry that holds the unsigned
-         result); the 8080/8085 has no bit test and its "and a,#0x80" substitute
-         destroys that carry. Instead use signed_lt = unsigned_borrow XOR a.sign
-         XOR b.sign, computed as 0x00/0xff byte masks (no carry to preserve
-         across the sign handling). Result sign bit lands in A bit 7. */
-      if (IS_8080LIKE && sign && size >= 1 && right->aop->type != AOP_LIT &&
-          !aopInReg (left->aop, size - 1, A_IDX) && !aopInReg (right->aop, size - 1, A_IDX))
-        {
-          /* Full unsigned subtraction left - right; the borrow (carry) is the
-             unsigned "<" result. The operands are only read, not modified. */
-          for (int i = 0; i < size; i++)
-            {
-              cheapMove (ASMOP_A, 0, left->aop, i, true);
-              emit3_o (i == 0 ? A_SUB : A_SBC, ASMOP_A, 0, right->aop, i);
-            }
-          /* signed_lt = borrow XOR a.sign XOR b.sign. sbc a,a turns the borrow
-             into an all-ones/all-zero mask (bit 7 = borrow); XORing the two
-             top operand bytes flips bit 7 by their sign bits. Only bit 7 of the
-             result matters (release shifts it into carry). No carry needs to be
-             preserved, so this avoids the "bit 7,r" trick the 8080/8085 lacks. */
-          emit3 (A_SBC, ASMOP_A, ASMOP_A);
-          emit3_o (A_XOR, ASMOP_A, 0, left->aop, size - 1);
-          emit3_o (A_XOR, ASMOP_A, 0, right->aop, size - 1);
-          result_in_carry = false;
-          goto release;
-        }
-
       if (IS_SM83 && sign && right->aop->type != AOP_LIT && !aopInReg (left->aop, offset, A_IDX))
         {
           cheapMove (ASMOP_A, 0, right->aop, size - 1, true);
@@ -13358,7 +12583,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
 
           if (sign && !((IS_R6K_NOTYET || IS_TLCS90) && ifx))  // Map signed operands to unsigned ones. This pre-subtraction workaround to lack of signed comparison is cheaper than the post-subtraction one at fix (except Rabbit 6000 and TLCS-90, which have additional conditional jumps, and thus don't need the workaround for the ifx case).
             {
-              if (size == 2 && !(IS_SM83 || IS_8080LIKE || !ifx && requiresHL(result->aop) && result->aop->type != AOP_REG) && isPairDead (PAIR_HL, ic) && (isPairDead (PAIR_DE, ic) || isPairDead (PAIR_BC, ic)) && (getPairId (left->aop) == PAIR_HL || IS_RAB && (left->aop->type == AOP_STK || left->aop->type == AOP_EXSTK)))
+              if (size == 2 && !(IS_SM83 || !ifx && requiresHL(result->aop) && result->aop->type != AOP_REG) && isPairDead (PAIR_HL, ic) && (isPairDead (PAIR_DE, ic) || isPairDead (PAIR_BC, ic)) && (getPairId (left->aop) == PAIR_HL || IS_RAB && (left->aop->type == AOP_STK || left->aop->type == AOP_EXSTK)))
                 {
                   PAIR_ID litpair = (isPairDead (PAIR_DE, ic) ? PAIR_DE : PAIR_BC);
                   fetchPair (PAIR_HL, left->aop);
@@ -13411,7 +12636,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
               goto release;
             }
         }
-      if (!IS_SM83 && !IS_8080LIKE && (!sign || size > 2) && (getPairId_o (left->aop, offset) == PAIR_HL || size == 2 && left->aop->type == AOP_IY) && isPairDead (PAIR_HL, ic) &&
+      if (!IS_SM83 && (!sign || size > 2) && (getPairId_o (left->aop, offset) == PAIR_HL || size == 2 && left->aop->type == AOP_IY) && isPairDead (PAIR_HL, ic) &&
         (getPairId_o (right->aop, offset) == PAIR_DE || getPairId_o (right->aop, offset) == PAIR_BC))
         {
           if (left->aop->type == AOP_DIR || left->aop->type == AOP_IY)
@@ -13529,7 +12754,7 @@ fix:
               genIfxJump (ifx, "lt");
               return;
             }
-          else if (!ifx && !IS_SM83 && !IS_8080LIKE && optimize.nosidechannels) // Compute N ^ V (the latter is not a flag bit on SM83 or documented 8080/8085).
+          else if (!ifx && !IS_SM83 && optimize.nosidechannels) // Compute N ^ V (the latter is not a flag bit on SM83).
             {
               if (!isRegDead (BC_IDX, ic))
                 _push (PAIR_BC);
@@ -13544,7 +12769,7 @@ fix:
                 _pop (PAIR_BC);
               result_in_carry = false;
             }
-          else if (!IS_SM83 && !IS_8080LIKE) // Directly check for overflow, can't be done on SM83 or the documented 8080/8085 (the P flag there is parity, not overflow).
+          else if (!IS_SM83) // Directly check for overflow, can't be done on SM83.
             {
               // Assume no overflow.
               symbol *tlbl = regalloc_dry_run ? NULL : newiTempLabel (NULL);
@@ -13560,43 +12785,26 @@ fix:
                  case we can easily decide which one is greater, and we set/reset the carry
                  flag. If not, then the unsigned compare gave the correct result and we
                  don't change the carry flag. */
-              if (IS_8080LIKE)
-                {
-                  /* The 8080/8085 has no "bit 7,r", and its "and a,#0x80"
-                     substitute would destroy the carry that holds the unsigned
-                     result. Instead form signed_lt = borrow XOR a.sign XOR
-                     b.sign as a byte: sbc a,a turns the borrow (carry) into an
-                     all-ones/all-zero mask, then XORing the two top operand
-                     bytes (D = left top, E = right top) flips bit 7 by their
-                     sign bits. Only bit 7 matters (release shifts it out). */
-                  emit3 (A_SBC, ASMOP_A, ASMOP_A);
-                  emit3 (A_XOR, ASMOP_A, ASMOP_D);
-                  emit3 (A_XOR, ASMOP_A, ASMOP_E);
-                  result_in_carry = false;
-                }
-              else
-                {
-                  symbol *tlbl1 = regalloc_dry_run ? 0 : newiTempLabel (0);
-                  symbol *tlbl2 = regalloc_dry_run ? 0 : newiTempLabel (0);
-                  // TODO: Fix all the cycle costs in here.
-                  emit2 ("bit 7, e");
-                  regalloc_dry_run_cost += 2;
-                  cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-                  emitJP (tlbl1, "z", 0.5f, true);
-                  emit2 ("bit 7, d");
-                  regalloc_dry_run_cost += 2;
-                  emitJP (tlbl2, "nz", 0.5f, true);
-                  emit2 ("cp a, a");
-                  regalloc_dry_run_cost += 1;
-                  emitJP (tlbl2, NULL, 1.0f, true);
-                  emitLabelSpill (tlbl1);
-                  emit2 ("bit 7, d");
-                  regalloc_dry_run_cost += 2;
-                  emitJP (tlbl2, "z", 0.5f, true);
-                  emit2 ("scf");
-                  emitLabelSpill (tlbl2);
-                  result_in_carry = true;
-                }
+              symbol *tlbl1 = regalloc_dry_run ? 0 : newiTempLabel (0);
+              symbol *tlbl2 = regalloc_dry_run ? 0 : newiTempLabel (0);
+              // TODO: Fix all the cycle costs in here.
+              emit2 ("bit 7, e");
+              regalloc_dry_run_cost += 2;
+              cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
+              emitJP (tlbl1, "z", 0.5f, true);
+              emit2 ("bit 7, d");
+              regalloc_dry_run_cost += 2;
+              emitJP (tlbl2, "nz", 0.5f, true);
+              emit2 ("cp a, a");
+              regalloc_dry_run_cost += 1;
+              emitJP (tlbl2, NULL, 1.0f, true);
+              emitLabelSpill (tlbl1);
+              emit2 ("bit 7, d");
+              regalloc_dry_run_cost += 2;
+              emitJP (tlbl2, "z", 0.5f, true);
+              emit2 ("scf");
+              emitLabelSpill (tlbl2);
+              result_in_carry = true;
             }
         }
       else
@@ -13686,16 +12894,7 @@ genCmpGt (iCode * ic, iCode * ifx)
       if ((requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG || requiresHL (left->aop) && left->aop->type != AOP_REG || requiresHL (right->aop) && right->aop->type != AOP_REG) &&
         (left->aop->regs[L_IDX] > 0 || left->aop->regs[H_IDX] > 0 || right->aop->regs[L_IDX] > 0 || right->aop->regs[H_IDX] > 0) || !isPairDead (PAIR_HL, ic))
         UNIMPLEMENTED;
-      else if (!(IS_8080LIKE && max (left->aop->size, right->aop->size) > 1 &&
-                 left->aop->type != AOP_REG && requiresHL (left->aop) && left->aop->type != AOP_STL &&
-                 right->aop->type != AOP_REG && requiresHL (right->aop) && right->aop->type != AOP_STL))
-        /* On the 8080/8085 the two-memory-operand signed compare in genCmp walks its
-           pointers with carry-clean inc de / inc hl and sets up its own pairs, so it
-           needs no carry preservation here. Skipping setupToPreserveCarry () for that
-           case avoids its shiftIntoPair (PAIR_DE) "push de": the matching "pop de" is
-           emitted by freeAsmop after genCmp, i.e. after genCmp's ifx "jp m", so it is
-           skipped on the branch-taken path and leaks 2 bytes of stack (corrupting every
-           later sp-relative access in the function). */
+      else
         setupToPreserveCarry (result->aop, left->aop, right->aop);
     }
 
@@ -13744,16 +12943,7 @@ genCmpLt (iCode * ic, iCode * ifx)
       if ((requiresHL (IC_RESULT (ic)->aop) && IC_RESULT (ic)->aop->type != AOP_REG || requiresHL (left->aop) && left->aop->type != AOP_REG || requiresHL (right->aop) && right->aop->type != AOP_REG) &&
         (left->aop->regs[L_IDX] > 0 || left->aop->regs[H_IDX] > 0 || right->aop->regs[L_IDX] > 0 || right->aop->regs[H_IDX] > 0) || !isPairDead (PAIR_HL, ic))
         UNIMPLEMENTED;
-      else if (!(IS_8080LIKE && max (left->aop->size, right->aop->size) > 1 &&
-                 left->aop->type != AOP_REG && requiresHL (left->aop) && left->aop->type != AOP_STL &&
-                 right->aop->type != AOP_REG && requiresHL (right->aop) && right->aop->type != AOP_STL))
-        /* On the 8080/8085 the two-memory-operand signed compare in genCmp walks its
-           pointers with carry-clean inc de / inc hl and sets up its own pairs, so it
-           needs no carry preservation here. Skipping setupToPreserveCarry () for that
-           case avoids its shiftIntoPair (PAIR_DE) "push de": the matching "pop de" is
-           emitted by freeAsmop after genCmp, i.e. after genCmp's ifx "jp m", so it is
-           skipped on the branch-taken path and leaks 2 bytes of stack (corrupting every
-           later sp-relative access in the function). */
+      else
         setupToPreserveCarry (result->aop, left->aop, right->aop);
     }
 
@@ -13934,7 +13124,7 @@ gencjneshort (operand *left, operand *right, symbol *lbl, const iCode *ic)
               offset += 2;
               a_result = false;
             }
-          else if (!IS_SM83 && !IS_8080LIKE && size >= 2 && skipbyte != offset + 1 && aopInReg (left->aop, offset, HL_IDX) && isRegDead (HL_IDX, ic) && !next_zero && (de_dead || bc_dead))
+          else if (!IS_SM83 && size >= 2 && skipbyte != offset + 1 && aopInReg (left->aop, offset, HL_IDX) && isRegDead (HL_IDX, ic) && !next_zero && (de_dead || bc_dead))
             {
               asmop *rightpairaop = de_dead ? ASMOP_DE : ASMOP_BC;
               emit3w_o (A_LD, rightpairaop, 0, right->aop, offset);
@@ -14009,7 +13199,7 @@ gencjneshort (operand *left, operand *right, symbol *lbl, const iCode *ic)
             }
 
           if (aopInReg (left->aop, offset, HL_IDX) &&
-            ((!IS_SM83 && !IS_8080LIKE && isRegDead (HL_IDX, ic) && (aopInReg (right->aop, offset, BC_IDX) || aopInReg (right->aop, offset, DE_IDX) || bc_dead || de_dead)) ||
+            ((!IS_SM83 && isRegDead (HL_IDX, ic) && (aopInReg (right->aop, offset, BC_IDX) || aopInReg (right->aop, offset, DE_IDX) || bc_dead || de_dead)) ||
             (IS_R4K || IS_R5K || IS_R6K || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && aopInReg (right->aop, offset, DE_IDX) ||
             (IS_R4K || IS_R5K || IS_R6K) && aopInReg (right->aop, offset, JK_IDX) ||
             (IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && aopInReg (right->aop, offset, BC_IDX)))
@@ -14040,7 +13230,7 @@ gencjneshort (operand *left, operand *right, symbol *lbl, const iCode *ic)
               size--;
               continue;
             }
-          else if (!IS_SM83 && !IS_8080LIKE && hl_dead && (left->aop->type == AOP_STK || left->aop->type == AOP_IY || left->aop->type == AOP_HL || left->aop->type == AOP_DIR) && (aopInReg (right->aop, offset, DE_IDX) || aopInReg (right->aop, offset, BC_IDX)))
+          else if (!IS_SM83 && hl_dead && (left->aop->type == AOP_STK || left->aop->type == AOP_IY || left->aop->type == AOP_HL || left->aop->type == AOP_DIR) && (aopInReg (right->aop, offset, DE_IDX) || aopInReg (right->aop, offset, BC_IDX)))
             {
               genMove_o (ASMOP_HL, 0, left->aop, offset, 2, a_dead, true, de_dead, iy_dead, true);
               if ((IS_R4K || IS_R5K || IS_R6K || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1) && aopInReg (right->aop, offset, DE_IDX) ||
@@ -14450,7 +13640,7 @@ genAnd (const iCode *ic, iCode *ifx)
           /* Testing for the inverse of the border bits of some 16-bit registers destructively is cheap. */
           /* More combinations would be possible, but these are the common ones. */
           else if (left->aop->type == AOP_REG && sizel >= 2 && ((lit >> (offset * 8)) & 0xffffull) == 0x7fffull &&
-            (!IS_SM83 && !IS_8080LIKE && aopInReg (left->aop, offset, HL_IDX) && isPairDead (PAIR_HL, ic) ||
+            (!IS_SM83 && aopInReg (left->aop, offset, HL_IDX) && isPairDead (PAIR_HL, ic) ||
             IS_RAB && aopInReg (left->aop, offset, DE_IDX) && isPairDead (PAIR_DE, ic)))
             {
               emit3 (A_CP, ASMOP_A, ASMOP_A); // Clear carry.
@@ -14522,9 +13712,6 @@ genAnd (const iCode *ic, iCode *ifx)
             {
               if (requiresHL (left->aop) && left->aop->type != AOP_REG)
                 _push (PAIR_HL);
-              if (IS_8080LIKE)
-                emit8080Bit (left->aop, offset, isLiteralBit (bytelit));
-              else {
               if (!regalloc_dry_run)
                 emit2 ("bit %d, %s", isLiteralBit (bytelit), aopGet (left->aop, offset, FALSE));
               if (left->aop->type == AOP_REG)
@@ -14533,7 +13720,6 @@ genAnd (const iCode *ic, iCode *ifx)
                 cost2 (2, 2, 2, 2, 12, 9, 7, 7, 16, 6, 3, 3, 3, 3, 3);
               else
                 cost2 (4, 3, -1, 3, 20, 15, 10, 11, -1, 10, -1, 5, 5, 5 , 5);
-              }
               if (requiresHL (left->aop) && left->aop->type != AOP_REG)
                 _pop (PAIR_HL);
               sizel--;
@@ -14672,9 +13858,6 @@ genAnd (const iCode *ic, iCode *ifx)
             (result->aop->type == AOP_STK || result->aop->type == AOP_DIR || result->aop->type == AOP_REG && !aopInReg (result->aop, i, IYL_IDX) && !aopInReg (result->aop, i, IYH_IDX)))
             {
               cheapMove (result->aop, i, left->aop, i, a_free);
-              if (IS_8080LIKE)
-                emit8080SetRes (result->aop, i, isLiteralBit (~bytelit & 0xffu), false, a_free);
-              else {
               if (!regalloc_dry_run)
                 emit2 ("res %d, %s", isLiteralBit (~bytelit & 0xffu), aopGet (result->aop, i, false));
               if (result->aop->type == AOP_STK)
@@ -14683,7 +13866,6 @@ genAnd (const iCode *ic, iCode *ifx)
                 cost2 (2, 2, 2, 2, 15, 13, 10, 10, 16, 10, 4, 4, 4, 3, 5); // res b, (hl)
               else
                 cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 3, 3, 3, 2, 2);
-              }
               if (aopInReg (result->aop, i, A_IDX))
                 a_free = false;
               i++;
@@ -15072,9 +14254,6 @@ genOr (const iCode * ic, iCode * ifx)
             (result->aop->type == AOP_STK || result->aop->type == AOP_DIR || result->aop->type == AOP_REG && !aopInReg (result->aop, i, IYL_IDX) && !aopInReg (result->aop, i, IYH_IDX)))
             {
               cheapMove (result->aop, i, left->aop, i, a_free);
-              if (IS_8080LIKE)
-                emit8080SetRes (result->aop, i, isLiteralBit (bytelit), true, a_free);
-              else {
               if (!regalloc_dry_run)
                 emit2 ("set %d, %s", isLiteralBit (bytelit), aopGet (result->aop, i, false));
               if (result->aop->type == AOP_STK)
@@ -15083,7 +14262,6 @@ genOr (const iCode * ic, iCode * ifx)
                 cost2 (2, 2, 2, 2, 15, 13, 10, 10, 16, 10, 4, 4, 4, 3, 5); // set b, (hl)
               else
                 cost2 (2, 2, 2, 2, 8, 6, 4, 4, 8, 4, 3, 3, 3, 2, 2); // set b, r
-              }
               if (aopInReg (result->aop, i, A_IDX))
                 a_free = false;
               i++;
@@ -15418,46 +14596,6 @@ emitRsh2 (asmop * aop, int size, int is_signed)
 {
   int offset = 0;
 
-  /* The 8080/8085 has no CB-prefix shifts.  Synthesise the right shift by
-     rotating each byte right through carry (rra), most-significant first.
-     For the top byte we first establish the incoming carry: 0 for a logical
-     shift, or the sign bit for an arithmetic shift.  "rlca; rrca" sets
-     carry = bit 7 while leaving A unchanged (and needs no scratch register). */
-  if (IS_8080LIKE)
-    {
-      /* 8085 undocumented ARHL: HL = HL >> 1 arithmetic (sign preserved, bit 0
-         into carry) in a single byte, replacing the per-byte rlca/rrca/rra
-         synthesis for a signed 16-bit shift whose value is in HL. Costing this
-         cheaply also nudges the allocator to keep such shifts in HL. */
-      if (IS_8085 && options.allow_undoc_inst && is_signed && size == 2 &&
-          aopInReg (aop, 0, L_IDX) && aopInReg (aop, 1, H_IDX))
-        {
-          emit2 ("arhl");
-          cost2 (1, 1, 1, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7);
-          return;
-        }
-      for (int off = size - 1; off >= 0; off--)
-        {
-          bool inA = aopInReg (aop, off, A_IDX);
-          if (!inA)
-            emit3_o (A_LD, ASMOP_A, 0, aop, off);
-          if (off == size - 1)
-            {
-              if (is_signed)
-                {
-                  emit3 (A_RLCA, 0, 0);
-                  emit3 (A_RRCA, 0, 0);
-                }
-              else
-                emit3 (A_OR, ASMOP_A, ASMOP_A);
-            }
-          emit3 (A_RRA, 0, 0);
-          if (!inA)
-            emit3_o (A_LD, aop, off, ASMOP_A, 0);
-        }
-      return;
-    }
-
   while (size--)
     {
       if (offset == 0)
@@ -15466,94 +14604,6 @@ emitRsh2 (asmop * aop, int size, int is_signed)
         emit3_o (A_RR, aop, size, 0, 0);
       offset++;
     }
-}
-
-/* 8080/8085: shift one byte of aop left by 1 through the accumulator (no CB
-   shifts exist).  rotate==false -> sla (0 into bit 0); rotate==true -> rl
-   (incoming carry into bit 0, i.e. continue a multi-byte shift).  The
-   accumulator must be free (the shift loops keep the count in B for this). */
-static void
-emit8080Lsh1 (asmop *aop, int offset, bool rotate)
-{
-  bool inA = aopInReg (aop, offset, A_IDX);
-  if (!inA)
-    emit3_o (A_LD, ASMOP_A, 0, aop, offset);
-  if (rotate)
-    emit3 (A_RLA, 0, 0);
-  else
-    emit3 (A_ADD, ASMOP_A, ASMOP_A);
-  if (!inA)
-    emit3_o (A_LD, aop, offset, ASMOP_A, 0);
-}
-
-/* 8080/8085 have no block-copy (ldir).  Emit the equivalent byte loop with
-   the same register contract: HL = source, DE = dest, BC = count. Clobbers A
-   (as the existing SM83/Rabbit byte-loop fallbacks do). */
-static void
-emit8080Ldir (void)
-{
-  symbol *tlbl = regalloc_dry_run ? 0 : newiTempLabel (NULL);
-  emitLabel (tlbl);
-  if (!regalloc_dry_run)
-    {
-      emit2 ("ld a, (hl)");
-      emit2 ("ld (de), a");
-    }
-  cost2 (2, 2, 2, 2, 11, 8, 4, 4, 16, 8, 5, 5, 5, 4, 4);
-  emit3w (A_INC, ASMOP_HL, 0);
-  emit3w (A_INC, ASMOP_DE, 0);
-  emit3w (A_DEC, ASMOP_BC, 0);
-  emit3 (A_LD, ASMOP_A, ASMOP_B);
-  emit3 (A_OR, ASMOP_A, ASMOP_C);
-  emitJP (tlbl, "nz", 0.9f, true);
-}
-
-/* 8080/8085: single ldi step - (de) = (hl); hl++; de++; bc--.  Clobbers A. */
-static void
-emit8080Ldi (void)
-{
-  if (!regalloc_dry_run)
-    {
-      emit2 ("ld a, (hl)");
-      emit2 ("ld (de), a");
-    }
-  cost2 (2, 2, 2, 2, 11, 8, 4, 4, 16, 8, 5, 5, 5, 4, 4);
-  emit3w (A_INC, ASMOP_HL, 0);
-  emit3w (A_INC, ASMOP_DE, 0);
-  emit3w (A_DEC, ASMOP_BC, 0);
-}
-
-/* 8080/8085 have no CB-prefix bit/set/res.  Synthesise them through the
-   accumulator and an immediate mask.  The accumulator is used as scratch;
-   the cost is accounted so the register allocator keeps/spills A as needed. */
-static void
-emit8080Bit (asmop *aop, int offset, int bit)  /* test: sets Z = !(bit set) */
-{
-  if (!aopInReg (aop, offset, A_IDX))
-    cheapMove (ASMOP_A, 0, aop, offset, true);
-  if (!regalloc_dry_run)
-    emit2 ("and a, !immedbyte", (unsigned)(1u << bit));
-  cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-}
-
-static void
-emit8080SetRes (asmop *aop, int offset, int bit, bool set, bool a_dead)  /* set/clear a bit */
-{
-  unsigned mask = set ? (1u << bit) : (~(1u << bit) & 0xffu);
-  bool inA = aopInReg (aop, offset, A_IDX);
-  /* set/res yields a value (not a flag result), so A can be preserved with
-     push/pop af when it is live. */
-  if (!inA && !a_dead)
-    _push (PAIR_AF);
-  if (!inA)
-    cheapMove (ASMOP_A, 0, aop, offset, true);
-  if (!regalloc_dry_run)
-    emit2 (set ? "or a, !immedbyte" : "and a, !immedbyte", mask);
-  cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-  if (!inA)
-    cheapMove (aop, offset, ASMOP_A, 0, true);
-  if (!inA && !a_dead)
-    _pop (PAIR_AF);
 }
 
 /*-----------------------------------------------------------------*/
@@ -15567,42 +14617,6 @@ shiftR2Left2Result (const iCode *ic, operand *left, int offl, operand *result, i
 
   wassert (shCount >= 0 && shCount <= 16);
 
-  /* 8080/8085: no CB shifts. Move into place and shift byte-wise via rra. */
-  if (IS_8080LIKE)
-    {
-      /* 8085 undocumented ARHL: a signed 16-bit right shift is one byte per
-         step (HL = HL >> 1 arithmetic) when done in HL. Do the shift in HL and
-         move the result out, replacing the ~8-instruction rlca/rrca/rra
-         synthesis per step. Fires whenever HL is free to use (or is itself the
-         result), which is the common case; otherwise fall through. */
-      if (IS_8085 && options.allow_undoc_inst && is_signed && shCount > 0 &&
-          (isPairDead (PAIR_HL, ic) || aopInReg (result->aop, offr, HL_IDX)))
-        {
-          genMove_o (ASMOP_HL, 0, left->aop, offl, 2, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true, true);
-          while (shCount-- > 0)
-            {
-              emit2 ("arhl");
-              cost2 (1, 1, 1, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7);
-            }
-          genMove_o (result->aop, offr, ASMOP_HL, 0, 2, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true, true);
-          return;
-        }
-      if (result->aop != left->aop || offr != offl)
-        genMove_o (result->aop, offr, left->aop, offl, 2, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true, true);
-      /* emitRsh2 routes bytes that are not already in A through A; if A holds a
-         live value not part of the shifted operand, preserve it (the register
-         allocator does not model this scratch use of A). */
-      bool save_a = !isRegDead (A_IDX, ic)
-        && !aopInReg (result->aop, offr, A_IDX) && !aopInReg (result->aop, offr + 1, A_IDX);
-      if (save_a)
-        _push (PAIR_AF);
-      while (shCount-- > 0)
-        emitRsh2 (result->aop, 2, is_signed);
-      if (save_a)
-        _pop (PAIR_AF);
-      return;
-    }
-
   if (IS_RAB && !is_signed && shCount < 4 && (aopInReg (result->aop, 0, HL_IDX) || aopInReg (result->aop, 0, DE_IDX)))
     {
       genMove (ic->result->aop, left->aop, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
@@ -15613,7 +14627,7 @@ shiftR2Left2Result (const iCode *ic, operand *left, int offl, operand *result, i
         }
       return;
     }
-  else if (!IS_SM83 && !IS_RAB && !IS_8080LIKE && !is_signed && aopSame (result->aop, offr, left->aop, offl, 2) && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
+  else if (!IS_SM83 && !IS_RAB && !is_signed && aopSame (result->aop, offr, left->aop, offl, 2) && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
     (shCount == 4 || shCount == 5) &&
     (result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY))
     {
@@ -15743,7 +14757,7 @@ shiftR2Left2Result (const iCode *ic, operand *left, int offl, operand *result, i
 
       emitRsh2 (result->aop, size, is_signed);
 
-      if (aopInReg (caop, 0, B_IDX) && !IS_SM83 && !IS_8080LIKE && !IS_TLCS870 && !IS_TLCS870C && !IS_TLCS870C1)
+      if (aopInReg (caop, 0, B_IDX) && !IS_SM83 && !IS_TLCS870 && !IS_TLCS870C && !IS_TLCS870C1)
         {
           if (!regalloc_dry_run)
             emit2 ("djnz !tlabel", labelKey2num (tlbl->key));
@@ -15767,42 +14781,6 @@ static void
 shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic)
 {
   asmop *shiftaop = result->aop;
-
-  /* 8080/8085: no CB shifts. Move into place and shift byte-wise via add a,a / rla. */
-  if (IS_8080LIKE)
-    {
-      if (result->aop != left->aop)
-        genMove_o (result->aop, 0, left->aop, 0, 2, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true, true);
-      /* emit8080Lsh1 uses A as scratch for any byte not in A; preserve a live A
-         that is not part of the shifted operand (allocator doesn't model it). */
-      bool save_a = !isRegDead (A_IDX, ic)
-        && !aopInReg (result->aop, 0, A_IDX) && !aopInReg (result->aop, 1, A_IDX);
-      if (save_a)
-        _push (PAIR_AF);
-      while (shCount-- > 0)
-        {
-          emit8080Lsh1 (result->aop, 0, false);  /* sla low byte  */
-          emit8080Lsh1 (result->aop, 1, true);   /* rl  high byte */
-        }
-      /* Mask the top byte down to the bit width for a sub-byte-width unsigned
-         _BitInt result (a left shift can push bits past the width). The
-         generic path below does this too; the 8080/8085 path returns early. */
-      {
-        sym_link *rtype = operandType (IC_RESULT (ic));
-        unsigned tbmask = (IS_BITINT (rtype) && SPEC_USIGN (rtype) && (SPEC_BITINTWIDTH (rtype) % 8)) ?
-          (0xffu >> (8 - SPEC_BITINTWIDTH (rtype) % 8)) : 0xffu;
-        if (tbmask != 0xffu)
-          {
-            cheapMove (ASMOP_A, 0, result->aop, 1, true);
-            emit2 ("and a, #0x%02x", tbmask);
-            cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
-            cheapMove (result->aop, 1, ASMOP_A, 0, true);
-          }
-      }
-      if (save_a)
-        _pop (PAIR_AF);
-      return;
-    }
 
   if (shCount == 7 && aopIsLitVal (left->aop, 1, 1, 0x00) && result->aop->type == AOP_REG &&
     result->aop->aopu.aop_reg[0]->rIdx != IYL_IDX && result->aop->aopu.aop_reg[1]->rIdx != IYL_IDX && result->aop->aopu.aop_reg[0]->rIdx != IYH_IDX && result->aop->aopu.aop_reg[1]->rIdx != IYH_IDX)
@@ -15893,27 +14871,14 @@ shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic
 
       if (shiftaop->type == AOP_REG)
         {
-          /* On the 8080/8085 there are no CB shifts, so shifting a byte that is
-             not already in A goes through A (emit8080Lsh1).  If A holds a live
-             value that is not part of shiftaop, that value would be clobbered -
-             the register allocator does not model this A use - so preserve it. */
-          bool save_a = IS_8080LIKE && !isRegDead (A_IDX, ic)
-            && !aopInReg (shiftaop, 0, A_IDX) && !aopInReg (shiftaop, 1, A_IDX);
-          if (save_a)
-            _push (PAIR_AF);
           while (shCount--)
             {
               for (offset = 0; offset < size; offset++)
                 if (aopInReg (shiftaop, offset, A_IDX))
                   emit3 (offset ? A_ADC : A_ADD, ASMOP_A, ASMOP_A);
                 else
-                  if (IS_8080LIKE)
-                    emit8080Lsh1 (shiftaop, offset, offset != 0);
-                  else
-                    emit3_o (offset ? A_RL : A_SLA, shiftaop, offset, 0, 0);
+                  emit3_o (offset ? A_RL : A_SLA, shiftaop, offset, 0, 0);
             }
-          if (save_a)
-            _pop (PAIR_AF);
         }
       else
         {
@@ -15936,16 +14901,13 @@ shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic
 
           while (size--)
             {
-              if (IS_8080LIKE)
-                emit8080Lsh1 (shiftaop, offset, offset != 0);
-              else
-                emit3_o (offset ? A_RL : A_SLA, shiftaop, offset, 0, 0);
+              emit3_o (offset ? A_RL : A_SLA, shiftaop, offset, 0, 0);
 
               offset++;
             }
           if (shCount > 1)
             {
-              if (use_b && !IS_8080LIKE)
+              if (use_b)
                 {
                   if (!regalloc_dry_run)
                     emit2 ("djnz !tlabel", labelKey2num (tlbl->key));
@@ -15953,7 +14915,7 @@ shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic
                 }
               else
                 {
-                  emit3 (A_DEC, use_b ? ASMOP_B : ASMOP_A, 0);
+                  emit3 (A_DEC, ASMOP_A, 0);
                   emitJP (tlbl, "nz", 1.0f, true);
                 }
             }
@@ -16076,7 +15038,7 @@ shiftL1Left2Result (operand *left, int offl, operand *result, int offr, unsigned
       while (shCount--)
         emit3w (A_ADD, ASMOP_HL, ASMOP_HL);
     }
-  else if (!IS_SM83 && !IS_RAB && !IS_8080LIKE && aopSame (result->aop, offr, left->aop, offr, 1) && !offr && shCount == 4 && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
+  else if (!IS_SM83 && !IS_RAB && aopSame (result->aop, offr, left->aop, offr, 1) && !offr && shCount == 4 && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
     (result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY))
     {
       emit3 (A_XOR, ASMOP_A, ASMOP_A);
@@ -16089,20 +15051,8 @@ shiftL1Left2Result (operand *left, int offl, operand *result, int offr, unsigned
      acc it is worth the additional effort for loading from / to acc. */
   else if (!aopInReg(result->aop, offr, A_IDX) && sameRegs (left->aop, result->aop) && shCount <= (2 + 2 * !isRegDead (A_IDX, ic)) && offr == offl)
     {
-      /* 8080/8085: emit8080Lsh1 uses A as scratch (the byte is not in A here);
-         preserve A if it holds a live value. */
-      bool save_a = IS_8080LIKE && !isRegDead (A_IDX, ic);
-      if (save_a)
-        _push (PAIR_AF);
       while (shCount--)
-        {
-          if (IS_8080LIKE)
-            emit8080Lsh1 (result->aop, offr, false);
-          else
-            emit3_o (A_SLA, result->aop, offr, 0, 0);
-        }
-      if (save_a)
-        _pop (PAIR_AF);
+        emit3_o (A_SLA, result->aop, offr, 0, 0);
     }
   else if ((IS_Z180 && !optimize.codeSpeed || IS_EZ80 || IS_Z80N) && // Try to use mlt
     (!IS_Z80N && aopInReg (result->aop, offr, C_IDX) && isPairDead(PAIR_BC, ic) || aopInReg (result->aop, offr, E_IDX) && isPairDead(PAIR_DE, ic) || !IS_Z80N && aopInReg (result->aop, offr, L_IDX) && isPairDead(PAIR_HL, ic)))
@@ -16124,10 +15074,7 @@ shiftL1Left2Result (operand *left, int offl, operand *result, int offr, unsigned
     {
       if (!aopSame (result->aop, offr, left->aop, offl, 1))
         emit3_o (A_LD, result->aop, offr, left->aop, offl);
-      if (IS_8080LIKE)
-        emit8080Lsh1 (result->aop, offr, false);
-      else
-        emit3_o (A_SLA, result->aop, offr, 0, 0);
+      emit3_o (A_SLA, result->aop, offr, 0, 0);
     }
   else
     {
@@ -16253,7 +15200,7 @@ genRot1 (const iCode *ic)
         emit2 ("rr de");
       cost (1, 2);
     }
-  else if (s == 4 && !IS_SM83 && !IS_RAB && !IS_8080LIKE && (aopInReg (left->aop, 0, A_IDX) || aopSame (result->aop, 0, left->aop, 0, 1)) &&
+  else if (s == 4 && !IS_SM83 && !IS_RAB && (aopInReg (left->aop, 0, A_IDX) || aopSame (result->aop, 0, left->aop, 0, 1)) &&
     (result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY) && isPairDead (PAIR_HL, ic))
     {
       if (!isRegDead (A_IDX, ic))
@@ -16267,14 +15214,14 @@ genRot1 (const iCode *ic)
       if (!isRegDead (A_IDX, ic))
         _pop (PAIR_AF);
     }
-  else if ((s == 1 || s == 7) && !IS_8080LIKE && aopSame (result->aop, 0, left->aop, 0, 1) &&
+  else if ((s == 1 || s == 7) && aopSame (result->aop, 0, left->aop, 0, 1) &&
     (result->aop->type == AOP_EXSTK || result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY) && isPairDead (PAIR_HL, ic))
     {
       pointPairToAop (PAIR_HL, result->aop, 0);
       emit2 (s == 1 ? "rlc (hl)" : "rrc (hl)");
       cost2 (2, 2, -1, -1, 15, 6, 10, 10, 16, 8, -1, -1, -1, 5, 5);
     }
-  else if ((s == 1 || s == 7) && aopSame (result->aop, 0, left->aop, 0, 1) && result->aop->type == AOP_STK && !IS_SM83 && !IS_8080LIKE)
+  else if ((s == 1 || s == 7) && aopSame (result->aop, 0, left->aop, 0, 1) && result->aop->type == AOP_STK && !IS_SM83)
     {
       emit3 (s == 1 ? A_RLC : A_RRC, result->aop, 0);
     }
@@ -16521,10 +15468,8 @@ genRotW (const iCode *ic)
           genMove (rotaop, left->aop, true, isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
           cheapMove (ASMOP_A, 0, rotaop, size - 1, true);
           emit3 (A_RLA, 0, 0);
-          if ((IS_SM83 || IS_8080LIKE) && requiresHL (rotaop) && rotaop->type != AOP_REG)
-            { /* ldhl sp,N / add hl,sp changes CARRY. Point HL at byte 0 now
-                 (with the wrap bit stashed in A across the address setup via
-                 rra/rla) so the following rl reuses HL and keeps the carry. */
+          if (IS_SM83 && requiresHL (rotaop) && rotaop->type != AOP_REG)
+            { /* ldhl sp,N changes CARRY */
               emit3_o (A_RRA, 0, 0, 0, 0);
               if (!regalloc_dry_run)
                 aopGet (rotaop, 0, false);
@@ -16532,7 +15477,7 @@ genRotW (const iCode *ic)
             }
           for (int i = 0; i < size;)
             {
-              if (!IS_SM83 && !IS_8080LIKE && i + 1 < size && aopInReg (rotaop, i, HL_IDX))
+              if (!IS_SM83 && i + 1 < size && aopInReg (rotaop, i, HL_IDX))
                 {
                   emit3w (A_ADC, ASMOP_HL, ASMOP_HL);
                   i += 2;
@@ -16574,10 +15519,8 @@ genRotW (const iCode *ic)
               else
                 emit3_o (A_RR, left->aop, offset, 0, 0);
             }
-          if ((IS_SM83 || IS_8080LIKE) && requiresHL (left->aop))
-            { /* ldhl sp,N / add hl,sp changes CARRY. Point HL at the top byte
-                 now (with the wrap bit stashed in A across the address setup via
-                 rra/rla) so the following rr reuses HL and keeps the carry. */
+          if (IS_SM83 && requiresHL (left->aop))
+            { /* ldhl sp,N changes CARRY */
               emit3_o (A_RRA, 0, 0, 0, 0);
               if (!regalloc_dry_run)
                 aopGet (left->aop, size - 1, false);
@@ -16759,38 +15702,6 @@ genLeftShift (const iCode *ic)
       countreg = A_IDX;
     }
 
-  /* 8080/8085: the byte-wise shift body (emit8080Lsh1) uses A as scratch, so A
-     cannot hold the loop counter of a variable shift. In addition, a memory
-     (stack/dir) shift operand is addressed through HL, so when the operand is
-     not in registers the counter must not live in L or H either - it would be
-     recomputed (clobbered) on every iteration, giving an endless loop (e.g. a
-     variable 32-bit rotate/shift with the value on the stack). Literal shifts
-     unroll and are unaffected. */
-  if (IS_8080LIKE && !shift_by_lit)
-    {
-      bool mem_shift = result->aop->type != AOP_REG; // shiftop addressed via HL
-      if (countreg == A_IDX || (mem_shift && (countreg == L_IDX || countreg == H_IDX)))
-        {
-          static const int cand[] = {C_IDX, B_IDX, E_IDX, D_IDX, L_IDX, H_IDX};
-          bool found = false;
-          for (unsigned k = 0; k < sizeof (cand) / sizeof (cand[0]); k++)
-            {
-              int r = cand[k];
-              if (mem_shift && (r == L_IDX || r == H_IDX))
-                continue; // HL is needed to address the memory operand
-              if (isRegDead (r, ic) && result->aop->regs[r] < 0 &&
-                  left->aop->regs[r] < 0 && right->aop->regs[r] < 0)
-                {
-                  countreg = r;
-                  found = true;
-                  break;
-                }
-            }
-          if (!found)
-            UNIMPLEMENTED; // no safe counter register - force a different allocation
-        }
-    }
-
   if (IS_Z80N && z80n_de && (aopInReg (right->aop, 0, B_IDX) || countreg == B_IDX))
     {
       shiftop = result->aop->size == 2 ? ASMOP_DE : ASMOP_E;
@@ -16858,14 +15769,9 @@ genLeftShift (const iCode *ic)
   size = shiftop->size - byteshift;
   offset = byteshift;
 
-  /* 8080/8085: the byte-wise shift body (emit8080Lsh1) uses A as scratch, so A
-     cannot double as the loop counter. When A is the counter, unroll the
-     literal shift instead of looping (save_a_outer already preserves a live A). */
-  bool unroll_8080 = IS_8080LIKE && shift_by_lit && shiftcount > 1 && countreg == A_IDX;
-
   if (shift_by_lit && !shiftcount)
     goto end;
-  if (shift_by_lit && shiftcount > 1 && !unroll_8080)
+  if (shift_by_lit && shiftcount > 1)
     {
       emit2 ("ld %s, !immedbyte", regsZ80[countreg].name, (unsigned)shiftcount);
       cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
@@ -16876,20 +15782,16 @@ genLeftShift (const iCode *ic)
       cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
       emitJP (tlbl1, NULL, 1.0f, true);
     }
-  if (!(shift_by_lit && shiftcount == 1) && !unroll_8080 && !regalloc_dry_run)
+  if (!(shift_by_lit && shiftcount == 1) && !regalloc_dry_run)
     {
       emitLabel (tlbl);
       if (requiresHL (shiftop))
         spillPair (PAIR_HL);
     }
 
+  started = false;
   regalloc_dry_run_state_scale = shift_by_lit ? shiftcount : 2;
-  for (int rep = 0, reps = unroll_8080 ? shiftcount : 1; rep < reps; rep++)
-   {
-    size = shiftop->size - byteshift;
-    offset = byteshift;
-    started = false;
-    while (size)
+  while (size)
     {
       if (size >= 2 && offset + 1 >= byteshift &&
         shiftop->type == AOP_REG &&
@@ -16919,18 +15821,6 @@ genLeftShift (const iCode *ic)
           started = true;
           size -= 2, offset += 2;
         }
-      else if (IS_8085 && options.allow_undoc_inst && size >= 2 && offset + 1 >= byteshift && started &&
-        aopInReg (shiftop, offset, E_IDX) && aopInReg (shiftop, offset + 1, D_IDX))
-        {
-          /* 8085 undocumented RDEL: rotate DE left through carry in one byte -
-             the 16-bit "adc de, de" that the 8080/8085 otherwise lack. Used for a
-             carry-in 16-bit chunk of a wider left shift held in DE, replacing the
-             six-instruction accumulator dance (ld a,e; rla; ld e,a; ld a,d; ...). */
-          emit2 ("rdel");
-          cost2 (1, 1, 1, 1, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
-          started = true;
-          size -= 2, offset += 2;
-        }
       else if (size >= 2 && offset + 1 >= byteshift &&
         shiftop->type == AOP_STK &&
         (IS_RAB || IS_EZ80) &&
@@ -16949,21 +15839,17 @@ genLeftShift (const iCode *ic)
               if (aopInReg (shiftop, offset, A_IDX))
                 emit3 (started ? A_ADC : A_ADD, ASMOP_A, ASMOP_A);
               else
-                if (IS_8080LIKE)
-                  emit8080Lsh1 (shiftop, offset, started);
-                else
-                  emit3_o (started ? A_RL : A_SLA, shiftop, offset, 0, 0);
+                emit3_o (started ? A_RL : A_SLA, shiftop, offset, 0, 0);
               started = true;
             }
           size--, offset++;
         }
     }
-   }
 
-  if (!(shift_by_lit && shiftcount == 1) && !unroll_8080)
+  if (!(shift_by_lit && shiftcount == 1))
     {
       emitLabel (tlbl1);
-      if (!IS_SM83 && !IS_8080LIKE && countreg == B_IDX)
+      if (!IS_SM83 && countreg == B_IDX)
         {
           if (!regalloc_dry_run)
             emit2 ("djnz !tlabel", labelKey2num (tlbl->key));
@@ -17029,12 +15915,7 @@ AccRsh (int shCount)
       cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
     }
   else if(shCount)
-    {
-      if (IS_8080LIKE)
-        emitRsh2 (ASMOP_A, 1, false);
-      else
-        emit3 (A_SRL, ASMOP_A, 0);
-    }
+    emit3 (A_SRL, ASMOP_A, 0);
 }
 
 /*-----------------------------------------------------------------*/
@@ -17063,7 +15944,7 @@ genrshOne (operand *result, operand *left, int shCount, int is_signed, const iCo
       emit2 ("mlt %s", _pairs[pair].name);
       cost2 (2, -1, 2, 2, 8, 17, -1, -1, -1, -1, 8, 8, 13, 6, -1);
     }
-  else if (!IS_SM83 && !IS_RAB && !IS_8080LIKE && !is_signed && aopSame (result->aop, 0, left->aop, 0, 1) && shCount == 4 && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
+  else if (!IS_SM83 && !IS_RAB && !is_signed && aopSame (result->aop, 0, left->aop, 0, 1) && shCount == 4 && isPairDead (PAIR_HL, ic) && isRegDead (A_IDX, ic) &&
     (result->aop->type == AOP_DIR || result->aop->type == AOP_HL || result->aop->type == AOP_IY))
     {
       emit3 (A_XOR, ASMOP_A, ASMOP_A);
@@ -17088,12 +15969,7 @@ genrshOne (operand *result, operand *left, int shCount, int is_signed, const iCo
       cheapMove (result->aop, 0, left->aop, 0, a_dead);
 
       while (shCount--)
-        {
-          if (IS_8080LIKE)
-            emitRsh2 (result->aop, 1, is_signed);
-          else
-            emit3 (is_signed ? A_SRA : A_SRL, result->aop, 0);
-        }
+        emit3 (is_signed ? A_SRA : A_SRL, result->aop, 0);
     }
   else
     {
@@ -17101,12 +15977,7 @@ genrshOne (operand *result, operand *left, int shCount, int is_signed, const iCo
         _push (PAIR_AF);
       cheapMove (ASMOP_A, 0, left->aop, 0, true);
       while (shCount--)
-        {
-          if (IS_8080LIKE)
-            emitRsh2 (ASMOP_A, 1, is_signed);
-          else
-            emit3 (is_signed ? A_SRA : A_SRL, ASMOP_A, 0);
-        }
+        emit3 (is_signed ? A_SRA : A_SRL, ASMOP_A, 0);
       cheapMove (result->aop, 0, ASMOP_A, 0, true);
       if (!a_dead)
         _pop (PAIR_AF);
@@ -17123,12 +15994,7 @@ shiftR1Left2Result (operand *left, int offl, operand *result, int offr, int shCo
   if (sign)
     {
       while (shCount--)
-        {
-          if (IS_8080LIKE)
-            emitRsh2 (ASMOP_A, 1, true);
-          else
-            emit3 (sign ? A_SRA : A_SRL, ASMOP_A, 0);
-        }
+        emit3 (sign ? A_SRA : A_SRL, ASMOP_A, 0);
     }
   else
     AccRsh (shCount);
@@ -17301,38 +16167,6 @@ genRightShift (const iCode * ic)
   else
     countreg = A_IDX;
 
-  /* 8080/8085: the byte-wise shift body uses A as scratch, so A cannot hold the
-     loop counter of a variable shift (a literal shift is unrolled instead, see
-     below). In addition, a memory (stack/dir) shift operand is addressed through
-     HL, so when the operand is not in registers the counter must not live in L
-     or H either - it would be recomputed (clobbered) every iteration, giving an
-     endless loop (e.g. a variable 32-bit right shift with the value on the
-     stack). Pick a free register that holds none of the operands. */
-  if (IS_8080LIKE && !shift_by_lit)
-    {
-      bool mem_shift = result->aop->type != AOP_REG; // shiftop addressed via HL
-      if (countreg == A_IDX || (mem_shift && (countreg == L_IDX || countreg == H_IDX)))
-        {
-          static const int cand[] = {C_IDX, B_IDX, E_IDX, D_IDX, L_IDX, H_IDX};
-          bool found = false;
-          for (unsigned k = 0; k < sizeof (cand) / sizeof (cand[0]); k++)
-            {
-              int r = cand[k];
-              if (mem_shift && (r == L_IDX || r == H_IDX))
-                continue; // HL is needed to address the memory operand
-              if (isRegDead (r, ic) && result->aop->regs[r] < 0 &&
-                  left->aop->regs[r] < 0 && right->aop->regs[r] < 0)
-                {
-                  countreg = r;
-                  found = true;
-                  break;
-                }
-            }
-          if (!found)
-            UNIMPLEMENTED; // no safe counter register - force a different allocation
-        }
-    }
-
   if (IS_Z80N && isRegDead (DE_IDX, ic) &&
     (result->aop->size == 2 && (aopInReg (result->aop, 0, DE_IDX) || aopInReg (left->aop, 0, DE_IDX)) ||
       result->aop->size == 1 && (aopInReg (result->aop, 0, D_IDX) || aopInReg (left->aop, 0, D_IDX))) &&
@@ -17408,12 +16242,6 @@ genRightShift (const iCode * ic)
   shift_by_one = (shift_by_lit && shiftcount == 1);
   shift_by_zero = (shift_by_lit && shiftcount == 0);
 
-  /* 8080/8085: the byte-wise shift body (emitRsh2) uses A as scratch, so A
-     cannot double as the loop counter. When the only free counter register is
-     A (e.g. a wide result occupies B), unroll the literal shift instead of
-     looping - this needs no counter at all. */
-  bool unroll_8080 = IS_8080LIKE && shift_by_lit && shiftcount > 1 && countreg == A_IDX;
-
   if (!regalloc_dry_run)
     {
       tlbl = newiTempLabel (NULL);
@@ -17424,15 +16252,6 @@ genRightShift (const iCode * ic)
 
   if (shift_by_zero)
     goto end;
-  else if (unroll_8080)
-    {
-      /* preserve a live A across the unrolled shift (emitRsh2 clobbers it) */
-      if (!isRegDead (A_IDX, ic) && !pushed_a)
-        {
-          _push (PAIR_AF);
-          pushed_a = true;
-        }
-    }
   else if (shift_by_lit && shiftcount > 1)
     {
       if (shiftop->regs[countreg] >= 0)
@@ -17445,7 +16264,7 @@ genRightShift (const iCode * ic)
       emit2 ("ld %s, !immedbyte", regsZ80[countreg].name, (unsigned)shiftcount);
       cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
     }
-  else if (!IS_8080LIKE && !optimize.codeSize && !shift_by_lit && !aopIsNotLitVal (right->aop, 0, 1, 0) &&
+  else if (!optimize.codeSize && !shift_by_lit && !aopIsNotLitVal (right->aop, 0, 1, 0) &&
     !right->aop->valinfo.anything && (right->aop->valinfo.knownbitsmask & 0x7) == 0x7 && !(right->aop->valinfo.knownbits & 0x7))
     {
       if (shiftop->regs[countreg] >= 0)
@@ -17475,7 +16294,7 @@ genRightShift (const iCode * ic)
         UNIMPLEMENTED;
     }
 
-  if (!shift_by_one && !unroll_8080 && !regalloc_dry_run)
+  if (!shift_by_one && !regalloc_dry_run)
     IS_SM83 ? emitLabelSpill (tlbl) : emitLabel (tlbl);
 
   if (!shift_by_one && requiresHL (shiftop))
@@ -17488,15 +16307,7 @@ genRightShift (const iCode * ic)
   else
     while (size)
       {
-        if (IS_8080LIKE)
-          {
-            int reps = unroll_8080 ? shiftcount : 1;
-            for (int r = 0; r < reps; r++)
-              emitRsh2 (shiftop, size, is_signed);
-            offset -= size;
-            size = 0;
-          }
-        else if (IS_RAB && !(is_signed && first) && size >= 2 && byteoffset < 2 && shiftop->type == AOP_REG &&
+        if (IS_RAB && !(is_signed && first) && size >= 2 && byteoffset < 2 && shiftop->type == AOP_REG &&
         (getPairId_o (shiftop, offset - 1) == PAIR_HL || getPairId_o (shiftop, offset - 1) == PAIR_DE || getPairId_o (shiftop, offset - 1) == PAIR_IY ||
           ((IS_R4K || IS_R5K || IS_R6K) && getPairId_o (shiftop, offset - 1) == PAIR_BC)))
         {
@@ -17535,10 +16346,10 @@ genRightShift (const iCode * ic)
           }
       }
 
-  if (!shift_by_one && !unroll_8080)
+  if (!shift_by_one)
     {
       emitLabel (tlbl1);
-      if (!IS_SM83 && !IS_8080LIKE && countreg == B_IDX)
+      if (!IS_SM83 && countreg == B_IDX)
         {
           if (!regalloc_dry_run)
             emit2 ("djnz !tlabel", labelKey2num (tlbl->key));
@@ -17583,7 +16394,7 @@ unpackMaskA (bool sign, int len, bool c_dead)
       emit3(A_RRA, 0, 0);
       emit3(A_SBC, ASMOP_A, ASMOP_A);
     }
-  else if (sign && len == 7 && !IS_8080LIKE) // 3B (sra a is a CB-prefix op, not on 8080/8085)
+  else if (sign && len == 7) // 3B
     {
       emit3(A_RLA, 0, 0);
       emit3(A_SRA, ASMOP_A, 0);
@@ -17595,7 +16406,7 @@ unpackMaskA (bool sign, int len, bool c_dead)
     
       if (sign)
         {
-          if (optimize.nosidechannels || IS_8080LIKE) // 7B (if c free); the 6B path below uses "bit", a CB-prefix op absent on 8080/8085
+          if (optimize.nosidechannels) // 7B (if c free)
             {
               if (!c_dead)
                 _push (PAIR_BC);
@@ -17647,7 +16458,7 @@ genUnpackBits (operand *result, int offset, int blen, int bstr)
           // signed bit-field: sign extension with 0x00 or 0xff
           emit3 (A_RLA, 0, 0);
 
-          if (!IS_SM83 && !IS_8080LIKE && !IS_TLCS870 && rsize == 2 && aopInReg (result->aop, offset, HL_IDX))
+          if (!IS_SM83 && !IS_TLCS870 && rsize == 2 && aopInReg (result->aop, offset, HL_IDX))
             emit3w (A_SBC, ASMOP_HL, ASMOP_HL);
           else
             {
@@ -17797,20 +16608,6 @@ genPointerGet (const iCode *ic)
   if ((IS_SM83 || IY_RESERVED) && requiresHL (result->aop) && size > 1 && result->aop->type != AOP_REG)
     pair = PAIR_DE;
 
-  /* 8085 undocumented LHLX: HL = (DE), a 16-bit load through a pointer in DE in
-     a single byte - giving DE a genuine role as a second data pointer. Only for
-     a plain 2-byte load (no offset, no bit-field) with the pointer already in
-     DE. Leaves DE (the pointer) intact and does not touch A. */
-  if (IS_8085 && options.allow_undoc_inst && !from_far && !bit_field &&
-      getPairId (left->aop) == PAIR_DE && size == 2 && !rightval)
-    {
-      emit2 ("lhlx");
-      cost2 (1, 1, 1, 1, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
-      spillPair (PAIR_HL);
-      genMove (result->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true);
-      goto release;
-    }
-
   if (IS_SM83 && size == 1 && left->aop->type == AOP_LIT && (((unsigned long)(operandLitValue (left) + rightval) & 0xff00) == 0xff00) && isRegDead (A_IDX, ic)) // SM83 has special instructions for address range 0xff00 - 0xffff.
     {
       if (surviving_a)
@@ -17850,37 +16647,6 @@ genPointerGet (const iCode *ic)
         genUnpackBits (result, 0, blen, bstr);
       goto release;
     }
-  else if (IS_8080LIKE && !from_far &&
-    (left->aop->type == AOP_IMMD || left->aop->type == AOP_LIT && !rightval) &&
-    result->aop->type == AOP_REG && result->aop->regs[A_IDX] < 0 && size >= 1 && size <= 4 &&
-    /* plain load, sub-byte bitfield (genUnpackBits handles blen<=8), or a
-       full-width bitfield that needs no unpacking */
-    (!bit_field || blen <= 8 || bstr == 0 && blen == size * 8))
-    {
-      /* 8080/8085: there is no "ld bc/de, (nn)" (that is a Z80 ED-prefix op, and
-         0xED is LHLX on the 8085). Load the value byte-wise through A with LDA,
-         which leaves HL untouched. Only non-A register results reach here. */
-      if (surviving_a && !pushed_a)
-        _push (PAIR_AF), pushed_a = true;
-      for (int i = 0; i < size; i++)
-        {
-          /* The bytes live at consecutive ADDRESSES. For AOP_IMMD,
-             aopGetLitWordLong emits "symbol + offset" (address arithmetic), but
-             for AOP_LIT it byte-extracts the literal VALUE (v >> offset*8) - so
-             a literal address like *(uint16_t *)0xca08 would read the high byte
-             from (0x00ca) instead of (0xca09). Do explicit address arithmetic
-             for the literal-address case. */
-          if (left->aop->type == AOP_LIT)
-            emit2 ("ld a, (!constword)", (unsigned) ((ullFromVal (left->aop->aopu.aop_lit) + rightval + i) & 0xffffu));
-          else
-            emit2 ("ld a, !mems", aopGetLitWordLong (left->aop, rightval + i, false));
-          cost2 (3, 4, -1, 4, 13, 12, 9, 9, 16, 10, -1, 5, 5, 4, 4);
-          cheapMove (result->aop, i, ASMOP_A, 0, true);
-        }
-      if (bit_field && !(bstr == 0 && blen == size * 8))
-        genUnpackBits (result, 0, blen, bstr);
-      goto release;
-    }
   else if (!IS_SM83 && (left->aop->type == AOP_IMMD || left->aop->type == AOP_LIT && !rightval) && isPair (result->aop) && !bit_field  &&
     (!from_far || IS_EZ80 || IS_R4K || IS_R5K || IS_R6K))
     {
@@ -17908,7 +16674,7 @@ genPointerGet (const iCode *ic)
         }
       goto release;
     }
-  else if (!IS_SM83 && !IS_8080LIKE && !from_far && (left->aop->type == AOP_IMMD) && getPairId_o (result->aop, 0) != PAIR_INVALID && getPairId_o (result->aop, 2) != PAIR_INVALID)
+  else if (!IS_SM83 && !from_far && (left->aop->type == AOP_IMMD) && getPairId_o (result->aop, 0) != PAIR_INVALID && getPairId_o (result->aop, 2) != PAIR_INVALID)
     {
       PAIR_ID pair;
       pair = getPairId_o (result->aop, 0);
@@ -18019,7 +16785,7 @@ genPointerGet (const iCode *ic)
 
   // Using ldir is cheapest for large memory-to-memory transfers.
   // sm83 doesn't have ldir. Rabbit 2000 to Rabbit 3000 (i.e. r2k and r2ka ports) have a wait-state bug breaking ldir between different types of memory.
-  if (!IS_SM83 && !IS_8080LIKE && !from_far && (!IS_R2K && !IS_R2KA || left->aop->type == AOP_STL) && !bit_field && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) && size > 2)
+  if (!IS_SM83 && !from_far && (!IS_R2K && !IS_R2KA || left->aop->type == AOP_STL) && !bit_field && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) && size > 2)
     {
       int fp_offset, sp_offset;
 
@@ -18077,7 +16843,6 @@ genPointerGet (const iCode *ic)
 
       emit2 ("ld bc, !immedword", (unsigned)size);
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-      if (IS_8080LIKE) emit8080Ldir (); else
       emit2 ("ldir");
       cost2 (2, 2, -1, -1, 21 * size -5, 14 * size - 2, 7 * size - 1, 7* size - 1, -1, 18 * size - 4, -1, -1, -1, 2 * size - 1, 4 * size);
       spillPair (PAIR_HL);
@@ -18353,37 +17118,6 @@ genPointerGet (const iCode *ic)
   wassert (!from_far); // __far should have been handled above.
 
   extrapair = isPairDead (PAIR_DE, ic) ? PAIR_DE : PAIR_BC;
-
-  /* 8085 undocumented LDHI + LHLX: read a 16-bit value from *(base + off) with a
-     small positive constant offset (1..255) into HL. LDHI computes DE = HL + off
-     in one two-byte instruction and LHLX loads HL = (DE) in one byte, replacing
-     the usual "ld hl,#off; add hl,ss" pointer arithmetic plus the two-byte (hl)
-     read (the struct/array member-access idiom, e.g. return p->x). LDHI is
-     HL-relative, so the base must be in HL: accept it already in HL, or in DE via
-     a one-byte XCHG. Both instructions clobber DE, and HL is overwritten with the
-     base and then the result, so both pairs must be free here (which also means
-     the setup block below would emit no push/pop we need to unwind). Placed
-     before that setup block so rightval still carries the member offset. */
-  if (IS_8085 && options.allow_undoc_inst && !bit_field && !from_far && size == 2 &&
-      rightval >= 1 && rightval <= 255 &&
-      isPairDead (PAIR_HL, ic) && isPairDead (PAIR_DE, ic) &&
-      (getPairId (left->aop) == PAIR_HL || getPairId (left->aop) == PAIR_DE))
-    {
-      if (getPairId (left->aop) == PAIR_DE)
-        {
-          emit2 ("ex de, hl");   /* base DE -> HL; old HL (dead) -> DE (scratch) */
-          cost2 (1, 1, 1, 1, 4, 3, 2, 2, 5, 4, 1, 1, 1, 1, 1);
-        }
-      /* else base already in HL - nothing to do */
-      emit2 ("ldhi !immedbyte", (unsigned) rightval);
-      cost2 (2, 2, 2, 2, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
-      emit2 ("lhlx");
-      cost2 (1, 1, 1, 1, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
-      spillPair (PAIR_HL);
-      spillPair (PAIR_DE);
-      genMove (result->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, true, isRegDead (IY_IDX, ic));
-      goto release;
-    }
 
   if (!surviving_a && (getPairId (left->aop) == PAIR_BC || getPairId (left->aop) == PAIR_DE) && isPairDead (getPairId (left->aop), ic) && abs(rightval) <= 2 && !bit_field && size < 2) // Use inc ss (size < 2 condition to avoid overwriting pair with result)
     pair = getPairId (left->aop);
@@ -18774,7 +17508,7 @@ genPackBits (PAIR_ID pair, operand *right, int roffset, int blen, int bstr, PAIR
 
   mask = ((0xffu << (blen + bstr)) | (0xffu >> (8 - bstr))) & 0xffu;
 
-  if (right->aop->type == AOP_LIT && blen == 1 && !IS_8080LIKE && (pair == PAIR_HL || pair == PAIR_IX || pair == PAIR_IY))
+  if (right->aop->type == AOP_LIT && blen == 1 && (pair == PAIR_HL || pair == PAIR_IX || pair == PAIR_IY))
     {
       litval = ullFromVal (right->aop->aopu.aop_lit) >> (roffset * 8);
       emit2 (litval & 1 ? "set %d, !mems" : "res %d, !mems", bstr, _pairs[pair].name);
@@ -18908,19 +17642,6 @@ genPointerSet (iCode *ic)
   if (isPair (result->aop) && isPairDead (getPairId (result->aop), ic) && !(size > 1 && sameRegs (result->aop, right->aop)))
     pairId = getPairId (result->aop);
 
-  /* 8085 undocumented SHLX: (DE) = HL, a 16-bit store through a pointer in DE
-     in a single byte. Only for a plain 2-byte store (no bit-field) with the
-     pointer already in DE; load the value into HL (never disturbing DE), shlx. */
-  if (IS_8085 && options.allow_undoc_inst && !to_far && !bit_field &&
-      getPairId (result->aop) == PAIR_DE && size == 2)
-    {
-      genMove (ASMOP_HL, right->aop, isRegDead (A_IDX, ic), true, false, true);
-      emit2 ("shlx");
-      cost2 (1, 1, 1, 1, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
-      spillPair (PAIR_HL);
-      goto release;
-    }
-
   if (IS_SM83 && size == 1 && result->aop->type == AOP_LIT && (((unsigned long)operandLitValue (result) & 0xff00) == 0xff00) && (isRegDead (A_IDX, ic) || aopInReg (right->aop, 0, A_IDX)) && !bit_field) // SM83 has special instructions for address range 0xff00 - 0xffff.
     {
       cheapMove (ASMOP_A, 0, right->aop, 0, isRegDead (A_IDX, ic));
@@ -18971,7 +17692,7 @@ genPointerSet (iCode *ic)
 
   // Using ldir is cheapest for large memory-to-memory transfers.
   // SM83 doesn't have ldir. Rabbit 2000 to Rabbit 3000 (i.e. r2k and r2ka ports) have a wait-state bug breaking ldir between different types of memory.
-  if (!to_far && !bit_field && !IS_SM83 && !IS_8080LIKE && (!IS_R2K && !IS_R2KA || result->aop->type == AOP_STL) && (right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK) && size > 2)
+  if (!to_far && !bit_field && !IS_SM83 && (!IS_R2K && !IS_R2KA || result->aop->type == AOP_STL) && (right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK) && size > 2)
     {
       int fp_offset, sp_offset;
 
@@ -18990,7 +17711,6 @@ genPointerSet (iCode *ic)
       regalloc_dry_run_cost += 4;
       emit2 ("ld bc, !immedword", (unsigned)size);
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-      if (IS_8080LIKE) emit8080Ldir (); else
       emit2 ("ldir");
       cost2 (2, 2, -1, -1, 21 * size -5, 14 * size - 2, 7 * size - 1, 7* size - 1, -1, 18 * size - 4, -1, -1, -1, 2 * size - 1, 4 * size);
       spillPair (PAIR_HL);
@@ -19079,10 +17799,7 @@ genPointerSet (iCode *ic)
       goto release;
     }
 
-  /* 8080/8085: this stores a pair directly to (nn); only ld (nn),hl (SHLD) is
-     valid there, so skip it for non-HL and let the byte-wise store below run. */
   if (!to_far && !IS_SM83 && !bit_field && isLitWord (result->aop) && size == 2 && offset == 0 && !sameRegs (result->aop, right->aop) &&
-      (!IS_8080LIKE || (right->aop->type == AOP_REG && getPairId (right->aop) == PAIR_HL) || (isLitWord (right->aop) && isPairDead (PAIR_HL, ic))) &&
       (right->aop->type == AOP_REG && getPairId (right->aop) != PAIR_INVALID || isLitWord (right->aop) && (isPairDead (PAIR_HL, ic) || isPairDead (PAIR_DE, ic) || isPairDead (PAIR_BC, ic))))
     {
       if (isLitWord (right->aop))
@@ -19099,7 +17816,7 @@ genPointerSet (iCode *ic)
         cost2 (4, 4, -1, 4, 20, 19, 15, 15, -1, 12, -1, 6, 6, 6, 6);
       goto release;
     }
-  if (!to_far && !IS_SM83 && !IS_8080LIKE && !bit_field && isLitWord (result->aop) && size == 4 && offset == 0 &&
+  if (!to_far && !IS_SM83 && !bit_field && isLitWord (result->aop) && size == 4 && offset == 0 &&
     (getPairId_o (right->aop, 0) != PAIR_INVALID && getPairId_o (right->aop, 2) != PAIR_INVALID || isLitWord (right->aop) && isPairDead (PAIR_HL, ic)))
     {
       if (isLitWord (right->aop))
@@ -19614,20 +18331,12 @@ genIfx (iCode *ic, iCode *popIc)
     }
   else if (IS_BOOL (operandType (cond)) && !aopInReg (cond->aop, 0, IYL_IDX) && !aopInReg (cond->aop, 0, IYH_IDX))
     {
-      if (IS_8080LIKE)
+      if (!regalloc_dry_run)
         {
-          emit8080Bit (cond->aop, 0, 0);
+          emit2 ("bit 0, %s", aopGet (cond->aop, 0, FALSE));
           genIfxJump (ic, "nz");
         }
-      else
-        {
-          if (!regalloc_dry_run)
-            {
-              emit2 ("bit 0, %s", aopGet (cond->aop, 0, FALSE));
-              genIfxJump (ic, "nz");
-            }
-          bit8_cost (cond->aop); // todo: fix, bit has different cost!
-        }
+      bit8_cost (cond->aop); // todo: fix, bit has different cost!
       goto release;
     }
   else if (cond->aop->size == 1 && !isRegDead (A_IDX, ic) &&
@@ -20160,12 +18869,11 @@ genAssign (const iCode *ic)
                 // Early Rabbits (up to Rabbit 3000) have a wait state bug when ldir copies between different types of memory.
                 (IS_R2K || IS_R2KA) && !((right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK) && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK)))
                 for(int i = 0; i < size; i++)
-                  IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
+                  emit3 (A_LDI, 0, 0);
               else
                 {
                   emit2 ("ld bc, !immed%d", size);
-                  if (IS_8080LIKE) emit8080Ldir (); else
-      emit2 ("ldir");
+                  emit2 ("ldir");
                   regalloc_dry_run_cost += 5;
                 }
               spillPair (PAIR_HL);
@@ -20485,7 +19193,7 @@ genCast (const iCode *ic)
       /* we need to extend the sign */
       emit3 (A_RLCA, 0, 0);
 
-      if (!IS_SM83 && !IS_8080LIKE && !maskedtopbyte && hl_dead &&
+      if (!IS_SM83 && !maskedtopbyte && hl_dead &&
         (size == 2 && (aopInReg (result->aop, offset, HL_IDX) || aopInReg (result->aop, offset, DE_IDX) || result->aop->type == AOP_IY) ||
         (IS_RAB || IS_TLCS90 || IS_TLCS870C || IS_TLCS870C1 || IS_EZ80) && size >= 2 && result->aop->type == AOP_STK)) // Rabbit, most TLCS and eZ80 have efficient hl-to-stack store.
         {
@@ -20611,7 +19319,7 @@ genCritical (const iCode * ic)
 {
   symbol *tlbl = regalloc_dry_run ? 0 : newiTempLabel (0);
 
-  if (IS_SM83 || IS_RAB || IS_TLCS90 || IS_8080LIKE)
+  if (IS_SM83 || IS_RAB || IS_TLCS90)
     {
       emit2 ("!di");
       regalloc_dry_run_cost += 1;
@@ -20677,7 +19385,7 @@ genEndCritical (const iCode * ic)
 {
   symbol *tlbl = regalloc_dry_run ? 0 : newiTempLabel (0);
 
-  if (IS_SM83 || IS_TLCS90 || IS_RAB || IS_8080LIKE)
+  if (IS_SM83 || IS_TLCS90 || IS_RAB)
     {
       emit2 ("!ei");
       cost2old (1, 4, 3, 0, 4, 2, 1, 1);
@@ -21147,7 +19855,7 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
     }
   else if (n == 2)
     {
-      IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
+      emit3 (A_LDI, 0, 0);
       emit2 ("ld a, !*hl");
       cost2 (1, 2, 1, 1, 7, 6, 5, 5, 8, 6, 2, 2, 2, 2, 2);
       emit2 ("ld !mems, a", "de");
@@ -21158,7 +19866,7 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
   else if (n <= 4 && IS_Z80 && optimize.codeSpeed || (IS_R2K || IS_R2KA) && n <= 5)
     {
       for(unsigned int i = 0; i < n; i++)
-        IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
+        emit3 (A_LDI, 0, 0);
     }
   else
     {
@@ -21177,12 +19885,12 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
         {
           wassert (n > 3);
           if (n % 2)
-            IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
+            emit3 (A_LDI, 0, 0);
           const symbol *tlbl2 = regalloc_dry_run ? NULL : newiTempLabel (NULL);
           emitLabel (tlbl2);
           regalloc_dry_run_state_scale = n / 2;
-          IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
-          IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
+          emit3 (A_LDI, 0, 0);
+          emit3 (A_LDI, 0, 0);
           regalloc_dry_run_state_scale = 1.0f;
           emitJP (tlbl2, "lo", (float)((n / 2) - 1) / (n / 2), true);      
         }
@@ -21198,15 +19906,14 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
           const symbol *tlbl2 = regalloc_dry_run ? NULL : newiTempLabel (NULL);
           emitLabel (tlbl2);
           regalloc_dry_run_state_scale = n;
-          IS_8080LIKE ? emit8080Ldi () : emit3 (A_LDI, 0, 0);
+          emit3 (A_LDI, 0, 0);
           regalloc_dry_run_state_scale = 1.0f;
           emitJP (tlbl2, "lo", (float)(n - 1) / n, true);
           regalloc_dry_run_cost += 3;
         }
       else
         {
-          if (IS_8080LIKE) emit8080Ldir (); else
-      emit2 ("ldir");
+          emit2 ("ldir");
           regalloc_dry_run_cost += 2;
         }
       emitLabel (tlbl);
@@ -21383,13 +20090,7 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
               emit2 ("ld !*hl, %s", aopGet (direct_cl ? c->aop : ASMOP_A, 0, FALSE));
               emit2 ("inc hl");
             }
-          if (IS_8080LIKE)
-            {
-              emit2 ("dec b");
-              emit2 ("jp NZ, !tlabel", labelKey2num (tlbl1->key));
-            }
-          else
-            emit2 ("djnz !tlabel", labelKey2num (tlbl1->key));
+          emit2 ("djnz !tlabel", labelKey2num (tlbl1->key));
         }
       regalloc_dry_run_cost += (double_loop ? 6 : 4);
     }
@@ -21508,23 +20209,11 @@ genBuiltInStrcpy (const iCode *ic, int nParams, operand **pparams)
     {
       symbol *tlbl = newiTempLabel (NULL);
       emitLabel (tlbl);
-      if (IS_8080LIKE) // No ldi: copy through A (sentinel is 0, so "or a,a" tests for NUL).
-        {
-          emit2 ("ld a, (hl)");
-          emit2 ("ld (de), a");
-          emit2 ("inc hl");
-          emit2 ("inc de");
-          emit2 ("or a, a");
-          emit2 ("jp NZ, !tlabel", labelKey2num (tlbl->key));
-        }
-      else
-        {
-          emit2 ("cp a, !*hl");
-          emit2 ("ldi");
-          emit2 ("jr nz, !tlabel", labelKey2num (tlbl->key));
-        }
+      emit2 ("cp a, !*hl");
+      emit2 ("ldi");
+      emit2 ("jr nz, !tlabel", labelKey2num (tlbl->key));
     }
-  regalloc_dry_run_cost += (IS_8080LIKE ? 8 : 5);
+  regalloc_dry_run_cost += 5;
 
   spillPair (PAIR_HL);
 
@@ -21605,31 +20294,6 @@ genBuiltInStrncpy (const iCode *ic, int nparams, operand **pparams)
       symbol *tlbl1 = newiTempLabel (0);
       symbol *tlbl2 = newiTempLabel (0);
       symbol *tlbl3 = newiTempLabel (0);
-      if (IS_8080LIKE) // No ldi / P-V-from-bc: test bc explicitly, copy through A, then pad.
-        {
-          emitLabel (tlbl2);            // copy phase: while bc, copy; stop at NUL
-          emit2 ("ld a, b");
-          emit2 ("or a, c");
-          emit2 ("jp Z, !tlabel", labelKey2num (tlbl1->key));
-          emit2 ("ld a, (hl)");
-          emit2 ("ld (de), a");
-          emit2 ("inc hl");
-          emit2 ("inc de");
-          emit2 ("dec bc");
-          emit2 ("or a, a");
-          emit2 ("jp NZ, !tlabel", labelKey2num (tlbl2->key));
-          emitLabel (tlbl3);            // pad phase: while bc, store 0
-          emit2 ("ld a, b");
-          emit2 ("or a, c");
-          emit2 ("jp Z, !tlabel", labelKey2num (tlbl1->key));
-          emit2 ("xor a, a");
-          emit2 ("ld (de), a");
-          emit2 ("inc de");
-          emit2 ("dec bc");
-          emit2 ("jp !tlabel", labelKey2num (tlbl3->key));
-          emitLabel (tlbl1);
-        }
-      else {
       emitLabel (tlbl2);
       emit2 ("cp a, !*hl");
       emit2 ("ldi");
@@ -21646,7 +20310,6 @@ genBuiltInStrncpy (const iCode *ic, int nparams, operand **pparams)
       else
         emit2 (IS_RAB ? "jp LO, !tlabel" : "jp PE, !tlabel", labelKey2num (tlbl3->key));
       emitLabel (tlbl1);
-      }
     }
   regalloc_dry_run_cost += 14; // todo: fix cycle costs
 

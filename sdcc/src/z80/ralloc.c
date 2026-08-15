@@ -99,18 +99,6 @@ reg_info sm83_regs[] = {
   {REG_CND, CND_IDX, "c", 1}
 };
 
-/* Intel 8080/8085: same GPR file as the SM83 (no IX/IY index registers). */
-reg_info i8080_regs[] = {
-  {REG_GPR, A_IDX, "a", 1},
-  {REG_GPR, C_IDX, "c", 1},
-  {REG_GPR, B_IDX, "b", 1},
-  {REG_GPR, E_IDX, "e", 1},
-  {REG_GPR, D_IDX, "d", 1},
-  {REG_GPR, L_IDX, "l", 1},
-  {REG_GPR, H_IDX, "h", 1},
-  {REG_CND, CND_IDX, "c", 1}
-};
-
 reg_info z80_regs[] = {
   {REG_GPR, A_IDX, "a", 1},
   {REG_GPR, C_IDX, "c", 1},
@@ -144,7 +132,6 @@ reg_info *regsZ80;
 /** Number of usable registers (all but C) */
 #define Z80_MAX_REGS ((sizeof (z80_regs) / sizeof (z80_regs[0]))-1)
 #define SM83_MAX_REGS ((sizeof (sm83_regs) / sizeof (sm83_regs[0]))-1)
-#define I8080_MAX_REGS ((sizeof (i8080_regs) / sizeof (i8080_regs[0]))-1)
 
 void z80SpillThis (symbol *);
 static void freeAllRegs ();
@@ -458,7 +445,7 @@ rUmaskForOp (const operand * op)
   if (sym->isspilt || !sym->nRegs)
     return NULL;
 
-  rumask = newBitVect (IS_SM83 ? SM83_MAX_REGS : IS_8080LIKE ? I8080_MAX_REGS : Z80_MAX_REGS);
+  rumask = newBitVect (IS_SM83 ? SM83_MAX_REGS : Z80_MAX_REGS);
 
   for (j = 0; j < sym->nRegs; j++)
     {
@@ -484,7 +471,7 @@ z80_rUmaskForOp (const operand * op)
 bitVect *
 regsUsedIniCode (iCode * ic)
 {
-  bitVect *rmask = newBitVect (IS_SM83 ? SM83_MAX_REGS : IS_8080LIKE ? I8080_MAX_REGS : Z80_MAX_REGS);
+  bitVect *rmask = newBitVect (IS_SM83 ? SM83_MAX_REGS : Z80_MAX_REGS);
 
   /* of all other cases */
   if (IC_LEFT (ic))
@@ -1290,7 +1277,7 @@ z80_ralloc (ebbIndex *ebbi)
   setToNull ((void *) &_G.totRegAssigned);
   _G.stackExtend = _G.dataExtend = 0;
 
-  _G.nRegs = IS_SM83 ? SM83_MAX_REGS : IS_8080LIKE ? I8080_MAX_REGS : Z80_MAX_REGS;
+  _G.nRegs = IS_SM83 ? SM83_MAX_REGS : Z80_MAX_REGS;
 
   /* change assignments this will remove some
      live ranges reducing some register pressure */
