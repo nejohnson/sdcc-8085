@@ -152,13 +152,61 @@ take:
    linker, so this would need to not break every other target.
 3. Use vendor's *own* linker (`linksrc/aslink`) end-to-end alongside its
    own assembler, rather than mixing vendor's assembler with SDCC's
-   linker - untested this pass; would need its own from-scratch
-   build-and-link-and-run verification, and would mean giving up SDCC's
-   own linker-side extensions (NoICE debug records, memory-usage
-   reporting, etc. - though NoICE itself is confirmed present natively
-   upstream too, per the earlier report, so that specific piece may
-   carry over).
+   linker. **Tested in a follow-up pass, see below - not a shortcut.**
+
+## Follow-up: testing path 3 (vendor's own linker, end-to-end)
+
+Built a standalone vendor `aslink` the same way as `asz80` (file list
+confirmed via `asxmak/vs22/build/aslink/aslink.vcxproj`: the 16 common
+`linksrc/*.c` files plus `lkrloc4.c`, the file present upstream but
+missing from SDAS's fork). Linked the same vendor-assembled test-case
+objects from the main test above against the same prebuilt (SDAS-
+assembled) `i8085.lib`.
+
+**The specific "Conflicting flags in area" error from the main test does
+not reproduce under vendor's own linker** - it accepted the mixed-
+provenance objects without complaint on that front. But getting to a
+genuinely working binary surfaced two more, separate incompatibilities,
+neither related to the area-flags format:
+
+- **The `-b` command-line flag means something different on each side.**
+  Vendor's `-b` is "Bank base address"; SDCC's actual generated linker
+  command files (`gen/<port>/<case>.lk`, e.g. `-b _CODE = 0x0200`) use
+  `-b` for what vendor calls `-a`, "Area base address". Passing SDCC's
+  own `.lk`-file arguments straight to vendor's linker silently sets the
+  wrong kind of base address rather than erroring - would have produced
+  a badly-mislinked binary without an obvious diagnostic if not caught
+  by comparing against vendor's own `-h` usage text.
+- **Vendor's linker doesn't auto-generate the `s__<AREA>`/`l__<AREA>`
+  linker symbols SDCC's `crt0.s` startup code depends on** for its
+  ROM-to-RAM initialized-data copy loop (`ld hl, #s__DATA`, etc. -
+  defined nowhere in `crt0.s` itself, so they must come from the
+  linker). Vendor's `lkarea.c` does auto-generate comparable symbols,
+  but under a different naming convention entirely - `s_<area>_<n>`
+  (single underscore, numeric suffix) and `l_<area>` (single
+  underscore), not SDCC's double-underscore, no-suffix form. Once
+  `crt0.rel` was correctly included in the link (an earlier omission in
+  this same test round, caught by the resulting binary immediately
+  jumping to a restart vector after only ~1000 cycles instead of running
+  cleanly - itself a useful reminder that "the linker didn't error" is
+  not the same as "the binary is correct"), this second gap surfaced as
+  three more undefined-global warnings (`s__DATA`, `s__INITIALIZED`,
+  `s__INITIALIZER`).
+
+**So path 3 is not a shortcut around path 1/2's work** - swapping in
+vendor's linker trades the area-flags problem for two different, equally
+real problems (CLI-flag semantic collision, linker-generated-symbol
+naming convention) that would need their own fixing before a link
+produces a genuinely correct binary, not just an error-free one. Time
+did not permit finishing a fully-corrected vendor-linker link to actual
+completion this pass (mapping the exact renaming discipline for `-a` vs
+`-b` and getting `s_`/`l_`-vs-`s__`/`l__` bridged - either by patching
+vendor's naming to match, in the same spirit as the `i85pg1` fix, or by
+adapting `crt0.s` to vendor's naming) - flagged as the concrete next
+step if path 3 is the one pursued.
 
 None of this is impossible, but it's real, non-trivial follow-on work,
 not a drop-in swap - which is exactly the answer this test was run to
-get.
+get. Nothing here changes the recommendation: whichever of the three
+paths gets picked, it's a genuine engineering task with its own
+verification cycle, not a quick fix.
