@@ -1,0 +1,60 @@
+From 507cd15cb200ee649dbe5d97bfee8032e328dcdb Mon Sep 17 00:00:00 2001
+From: Neil Johnson <neil.johnson71@gmail.com>
+Date: Sun, 16 Aug 2026 04:04:21 +0100
+Subject: [PATCH] z80: fix genEor zero-run clobber check (bug #3915, blake2s)
+
+In genEor, when the right operand has a run of zero bytes [i, end), the
+low bytes are copied left->result with a single genMove_o call. The
+following clobber check only inspected result_aop's register for byte i,
+but the copy writes a result register for every byte in the run. If one
+of those registers still holds an operand byte needed at a later byte
+(>= end), it is overwritten before use and the check missed it.
+
+blake2s hits this: ROTR32(x, 8) lowers to (x >> 8) ^ (x << 24); the
+x << 24 keeps its wrapped byte in e, and copying the zero run wrote
+result byte 2 into e before byte 3 read it, corrupting the rotate.
+
+Extend the check to every result register in [i, end) so the allocator's
+dry run steers away from placing a result byte in a register a later
+operand byte still needs.
+
+Verified with a direct before/after run of the blake2s self-test
+(support/regression/tests/blake2s.c) compiled for ucz80 and
+ucz80-resiy (--reserve-regs-iy): both genuinely fail the assertion
+against the unfixed compiler and both pass after this fix. Full
+support/regression/ test-z80 suite (all 16 z80-family sub-targets:
+ucz80, ucz80-undoc, ucz80-resiy, ucz180, ucz180-resiy, ucz80n, ucgbz80,
+ucr2k, ucr2ka, ucr3ka, ucr4k, ucr5k, ucr6k, ucez80, tlcs90, ucr800)
+passes with 0 failures and 0 abnormal stops.
+---
+ sdcc/src/z80/gen.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/sdcc/src/z80/gen.c b/sdcc/src/z80/gen.c
+index b9e1381..469caae 100644
+--- a/sdcc/src/z80/gen.c
++++ b/sdcc/src/z80/gen.c
+@@ -11303,9 +11303,17 @@ genEor (const iCode *ic, iCode *ifx, asmop *result_aop, asmop *left_aop, asmop *
+                   pushed_a = false;
+               }
+             genMove_o (result_aop, i, left_aop, i, end - i, a_free, hl_free, !isPairInUse (PAIR_DE, ic), true, true);
+-            if (result_aop->type == AOP_REG &&
+-              (left_aop->regs[result_aop->aopu.aop_reg[i]->rIdx] >= end || right_aop->regs[result_aop->aopu.aop_reg[i]->rIdx] >= end))
+-              UNIMPLEMENTED;
++            /* The move above writes a result register for every byte in [i, end).
++               If any of those registers still holds an operand byte needed at a
++               later byte (>= end) it is clobbered before use - not just the first
++               byte's register. */
++            if (result_aop->type == AOP_REG)
++              for (int j = i; j < end; j++)
++                if (left_aop->regs[result_aop->aopu.aop_reg[j]->rIdx] >= end || right_aop->regs[result_aop->aopu.aop_reg[j]->rIdx] >= end)
++                  {
++                    UNIMPLEMENTED;
++                    break;
++                  }
+             if (result_aop->regs[A_IDX] >= i && result_aop->regs[A_IDX] < end)
+               a_free = false;
+             i = end;
+-- 
+2.43.0
+
