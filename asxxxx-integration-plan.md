@@ -37,8 +37,8 @@ instead (adapt to what ASxxxx already does), not as a feature request.
 
 | Gap | Track | Status | Notes |
 |---|---|---|---|
-| `i85pg1[0x11]` (LXI D marked illegal on 8085) | **ASxxxx** | Fix verified, patch ready (`patches/asxxxx/0001-asz80-fix-i85pg1-lxi-d.patch`) - not yet applied as a real commit in the `nejohnson/asxxxx` repo | Clean bug, no controversy expected |
-| Long comment-line lexer limit | **ASxxxx** | Not started | Not SDCC-specific - any long input line trips it. Root-cause not yet found (fixed/short buffer somewhere in `aslex.c`, not yet located). Legitimate general robustness fix Baldwin could accept on its own merits. |
+| `i85pg1[0x11]` (LXI D marked illegal on 8085) | **ASxxxx** | **Done.** Landed on `master` in `nejohnson/asxxxx` as commit `1fbc20f`. Also extended `asz80/t80.asm` with a `.8085`-mode section covering all four `LD rp,nn` forms, closing the coverage gap that let this through. | Clean bug, no controversy expected |
+| Long comment-line lexer limit | **ASxxxx** | **Done.** Landed on `master` in `nejohnson/asxxxx` as commit `83a99c1`. Root cause: `asxxsrc/aslex.c`'s three `fgets()`/`fgetm()` calls in `nxtline()` passed `NINPUT` (380) instead of `NINPUT*2` (759, `ib[]`'s actual declared size - the doubling is pre-existing headroom for `.define` substitution growth) - a stale size argument, not a genuinely undersized buffer. Fix confirmed via binary-searched failure threshold: exactly 379/380 chars before the fix (matching `NINPUT` precisely), 759 chars after (matching `NINPUT*2-1`). Applies to every `asxxsrc`-based target, not just Z80. | Not SDCC-specific - any long input line trips it, on any target |
 | `.optsdcc` directive unrecognized | **SDCC** | Not started | SDCC's own invention. Fix: don't emit it (or emit as a `;` comment) when targeting vendor's assembler. Nothing to ask upstream for. |
 | `-a`/`-b` flag collision | **SDCC** | Not started | Vendor's `-a`/`-b` are ASxxxx's own long-established interface. Fix: use vendor's actual flag meanings in `src/i8085/main.c`'s linker-invocation command template. |
 | `s__<AREA>`/`l__<AREA>` symbol naming | **SDCC** | Not started | Adapt `device/lib/i8085/crt0.s` (and anywhere else SDCC-generated/runtime code references these) to vendor's native `s_<area>_<n>`/`l_<area>` convention. Deliberately *not* an ASxxxx feature request - no independent justification for Baldwin to add a second naming convention. |
@@ -101,4 +101,7 @@ rather than silently assuming `asz80` is the final answer.
 
 ## Status
 
-Not started - this doc is the handoff point for both tracks.
+ASxxxx track: both assigned items done and pushed to `master` in
+`nejohnson/asxxxx` (see table above). Standing by for further items.
+
+SDCC track: in progress on the five `src/i8085/main.c`/`crt0.s` items.
