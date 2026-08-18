@@ -118,6 +118,11 @@ to ASxxxx, ASxxxx stays untouched beyond its own bug fixes," but two
 of them need a third file (`device/lib/i8085/Makefile`) the original
 two-file mandate couldn't reach, and the archive-format one needs a
 decision on approach before it can be fixed at all. `test-i8085`
-cannot pass end-to-end until these are resolved. Paused here pending
-a scope decision rather than the agent unilaterally expanding its own
-mandate.
+cannot pass end-to-end until these are resolved. Scope broadened
+(2026-08-18, Neil approved) to cover all three - mandate now also
+includes `device/lib/i8085/Makefile` and `device/lib/i8085-undoc/
+crt0.s`. Recommended approach for the archive-format item: generate
+`i8085.lib` as a plain-text `.rel`-filename list, matching
+`fwk.lib`'s existing format, rather than `sdar`'s GNU `ar` format -
+no other target depends on `i8085.lib`'s format so there's no
+compatibility concern. In progress.
