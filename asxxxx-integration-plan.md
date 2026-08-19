@@ -239,6 +239,42 @@ the UTF-8 item (`tcc_83_utf8_in_identifiers`/`tst_p99-conformance`), 1
 routed as the new dash-in-symbol item (`tst_bug-2031`), 1
 (`ashldi-1`) still open pending the `-j1` result.
 
+**2026-08-19, milestone**: after the ASxxxx track's round-2 fixes landed
+(above), the SDCC-track agent rebuilt vendor `asz80`/`aslink` from the
+new `master` and re-ran the full `test-i8085`/`test-i8085-undoc`/
+`test-i8080` regression end to end. Result: **i8085: 2 failures/6356
+cases, i8085-undoc: 2 failures/6356 cases, i8080: 0 failures/6356
+cases, 0 abnormal stops on all three** - `ashldi-1`, `tst_bug-2031`,
+and all 3 other long-line cases now pass; the only 2 remaining failures
+on i8085/i8085-undoc are `tcc_83_utf8_in_identifiers.c`/
+`tst_p99-conformance.c`, exactly the known, deliberately-not-pursued
+UTF-8-symbol-names limitation - a well-justified "known limitation"
+stopping point, not an open bug.
+
+Independently verified before treating this as done: reviewed the full
+`git diff` of all 15 changed files directly (not just the agent's
+summary) - `src/i8085/main.c`'s new `_i8085VendorLinkCmd` in particular
+keeps `needLinkerScript = 1` and `sed`-translates SDCCmain.c's already-
+correct generated `.lk` script into vendor's dialect, rather than the
+earlier approach's from-scratch macro reimplementation that caused the
+100%-failure regression - a materially better design, with each of the
+four sed translations individually justified against a real `strace`-
+confirmed failure mode in the code comment itself. Excluded ~2500
+untracked files from the commit (the `support/regression/cases/*`
+fixture tree and `.hlr` build-artifact files the agent's own test runs
+populated in its worktree - neither tracked on `feat/i8085` normally,
+confirmed by checking the main checkout has the same 4-file baseline).
+
+Committed (`520ec07`) and pushed to `feat/i8085` on GitHub - **the
+first push of this track's actual working code**, not just docs/
+tracking updates. `i8085`/`i8085-undoc` now build and pass regression
+against vendor ASxxxx tools end to end; `i8080` remains untouched on
+SDAS. Remaining open items: settle `ashldi-1`'s `-j1`-race question
+(now moot - it passes with the current fixes, so this can likely be
+closed as "was the long-line bug all along, not a race" pending final
+confirmation), and the two UTF-8 cases remain a documented, accepted
+limitation unless revisited.
+
 **2026-08-19, later still**: independently verified and merged the
 ASxxxx track's second round (the two items routed above). Reviewed both
 full diffs directly against their commit messages before merging, not
