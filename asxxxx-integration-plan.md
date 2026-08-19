@@ -269,11 +269,29 @@ Committed (`520ec07`) and pushed to `feat/i8085` on GitHub - **the
 first push of this track's actual working code**, not just docs/
 tracking updates. `i8085`/`i8085-undoc` now build and pass regression
 against vendor ASxxxx tools end to end; `i8080` remains untouched on
-SDAS. Remaining open items: settle `ashldi-1`'s `-j1`-race question
-(now moot - it passes with the current fixes, so this can likely be
-closed as "was the long-line bug all along, not a race" pending final
-confirmation), and the two UTF-8 cases remain a documented, accepted
-limitation unless revisited.
+SDAS.
+
+**`ashldi-1` closed**: confirmed via the `-j1` (single-threaded, no
+concurrency possible) log - same deterministic `?ASxxxx-Error-<q>`
+failure every time, longest generated line measured at exactly 845
+characters, identical in cause and structure to `ashrdi-1`/`lshrdi-1`
+(same gcc-torture jump-table `--i-code-in-asm` comment pattern). Was
+the long-line bug all along, not a parallel-build race - a genuine race
+would behave inconsistently across runs, this didn't. Now passes
+cleanly post-fix. No follow-up needed.
+
+**Current stopping point for both tracks**: SDCC track's mandate (grew
+from the original 2-file scope to 5: `src/i8085/main.c`,
+`device/lib/i8085(-undoc)/{Makefile.in,crt0.s,heap.s}`) is complete and
+verified - `-mi8085` and `-mi8085 --allow-undocumented-instructions`
+build and regression-pass end to end against vendor's own tools, with
+only the two documented UTF-8-identifier cases remaining (a real SDCC
+language feature vs. a 7-bit-only vendor lexer - a judgement call to
+revisit later, not a bug to chase now). `i8080` untouched, still on
+SDAS - migrating it to vendor tools too is explicitly a *new*, not-yet-
+opened piece of work, not part of this mandate. ASxxxx track has
+nothing outstanding either. Both agents are holding here rather than
+starting further work unassigned.
 
 **2026-08-19, later still**: independently verified and merged the
 ASxxxx track's second round (the two items routed above). Reviewed both
