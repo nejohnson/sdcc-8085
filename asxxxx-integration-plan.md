@@ -147,6 +147,51 @@ value entirely (`tst_swap.rel` where `crt0.rel` should be, then
 at all. Sent this precise diagnosis (not just "it's broken, go look")
 back to the agent along with an explicit instruction to verify the
 *actual command line* via strace/debug output before trusting `make`'s
-exit code again, not just re-run and hope. In progress - nothing
-pushed to GitHub yet, deliberately, since the work doesn't function
-end-to-end.
+exit code again, not just re-run and hope.
+
+**2026-08-19, later**: the linker-command fix worked - full re-run went
+from 4738/4738 failures to **9/6356 failures on both i8085 and
+i8085-undoc, 0 abnormal stops on all 3 ports**, `i8080` still clean.
+Same 9 cases fail on both ports. Investigated several directly rather
+than just handing the raw list back:
+
+- `tst_long_asm_line.c` - genuinely exceeds even the ASxxxx track's
+  just-landed fix. Confirmed the installed `asz80` does have the
+  `NINPUT*2` fix (built after `83a99c1`, and directly verified a 400+
+  char line assembles fine on it) - but this test's generated line is
+  **1135 characters**, past even the doubled 759-char capacity, and
+  it's genuine compiled code (a long chained ternary), not a debug
+  comment, so it happens with or without verbose-asm flags. The
+  `NINPUT*2` fix's own commit message called the doubling "deliberate
+  headroom for `.define` substitution growth," not a considered answer
+  to "how long can a line be" - suggests the right further fix is a
+  genuinely dynamic (realloc-based) line buffer in `asxxsrc/aslex.c`,
+  not another fixed bump. **New ASxxxx-track item.**
+- `tcc_83_utf8_in_identifiers.c` - `asz80` errors on a non-ASCII
+  (UTF-8, e.g. `_Lefèvre`) character in a symbol name
+  (`?ASxxxx-Error-<q>`). SDCC supports Unicode identifiers as a
+  language feature, so declining to emit them isn't a real SDCC-side
+  option - needs investigating on the ASxxxx side (is 8-bit-clean
+  symbol handling feasible at all, or a hard architectural limit).
+  **New ASxxxx-track item, not yet confirmed fixable.**
+- `tst_gcc-torture-execute-ashldi-1.c` - passes cleanly when built in
+  isolation (both the `.rel` compile and the full `.ihx` link+run) but
+  was reported as a failure in the `-j3` full-suite run. Looks like a
+  parallel-build race, not a correctness bug - possibly vendor's tools
+  aren't safe for concurrent invocation (shared temp file, non-unique
+  intermediate name, etc.). **Not yet confirmed** - needs a `-j1`
+  re-run to see if the same 9 (or a different set) fail, which would
+  distinguish real flakiness from something else.
+- `tst_bug-2031.c` - `?ASlink-Error-Invalid symbol type -20 for
+  tst_bug`, reproducible in isolation (not flaky). Root cause not yet
+  investigated.
+- `ashrdi-1`/`lshrdi-1`/`tst_mm-pnvi-ae-udi-pointer_copy_user_ctrlflow_
+  bytewise.c`/`tst_p99-conformance.c`/`malloc.c` - not yet individually
+  diagnosed.
+
+Handed this full picture to the SDCC-track agent to continue the
+systematic triage (confirm/deny the flakiness hypothesis with a `-j1`
+run, diagnose the remaining undiagnosed cases, distinguish genuine
+SDCC-side fixes from ASxxxx-side ones) rather than diagnosing every
+case here. Still nothing pushed to GitHub for this track - close, but
+not at 0 failures yet.
