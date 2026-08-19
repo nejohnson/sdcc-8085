@@ -49,7 +49,8 @@ instead (adapt to what ASxxxx already does), not as a feature request.
 | **NEW: `device/lib/i8085/Makefile` hardcodes `sdasz80`** | **SDCC** | **Blocking - not started.** `SAS = $(top_builddir)/bin/sdasz80` at line 16 - the device-lib build for i8085 bypasses `src/i8085/main.c` entirely, calling the real assembler directly. Confirmed worse than just "wrong tool": real `sdasz80` rejects the `(BANK=_CSEG)` syntax the crt0.s banking fix (above) now requires ("undefined symbol _CSEG") - so as of the crt0.s fix landing, `make` in this directory is actively broken, not just using the wrong assembler. | Outside the original two-file mandate; needs a third file touched |
 | **NEW: `device/lib/i8085-undoc/crt0.s` is a separate, untouched copy** | **SDCC** | **Not started.** Confirmed genuinely separate from `device/lib/i8085/crt0.s` (different content, unmodified since before this session). `--allow-undocumented-instructions` builds (the same `i8085_port`, now vendor-targeting) will hit the same banking/symbol-naming issues this copy never received the fix for. | |
 | **NEW: `aslex.c`'s line buffer still isn't big enough** | **ASxxxx** | **Not started.** Found running the full i8085 regression: `tst_long_asm_line.c` generates a genuine 1135-character code line (a long chained ternary, not a debug comment - happens regardless of `--fverbose-asm`), past even the just-landed `NINPUT*2` (759-char) fix. Confirmed the installed `asz80` has that fix (correctly handles a 400+ char test line) - this is a distinct, larger case, not the same bug resurfacing. The `NINPUT*2` fix's own commit message called the doubling "deliberate headroom for `.define` substitution growth," not a considered answer to "how long can a line be" - the doubled fixed size was never meant to be a hard ceiling. Recommend a genuinely dynamic (realloc-based) line buffer this time, not another fixed bump - there's no principled way to guess the next "big enough" constant. | Found via the SDCC track's regression run, not part of the original 2 items |
-| **NEW: `asz80` can't handle non-ASCII (UTF-8) symbol names** | **ASxxxx** | **Not started, not yet confirmed fixable.** `tcc_83_utf8_in_identifiers.c` fails with `?ASxxxx-Error-<q>` on a symbol like `_Lefèvre`. SDCC supports Unicode identifiers as a language feature, so this isn't something SDCC can route around - needs investigating whether `asz80`'s symbol-table/lexer code can be made 8-bit-clean, or whether this is a harder architectural limit not worth chasing. | Found via the SDCC track's regression run |
+| **NEW: `asz80` can't handle non-ASCII (UTF-8) symbol names** | **ASxxxx** | **Not started, not yet confirmed fixable.** `tcc_83_utf8_in_identifiers.c` fails with `?ASxxxx-Error-<q>` on a symbol like `_Lefèvre`. SDCC supports Unicode identifiers as a language feature, so this isn't something SDCC can route around - needs investigating whether `asz80`'s symbol-table/lexer code can be made 8-bit-clean, or whether this is a harder architectural limit not worth chasing. Also confirmed hit by `tst_p99-conformance.c` (`_has_καθολικός_χαρακτήρ`, `_κ`). | Found via the SDCC track's regression run |
+| **NEW: `aslink`'s symbol tokenizer stops at `-`** | **ASxxxx** | **Not started.** `tst_bug-2031.c` fails with `?ASlink-Error-Invalid symbol type -20 for tst_bug`. Root cause (independently verified: read `linksrc/lkdata.c`'s `ctype[128]` table directly, confirmed `ctype[0x2D]` - the `-` character - is `BINOP`, not `LETTER`/`DIGIT`): `linksrc/lklex.c`'s `getid()`-style tokenizer loops on `ctype[c] & (LETTER|DIGIT)`, so it stops at the first `-`. SDCC derives a local symbol name from the module name (`tst_bug-2031_1 =R1^D(...)`, from source filename `tst_bug-2031.c`, which legitimately contains a dash), so the linker reads `tst_bug` as the id and misparses the leftover `-2031_1 ...` as the type-code field. This is a real gap between what `asz80` will legitimately emit (dashes in symbol names, since it doesn't restrict what a module-name-derived symbol can contain) and what `aslink`'s own parser accepts back in - not an SDCC-side workaround candidate, since disallowing dashes in module/source-file names isn't a real option. | Found via the SDCC track's regression run |
 
 Add new rows here as either track surfaces something new. Don't start
 work on an item until it has a Track assigned in this table.
@@ -197,3 +198,40 @@ run, diagnose the remaining undiagnosed cases, distinguish genuine
 SDCC-side fixes from ASxxxx-side ones) rather than diagnosing every
 case here. Still nothing pushed to GitHub for this track - close, but
 not at 0 failures yet.
+
+**2026-08-19, later still**: agent reported back with real further
+progress, independently verified before writing this up:
+
+- **Fixed, verified (SDCC-side)**: `malloc.c` was failing because
+  `device/lib/i8085/heap.s` (and its `i8085-undoc` twin) declares a
+  `_HEAP_END` area that `crt0.s` never references, so it never picked
+  up a `(BANK=...)` annotation from *any* source and landed at address
+  0 instead of right after `_HEAP`'s 1023 reserved bytes - corrupting
+  `malloc()`'s heap-size calculation. Fixed by annotating `heap.s`'s
+  three areas directly (confirmed via diff review: clean, well-
+  commented, matches `crt0.s`'s existing convention). 0/59 tests fail
+  now.
+- **3 more instances of the already-routed long-line item**:
+  `ashrdi-1`/`lshrdi-1` (845-char `--i-code-in-asm` jump-table comment
+  lines) and `tst_mm-pnvi-ae-udi-pointer_copy_user_ctrlflow_bytewise.c`
+  (far worse - 3360 characters). No new category, just more evidence
+  for the dynamic-buffer fix already on the ASxxxx track.
+- **1 more instance of the already-routed UTF-8 item**:
+  `tst_p99-conformance.c` (`_has_καθολικός_χαρακτήρ`, `_κ`).
+- **New ASxxxx-track item, independently verified**: `tst_bug-2031.c`
+  fails with `?ASlink-Error-Invalid symbol type -20 for tst_bug`.
+  Root cause (checked directly against `linksrc/lkdata.c`'s `ctype[128]`
+  table): `-` (0x2D) is classified `BINOP`, not `LETTER`/`DIGIT`, so
+  `lklex.c`'s tokenizer stops at the first `-` in a symbol name. SDCC
+  derives a local symbol name from the module name
+  (`tst_bug-2031_1 =R1^D(...)`, from source filename `tst_bug-2031.c`,
+  which legitimately contains a dash) - `asz80` happily emits it,
+  `aslink` can't parse it back. Routed to the ASxxxx track.
+
+Still waiting on the `-j1` comparison to settle whether `ashldi-1` is
+genuinely a parallel-build race. Tally of the original 9: 1 fixed
+(`malloc.c`), 4 routed to ASxxxx as the long-line item
+(`tst_long_asm_line`/`ashrdi-1`/`lshrdi-1`/`mm-pnvi-...`), 2 routed as
+the UTF-8 item (`tcc_83_utf8_in_identifiers`/`tst_p99-conformance`), 1
+routed as the new dash-in-symbol item (`tst_bug-2031`), 1
+(`ashldi-1`) still open pending the `-j1` result.
