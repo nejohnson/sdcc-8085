@@ -189,6 +189,36 @@ splitting (check `as8085/i85pst.c` for whether `ADD`/`SUB`/`ADC`/`SBC`/
 `AND`/`OR`/`XOR`/`CP` need a register-form/immediate-form split the same
 way `LD` does).
 
+## Scope recalibration (2026-08-19, agent progress check)
+
+Honest assessment from the agent, agreed: this is a genuine multi-day
+engineering effort at the rigor this project has been holding itself to,
+not a task that compresses into one session. `ld_cost` alone (the
+dispatch backing just the `A_LD` `asminst` value, one of 38) is ~330
+lines with roughly a dozen branches needing individual live/dead-code
+verification before they can be safely tagged with an Intel mnemonic
+form - and `ADD`/`ADC`/`SUB`/`SBC`/`AND`/`OR`/`XOR`/`CP` (confirmed via
+`i85pst.c`'s `S_ADD`/`S_ADI` split to need the same register-form-vs-
+immediate-form treatment) haven't been started, nor has `PUSH`/`POP`/
+`INC`/`DEC`, the ~800 `emit2` raw-string sites, the 12 hand-written `.s`
+files, `ralloc.c`/peephole, or the full regression + disassembly-spot-
+check validation pass.
+
+**Decision**: continue in the same agent/thread rather than fragmenting
+into separate per-`asminst`-group sessions (full context already loaded,
+fragmenting would add coordination overhead for no real benefit). No
+deadline pressure - checking in at natural milestones (a dispatch
+function done and verified, a class of `asminst` values covered) rather
+than on a fixed schedule.
+
+`ld_cost` form-tagging design, addressing the #3915-shaped risk from
+above: give `ld_cost` an additional optional out-parameter (e.g. `enum
+ld_form *form_out`), set at each of its *existing* `return` points in
+its existing `op1type`/`op2type` switch - tagging branches that are
+already there, not new classification logic. `emit3_o`'s `A_LD` case
+then calls `ld_cost(..., &form)` to get both the byte cost it already
+needed and the Intel form in the same call.
+
 ## Not in scope for this pass
 
 - Upstream submission of anything (explicitly off the table for now,
