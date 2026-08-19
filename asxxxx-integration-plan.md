@@ -125,4 +125,28 @@ crt0.s`. Recommended approach for the archive-format item: generate
 `i8085.lib` as a plain-text `.rel`-filename list, matching
 `fwk.lib`'s existing format, rather than `sdar`'s GNU `ar` format -
 no other target depends on `i8085.lib`'s format so there's no
-compatibility concern. In progress.
+compatibility concern.
+
+**2026-08-19**: the 3 broadened-scope items were implemented (both
+`i8085.lib` and `i8085-undoc`'s copy confirmed genuinely plain text,
+both `Makefile.in`s and both `crt0.s` files modified), but the agent's
+own session had an ~8.5 hour gap overnight with no live process and no
+report - resumed from its saved transcript rather than lost. The full
+`test-i8085`/`test-i8085-undoc`/`test-i8080` regression it then ran
+came back **4738/4738 failures (100%) on both i8085 and i8085-undoc**
+(`i8080` clean, but untouched/expected). Root-caused directly via
+`strace` rather than trusting the generic "cannot compile/link" .out
+text: `_i8085VendorLinkCmdMacro`'s macro substitution is broken for
+`{z80libspec}`/`{z80extralibfiles}`/`{z80extralibpaths}`/`{z80crt0}` -
+only `{z80bases}` (the `-b`->`-a` fix) and `{z80outputtypeflag}` are
+substituting correctly. The actual `aslink` command has `i8085.lib`
+and the library search path as bare, unflagged positional arguments
+(no `-k`/`-l`), and `{z80crt0}` appears to have picked up the wrong
+value entirely (`tst_swap.rel` where `crt0.rel` should be, then
+`tst_swap.rel` again later) - `crt0.rel` doesn't appear in the command
+at all. Sent this precise diagnosis (not just "it's broken, go look")
+back to the agent along with an explicit instruction to verify the
+*actual command line* via strace/debug output before trusting `make`'s
+exit code again, not just re-run and hope. In progress - nothing
+pushed to GitHub yet, deliberately, since the work doesn't function
+end-to-end.
