@@ -48,9 +48,9 @@ instead (adapt to what ASxxxx already does), not as a feature request.
 | **NEW: `i8085.lib`'s archive format** | **SDCC** | **Blocking - not started.** SDCC's `i8085.lib` is a real GNU `ar` archive (confirmed: `!<arch>` magic bytes, `file` reports "current ar archive"). Vendor's `aslink` doesn't parse `ar` archives at all - `linksrc/lklibr.c` opens a "library" file and reads it as a **plain-text list of relative `.rel` filenames**, one per line (exactly like `support/regression/fwk/lib/fwk.lib` already does - confirmed that file is plain ASCII text, `statics.rel`/`extern1.rel`/`extern2.rel`, one per line - so there's already a working precedent for this simpler format elsewhere in SDCC's own build). Every single `test-i8085` case failed to link with this in place (`?ASlink-Error-<cannot open> : "i8085.lib"`) - deterministic, confirmed via the real regression run, not a flake. | Discovered running the real regression suite, not part of the original 5-item scope |
 | **NEW: `device/lib/i8085/Makefile` hardcodes `sdasz80`** | **SDCC** | **Blocking - not started.** `SAS = $(top_builddir)/bin/sdasz80` at line 16 - the device-lib build for i8085 bypasses `src/i8085/main.c` entirely, calling the real assembler directly. Confirmed worse than just "wrong tool": real `sdasz80` rejects the `(BANK=_CSEG)` syntax the crt0.s banking fix (above) now requires ("undefined symbol _CSEG") - so as of the crt0.s fix landing, `make` in this directory is actively broken, not just using the wrong assembler. | Outside the original two-file mandate; needs a third file touched |
 | **NEW: `device/lib/i8085-undoc/crt0.s` is a separate, untouched copy** | **SDCC** | **Not started.** Confirmed genuinely separate from `device/lib/i8085/crt0.s` (different content, unmodified since before this session). `--allow-undocumented-instructions` builds (the same `i8085_port`, now vendor-targeting) will hit the same banking/symbol-naming issues this copy never received the fix for. | |
-| **NEW: `aslex.c`'s line buffer still isn't big enough** | **ASxxxx** | **Not started.** Found running the full i8085 regression: `tst_long_asm_line.c` generates a genuine 1135-character code line (a long chained ternary, not a debug comment - happens regardless of `--fverbose-asm`), past even the just-landed `NINPUT*2` (759-char) fix. Confirmed the installed `asz80` has that fix (correctly handles a 400+ char test line) - this is a distinct, larger case, not the same bug resurfacing. The `NINPUT*2` fix's own commit message called the doubling "deliberate headroom for `.define` substitution growth," not a considered answer to "how long can a line be" - the doubled fixed size was never meant to be a hard ceiling. Recommend a genuinely dynamic (realloc-based) line buffer this time, not another fixed bump - there's no principled way to guess the next "big enough" constant. | Found via the SDCC track's regression run, not part of the original 2 items |
-| **NEW: `asz80` can't handle non-ASCII (UTF-8) symbol names** | **ASxxxx** | **Not started, not yet confirmed fixable.** `tcc_83_utf8_in_identifiers.c` fails with `?ASxxxx-Error-<q>` on a symbol like `_Lefèvre`. SDCC supports Unicode identifiers as a language feature, so this isn't something SDCC can route around - needs investigating whether `asz80`'s symbol-table/lexer code can be made 8-bit-clean, or whether this is a harder architectural limit not worth chasing. Also confirmed hit by `tst_p99-conformance.c` (`_has_καθολικός_χαρακτήρ`, `_κ`). | Found via the SDCC track's regression run |
-| **NEW: `aslink`'s symbol tokenizer stops at `-`** | **ASxxxx** | **Not started.** `tst_bug-2031.c` fails with `?ASlink-Error-Invalid symbol type -20 for tst_bug`. Root cause (independently verified: read `linksrc/lkdata.c`'s `ctype[128]` table directly, confirmed `ctype[0x2D]` - the `-` character - is `BINOP`, not `LETTER`/`DIGIT`): `linksrc/lklex.c`'s `getid()`-style tokenizer loops on `ctype[c] & (LETTER|DIGIT)`, so it stops at the first `-`. SDCC derives a local symbol name from the module name (`tst_bug-2031_1 =R1^D(...)`, from source filename `tst_bug-2031.c`, which legitimately contains a dash), so the linker reads `tst_bug` as the id and misparses the leftover `-2031_1 ...` as the type-code field. This is a real gap between what `asz80` will legitimately emit (dashes in symbol names, since it doesn't restrict what a module-name-derived symbol can contain) and what `aslink`'s own parser accepts back in - not an SDCC-side workaround candidate, since disallowing dashes in module/source-file names isn't a real option. | Found via the SDCC track's regression run |
+| `aslex.c`'s line buffer still isn't big enough | **ASxxxx** | **Done.** Landed on `master` in `nejohnson/asxxxx` as commit `56c5bcd`. `ib[]`/`ic[]` converted from fixed `NINPUT*2`-sized arrays to `malloc()`'d buffers grown (doubled) on demand via a new `fgetline()` function - removes the ceiling entirely (bounded only by available memory), fixing a dangling-pointer bug in `main()`'s cached listing pointer along the way. Verified: 760/1135/2000/5000-char lines all assemble correctly post-fix (1135 matches `tst_long_asm_line.c`'s actual failing line exactly); `-fsanitize=address,undefined` clean; `t80.bat`/`tz80.bat` byte-for-byte identical before/after. | Closes `tst_long_asm_line`/`ashrdi-1`/`lshrdi-1`/`tst_mm-pnvi-ae-udi-...` |
+| `asz80` can't handle non-ASCII (UTF-8) symbol names | **ASxxxx** | **Investigated, deliberately not pursued.** Root cause confirmed: `get()`'s unconditional 7-bit masking plus hard-sized `ctype[]`/`ccase[128]` classification tables, duplicated across `asxxsrc`/`asz80` *and* a separate parallel copy in `aslink`. Declined to force a fix given the scope (touches the lexer and both tools' symbol tables) and risk, with zero existing non-ASCII test coverage anywhere in the vendored self-tests to validate a fix against. Closed as a known, documented limitation rather than left as an open item. | `tcc_83_utf8_in_identifiers`/`tst_p99-conformance` remain SDCC-side known failures against vendor tools until/unless revisited |
+| `aslink`'s symbol tokenizer stops at `-` | **ASxxxx** | **Done.** Landed on `master` in `nejohnson/asxxxx` as commit `18aa725`. Root cause (independently verified: read `linksrc/lkdata.c`'s `ctype[128]` table directly, confirmed `ctype[0x2D]` - the `-` character - is `BINOP`, not `LETTER`/`DIGIT`): `linksrc/lklex.c`'s `getid()`-style tokenizer stops at the first `-`, truncating a symbol name like `tst_bug-2031_1` read back from a `.rel` file's `S` record. Fix adds a new `getsymid()` (identical to `getid()` but also accepts `-`), used only at `lksym.c`'s `newsym()` call site - every other `getid()` call site, notably `lkeval.c`'s `symB - symA` expression evaluator, is untouched. | Closes `tst_bug-2031` |
 
 Add new rows here as either track surfaces something new. Don't start
 work on an item until it has a Track assigned in this table.
@@ -108,8 +108,11 @@ rather than silently assuming `asz80` is the final answer.
 
 ## Status
 
-ASxxxx track: both assigned items done and pushed to `master` in
-`nejohnson/asxxxx` (see table above). Standing by for further items.
+ASxxxx track: 4 of 5 assigned items done and pushed to `master` in
+`nejohnson/asxxxx` (`i85pg1`, long comment-line limit, dynamic line
+buffer, dash-in-symbol-name - see table above); the 5th (UTF-8 symbol
+names) investigated and closed as deliberately-not-pursued. Standing by
+for further items.
 
 SDCC track: all 5 original items done within `src/i8085/main.c` and
 `device/lib/i8085/crt0.s`, verified against a real `bin/sdcc -mi8085`
@@ -235,3 +238,27 @@ genuinely a parallel-build race. Tally of the original 9: 1 fixed
 the UTF-8 item (`tcc_83_utf8_in_identifiers`/`tst_p99-conformance`), 1
 routed as the new dash-in-symbol item (`tst_bug-2031`), 1
 (`ashldi-1`) still open pending the `-j1` result.
+
+**2026-08-19, later still**: independently verified and merged the
+ASxxxx track's second round (the two items routed above). Reviewed both
+full diffs directly against their commit messages before merging, not
+just the self-reports:
+- `56c5bcd` (dynamic line buffer): confirmed `ib[]`/`ic[]` genuinely
+  converted from fixed arrays to `malloc()`'d/`ibsize`-tracked buffers,
+  the new `fgetline()` growth loop is correct (handles the fgets-into-
+  offset continuation and the `il`-refresh-after-realloc fix exactly as
+  described), and the `T_MACRO`/`fgetm()` path correctly switched to
+  passing `ibsize` instead of a stale constant.
+- `18aa725` (dash in symbol names): confirmed the 4-line `lksym.c`
+  change is the only call-site change, `getsymid()` is a faithful
+  `getid()`-plus-dash clone, and `ctype[0x2D]` really is `BINOP` (read
+  `lkdata.c` directly).
+
+Merged `bugfix/dynamic-line-buffer` (fast-forward) then
+`bugfix/aslink-dash-in-symbol-names` (regular merge, no conflicts - the
+two branches touch disjoint files) into `master` in
+`asxxxx-upstream`/`nejohnson/asxxxx`, pushed, deleted both feature
+branches (local + remote). Regenerated `patches/asxxxx/0003-*.patch` and
+`0004-*.patch` from the real merged commits. Ownership-triage table and
+this status log updated accordingly; UTF-8 item closed as investigated-
+not-pursued rather than left open.

@@ -1,0 +1,201 @@
+From 18aa725c54d801ae310676a0a4a1d10b1713543d Mon Sep 17 00:00:00 2001
+From: Neil Johnson <neil.johnson71@gmail.com>
+Date: Wed, 19 Aug 2026 14:10:14 +0100
+Subject: [PATCH] aslink: accept '-' in a symbol name when reading a .rel file
+ 'S' record
+
+newsym() in lksym.c reads a symbol's name off a .rel file 'S' record
+using getid(), which stops scanning at the first character that isn't
+ctype[]'s LETTER or DIGIT. '-' is classified BINOP (it doubles as the
+subtraction/negation operator in expression text elsewhere in the
+linker), so a symbol name containing a '-' gets truncated at the
+dash, and everything from the dash onward is misinterpreted as the
+symbol's type/value field instead. For a symbol such as
+"tst_bug-2031_1", this produces:
+
+  ?ASlink-Error-Invalid symbol type -20 for tst_bug
+
+("-20" being the three characters immediately following the
+truncated name "tst_bug" - the leftover "-2031_1" tail of the actual
+name, misread as a type code).
+
+The assembler can readily produce such a name without ever hitting
+the same restriction itself: an auxiliary relocation-expression
+symbol is named by simply concatenating the source file's name with
+a suffix (asexpr.c, "%.32s_%d" against the assembler's own afn), a
+plain sprintf() with no re-lexing involved, and a source file name
+may legitimately contain a '-'. The resulting name is written to the
+.rel file correctly - the gap is entirely on the read side, where
+the linker re-parses a name it (or its companion assembler) wrote
+using the same identifier scanner used for expression text, where
+'-' must keep meaning "subtract".
+
+Rather than reclassify '-' in the shared ctype[] table (which would
+also change how every expression evaluator call site - notably
+term() in lkeval.c, which uses the very same getid() to scan a
+symbol reference as one operand of a larger arithmetic expression -
+sees '-', breaking ordinary symbol subtraction like "symB - symA"),
+this adds a second, narrowly-scoped scanner, getsymid(), identical
+to getid() except that its continuation test also accepts '-'. It
+is used only at the one call site that reads a symbol's own name as
+originally defined (newsym(), for 'S' records) - every other getid()
+call site, including all expression-operand scanning in lkeval.c, is
+untouched and continues to treat '-' as an operator exactly as
+before.
+
+Verified with a standalone aslink built from linksrc/*.c:
+- Reproduced against the real .rel file from the reported failure
+  (containing "S tst_bug-2031_1 =R1^D((_gv >> 8))" and three further
+  symbols of the same form): the unpatched linker fails immediately
+  with the exact reported error, "Invalid symbol type -20 for
+  tst_bug"; the patched linker reads all four names correctly and
+  proceeds past them to link normally (confirmed by linking the full
+  dependency set - crt0, framework, and library object files - which
+  completes with only unrelated warnings about symbols this isolated
+  rebuild doesn't otherwise provide).
+- Confirmed no regression in ordinary subtraction: assembled a
+  two-module test where one module exports two symbols and the other
+  references "(symB - symA)" - an expression the assembler cannot
+  reduce to a simple offset at assemble time (both operands are
+  externally defined), so it is written to the .rel file as literal
+  expression text ("S ..._1 =R1^D((_symB - _symA))") for the linker's
+  own evaluator to resolve. Both the unpatched and patched linker
+  resolve it to the identical, correct difference (8, matching the
+  two symbols' linked addresses in the map file) and produce
+  byte-identical Intel Hex output.
+- Rebuilt with -fsanitize=address,undefined and reran both of the
+  above: no sanitizer reports.
+- Ran the existing asz80/t80.bat and asz80/tz80.bat self-tests
+  (asz80 -gloaxf, aslink -xu, asxscn on the resulting .lst/.rst)
+  against the unpatched and patched linker: byte-for-byte identical
+  .rst output in both cases (apart from timestamps), including the
+  two pre-existing, unrelated asxscn "code difference" reports in
+  t80 (an HD64180 TST addressing quirk also present, unchanged,
+  before this fix). No regressions.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+---
+ linksrc/aslink.h |  1 +
+ linksrc/lklex.c  | 68 ++++++++++++++++++++++++++++++++++++++++++++++++
+ linksrc/lksym.c  |  6 +++--
+ 3 files changed, 73 insertions(+), 2 deletions(-)
+
+diff --git a/linksrc/aslink.h b/linksrc/aslink.h
+index 7f6c171..996702a 100644
+--- a/linksrc/aslink.h
++++ b/linksrc/aslink.h
+@@ -1116,6 +1116,7 @@ extern	char		endline(void);
+ extern	int		get(void);
+ extern	void		getfid(char *str, int c);
+ extern	void		getid(char *id, int c);
++extern	void		getsymid(char *id, int c);
+ extern	int		getmap(int d);
+ extern	int		getnb(void);
+ extern	int		more(void);
+diff --git a/linksrc/lklex.c b/linksrc/lklex.c
+index 0f9b628..259b844 100644
+--- a/linksrc/lklex.c
++++ b/linksrc/lklex.c
+@@ -35,6 +35,7 @@
+  *		int	get()
+  *		void	getfid()
+  *		void	getid()
++ *		void	getsymid()
+  *		int	getmap()
+  *		int	getnb()
+  *		int	more()
+@@ -102,6 +103,73 @@ getid(char *id, int c)
+ 	*p++ = 0;
+ }
+ 
++/*)Function	void	getsymid(id, c)
++ *
++ *		char *	id		a pointer to a string of
++ *					maximum length NCPS-1
++ *		int	c		mode flag
++ *					>=0	this is first character to
++ *						copy to the string buffer
++ *					<0	skip white space
++ *
++ *	The function getsymid() is identical to getid() except that
++ *	it also accepts '-' (BINOP) as a symbol-name character, in
++ *	addition to LETTER | DIGIT.  It is used only where a symbol's
++ *	own name is being read as originally defined - e.g. by newsym()
++ *	in lksym.c, reading the name off a .rel file 'S' record - never
++ *	where an identifier is being scanned as an operand within an
++ *	arithmetic expression (see term() in lkeval.c, which continues
++ *	to use getid() so that plain '-' unambiguously ends a symbol
++ *	reference and begins a subtraction, exactly as before).
++ *
++ *	The assembler may construct a symbol name by combining the
++ *	source module's file name with a suffix (e.g. an auxiliary
++ *	relocation-expression symbol named "<filename>_1"), and a
++ *	source file name may legitimately contain a '-' (a dash is a
++ *	common, unremarkable character in a file name).  The assembler
++ *	writes such a name to the .rel file verbatim, without ever
++ *	re-scanning it as assembler-source syntax, so it has no
++ *	trouble producing it - only the linker's own re-parsing of the
++ *	name it wrote needs to tolerate it too.
++ *
++ *	local variables:
++ *		char *	p		pointer to external string buffer
++ *		int	c		current character value
++ *
++ *	global variables:
++ *		char	ctype[]		a character array which defines the
++ *					type of character being processed.
++ *					This index is the character
++ *					being processed.
++ *
++ *	called functions:
++ *		int	get()		lklex.c
++ *		int	getnb()		lklex.c
++ *		void	unget()		lklex.c
++ *
++ *	side effects:
++ *		use of getnb(), get(), and unget() updates the
++ *		global pointer ip the position in the current
++ *		input text line.
++ */
++
++void
++getsymid(char *id, int c)
++{
++	char *p;
++
++	if (c < 0) {
++		c = getnb();
++	}
++	p = id;
++	do {
++		if (p < &id[NCPS-1])
++			*p++ = c;
++	} while ((ctype[c=get()] & (LETTER|DIGIT)) || (c == '-'));
++	unget(c);
++	*p++ = 0;
++}
++
+ /*)Function	void	getfid(str, c)
+  *
+  *		char *	str		a pointer to a string of
+diff --git a/linksrc/lksym.c b/linksrc/lksym.c
+index 822a402..c4d9795 100644
+--- a/linksrc/lksym.c
++++ b/linksrc/lksym.c
+@@ -152,9 +152,11 @@ newsym(void)
+ 		lkexit(ER_FATAL);
+ 	}
+ 	/*
+-	 * Create symbol entry
++	 * Create symbol entry.  Use getsymid(), not getid(), since the
++	 * assembler may legitimately construct this name from a source
++	 * file name containing a '-' (see getsymid() in lklex.c).
+ 	 */
+-	getid(id, -1);
++	getsymid(id, -1);
+ 	tsp = lkpsym(id, 1);
+ 	c1 = getnb(); c2 = get(); c3 = get();
+ 	if (c1 == 'R') {
+-- 
+2.43.0
+
