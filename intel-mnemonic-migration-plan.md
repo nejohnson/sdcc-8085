@@ -154,6 +154,41 @@ instructions by disassembling actual output bytes against `as8085`/
 `i85mch.c`'s own opcode tables, not just "did the test that happens to
 exercise this pass."
 
+## Architectural finding (2026-08-19, agent scoping pass)
+
+`gen.c` has two call paths, not one, and only one is a simple string swap:
+
+- `emit2(fmt, ...)` - printf-style, raw Zilog text baked into format
+  strings. This part is genuinely close to "translate each call site."
+- `emit3`/`emit3w`/`emit3_o`/`emit3w_o` - the majority of actual codegen.
+  These don't take a mnemonic string - they take an `enum asminst`
+  (`A_LD`, `A_ADD`, `A_INC`, ...) indexing a fixed `asminstnames[]` table,
+  always emitting the same `"%s %s, %s"`-shaped template. Zilog's `ld` is
+  one universal mnemonic for every register/memory/immediate combination;
+  Intel splits that by addressing mode into distinct mnemonics (`mov`,
+  `mvi`, `lxi`, `lda`/`sta`, `lhld`/`shld`, `ldax`/`stax`). A single
+  `A_LD` enum value can't map to one fixed Intel string - the correct
+  mnemonic depends on `op1`/`op2`'s actual type, decided at emit time.
+  Same issue for `(hl)`-style indirect addressing (Zilog's universal
+  parenthesized-memory syntax vs Intel's `M` pseudo-register, valid only
+  in specific instruction/slot combinations).
+
+**Design constraint for the fix**: `emit3Cost`'s existing `A_LD` case
+already delegates to `ld_cost()`, which does its own `op1type`/`op2type`
+dispatch (`AOP_REG`/`AOP_DUMMY`/`AOP_IMMD`/`AOP_LIT`/...) to compute
+correct Zilog cycle costs - most of the classification logic needed to
+also pick the Intel mnemonic already exists there, for a different
+purpose. **Do not write a second, independent operand-classification
+switch inside `emit3_o` while `ld_cost` keeps a separate one for cost** -
+that's structurally the same bug shape as #3915 (two logically-parallel
+dispatches meant to agree, drifting because they're not the same code).
+Extend/reuse `ld_cost`'s classification as the single source of truth for
+both cost and mnemonic selection. Apply the same principle to any other
+`A_*` case that turns out to need addressing-mode-based mnemonic
+splitting (check `as8085/i85pst.c` for whether `ADD`/`SUB`/`ADC`/`SBC`/
+`AND`/`OR`/`XOR`/`CP` need a register-form/immediate-form split the same
+way `LD` does).
+
 ## Not in scope for this pass
 
 - Upstream submission of anything (explicitly off the table for now,
