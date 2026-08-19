@@ -519,6 +519,11 @@ _setValues (void)
   Safe_free ((void *) s);
 
   dbuf_init (&dbuf, 128);
+  /* z80bases is unused by both i8080 and i8085: both link via the "$1.lk"
+     script SDCCmain.c writes (port->linker.needLinkerScript), which gets
+     its area bases from WRITE_SEG_LOC directly, not from this macro. Kept
+     as "-b..." (SDAS's own meaning) for parity with the still-unused
+     upstream z80/main.c version of this function. */
   dbuf_printf (&dbuf, "-b_CODE=0x%04X -b_DATA=0x%04X", options.code_loc, options.data_loc);
   setMainValue ("z80bases", dbuf_c_str (&dbuf));
   dbuf_destroy (&dbuf);
@@ -636,9 +641,16 @@ _getRegByName (const char *name)
 static void
 _z80_genAssemblerStart (FILE * of)
 {
+  /* i8085 now targets vendor's (patched) asz80 directly instead of sdasz80
+     (see asxxxx-integration-plan.md). Vendor's assembler doesn't recognize
+     the .optsdcc directive SDAS added as an SDCC-only extension, so emit it
+     as a ';'-prefixed comment instead for i8085 - still useful for a human
+     (or future tooling) reading the .asm, but harmless to vendor's asz80.
+     i8080 is unaffected: it still targets sdasz80, which understands the
+     real directive. */
   if (!options.noOptsdccInAsm)
     {
-      tfprintf (of, "\t!optsdcc -m%s", port->target);
+      tfprintf (of, TARGET_IS_I8085 ? "\t;optsdcc -m%s" : "\t!optsdcc -m%s", port->target);
       fprintf (of, " sdcccall(%d)", options.sdcccall);
       fprintf (of, "\n");
     }
@@ -749,6 +761,125 @@ static const char *_z80LinkCmd[] = {
 /* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
 static const char *_z80AsmCmd[] = {
   "sdasz80", "$l", "$3", "$2", "$1.asm", NULL
+};
+
+/* i8085 targets vendor's (patched) asz80/aslink directly rather than
+   sdasz80/sdldz80 (see asxxxx-integration-plan.md) - i8080 is untouched and
+   still uses _z80AsmCmd/_z80LinkCmd above, unmodified, since only -mi8085
+   is meant to switch toolchains.
+
+   The assembler invocation drops the explicit output-.rel-filename
+   positional argument SDAS's syntax needs ("$2" in _z80AsmCmd above):
+   vendor's asz80 takes just "[-options] file1 [file2...]" and derives the
+   output name from the input file automatically, which already produces
+   exactly the filename SDCC needs. */
+static const char *_i8085VendorAsmCmd[] = {
+  "asz80", "$l", "$3", "$1.asm", NULL
+};
+
+/* The linker side keeps using the "$1.lk" script SDCCmain.c's shared
+   linkEdit() writes (port->linker.needLinkerScript stays 1, below) rather
+   than hand-building the command line from this file's own macros: an
+   earlier attempt at the latter (see git history) got the crt0/library
+   search logic wrong - SDCCmain.c's version already correctly handles
+   --nostdlib, --no-std-crt0, -L/-l, and the port's own port->linker.libs
+   (all exercised by support/regression's own test harness), and
+   reimplementing that here duplicated it *incorrectly*. That shared code
+   path is otherwise fine for vendor's aslink too - -k/-l use the exact same
+   syntax on both sides - except for three spots that assume SDAS's dialect:
+
+   1. WRITE_SEG_LOC (in SDCCmain.c, shared by every TARGET_Z80_LIKE port)
+      always writes "-b AREA = addr" - sdldz80's own repurposed meaning of
+      -b ("area base address"), shared with every other z80-family
+      sub-target and with mcs51/hc08/etc via the very same linker binary
+      (see asxxxx-noice-linker-followup-report.md). Vendor's aslink instead
+      uses -a for "area base address" (-b is "bank base address" there).
+   2. The first two lines SDCCmain.c writes are "-mjwx" then
+      "-i <dstfile>" (SDAS extended syntax: a bare filename after -i
+      renames the output). Vendor's plain "-i" takes no such argument -
+      "-i <dstfile>" would misparse "<dstfile>" as an extra input file to
+      open; renaming the output requires "-i+<dstfile>" instead.
+   3. "-k <path>" lines (library search paths, one per -L/standard libdir)
+      never have a trailing path separator ("-k ../../device/lib/build/
+      i8085"). SDAS's own addfile() (linksrc/lklibr.c) inserts one itself
+      before appending the -l name if the path doesn't already end with
+      one; vendor's addfile() does not, so "-k ../../device/lib/build/
+      i8085" + "-l i8085.lib" silently concatenates into the single
+      bogus path "...i8085i8085.lib" (confirmed via strace: ENOENT, then
+      silent fallback to an unqualified open of "i8085.lib" that also
+      fails, then every symbol the library would have supplied - e.g.
+      __divuint - is reported merely as an *undefined global warning*,
+      not a fatal error, so this one is easy to miss without checking the
+      actual .rel/.ihx output).
+   4. "-l <path>/<name>" lines - a library spec that's itself a relative
+      path, not a bare name to search for (SDCCmain.c writes one of these
+      for support/regression's own per-case "fwk.lib", e.g.
+      "-l gen/i8085/fwk.lib") - get unconditionally prefixed with every
+      registered -k path and only that, same as any bare -l name (addfile(),
+      called once per (-k path, -l name) pair by addlib(), which is the
+      only caller). SDAS's own addfile() has a second chance built in for
+      exactly this case: if the -k-prefixed open fails, retry the -l value
+      alone as given; if *that* succeeds, re-derive path/libfil by
+      splitting it at its own last '/' (so a library found this way still
+      gets its *own* directory used to resolve the relative filenames
+      listed inside it, not whatever -k path happened to be registered).
+      Vendor's addfile() has neither half of that. Rather than the -k-line
+      fix above (a targeted one-line difference), a "-l <path>/<name>" line
+      is rewritten into the equivalent explicit pair "-k <path>/" +
+      "-l <name>" instead of trying to patch addfile() itself from the
+      outside - registering <path> as a real, ordinary -k entry gets both
+      the successful open *and* SDAS's path/libfil re-derivation for free,
+      since vendor's own addfile() already does the latter correctly for
+      any -k path that actually works.
+
+   All four of SDCCmain.c's own file-writing spots are out of bounds for
+   this change (only src/i8085/main.c and device/lib/i8085/crt0.s are meant
+   to change) - so _i8085VendorLinkCmd (used as port->linker.cmd, below)
+   doesn't invoke aslink directly. It first runs the four substitutions
+   above (sed, over the *already-correct* generated script - each pattern
+   only ever matches the exact lines it's meant to; everywhere else in the
+   file is already vendor-compatible as-is) into a sibling "$1.v" file,
+   then invokes vendor's aslink against that.
+
+   Two mechanical constraints on how fixes 3. and 4. themselves have to be
+   written, both hit and fixed the hard way:
+   - Both patterns need a literal space (matching "-k "/"-l " exactly, not
+     just "-k"/"-l", so they can't fire on some other flag that merely
+     starts with those two characters) - but this whole array gets
+     flattened by buildCmdLine() (SDCCutil.c) into one big string handed to
+     `sh -c` verbatim, with no quoting of its own, so an unquoted space
+     inside a single array element still splits into two separate shell
+     words once it gets there. Wrapping just these two elements in a
+     literal pair of double quotes (part of the C string itself, not
+     shell_escape()'d - nothing else here goes through a shell-escaping
+     step either) keeps each one word; double quotes were chosen
+     specifically because they don't treat backslash-paren (or, for 4.,
+     backslash-n) as special, so the sed group/newline syntax survives
+     inside them unchanged.
+   - An end-of-line anchor would normally belong at the end of fix 3.'s
+     pattern (plain greedy ".*[^/]" without one matches up to the *first*
+     '/' it can get away with, not the last, so on a multi-segment path
+     it's wrong - confirmed the hard way, it turned ".../build/i8085" into
+     ".../buildi8085/"). But the obvious anchor, a bare '$', can't be used
+     in any array element here: buildCmdLine() scans every element for '$'
+     itself, to substitute its own $1/$2/$3/$l/$L tokens, and asserts on
+     anything else it finds starting with '$'. Left unanchored instead
+     (relying on the greedy match naturally preferring the *longest*
+     possible extension, which happens to still land correctly on the
+     final '/' when one exists): the only case this gets wrong is a "-k"
+     path that already ends in '/', which would end up with two - doubled,
+     not dropped, so still a valid (if unusual-looking) path, and not a
+     case SDCCmain.c's own "-k %s\n" ever actually produces (confirmed:
+     libPathsSet/libDirsSet entries come straight from -L / the compiled-in
+     standard path, never with a trailing separator). */
+static const char *_i8085VendorLinkCmd[] = {
+  "sed",
+  "-e", "s/^-i/-i+/",
+  "-e", "s/^-b/-a/",
+  "-e", "\"s#^-k \\(.*[^/]\\)#-k \\1/#\"",
+  "-e", "\"s#^-l \\(.*\\)/\\([^/]*\\)#-k \\1/\\n-l \\2#\"",
+  "$1", ">", "$1.v", "&&",
+  "aslink", "-nf", "$1.v", "$L", NULL
 };
 
 static const char *const _crt[] = { "crt0.rel", NULL, };
@@ -917,20 +1048,20 @@ PORT i8085_port =
     NO_MODEL,
     _i8085_getModel,            /* lib/i8085 or lib/i8085-undoc */
   },
-  {                             /* Assembler */
-    _z80AsmCmd,
+  {                             /* Assembler: vendor's asz80, not sdasz80 - see _i8085VendorAsmCmd */
+    _i8085VendorAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
     ".asm"
   },
-  {                             /* Linker */
-    _z80LinkCmd,                //NULL,
-    NULL,                       //LINKCMD,
+  {                             /* Linker: vendor's aslink, not sdldz80 - see _i8085VendorLinkCmd */
+    _i8085VendorLinkCmd,
+    NULL,
     NULL,
     ".rel",
-    1,
+    1,                          /* still need the "$1.lk" script - _i8085VendorLinkCmd sed-adapts it for vendor's aslink, see its comment */
     _crt,                       /* crt */
     _libs_i8085,                /* libs */
   },

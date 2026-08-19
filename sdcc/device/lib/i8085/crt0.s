@@ -23,7 +23,11 @@
 ;--------------------------------------------------------------------------
 
 	.module crt0
-	.optsdcc -mi8085 sdcccall(1)
+	;; crt0.s is assembled by vendor's asz80 directly (not sdasz80), which
+	;; doesn't recognize the .optsdcc directive SDAS added as an SDCC-only
+	;; extension (see asxxxx-integration-plan.md) - kept below only as a
+	;; comment, for a human reading this file.
+	;.optsdcc -mi8085 sdcccall(1)
 	.globl	_main
 
 	.area	_HEADER (ABS)
@@ -43,17 +47,33 @@ init:
 	jp	_exit
 
 	;; Ordering of segments for the linker.
-	.area	_HOME
+	;;
+	;; Vendor's asz80/aslink (unlike sdasz80/sdldz80) auto-assign areas
+	;; not named "_CODE"/"_DATA" (its own two hardcoded default areas,
+	;; asz80/z80pst.c) to no bank at all, which aslink then places in its
+	;; own address space starting at 0 - independently of, and typically
+	;; overlapping, wherever _CODE/_DATA end up (asxxxx-integration-plan.md,
+	;; linksrc/lkarea.c's per-bank lnkarea() location counter). Tagging
+	;; these SDCC-only areas explicitly with the same bank as _CODE/_DATA
+	;; (BANK=_CSEG / BANK=_DSEG - the two bank names asz80/z80pst.c
+	;; predefines for its built-in _CODE/_DATA areas) makes them
+	;; concatenate after _CODE/_DATA in declaration order, same as under
+	;; sdasz80/sdldz80. Only the first declaration of each area needs the
+	;; annotation (an area's bank, once set, applies to every later
+	;; unannotated re-declaration of the same area, in this file or any
+	;; other object linked with it) - annotated on every declaration here
+	;; anyway, for robustness against future reordering.
+	.area	_HOME (BANK=_CSEG)
 	.area	_CODE
-	.area	_INITIALIZER
-	.area   _GSINIT
-	.area   _GSFINAL
+	.area	_INITIALIZER (BANK=_CSEG)
+	.area   _GSINIT (BANK=_CSEG)
+	.area   _GSFINAL (BANK=_CSEG)
 
 	.area	_DATA
-	.area	_INITIALIZED
-	.area	_BSEG
-	.area   _BSS
-	.area   _HEAP
+	.area	_INITIALIZED (BANK=_DSEG)
+	.area	_BSEG (BANK=_DSEG)
+	.area   _BSS (BANK=_DSEG)
+	.area   _HEAP (BANK=_DSEG)
 
 	.area   _CODE
 _exit::
@@ -63,14 +83,28 @@ _exit::
 	halt
 	jp	1$
 
-	.area   _GSINIT
+	.area   _GSINIT (BANK=_CSEG)
 gsinit::
 	;; Zero-initialise the _DATA segment (no block instructions on the 8080).
+	;;
+	;; s__DATA/l__DATA are linker-generated "start of area"/"length of
+	;; area" symbols. Vendor's aslink auto-generates comparable symbols
+	;; under its own naming convention (linksrc/lkarea.c): l_<area> (length
+	;; of the whole area - already exactly "l__DATA", since SDCC's own area
+	;; name "_DATA" already carries the leading underscore "l_" prefixes
+	;; onto) unchanged, but s_<area>_<n> (start address of the Nth areax
+	;; segment contributed to that area across all linked modules, single
+	;; underscore, numeric instance suffix) rather than SDCC's s__DATA. As
+	;; long as crt0.rel is linked first (always true - see _crt[] in
+	;; src/i8085/main.c) and contributes only an empty placeholder chunk to
+	;; _DATA (true here), that first segment's start address equals the
+	;; whole area's start address, so plain "_1" is the right instance to
+	;; reference.
 	ld	bc, #l__DATA
 	ld	a, b
 	or	a, c
 	jp	Z, zeroed_data
-	ld	hl, #s__DATA
+	ld	hl, #s__DATA_1
 zero_loop:
 	ld	(hl), #0x00
 	inc	hl
@@ -85,8 +119,8 @@ zeroed_data:
 	ld	a, b
 	or	a, c
 	jp	Z, gsinit_next
-	ld	de, #s__INITIALIZED
-	ld	hl, #s__INITIALIZER
+	ld	de, #s__INITIALIZED_1
+	ld	hl, #s__INITIALIZER_1
 copy_loop:
 	ld	a, (hl)
 	ld	(de), a
@@ -99,5 +133,5 @@ copy_loop:
 
 gsinit_next:
 
-	.area   _GSFINAL
+	.area   _GSFINAL (BANK=_CSEG)
 	ret

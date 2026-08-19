@@ -10,10 +10,22 @@ srcdir = @srcdir@
 top_builddir = @top_builddir@
 abs_top_builddir = @abs_top_builddir@
 
-LIB_TYPE     = @LIB_TYPE@
+# i8085 links via vendor's own aslink now, not sdldz80 (src/i8085/main.c,
+# _i8085VendorLinkCmdMacro) - so this port's library must be in vendor's own
+# native library format: a plain-text list of relative .rel filenames (one
+# per line, no archive wrapper), read directly by linksrc/lklibr.c's
+# fndsym(). The top-level configured default (@LIB_TYPE@, normally RANLIB -
+# a real GNU-ar-format archive via sdar) is intentionally NOT used here: it
+# would produce a library vendor's aslink can't open at all. Any value other
+# than SDCCLIB/AR/RANLIB below falls into the existing plain-list branch,
+# which already produces exactly this format (also used as-is by
+# support/regression/fwk/lib/fwk.lib, an existing precedent for the same
+# format) - no other i8085 target depends on i8085.lib's format, so nothing
+# else is affected by pinning it here.
+LIB_TYPE     = ASXVENDOR
 
 EXTRA_CFLAGS = -mi8085 --max-allocs-per-node 25000
-SAS = $(top_builddir)/bin/sdasz80
+SAS = $(top_builddir)/bin/asz80
 
 # override PORTDIR defined by super (parent) makefile
 override PORTDIR = ../build/i8085
@@ -70,7 +82,9 @@ I8085OBJECTS = $(patsubst %.c,%.rel,$(I8085_FLOAT) $(I8085_LONG) $(I8085_LONGLON
 
 LIB = i8085.lib
 AS = $(SAS)
-ASFLAGS = -plosgff
+# Matches port->assembler.plain_opts ("-plosgffw") in src/i8085/main.c's
+# i8085_port - kept consistent since both invoke the same vendor asz80.
+ASFLAGS = -plosgffw
 
 CFLAGS = -I$(srcdir)/../../include -I. --std-c23
 
