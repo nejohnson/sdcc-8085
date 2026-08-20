@@ -294,6 +294,40 @@ target have IY" gate (there is none - i8080/i8085 never have it) added
 while this pass is already touching that code, not a mnemonic-only
 translation of the existing (wrong) `push iy`/`pop iy` calls.
 
+## Milestone: 12 .s files + ISR fix done, i8080 scope decision (2026-08-20)
+
+**12 hand-written `.s` library files: done, byte-verified.** `crt0.s`,
+`setjmp.s`, `__sdcc_call_hl.s`, `__builtin_memcpy.s`,
+`atomic_flag_test_and_set.s` translated (both `i8085`/`i8085-undoc`
+dirs); `heap.s` needed no changes (already dialect-neutral). Every file
+assembles clean with `as8085`, opcode bytes checked against the Intel
+map, `i8085`/`i8085-undoc` copies confirmed byte-identical.
+
+**ISR `push iy`/`pop iy` bug: fixed, independently verified.** Root
+cause pinned down precisely: the original shared-z80 guard excluded
+`IS_SM83` but never `IS_8080LIKE` - `IY_RESERVED` (register allocator
+choice) and "this chip has no IY hardware at all" are different
+predicates, and the wrong one was being checked. Fixed by restoring the
+missing `IS_8080LIKE` exclusion (unconditionally true in this file,
+making both lines dead - removed rather than left unreachable, matching
+this function's existing style for neighbouring dead arms). Verified:
+zero `iy` references in output for a synthetic ISR test and all 5 real
+ISR-using regression tests, AF/HL/BC/DE save/restore still balanced. I
+independently checked there's no other code depending on the removed
+push/pop's stack-depth contribution (there is none - this backend has
+no frame-pointer-relative addressing at all, `AOP_STK` confirmed dead
+elsewhere in this same migration).
+
+**i8080 scope decision**: `i8080_port` shares this same `gen.c` (now
+unconditionally Intel-syntax) but its own toolchain retarget and 12
+hand-written `.s` files are untouched - `device/lib/i8080/`'s
+`crt0.s`/`Makefile.in` are still full Zilog/`sdasz80`. **i8080 is
+genuinely broken right now**, not just unfinished. Decision: proceed
+into the same two-phase treatment i8085 already went through now,
+rather than leave it deferred - the infrastructure and translation
+patterns are already proven, so this is well-understood repeat work,
+not a new unknown.
+
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
 "In the 8085 code I really do not want to see any dead code, even
