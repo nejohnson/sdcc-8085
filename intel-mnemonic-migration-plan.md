@@ -248,6 +248,49 @@ stable. Until then, i8085/i8080 codegen is correct but not
 peephole-optimized - a real, accepted performance cost, not silently
 dropped.
 
+## Severe pre-existing bug found via full corpus sweep: ISR prologue/epilogue (2026-08-20)
+
+Found while doing the definitive corpus sweep (996/276-line `gen.c` diff,
+1557/1559 files clean). `genFunction()` (line ~7476) unconditionally
+emits `push iy` for every function marked `IFFUNC_ISISR` (i.e. every
+SDCC `__interrupt` function), with a matching `pop iy` in the epilogue -
+inherited unchanged from the original shared `z80/gen.c`'s `if
+(!IS_SM83) push iy` chain, which correctly gated out SM83 but never
+accounted for i8080/i8085 (both `!IS_SM83`, so both "always true" once
+the earlier gen.c-pruning project collapsed the guard away) having no IY
+hardware at all. **Predates this mnemonic migration entirely** - it was
+already wrong in the original shared z80/gen.c logic, silently carried
+through the standalone-backend fork, and is present in the released
+`v1.0.0`.
+
+**Confirmed via direct testing, not just table-reading:**
+- `push iy`/`pop iy` assemble (under `asz80`'s `.8085` mode, today's
+  actual toolchain) to bytes `FD E5` / `FD E1` - flagged "not a standard
+  8085 instruction" as a soft override, same class as the JR/RDEL finding,
+  and assembled anyway.
+- `sim/ucsim/src/sims/i8085.src/glob.cc`'s own disassembly tables (the
+  simulator's ground truth for what these bytes actually mean on real
+  8080/8085 silicon) show `0xFD` is not a prefix byte at all on either
+  chip: `disass_8085`: `0xfd = "JX5 'a16'"` (3-byte, undocumented
+  conditional jump on the X5 flag); `disass_8080`: `0xfd = "*CALL 'a16'"`
+  (3-byte, duplicate/undocumented CALL). Either way, `push iy`'s trailing
+  `E5` byte and `pop iy`'s leading `FD` byte get consumed as the low/high
+  bytes of a garbage 16-bit jump/call target - **not** two harmless
+  register push/pops. This is a genuine control-flow corruption, not
+  wasted stack space: on 8085 a conditional jump to address `0xFDE5` (or
+  an unconditional `CALL` to it on plain 8080), then the ISR's own body
+  starts executing from a corrupted instruction stream.
+- **Every currently-shipped `v1.0.0` `__interrupt` function is affected.**
+
+**Not yet decided - flagged to Neil directly given the severity**: fix
+as part of this migration (the IY-save code needs a real per-target
+"does this chip have IY" gate regardless of mnemonic dialect, and this
+migration is already touching adjacent `genFunction`/`genRet` territory)
+vs. a standalone, urgent hotfix on the current Zilog-syntax codegen
+given real-world severity (unlike the narrower JR/RDEL memset-loop case,
+this affects a commonly-used embedded feature - interrupt handling - not
+an optimization heuristic).
+
 ## Not in scope for this pass
 
 - Upstream submission of anything (explicitly off the table for now,
