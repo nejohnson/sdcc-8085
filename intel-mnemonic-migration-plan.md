@@ -219,6 +219,35 @@ already there, not new classification logic. `emit3_o`'s `A_LD` case
 then calls `ld_cost(..., &form)` to get both the byte cost it already
 needed and the Intel form in the same call.
 
+## Peephole optimizer disabled as a stopgap (2026-08-20)
+
+Found during the mid-migration corpus sweep, verified directly (not just
+trusted): `src/i8085/peeph.def` (still `_z80_defaultRules`, shared with
+`i8080_port` - neither port has ever had its own peephole file, a
+pre-existing gap noted in the original scope) has replacement templates
+written in plain Zilog syntax. At least one rule (line ~2908, matching
+`inc sp` + a following `pop`/`ld`-shaped sequence) was confirmed
+**actively firing and injecting broken Zilog text** (`ld hl,#n` / `add
+hl,sp` / `ld sp,hl`) into otherwise-Intel-syntax output - not merely
+inert. The earlier belief that peephole was harmless against the new
+dialect was based on a different, genuinely-benign subsystem
+(`z80MightRead`-style liveness analysis); the pattern-rewrite rules
+themselves are not benign. 232+ lines of the 3193-line file use
+unambiguously Zilog-only replacement syntax - auditing which subset is
+actually safe (now, and after every remaining piece of this migration
+lands) would be its own project, not a quick check.
+
+**Decision**: peephole optimization disabled for both `i8085_port` and
+`i8080_port` (they share `gen.c`/rules, so both are equally exposed) as
+an immediate stopgap - an obvious-safe-default call given the
+alternative is knowingly shipping output that can be silently wrong.
+**Tracked follow-up, explicitly not in scope for this migration**:
+build a real `peeph-i8085.def` written and verified against Intel
+semantics from scratch, once the mnemonic migration itself is done and
+stable. Until then, i8085/i8080 codegen is correct but not
+peephole-optimized - a real, accepted performance cost, not silently
+dropped.
+
 ## Not in scope for this pass
 
 - Upstream submission of anything (explicitly off the table for now,
