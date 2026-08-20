@@ -282,14 +282,17 @@ through the standalone-backend fork, and is present in the released
   starts executing from a corrupted instruction stream.
 - **Every currently-shipped `v1.0.0` `__interrupt` function is affected.**
 
-**Not yet decided - flagged to Neil directly given the severity**: fix
-as part of this migration (the IY-save code needs a real per-target
-"does this chip have IY" gate regardless of mnemonic dialect, and this
-migration is already touching adjacent `genFunction`/`genRet` territory)
-vs. a standalone, urgent hotfix on the current Zilog-syntax codegen
-given real-world severity (unlike the narrower JR/RDEL memset-loop case,
-this affects a commonly-used embedded feature - interrupt handling - not
-an optimization heuristic).
+**Decision (2026-08-20, Neil)**: fix as part of this migration, not as a
+standalone hotfix - "since we are moving to a standalone 8085 codegen
+with Intel mnemonics, let's push on that hard... fix the ISR bug as part
+of this rather than treat it as a patch against an already-known-broken
+earlier alpha release." Same reasoning as JR/RDEL, deliberately applied
+here too despite the higher severity: `v1.0.0` is treated as an alpha
+this migration supersedes, not a release line that needs independent
+patching. `genFunction`'s ISR prologue/epilogue needs a real "does this
+target have IY" gate (there is none - i8080/i8085 never have it) added
+while this pass is already touching that code, not a mnemonic-only
+translation of the existing (wrong) `push iy`/`pop iy` calls.
 
 ## Not in scope for this pass
 
