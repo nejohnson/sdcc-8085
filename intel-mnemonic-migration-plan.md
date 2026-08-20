@@ -294,6 +294,31 @@ target have IY" gate (there is none - i8080/i8085 never have it) added
 while this pass is already touching that code, not a mnemonic-only
 translation of the existing (wrong) `push iy`/`pop iy` calls.
 
+## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
+
+"In the 8085 code I really do not want to see any dead code, even
+commented, especially anything related to IY, etc." Once the migration
+itself lands and validates cleanly, do a proper pass to physically
+**remove** dead code rather than leave it commented-out or gated behind
+a `wassertl (0, ...)` tripwire - matching the standard already held to
+for the original `IS_8080LIKE`/`IS_8085` guard pruning (745 hits -> 0).
+Scope: `AOP_STK`/`AOP_IY`/`AOP_PAIRPTR(IX/IY)`/IYL-IYH branches in
+`ld_cost_form` and elsewhere, the leftover `"add iy, sp"` Zilog text
+(the one deliberately-left dead-IY case, see the architectural-finding
+section above), whatever the ISR `push iy`/`pop iy` fix leaves behind as
+dead once it's rewritten, and any other IX/IY vestige inherited from the
+shared z80 lineage that this migration's tracing has proven unreachable.
+
+**Explicitly a post-migration phase, not concurrent with it**: the
+`wassertl (0, ...)` tripwires are a deliberate safety measure for the
+risky in-progress translation - they fail loudly if a "proven dead"
+branch turns out to be reachable after all. Removing them before the
+whole migration is validated would trade a loud failure for a silent
+one, exactly the kind of risk this project has been careful to avoid
+throughout. Do this pass once `test-i8085`/`test-i8085-undoc`/
+`test-i8080` are clean and the ISR/i8080-shared-`gen.c` questions are
+resolved, not before.
+
 ## Not in scope for this pass
 
 - Upstream submission of anything (explicitly off the table for now,
