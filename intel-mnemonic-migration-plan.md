@@ -359,6 +359,37 @@ reason, confirming the assembler retarget is a strict improvement (not a
 regression) and i8080 sharing `gen.c` isn't introducing any new risk of
 its own.
 
+## Milestone: jumps/calls and rotate/flag families done (2026-08-20)
+
+Both done, byte-verified. Jumps: Zilog's `jp cc,label`/`jp label` become
+Intel's per-condition mnemonics (`jnz`/`jz`/`jnc`/`jc`/`jm`/`jp`/`jpo`/
+`jpe`) and `jmp label` - a clean 1:1 mapping since Intel's condition-code
+names match Zilog's, just spelled into the mnemonic instead of as an
+operand. `call`/conditional-call needed no changes. Fixed the `!jphl`
+shared-mapping-token gap (same class as `!ldahli` etc.) -> `pchl`. Self-
+caught false positive: `jp` (opcode 0xF2, "jump if plus") is a genuine
+Intel sign-conditional mnemonic, not leftover Zilog text - checked
+source context (`genIfxJump`'s condition mapping) before "fixing" it.
+
+Rotate/flag family: `asminstnames[]`'s 7 live entries fixed (`ccf`-
+>`cmc`, `cpl`->`cma`, `rla`->`ral`, `rlca`->`rlc`, `rra`->`rar`,
+`rrca`->`rrc`, `scf`->`stc` - independently verified against real Intel
+8080/8085 mnemonics, all correct; `daa` needed no change, same name both
+dialects). `emit8080RotateByte`'s own byte-shuttle fallback fixed too.
+Confirmed (not assumed) dead: `A_RL`/`A_RLC`/`A_RR`/`A_RRC`'s own table
+entries (always intercepted by `emit8080RotateByte` first), two Rabbit-
+4000-only sites, and one `if` proven a tautology by hand-tracing its
+full condition chain.
+
+**Next, in progress**: 16-bit loads (~150 call sites, ~60+ distinct
+format-string shapes) - the last and largest remaining `emit2` surface.
+Categorized into 8-bit reg-reg moves, HL-indirect, 16-bit immediate
+(`lxi`), direct-memory (`lda`/`sta` - flagged to verify the single-
+operand-implies-A constraint, a real Intel hardware limitation, not
+assumed), BC/DE-indirect (`ldax`/`stax`), and a handful of likely-dead
+IX/IY-indexed sites needing the same reachability proof as everything
+else in this migration.
+
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
 "In the 8085 code I really do not want to see any dead code, even
