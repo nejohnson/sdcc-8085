@@ -328,6 +328,37 @@ rather than leave it deferred - the infrastructure and translation
 patterns are already proven, so this is well-understood repeat work,
 not a new unknown.
 
+## Milestone: i8080's two-phase treatment done, shared-gen.c question resolved (2026-08-20)
+
+**i8080 Phase 1 (toolchain retarget)**: done, verified. `i8085_port`'s
+assembler finally retargeted from `asz80` to `as8085` (deferred until
+the `.s` files were Intel-ready); `i8080_port` pointed at the same
+vendor command arrays, renamed `_i8085VendorAsmCmd`/`_i8085VendorLinkCmd`
+-> `_i808xVendorAsmCmd`/`_i808xVendorLinkCmd` since they're now genuinely
+shared (identical command shape for both ports - `_z80_genAssemblerStart`
+already tells `as8085` which `.8080`/`.8085`/`.8085x` subset to accept).
+Old SDAS-targeting `_z80AsmCmd`/`_z80LinkCmd` arrays removed entirely
+(zero remaining callers, confirmed). `device/lib/i8080/Makefile.in` fixed
+to mirror i8085's already-landed `LIB_TYPE=ASXVENDOR`/`SAS=bin/as8085`/
+`ASFLAGS=-plosgffw` fix.
+
+**i8080 Phase 2 (`.s` library files)**: done, byte-verified - derived
+directly from the already-verified i8085 fixes (i8080's 6 files were
+byte-identical to i8085's pre-migration originals except the `-mi8080`/
+`-mi8085` distinction).
+
+**Shared-`gen.c` question resolved as a non-issue**: a real end-to-end
+`device/lib` build attempt for both `i8080` and `i8085` hit the identical
+failure class - raw Zilog text still baked into `gen.c` for conditional
+jumps (`jp nz, label`), 16-bit loads (`ld hl, #imm`, `ld sp, hl`),
+memory-indirect loads (`ld a, (de)`), and rotates (`rlca`) - none of
+which have been migrated yet (the next chunk of already-scoped "bulk of
+the work", distinct from the ADD/INC/DEC/PUSH/POP/EX/byte-LD family
+already done). Both ports fail identically, for the same already-known
+reason, confirming the assembler retarget is a strict improvement (not a
+regression) and i8080 sharing `gen.c` isn't introducing any new risk of
+its own.
+
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
 "In the 8085 code I really do not want to see any dead code, even
