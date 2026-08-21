@@ -467,6 +467,42 @@ isolation. Proceeding to a full `test-i8085`/`test-i8085-undoc`/
 `test-i8080` regression run next - the actual end-to-end validation
 everything else has been building toward.
 
+## Real bug found in the live regression run (2026-08-21) - the corpus text-sweep couldn't catch it
+
+Found by digging into the real `test-i8085` run's early failures (242/
+1744 at the time) rather than waiting for the full run to finish. **8
+raw `emit2` sites** in `gen.c` use `emit2 ("sta !mems", "bc")` /
+`emit2 ("sta !mems", "de")` (lines 8772, 9495, 9565, 10313, 10378,
+10432 for `"bc"`; 17386, 17394 for `"de"` - no `lda` equivalents found,
+store-only). The `!mems` shared mapping token expands to Zilog's `(%s)`
+indirect syntax, producing literal `sta (bc)`/`sta (de)` - confirmed in
+real generated output (`gen/i8085/bigreturn-remat/
+bigreturn-remat_type_char_msb_0.asm:91`), which `aslink` then reports
+as an unresolved-symbol error (`?ASlink-Error-Undefined Global bc`),
+causing 100% failure across the entire `bigreturn-remat` test family.
+
+**Why the corpus sweep (1557/1557 clean) missed this**: `sta`/`lda` are
+Intel's *direct-address* store/load - a 16-bit literal address operand
+only, no register-pair-indirect form exists for them at all. This is
+structurally different from the `(hl)`->`m` fix `intelOperand()`
+handles (a same-instruction operand-text substitution) - there is no
+correct operand text to substitute into `sta (bc)`; the whole
+*instruction* needs to become `stax b` instead, the same distinction
+`ld_cost_form`/`emit_A_LD` already handles for the `A_LD` family, just
+never applied at these 8 separate raw call sites since they don't go
+through that dispatch. The text-sweep's shape checks were built around
+mnemonic-vs-operand-class mismatches, not this specific "valid mnemonic,
+structurally impossible operand" shape - a real gap in the sweep's own
+coverage, not evidence the sweep methodology is unsound elsewhere.
+
+Also flagged, not yet diagnosed: a genuine wrong-answer (not link-error)
+failure repeating identically across 6 `array` test variants -
+`array_long[idx2] == (TL(3) | 0x80808080)` - possibly related to the
+same BC-scratch-pointer pattern, possibly separate. Fix in progress.
+**Code remains uncommitted pending a clean re-run** - exactly the
+scenario the "don't commit until regression passes" discipline exists
+for.
+
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
 "In the 8085 code I really do not want to see any dead code, even
