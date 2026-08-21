@@ -530,6 +530,24 @@ picture, then look for a shared root cause across the gcc-torture
 cluster specifically before assuming three independent bugs. Code
 remains uncommitted.
 
+## Milestone: i8085 regression clean, matching the pre-migration baseline exactly (2026-08-21)
+
+The gcc-torture/blake2s/array regression cluster flagged above is
+resolved. After another `gen.c` fix + device-library rebuild, a clean
+`test-i8085` run completed: **2 failures, 36363 tests, 6356 test
+cases** - `tst_p99-conformance.c`/`tcc_83_utf8_in_identifiers.c` only,
+exactly the known/accepted UTF-8-identifier limitation. This matches
+the pre-migration baseline exactly (independently verified by reading
+the run's own log directly, not just trusted). One earlier attempt at
+this same run crashed on an infrastructure error (`Directory
+nonexistent` for `gen/i8085/rotate2/...`) - a retry succeeded cleanly;
+not yet confirmed whether that was a one-off race or a real, separate
+harness issue worth a permanent fix.
+
+`i8085-undoc` and `i8080` runs next (sequential, same rationale as
+before - shared `cases/` directory build race). Code remains
+uncommitted pending the full 3-port picture.
+
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
 "In the 8085 code I really do not want to see any dead code, even
