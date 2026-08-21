@@ -662,6 +662,12 @@ multi-pass effort, committed and pushed incrementally as checkpoints
 rather than held until fully done, matching how every other piece of
 this project has been handled.
 
+**Pass 1 committed and pushed as `be3a787`** - independently verified
+before committing (the `*_NOTYET` revert confirmed genuine, all three
+`.sum` files read directly at 2/6356 matching baseline, working tree
+clean with only `gen.c` modified). Pass 2 (the `#if 0` block,
+`offsetPair()`, and continuing the file-wide `IS_*` audit) underway.
+
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
 "In the 8085 code I really do not want to see any dead code, even
