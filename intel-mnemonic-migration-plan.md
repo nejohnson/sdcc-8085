@@ -390,6 +390,34 @@ assumed), BC/DE-indirect (`ldax`/`stax`), and a handful of likely-dead
 IX/IY-indexed sites needing the same reachability proof as everything
 else in this migration.
 
+## Milestone: full mnemonic-translation surface verified clean (2026-08-21)
+
+Definitive corpus sweep across all 9 leftover-Zilog correctness checks
+(2-operand arith/inc/dec/ex, 2-operand `ld`, register/immediate mnemonic-
+operand shape mismatches both directions, single-operand inc/dec/`ex`/
+`jp cc,`/`call cc,`/rotate-flag forms, `push`/`pop iy`): **1557/1557
+compilable files pass, 2/2 expected failures are the known-good
+`dynamicc.c`/`dynamiccasmchk.c` calling-convention rejections.** The 2
+raw grep hits needing manual inspection were both confirmed false
+positives (comment lines echoing original C source words like "inc"/
+"cpl", not emitted assembly). The `ldax`/`stax` ternary bug's fix
+(`bp.asm`, the file that originally exposed it) confirmed correct, and
+genuinely exercised corpus-wide (323 `ldax` + 353 `stax` uses), not just
+silently unhit. Independently verified scope containment: `git status
+--short` shows exactly the 19 expected tracked files modified
+(`gen.c`/`main.c` + 12 `.s` library files across all three ports +
+`device/lib/i8080/Makefile.in`), nothing stray.
+
+This closes out jumps/calls, rotates/flags, and the full 16-bit-load
+(`A_LD`-family) `emit2` surface as definitively verified, alongside the
+ISR fix and i8080 parity work from the milestones above. **The bulk of
+the mnemonic-dialect migration itself is done.**
+
+**Remaining, not yet started**: the undocumented-8085 instruction family
+(`arhl`/`rdel`/`ldhi`/`ldsi`/`lhlx`/`shlx`/`dsub`/`jnk`/`jk`, relevant to
+`--allow-undocumented-instructions`/`i8085-undoc`) and the deferred
+post-migration clean-sweep (task #14, dead/commented code removal).
+
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
 "In the 8085 code I really do not want to see any dead code, even
