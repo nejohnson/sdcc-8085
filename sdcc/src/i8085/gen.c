@@ -4307,12 +4307,10 @@ aopGet (asmop *aop, int offset, bool bit16)
           dbuf_append_char (&dbuf, 'a');
           break;
 
-        case AOP_FDIR:
-          wassert (IS_R4K || IS_R5K || IS_R6K);
-          emit2 ("ldf a, (%s+%d)", aop->aopu.aop_dir, offset);
-          cost (4, 11);
-          dbuf_append_char (&dbuf, 'a');
-          break;
+        /* AOP_FDIR case removed here - dead for i8080/i8085, same proof as
+           cheapMove()'s removed AOP_FDIR handling above (clean-sweep task
+           #14): falls through to this switch's own default handler, which
+           already asserts on any unsupported aop->type. */
 
         case AOP_SFR:
           wassertl (!IS_TLCS90, "TLCS-90 does not have a separate I/O space");
@@ -4755,134 +4753,15 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
   if (aopInReg (to, to_offset, A_IDX))
     a_dead = true;
 
-  if (to->type == AOP_FDIR)
-    {
-      wassert (IS_EZ80 || IS_TLCS90 || IS_RAB);
-
-      bool pushed_a = false;
-      
-      if (IS_EZ80 || IS_TLCS90 || IS_R4K || IS_R5K || IS_R6K)
-        {
-          if (!aopInReg (from, from_offset, A_IDX))
-            {
-              if (!a_dead)
-                {
-                  _push (PAIR_AF);
-                  pushed_a = true;
-                }
-              cheapMove (ASMOP_A, 0, from, from_offset, true);
-            }
-          if (IS_EZ80)
-            {
-              emit2 ("ld.il (%s + %d), a", to->aopu.aop_dir, to_offset);
-              cost (5, 5);
-            }
-          else if (IS_TLCS90)
-            {
-              _push (PAIR_IY);
-              emit2 ("ld (by), #((%s + %d) >> 16)", to->aopu.aop_dir, to_offset);
-              cost (3, 10);
-              emit2 ("ld iy, #(%s + %d)", to->aopu.aop_dir, to_offset);
-              cost (3, 6);
-              emit2 ("ld (iy), a");
-              cost (2, 6);
-              emit2 ("ld (by), #0x00");
-              cost (3, 10);
-              _pop (PAIR_IY);
-            }
-          else
-            {
-              emit2 ("ldf (%s+%d), a", to->aopu.aop_dir, to_offset);
-              cost (4, 12);
-            }
-        }
-      else
-        {
-          wassert (IS_RAB);
-          if (!a_dead)
-            {
-              _push (PAIR_AF);
-              pushed_a = true;
-            }
-          if (aopInReg (from, from_offset, A_IDX))
-            {
-              push (ASMOP_DE, 0, 2);
-              emit3_o (A_LD, ASMOP_DE, 0, from, from_offset);
-              cheapMove (to, to_offset, ASMOP_DE, 0, a_dead);
-              pop (ASMOP_DE, 0, 2);
-            }
-          else if (aopInReg (from, from_offset, L_IDX) || aopInReg (from, from_offset, H_IDX))
-            {
-              emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-              cheapMove (to, to_offset, ASMOP_DE, aopInReg (from, from_offset, H_IDX), a_dead);
-              emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-            }
-          else
-            {
-              _push (PAIR_HL);
-              // No byte write instruction for far space before r4k, we need to handle this like a bit-field write, and we can't honor volatile here.
-              emit2 ("ld a, #((%s + %d) >> 16)", to->aopu.aop_dir, to_offset);
-              emit2 ("ldp hl, (%s + %d)", to->aopu.aop_dir, to_offset);
-              cost (6, 17);
-              cheapMove (ASMOP_L, 0, from, from_offset, false);
-              emit2 ("ldp (%s + %d), hl", to->aopu.aop_dir, to_offset);
-              cost (4, 15);
-              _pop (PAIR_HL);
-            }
-        }
-      if (pushed_a)
-        _pop (PAIR_AF);
-
-      return;
-    }
-  else if (from->type == AOP_FDIR)
-    {
-      wassert (IS_EZ80 || IS_TLCS90 || IS_RAB);
-
-      if (!a_dead)
-        _push (PAIR_AF);
-      if (IS_EZ80)
-        {
-          emit2 ("ld.lil a, (%s + %d)", from->aopu.aop_dir, from_offset);
-          cost (5, 6);
-        }
-      else if (IS_TLCS90)
-        {
-          _push (PAIR_IY);
-          emit2 ("ld (by), #((%s + %d) >> 16)", from->aopu.aop_dir, to_offset);
-          cost (3, 10);
-          emit2 ("ld iy, #(%s + %d)", from->aopu.aop_dir, to_offset);
-          cost (3, 6);
-          emit2 ("ld a, (iy)");
-          cost (2, 6);
-          emit2 ("ld (by), #0x00");
-          cost (3, 10);
-          _pop (PAIR_IY);
-        }
-      else if (IS_R4K || IS_R5K || IS_R6K)
-        {
-          emit2 ("ldf a, (%s+%d)", from->aopu.aop_dir, from_offset);
-          cost (4, 11);
-        }
-      else
-        {
-          wassert (IS_RAB);
-
-          _push (PAIR_HL);
-    
-          emit2 ("ld a, #((%s + %d) >> 16)", from->aopu.aop_dir, from_offset);
-          emit2 ("ldp hl, (%s + %d)", from->aopu.aop_dir, from_offset);
-          cost (6, 17);
-          emit3 (A_LD, ASMOP_A, ASMOP_L);
-    
-          _pop (PAIR_HL);
-        }
-      cheapMove (to, to_offset, ASMOP_A, 0, true);
-      if (!a_dead)
-        _pop (PAIR_AF);
-
-      return;
-    }
+  /* AOP_FDIR (eZ80/TLCS-90/Rabbit far-space direct addressing) removed here
+     - genuinely, unconditionally dead for i8080/i8085, not just believed:
+     i8085_opts.sub (src/i8085/main.c, its only two assignment sites) is
+     only ever SUB_8080 or SUB_8085, so IS_EZ80/IS_TLCS90/IS_RAB (src/i8085/
+     z80.h - runtime checks against i8085_opts.sub, not compile-time
+     constants) are provably always false regardless of build/assert mode.
+     AOP_FDIR itself is never constructed as a result: its sole construction
+     site (newAsmop (AOP_FDIR) for __far symbols) is gated on that same
+     always-false condition. Confirmed via clean-sweep task #14. */
 
   if (from->type == AOP_STL)
     {
@@ -12663,16 +12542,16 @@ genAnd (const iCode *ic, iCode *ifx)
                   else
                     cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
                 }
-              else if (isLiteralBit (bytelit) == 7)
-                {
-                  emit2 ("rl %s", _pairs[pair].name);
-                  cost (1, 2);
-                }
-              else
-                {
-                  emit2 ("rr %s", _pairs[pair].name);
-                  cost (1, 2);
-                }
+              // "else if (isLiteralBit (bytelit) == 7) {emit2 ("rl %s",
+              // ...); ...} else {emit2 ("rr %s", ...); ...}" removed here
+              // (clean-sweep task #14) - proven unreachable by construction:
+              // the outer guard above restricts rIdx to H_IDX/IYH_IDX only,
+              // so pair here can only ever be PAIR_HL or PAIR_IY (never
+              // PAIR_DE, the only case these two arms existed to serve),
+              // and the "if (pair == PAIR_HL || pair == PAIR_IY) &&
+              // isLiteralBit (bytelit) == 7" branch just above is therefore
+              // tautologically always true whenever this switch is reached
+              // - these two arms could never fire.
               jumpcond = "c";
               sizel--;
               offset++;
@@ -16446,9 +16325,11 @@ genAssign (const iCode *ic)
   // IS_SM83-gated "ldh" 0xff00-0xffff special-case pair removed here
   // (IS_SM83 unconditionally false in this file).
 
-  if (result->aop->type == AOP_FDIR || right->aop->type == AOP_FDIR)
-    genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
-  else if (isPair (result->aop) && getPairId (result->aop) != PAIR_IY ||
+  // "if (result->aop->type == AOP_FDIR || right->aop->type == AOP_FDIR)
+  // genMove (...)" removed here (dead for i8080/i8085 - AOP_FDIR is never
+  // constructed, see cheapMove()'s removed AOP_FDIR handling for the proof;
+  // clean-sweep task #14).
+  if (isPair (result->aop) && getPairId (result->aop) != PAIR_IY ||
     isPair (right->aop) && result->aop->type == AOP_IY && size == 2)
     genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
   else if (size == 2 && isPairDead (PAIR_HL, ic) &&
