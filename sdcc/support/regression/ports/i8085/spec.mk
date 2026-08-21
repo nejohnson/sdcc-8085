@@ -4,7 +4,7 @@
 SIM_CYCLES = 1000000000
 
 ifdef SDCC_BIN_PATH
-  AS = $(SDCC_BIN_PATH)/sdasz80$(EXEEXT)
+  AS = $(SDCC_BIN_PATH)/as8085$(EXEEXT)
   UC85 = $(SDCC_BIN_PATH)/ucsim_i8085$(EXEEXT)
 else
   ifdef UCSIM_DIR
@@ -12,7 +12,9 @@ else
   else
     UC85 = $(top_builddir)/sim/ucsim/src/sims/i8085.src/ucsim_i8085$(EXEEXT)
   endif
-  AS = $(WINE) $(top_builddir)/bin/sdasz80$(EXEEXT)
+  # Vendor as8085, not sdasz80 - the i8085 port assembles/links with the
+  # vendor ASxxxx toolchain (see src/i8085/main.c _i808xVendorAsmCmd).
+  AS = $(WINE) $(top_builddir)/bin/as8085$(EXEEXT)
 ifndef CROSSCOMPILING
   SDCCFLAGS += --nostdinc -I$(top_srcdir)
   LINKFLAGS += --nostdlib -L$(top_builddir)/device/lib/build/i8085
@@ -39,6 +41,6 @@ EXTRAS = $(PORT_CASES_DIR)/testfwk$(OBJEXT) $(PORT_CASES_DIR)/support$(OBJEXT)
 include $(srcdir)/fwk/lib/spec.mk
 
 %$(OBJEXT): %.asm
-	$(AS) -plosgff $<
+	$(AS) -plosgffw $<
 
 _clean:

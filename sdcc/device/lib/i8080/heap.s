@@ -32,14 +32,32 @@
         ;; Stubs that hook the heap in
         .globl  ___sdcc_heap_init
 
-        .area   _GSINIT
+        ;; Vendor's asz80/aslink only auto-bank _CODE/_DATA (asz80/z80pst.c);
+        ;; every other SDCC-only area needs an explicit (BANK=_CSEG) /
+        ;; (BANK=_DSEG) annotation on at least one of its declarations across
+        ;; the whole link, or it gets placed in its own unbanked address
+        ;; space starting at 0 instead of being concatenated where it
+        ;; belongs (see the "Ordering of segments" comment in crt0.s for the
+        ;; full explanation). crt0.s's own (empty) _GSINIT/_HEAP references
+        ;; already carry these annotations, so strictly they're redundant
+        ;; here as long as crt0.rel is linked before this file - but
+        ;; _HEAP_END is used *only* here, nowhere in crt0.s, so it has no
+        ;; other source for the annotation it needs (confirmed the hard way:
+        ;; without it, malloc()'s free-list init reads a garbage heap size
+        ;; from wherever the linker happened to place the unbanked
+        ;; ___sdcc_heap_end, not the 1023 bytes actually reserved right
+        ;; before it - tst_malloc.c's "p1 == NULL when out of memory"
+        ;; assertions started passing/failing unpredictably depending on
+        ;; that placement). Annotated on all three below regardless, for the
+        ;; same robustness-against-reordering reason as crt0.s.
+        .area   _GSINIT (BANK=_CSEG)
         call    ___sdcc_heap_init
 
-        .area   _HEAP
+        .area   _HEAP (BANK=_DSEG)
 ___sdcc_heap::
         ;; For now just allocate 1k of heap.
         .ds     1023
 
-        .area   _HEAP_END
+        .area   _HEAP_END (BANK=_DSEG)
 ___sdcc_heap_end::
         .ds     1

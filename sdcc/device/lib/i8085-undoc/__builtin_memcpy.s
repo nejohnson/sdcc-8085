@@ -12,7 +12,7 @@
 ;--------------------------------------------------------------------------
 
 	.module __builtin_memcpy
-	;; vendor's asz80 (used for this port now - see asxxxx-integration-plan.md) doesn't recognize .optsdcc, an SDCC-only extension; kept as a comment for a human reading this file.
+	;; vendor's asz80/as8085 (used for this port now - see asxxxx-integration-plan.md) doesn't recognize .optsdcc, an SDCC-only extension; kept as a comment for a human reading this file.
 	;.optsdcc -mi8085 sdcccall(1)
 
 	.globl ___builtin_memcpy
@@ -21,4 +21,4 @@
 	.area _CODE
 
 ___builtin_memcpy:
-	jp	___memcpy
+	jmp	___memcpy

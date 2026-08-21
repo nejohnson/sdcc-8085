@@ -548,7 +548,30 @@ _finaliseOptions (void)
 static void
 _setDefaultOptions (void)
 {
-  options.nopeep = 0;
+  /* Peephole optimisation disabled by default (stopgap, not a permanent
+     policy): src/i8085/peeph.def's replacement templates are still
+     written in Zilog syntax (e.g. "ld hl, #%1" / "add hl, sp"), left over
+     from before the Intel mnemonic migration (see
+     intel-mnemonic-migration-plan.md). A rule's *match* side can key off
+     operand shapes that still look the same in both dialects (or, once
+     the migration is complete, off Intel-syntax text) while its
+     *replacement* side unconditionally emits the old Zilog text -
+     confirmed actually firing and corrupting real output (bug-3013.c:
+     a run of "inc sp" got rewritten to "ld hl,#5 / add hl,sp /
+     ld sp,hl" mid-migration). This is not a transitional-only hazard:
+     any rule whose match side happens to still be dialect-ambiguous even
+     after the migration is complete is a permanent landmine as long as
+     its replacement side is unaudited Zilog text. Auditing/rewriting all
+     3193 lines of peeph.def under Intel semantics is real, separate,
+     tracked follow-up work (intel-mnemonic-migration-plan.md), not part
+     of this migration - until that happens, disabling peephole here is
+     the safe default for both i8085_port and i8080_port (this function
+     is shared by both - see their PORT struct entries below - so both
+     get the fix; they'd be equally broken by the same rules). A user can
+     still opt back in for their own audited rules via --peep-file
+     (readRules()/initPeepHole() in SDCCpeeph.c apply it regardless of
+     nopeep), just not via the stock rule file. */
+  options.nopeep = 1;
   options.stackAuto = 1;
   /* first the options part */
   options.intlong_rent = 1;
@@ -641,16 +664,19 @@ _getRegByName (const char *name)
 static void
 _z80_genAssemblerStart (FILE * of)
 {
-  /* i8085 now targets vendor's (patched) asz80 directly instead of sdasz80
-     (see asxxxx-integration-plan.md). Vendor's assembler doesn't recognize
-     the .optsdcc directive SDAS added as an SDCC-only extension, so emit it
-     as a ';'-prefixed comment instead for i8085 - still useful for a human
-     (or future tooling) reading the .asm, but harmless to vendor's asz80.
-     i8080 is unaffected: it still targets sdasz80, which understands the
-     real directive. */
+  /* Both i8080 and i8085 now target vendor's as8085 directly instead of
+     sdasz80/sdasz80 (see intel-mnemonic-migration-plan.md - i8080 was
+     retargeted alongside i8085, since it shares this same gen.c). Vendor's
+     assembler doesn't recognize the .optsdcc directive SDAS added as an
+     SDCC-only extension, so emit it as a ';'-prefixed comment instead for
+     both ports - still useful for a human (or future tooling) reading the
+     .asm, but harmless to vendor's as8085. (Previously only i8085 got the
+     comment-form; i8080 still emitted the real !optsdcc directive from when
+     it targeted sdasz80, which broke as8085 assembly of every i8080-compiled
+     .c file until this was caught via a real device-library build.) */
   if (!options.noOptsdccInAsm)
     {
-      tfprintf (of, TARGET_IS_I8085 ? "\t;optsdcc -m%s" : "\t!optsdcc -m%s", port->target);
+      tfprintf (of, (TARGET_IS_I8085 || TARGET_IS_I8080) ? "\t;optsdcc -m%s" : "\t!optsdcc -m%s", port->target);
       fprintf (of, " sdcccall(%d)", options.sdcccall);
       fprintf (of, "\n");
     }
@@ -754,27 +780,45 @@ oclsExpense (struct memmap *oclass)
     " {z80extraobj}"
 */
 
-static const char *_z80LinkCmd[] = {
-  "sdldz80", "-nf", "$1", "$L", NULL
-};
+/* i8085 and i8080 both target vendor's (patched) as8085/aslink directly
+   rather than sdasz80/sdldz80 (see asxxxx-integration-plan.md and
+   intel-mnemonic-migration-plan.md). i8080 originally stayed on SDAS's own
+   sdasz80/sdldz80, unmodified, while only i8085 switched toolchains (the
+   ASxxxx-integration phase) - but once src/i8085/gen.c started emitting
+   Intel mnemonics unconditionally for both ports (the mnemonic-migration
+   phase), i8080's continued use of sdasz80 (which only ever understood
+   Zilog syntax) meant i8080 could no longer assemble at all. The SDAS-
+   targeting "_z80AsmCmd"/"_z80LinkCmd" command arrays i8080_port used to
+   point at (literally "sdasz80 ..."/"sdldz80 -nf ...") are gone entirely
+   now, not just unreferenced - neither port struct below points at
+   anything SDAS-shaped any more, and nothing else in this file needs
+   them. */
 
-/* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
-static const char *_z80AsmCmd[] = {
-  "sdasz80", "$l", "$3", "$2", "$1.asm", NULL
-};
-
-/* i8085 targets vendor's (patched) asz80/aslink directly rather than
-   sdasz80/sdldz80 (see asxxxx-integration-plan.md) - i8080 is untouched and
-   still uses _z80AsmCmd/_z80LinkCmd above, unmodified, since only -mi8085
-   is meant to switch toolchains.
-
-   The assembler invocation drops the explicit output-.rel-filename
+/* The assembler invocation drops the explicit output-.rel-filename
    positional argument SDAS's syntax needs ("$2" in _z80AsmCmd above):
-   vendor's asz80 takes just "[-options] file1 [file2...]" and derives the
+   vendor's as8085 takes just "[-options] file1 [file2...]" and derives the
    output name from the input file automatically, which already produces
-   exactly the filename SDCC needs. */
-static const char *_i8085VendorAsmCmd[] = {
-  "asz80", "$l", "$3", "$1.asm", NULL
+   exactly the filename SDCC needs.
+
+   "as8085", not "asz80": both are built from the exact same asxxsrc
+   core sources (asdata/asdbg/asexpr/aslex/aslist/asmain/asmcro/asout/assubr/assym -
+   confirmed identical file list against asxmak/vs22/build/as8085/
+   as8085.vcxproj), differing only in the machine-specific files
+   (as8085/{i85mch,i85pst}.c vs asz80/{z80adr,z80mch,z80pst}.c) - i.e. only
+   in which mnemonics/encodings they accept, not in CLI flags, object
+   format, or any of the ASxxxx-track fixes already landed for this
+   project. Since src/i8085/gen.c now emits Intel mnemonics unconditionally
+   (both i8085_port and i8080_port - see intel-mnemonic-migration-plan.md),
+   asz80 (Zilog-syntax-only) can no longer assemble this port's output at
+   all; as8085 is the vendor assembler that actually matches what gen.c
+   emits now. Shared by both i8080_port and i8085_port below (same vendor
+   binary, same command shape - only the ".8080"/".8085"/".8085x" CPU-mode
+   directive _z80_genAssemblerStart() emits at the top of the generated
+   .asm file, per TARGET_IS_I8080/TARGET_IS_I8085, tells as8085 which
+   instruction subset to accept), hence the port-neutral "_i808x" name
+   rather than "_i8085". */
+static const char *_i808xVendorAsmCmd[] = {
+  "as8085", "$l", "$3", "$1.asm", NULL
 };
 
 /* The linker side keeps using the "$1.lk" script SDCCmain.c's shared
@@ -833,8 +877,12 @@ static const char *_i8085VendorAsmCmd[] = {
       any -k path that actually works.
 
    All four of SDCCmain.c's own file-writing spots are out of bounds for
-   this change (only src/i8085/main.c and device/lib/i8085/crt0.s are meant
-   to change) - so _i8085VendorLinkCmd (used as port->linker.cmd, below)
+   this change (only src/i8085/main.c and the hand-written .s files under
+   device/lib/i8085 and device/lib/i8085-undoc are meant to change) - so
+   _i808xVendorLinkCmd (used as port->linker.cmd,
+   below, shared by both i8080_port and i8085_port - aslink itself is
+   dialect-agnostic, it consumes .rel object files and never source syntax,
+   so nothing here depends on which of the two ports produced them)
    doesn't invoke aslink directly. It first runs the four substitutions
    above (sed, over the *already-correct* generated script - each pattern
    only ever matches the exact lines it's meant to; everywhere else in the
@@ -872,7 +920,7 @@ static const char *_i8085VendorAsmCmd[] = {
      case SDCCmain.c's own "-k %s\n" ever actually produces (confirmed:
      libPathsSet/libDirsSet entries come straight from -L / the compiled-in
      standard path, never with a trailing separator). */
-static const char *_i8085VendorLinkCmd[] = {
+static const char *_i808xVendorLinkCmd[] = {
   "sed",
   "-e", "s/^-i/-i+/",
   "-e", "s/^-b/-a/",
@@ -900,20 +948,20 @@ PORT i8080_port =
     NO_MODEL,
     NULL,                       /* model == target */
   },
-  {                             /* Assembler */
-    _z80AsmCmd,
+  {                             /* Assembler: vendor's as8085, not sdasz80 - see _i808xVendorAsmCmd */
+    _i808xVendorAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
     ".asm"
   },
-  {                             /* Linker */
-    _z80LinkCmd,                //NULL,
+  {                             /* Linker: vendor's aslink, not sdldz80 - see _i808xVendorLinkCmd */
+    _i808xVendorLinkCmd,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
-    1,
+    1,                          /* still need the "$1.lk" script - _i808xVendorLinkCmd sed-adapts it for vendor's aslink, see its comment */
     _crt,                       /* crt */
     _libs_i8080,                /* libs */
   },
@@ -1048,20 +1096,20 @@ PORT i8085_port =
     NO_MODEL,
     _i8085_getModel,            /* lib/i8085 or lib/i8085-undoc */
   },
-  {                             /* Assembler: vendor's asz80, not sdasz80 - see _i8085VendorAsmCmd */
-    _i8085VendorAsmCmd,
+  {                             /* Assembler: vendor's as8085, not sdasz80 - see _i808xVendorAsmCmd */
+    _i808xVendorAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
     ".asm"
   },
-  {                             /* Linker: vendor's aslink, not sdldz80 - see _i8085VendorLinkCmd */
-    _i8085VendorLinkCmd,
+  {                             /* Linker: vendor's aslink, not sdldz80 - see _i808xVendorLinkCmd */
+    _i808xVendorLinkCmd,
     NULL,
     NULL,
     ".rel",
-    1,                          /* still need the "$1.lk" script - _i8085VendorLinkCmd sed-adapts it for vendor's aslink, see its comment */
+    1,                          /* still need the "$1.lk" script - _i808xVendorLinkCmd sed-adapts it for vendor's aslink, see its comment */
     _crt,                       /* crt */
     _libs_i8085,                /* libs */
   },

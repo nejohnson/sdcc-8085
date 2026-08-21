@@ -23,28 +23,28 @@
 ;--------------------------------------------------------------------------
 
 	.module crt0
-	;; crt0.s is assembled by vendor's asz80 directly (not sdasz80), which
-	;; doesn't recognize the .optsdcc directive SDAS added as an SDCC-only
-	;; extension (see asxxxx-integration-plan.md) - kept below only as a
-	;; comment, for a human reading this file.
+	;; crt0.s is assembled by vendor's asz80/as8085 directly (not sdasz80),
+	;; which doesn't recognize the .optsdcc directive SDAS added as an
+	;; SDCC-only extension (see asxxxx-integration-plan.md) - kept below
+	;; only as a comment, for a human reading this file.
 	;.optsdcc -mi8085 sdcccall(1)
 	.globl	_main
 
 	.area	_HEADER (ABS)
 	;; Reset vector
 	.org 	0
-	jp	init
+	jmp	init
 
 	.org	0x100
 init:
 	;; Set stack pointer to the top of memory.
-	ld	sp,#0xffff
+	lxi	sp, #0xffff
 
 	;; Initialise global variables.
 	call	gsinit
 
 	call	_main
-	jp	_exit
+	jmp	_exit
 
 	;; Ordering of segments for the linker.
 	;;
@@ -80,8 +80,8 @@ _exit::
 	;; Emulator/monitor return point: just stop.
 	di
 1$:
-	halt
-	jp	1$
+	hlt
+	jmp	1$
 
 	.area   _GSINIT (BANK=_CSEG)
 gsinit::
@@ -100,36 +100,36 @@ gsinit::
 	;; _DATA (true here), that first segment's start address equals the
 	;; whole area's start address, so plain "_1" is the right instance to
 	;; reference.
-	ld	bc, #l__DATA
-	ld	a, b
-	or	a, c
-	jp	Z, zeroed_data
-	ld	hl, #s__DATA_1
+	lxi	b, #l__DATA
+	mov	a, b
+	ora	c
+	jz	zeroed_data
+	lxi	h, #s__DATA_1
 zero_loop:
-	ld	(hl), #0x00
-	inc	hl
-	dec	bc
-	ld	a, b
-	or	a, c
-	jp	NZ, zero_loop
+	mvi	m, #0x00
+	inx	h
+	dcx	b
+	mov	a, b
+	ora	c
+	jnz	zero_loop
 zeroed_data:
 
 	;; Copy explicitly-initialised globals from _INITIALIZER to _INITIALIZED.
-	ld	bc, #l__INITIALIZER
-	ld	a, b
-	or	a, c
-	jp	Z, gsinit_next
-	ld	de, #s__INITIALIZED_1
-	ld	hl, #s__INITIALIZER_1
+	lxi	b, #l__INITIALIZER
+	mov	a, b
+	ora	c
+	jz	gsinit_next
+	lxi	d, #s__INITIALIZED_1
+	lxi	h, #s__INITIALIZER_1
 copy_loop:
-	ld	a, (hl)
-	ld	(de), a
-	inc	hl
-	inc	de
-	dec	bc
-	ld	a, b
-	or	a, c
-	jp	NZ, copy_loop
+	mov	a, m
+	stax	d
+	inx	h
+	inx	d
+	dcx	b
+	mov	a, b
+	ora	c
+	jnz	copy_loop
 
 gsinit_next:
 
