@@ -418,6 +418,35 @@ the mnemonic-dialect migration itself is done.**
 `--allow-undocumented-instructions`/`i8085-undoc`) and the deferred
 post-migration clean-sweep (task #14, dead/commented code removal).
 
+## Milestone: undocumented-8085 family clean, and a real gap the text-sweep couldn't see (2026-08-21)
+
+**Undocumented-8085 family confirmed clean, no changes needed.**
+`arhl`/`rdel`/`ldhi`/`ldsi`/`lhlx`/`shlx`/`dsub` are 8085-only opcodes
+with no Zilog analog, so `gen.c` never had a Zilog spelling to drift
+from - independently spot-checked directly in the source, all present
+exactly as expected. `jk`/`jnk` confirmed dead (no JK hardware). All 8
+emit sites' `IS_8085 && options.allow_undoc_inst` gating checked
+consistent with `main.c`'s `.8085x`-directive selection.
+
+**Real gap found moving from text-sweep to an actual regression
+execution run**: `device/lib/i8085/Makefile.in` and `device/lib/
+i8085-undoc/Makefile.in` still had `SAS = .../bin/asz80` - never
+actually updated despite being believed fixed earlier (only `i8080`'s
+Makefile.in had genuinely gotten the fix). This meant `setjmp.s`/
+`crt0.s` etc. were still being fed to the old Zilog-only assembler and
+failing outright - invisible to the `sdcc -c` text-sweep, which never
+invokes the assembler at all. Also found and fixed: `support/
+regression/ports/{i8085,i8085-undoc,i8080}/spec.mk` all still pointed
+at `sdasz80`/`-plosgff` (missing the `w`). All fixed and independently
+verified directly (`SAS = .../bin/as8085` now present in all 3
+`Makefile.in`s + generated `Makefile`s + regenerated via
+`config.status`; `-plosgffw` now present in all 3 `spec.mk`s).
+
+This is exactly the reason the plan has held "regression passed" to a
+higher bar than "text sweep passed" throughout - a clean text-level
+sweep genuinely can't see assembler-invocation-layer gaps like this
+one. Device library rebuild in progress to confirm the fix end to end.
+
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
 "In the 8085 code I really do not want to see any dead code, even
