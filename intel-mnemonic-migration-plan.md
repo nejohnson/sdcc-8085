@@ -627,6 +627,41 @@ any future decision about i8080's own separate consideration (already
 resolved as sharing this same treatment throughout, not actually
 separate work).
 
+## Clean-sweep progress, pass 1 (2026-08-21)
+
+First removal pass complete, all three ports independently reverified
+clean at exactly the baseline (2/6356 each) after: `cheapMove()`'s
+entire `AOP_FDIR` handling (~130 lines, eZ80/TLCS-90/Rabbit far-space
+addressing, airtight-dead since `i8085_opts.sub` only ever takes
+`SUB_8080`/`SUB_8085` and `AOP_FDIR`'s own construction site shares
+that gate), `aopGet`'s matching `AOP_FDIR` case, one dead `AOP_FDIR`
+check in the general move dispatch, and the already-proven-tautological
+`rl %s`/`rr %s` pair-rotate branch from the migration's earlier work.
+
+**Policy clarified**: the `*_NOTYET` macro family (`IS_R4K_NOTYET`/
+`IS_R5K_NOTYET`/`IS_R6K_NOTYET`) is categorically different from
+`IS_EZ80`/`IS_TLCS90`/`IS_RAB` and out of scope for this clean-sweep -
+it's deliberate forward-looking scaffolding for eventual Rabbit-family
+assembler support (per the macro's own naming), not permanently-
+impossible code the way far-address handling genuinely is for i8080/
+i8085 hardware. `genIfxJump` already documents this exact precedent
+from earlier in the migration project. An initial removal of two
+`*_NOTYET`-gated `rlc`/`rrc` register-move heuristics was reverted to
+stay consistent with that precedent, rather than re-litigated as a new
+call - every `*_NOTYET` site (including but not limited to
+`genIfxJump`'s) stays untouched throughout this clean-sweep.
+
+**Not yet done, real remaining scope**: a `#if 0`-disabled EZ80 block
+(~line 5978, doubly dead), `offsetPair()`'s partial dead branches mixed
+with a live `PAIR_HL` case in the same `if`/`else if` chain (needs
+careful surgical separation), and the bulk of ~380 total `IS_TLCS90`/
+`IS_EZ80`/`IS_RAB`/`IS_R4K`-family references in the 18543-line file
+not yet individually audited (many already reduced to explanatory
+comments about prior removals, not all confirmed). This is a genuine
+multi-pass effort, committed and pushed incrementally as checkpoints
+rather than held until fully done, matching how every other piece of
+this project has been handled.
+
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
 "In the 8085 code I really do not want to see any dead code, even
