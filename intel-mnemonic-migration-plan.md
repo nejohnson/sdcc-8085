@@ -558,6 +558,75 @@ consistent with a sporadic race rather than a deterministic bug.
 Pre-existing harness fragility, not introduced by this migration -
 flagged for a future look if it recurs, not chased down now.
 
+## MIGRATION COMPLETE AND LANDED (2026-08-21)
+
+**All three ports pass at exactly the pre-migration baseline**,
+independently verified by reading each `.sum` file directly:
+
+| Port | Result |
+|---|---|
+| i8085 | 2 failures / 6356 test cases, 0 abnormal stops |
+| i8085-undoc | 2 failures / 6356 test cases, 0 abnormal stops |
+| i8080 | 2 failures / 6356 test cases, 0 abnormal stops |
+
+Both failures on every port are `tst_p99-conformance.c`/
+`tcc_83_utf8_in_identifiers.c` - the known, deliberately-not-pursued
+UTF-8-in-symbol-names limitation. Nothing else.
+
+**Two more real bugs found and fixed via the actual regression run**
+(both invisible to the compile-only corpus sweep, since neither
+produces a text-pattern the sweep's shape checks could see):
+
+1. **`sta`/`lda` misused for BC/DE-indirect addressing** - the bug this
+   session's live-run digging first surfaced (`bigreturn-remat`, 100%
+   failure): `sta`/`lda` are Intel's direct-address-only forms, no
+   register-pair-indirect form exists for them; needed `stax`/`ldax`
+   instead, not an operand-text fix. Found 10 total sites (8 originally
+   flagged + 2 more via a follow-up audit: `genPackBits`'s write side
+   missing the dispatch its read side already had, one hardcoded
+   `_pairs[PAIR_HL].name` site) - all fixed, with the remaining
+   `lda`/`sta !mems` text confirmed to only survive in the already-
+   established dead-`PAIR_IY` fallback branches (independently
+   verified by reading both fixed call sites directly - the HL/DE/BC
+   dispatch is correct, `PAIR_IY`'s fallback is provably unreachable
+   and left as harmless unmodified text, matching this file's
+   established practice elsewhere).
+2. **`AOP_PAIRPTR`-with-`PAIR_HL` mishandled in `aopPut`** - found via
+   direct gdb tracing of a real gcc-torture failure. `shiftIntoPair()`
+   can legitimately construct `AOP_PAIRPTR` with `PAIR_HL` (not just
+   BC/DE), but `aopPut`'s handling assumed BC/DE-only and silently
+   emitted `stax d` regardless - a write through whatever DE happened
+   to hold, corrupting unrelated memory instead of the real
+   HL-addressed destination. Fixed; the symmetric `aopGet` gap tripwired
+   rather than silently assumed (no live caller found); all 7 remaining
+   `AOP_PAIRPTR` sites in the file audited and confirmed already correct.
+
+Also fixed getting the regression harness itself working end to end:
+three stale `support/regression/ports/*/spec.mk` files still pointing
+at retired `sdasz80`/`-plosgff`; `device/lib/{i8085,i8085-undoc}/
+Makefile.in` still pointing at `asz80` (never actually retargeted
+despite being believed fixed in an earlier pass); an i8080-only
+`.optsdcc` regression in `main.c` (the `TARGET_IS_I8085` ternary never
+updated when i8080 was retargeted to vendor tooling, so i8080 kept
+emitting the real directive vendor tools reject) - independently
+verified fixed (`(TARGET_IS_I8085 || TARGET_IS_I8080) ? ";optsdcc" :
+"!optsdcc"`).
+
+**Committed and pushed to `feat/i8085`** as `0176906` - 24 files, 1997
+insertions/785 deletions. This is the actual code landing, not just
+documentation - the entire multi-day mnemonic-dialect migration is now
+live on the shared branch. Independently verified before committing:
+all three `.sum` files read directly, 0 abnormal stops confirmed via
+`grep -L -- "--- Summary"`, both newly-reported bug fixes read and
+confirmed correct in the actual diff, file scope confirmed exactly
+matching expectations (24 files, all in-scope), no stray edits.
+
+**Remaining work, tracked separately**: the post-migration clean-sweep
+phase (task #14, below - now safe to start, migration is validated) and
+any future decision about i8080's own separate consideration (already
+resolved as sharing this same treatment throughout, not actually
+separate work).
+
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
 "In the 8085 code I really do not want to see any dead code, even
