@@ -447,6 +447,26 @@ higher bar than "text sweep passed" throughout - a clean text-level
 sweep genuinely can't see assembler-invocation-layer gaps like this
 one. Device library rebuild in progress to confirm the fix end to end.
 
+## Milestone: device libraries build clean end to end (2026-08-21)
+
+After the `Makefile.in`/`spec.mk` fixes above, a fresh from-scratch `-j3`
+rebuild of all three device libraries (`model-i8085 model-i8085-undoc
+model-i8080`) completed successfully - independently verified: exit
+code 0, `build/i8085/i8085.lib`, `build/i8080/i8080.lib`, `build/i8085-
+undoc/i8085.lib` all present, only pre-existing unrelated warnings in
+the build log (an `#warning` about unsigned-long-long overflow range
+checking in `strtoull.c`/`wcstoull.c`, nothing to do with this
+migration), no errors. (One earlier rebuild attempt genuinely stalled
+mid-build - caught via mtime staleness, diagnosed and relaunched
+cleanly rather than assumed fine.)
+
+This is the real unlock: the assembler retarget, library-format fix,
+and full mnemonic translation now combine to produce genuinely working
+device libraries end to end, not just clean-compiling `.rel` files in
+isolation. Proceeding to a full `test-i8085`/`test-i8085-undoc`/
+`test-i8080` regression run next - the actual end-to-end validation
+everything else has been building toward.
+
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
 "In the 8085 code I really do not want to see any dead code, even
