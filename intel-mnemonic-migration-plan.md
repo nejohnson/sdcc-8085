@@ -503,6 +503,33 @@ same BC-scratch-pointer pattern, possibly separate. Fix in progress.
 scenario the "don't commit until regression passes" discipline exists
 for.
 
+## sta/lda !mems bc/de fix confirmed, but the re-run surfaced a wider regression (2026-08-21)
+
+`bigreturn-remat` now shows 0 failures across all cases post-fix -
+confirms the previous fix was real. But the clean re-run (in progress,
+79/1745 files with failures at the time of checking) surfaced more than
+the one already-flagged `array` bug:
+
+- **`array_long` assertion**: confirmed genuinely separate from the
+  sta/lda fix (still fails identically post-fix) - needs its own
+  root-cause dig.
+- **`blake2s_selftest()` fails** (heavy 32-bit ADD/XOR/rotate usage -
+  plausibly an arithmetic/rotate miscompile, not noise).
+- **35 distinct `gcc-torture-execute-*.c` files fail on a bare
+  `assert(0)`** - a wide spread across unrelated GCC torture-test
+  patterns, not concentrated in one code path. Biggest, most systematic-
+  looking cluster of the three.
+
+**Important**: all of these test files passed cleanly under the
+pre-migration Zilog-syntax baseline (the 2/6356-failures milestone,
+only the known UTF-8 cases) - confirmed regressions introduced
+somewhere in this migration's own diff, not pre-existing/unrelated
+issues. Search space is bounded to what this migration actually
+touched. Directed the agent to let the run finish for the complete
+picture, then look for a shared root cause across the gcc-torture
+cluster specifically before assuming three independent bugs. Code
+remains uncommitted.
+
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
 "In the 8085 code I really do not want to see any dead code, even
