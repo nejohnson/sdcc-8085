@@ -544,9 +544,19 @@ nonexistent` for `gen/i8085/rotate2/...`) - a retry succeeded cleanly;
 not yet confirmed whether that was a one-off race or a real, separate
 harness issue worth a permanent fix.
 
-`i8085-undoc` and `i8080` runs next (sequential, same rationale as
-before - shared `cases/` directory build race). Code remains
-uncommitted pending the full 3-port picture.
+`i8085-undoc` also finished clean, verified directly: **2 failures,
+36363 tests, 6356 test cases** - same two known UTF-8 cases only,
+matching baseline exactly. `i8080` running now. Two of three ports
+confirmed; code remains uncommitted pending the full picture.
+
+Also resolved: the earlier "Directory nonexistent" (`gen/i8085/
+rotate2/...`) crash was investigated and traced to a genuine parallel-
+`mkdir` race in the regression harness's own directory-creation logic
+under a fresh `rm -rf gen results` + `-j3` combination (the first time
+this exact combination ran this session) - didn't recur on retry,
+consistent with a sporadic race rather than a deterministic bug.
+Pre-existing harness fragility, not introduced by this migration -
+flagged for a future look if it recurs, not chased down now.
 
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
