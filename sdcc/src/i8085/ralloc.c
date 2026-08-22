@@ -43,7 +43,7 @@
     software-hoarding!
 */
 
-#include "z80.h"
+#include "i8085.h"
 #include "SDCCicode.h"
 #include "dbuf_string.h"
 

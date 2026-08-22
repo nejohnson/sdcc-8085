@@ -25,7 +25,7 @@
 
 #include "common.h"
 #include "SDCCicode.h"
-#include "z80.h"
+#include "i8085.h"
 #include "SDCCglobl.h"
 #include "SDCCpeeph.h"
 #include "gen.h"

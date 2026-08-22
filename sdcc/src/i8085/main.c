@@ -25,7 +25,7 @@
 -------------------------------------------------------------------------*/
 
 #include <sys/stat.h>
-#include "z80.h"
+#include "i8085.h"
 #include "SDCCsystem.h"
 #include "SDCCutil.h"
 #include "SDCCargs.h"
@@ -58,7 +58,7 @@ static char _z80_defaultRules[] = {
 #include "peeph-z80.rul"
 };
 
-/* i8085_opts is this port's own copy of the option state (see z80.h) -
+/* i8085_opts is this port's own copy of the option state (see i8085.h) -
    defined once here, no longer shared with src/z80/main.c's z80_opts. */
 I8085_OPTS i8085_opts;
 

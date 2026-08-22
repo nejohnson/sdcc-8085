@@ -1,5 +1,5 @@
 /*-------------------------------------------------------------------------
-  SDCCgen51.h - header file for code generation for 8051
+  gen.h - header file for i8080/i8085 code generation
 
              Written By -  Sandeep Dutta . sandeep.dutta@usa.net (1998)
 
@@ -18,8 +18,8 @@
    Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 -------------------------------------------------------------------------*/
 
-#ifndef Z80GEN_H
-#define Z80GEN_H
+#ifndef I8085GEN_H
+#define I8085GEN_H
 
 typedef enum
 {

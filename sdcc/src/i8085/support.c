@@ -1,6 +1,6 @@
-/** @file z80/support.c
+/** @file support.c
  */
-#include "z80.h"
+#include "i8085.h"
 #include <math.h>
 
 int

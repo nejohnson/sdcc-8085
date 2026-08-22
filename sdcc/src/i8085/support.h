@@ -1,8 +1,8 @@
-/** @file z80/support.h
-    Support functions for the z80 port.
+/** @file support.h
+    Support functions for the i8080/i8085 port.
 */
-#ifndef Z80_SUPPORT_INCLUDE
-#define Z80_SUPPORT_INCLUDE
+#ifndef I8085_SUPPORT_INCLUDE
+#define I8085_SUPPORT_INCLUDE
 
 typedef unsigned short WORD;
 typedef unsigned char BYTE;

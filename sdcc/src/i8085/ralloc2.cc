@@ -26,7 +26,7 @@
 
 extern "C"
 {
-  #include "z80.h"
+  #include "i8085.h"
   float i8085_dryZ80iCode (iCode * ic);
   bool i8085_assignment_optimal;
   bool i8085_should_omit_frame_ptr;

@@ -1,5 +1,5 @@
-/** @file z80/z80.h
-    Common definitions for the the z80-related ports.
+/** @file i8085.h
+    Common definitions for the i8080/i8085 port.
 */
 #include "common.h"
 #include "ralloc.h"

@@ -27,7 +27,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "z80.h"
+#include "i8085.h"
 #include "gen.h"
 #include "dbuf_string.h"
 
@@ -4751,7 +4751,7 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
      - genuinely, unconditionally dead for i8080/i8085, not just believed:
      i8085_opts.sub (src/i8085/main.c, its only two assignment sites) is
      only ever SUB_8080 or SUB_8085, so IS_EZ80/IS_TLCS90/IS_RAB (src/i8085/
-     z80.h - runtime checks against i8085_opts.sub, not compile-time
+     i8085.h - runtime checks against i8085_opts.sub, not compile-time
      constants) are provably always false regardless of build/assert mode.
      AOP_FDIR itself is never constructed as a result: its sole construction
      site (newAsmop (AOP_FDIR) for __far symbols) is gated on that same
