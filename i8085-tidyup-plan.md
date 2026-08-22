@@ -177,6 +177,35 @@ guards present, all three `.sum` files at 2/6356, 0 abnormal stops.
 
 Item 5 (the full editorial comment pass) not yet started - next.
 
+**Checkpoint 2 committed and pushed as `83ee902`**:
+- `mappings.i` repurposed (not deleted) - `i8085` now has its own
+  independent `ASM_MAPPINGS` table instead of `extern`-linking to
+  `src/z80/main.c`'s copy, fixing the implicit-coupling risk Neil
+  flagged (table content unchanged, still correctly consumed via the
+  existing `intelOperand()` translation).
+- Item 6 (rename `z80`-prefixed identifiers) done: `peep.c`'s whole
+  `z80MightRead`/`z80SurelyWrites`/`z80UncondJump`/`z80CondJump`
+  family, `gen.c`'s `z80_init_reg_asmop`, `main.c`'s
+  `_z80_genAssemblerStart` - all file-local `static`, zero cross-file
+  linkage risk, verified zero leftover references anywhere.
+- Item 5 done for `peep.c`, `ralloc.c`, `ralloc2.cc`. `main.c`/`gen.c`
+  not yet started.
+- Item 7 (macro-family audit) scoped, not executed - spot-checks on
+  the smaller macros found every occurrence outside `i8085.h` is
+  inside a comment, not live code, but unverified for the two largest
+  (`IS_SM83`: 209 occurrences, `IS_TLCS870`-family: ~97) pending
+  `gen.c`'s comment pass, which will answer this as a side effect -
+  doing items 5 and 7 together for `gen.c` rather than as separate
+  sweeps.
+
+Independently verified before committing: zero leftover `z80`-prefixed
+references, all three `.sum` files at 0/6354 (UTF-8 exclusion landed
+too), 0 abnormal stops.
+
+Next: `main.c`'s comment pass (small), then `gen.c` as one combined
+comment-pass-plus-macro-audit effort (~18,400 lines, the largest
+remaining piece of the whole plan) - checkpointed by logical section.
+
 ## Workflow
 
 Same incremental-checkpoint pattern as the clean-sweep phase: commit
