@@ -4387,25 +4387,19 @@ aopGet (asmop *aop, int offset, bool bit16)
           // which the second is gated on the negation of - is always true,
           // there being no IY at all on i8080/i8085). This also left
           // sp_offset (only used by the removed code) unused - removed too.
-
-          if (aop->type == AOP_EXSTK) // IS_SM83 unconditionally false in this file.
-            {
-              pointPairToAop (PAIR_HL, aop, offset);
-              dbuf_tprintf (&dbuf, "!*hl");
-            }
-          else if (_G.omitFramePtr)
-            {
-              if (aop->aopu.aop_stk >= 0)
-                offset += _G.stack.param_offset;
-              setupPair (PAIR_IX, aop, offset);
-              dbuf_tprintf (&dbuf, "!*ixx", offset);
-            }
-          else
-            {
-              if (aop->aopu.aop_stk >= 0)
-                offset += _G.stack.param_offset;
-              dbuf_tprintf (&dbuf, "!*ixx", aop->aopu.aop_stk + offset);
-            }
+          //
+          // The "if (aop->type == AOP_EXSTK) {...} else if (_G.omitFramePtr)
+          // {IX-indexed...} else {IX-indexed...}" dispatch collapsed here
+          // (clean-sweep task #14): the else-if/else pair could only ever
+          // fire for aop->type == AOP_STK specifically (AOP_EXSTK is caught
+          // by the "if" first), and AOP_STK is never actually constructed -
+          // ralloc2.cc's omit_frame_ptr() unconditionally returns true, so
+          // newAsmop() always picks AOP_EXSTK over its AOP_STK sibling (see
+          // aopPut's own AOP_STK wassertl for the same proof). Both case
+          // labels are kept (AOP_STK costs nothing to keep routing here,
+          // and stays a safe fallback if that proof is ever wrong).
+          pointPairToAop (PAIR_HL, aop, offset);
+          dbuf_tprintf (&dbuf, "!*hl");
           break;
 
         case AOP_CRY:
