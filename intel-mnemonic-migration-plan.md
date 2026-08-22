@@ -248,6 +248,28 @@ stable. Until then, i8085/i8080 codegen is correct but not
 peephole-optimized - a real, accepted performance cost, not silently
 dropped.
 
+**Related gap found 2026-08-22, during the tidy-up phase's comment
+pass**: `peep.c`'s liveness-analysis machinery (`z80MightRead`,
+`z80SurelyWrites`, `z80UncondJump`, etc. - the helper functions
+peephole-rule *conditions* call into, e.g. `notUsed()`) pattern-matches
+against Zilog mnemonic text (`"ld"`, `"jp"`, `"jr"`, ...), never updated
+for Intel syntax. Traced (not assumed): reachable only when peephole
+rules are actually loaded (`SDCCpeeph.c`'s `initPeepHole()` calls
+`readRules()` only `if (!options.nopeep)`), so with `nopeep=1` set for
+both ports this whole chain is currently entirely inert in the default
+configuration - not silently misbehaving today. But `--peep-file
+<custom.def>` explicitly overrides `nopeep` back to `0` regardless of
+the port default, which would re-enable this exact Zilog-pattern-
+matching machinery against real Intel-syntax output - likely degrading
+to the conservative "unknown instruction" fail-safe path (safe but
+sub-optimal, possibly with warning spam) rather than producing wrong
+code, but not verified either way. Narrow (only triggered by
+`--peep-file`, not exercised by the regression suite or default
+builds), but real. Folded into the same tracked future-work item as the
+`peeph-i8085.def` rewrite above - fixing this properly means teaching
+the liveness-analysis machinery Intel mnemonics too, not just the rule
+templates, comparable in scope to the already-deferred work.
+
 ## Severe pre-existing bug found via full corpus sweep: ISR prologue/epilogue (2026-08-20)
 
 Found while doing the definitive corpus sweep (996/276-line `gen.c` diff,
