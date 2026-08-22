@@ -30,6 +30,17 @@
 #include "SDCCpeeph.h"
 #include "gen.h"
 
+/* The instruction-pattern matching below (lineIsInst() against strings like
+   "ld", "jp", "ex", "rlca", ...) recognizes Zilog-syntax mnemonics, not the
+   Intel mnemonics gen.c emits (mov, jmp, xchg, ral, ...). This is registered
+   as the port's peephole-optimizer support (port->peep in main.c) and is
+   only ever reached while applying peephole rules, which only load
+   (readRules() in SDCCpeeph.c) when options.nopeep is false; this port sets
+   options.nopeep = 1 by default, so none of it runs in a default build. A
+   user-supplied --peep-file re-enables the rule engine regardless of that
+   default and would exercise this Zilog-syntax matching against real
+   Intel-syntax lines - a known, tracked gap (see the peephole rule file
+   rewrite item in the project plan), not something fixed here. */
 #define NOTUSEDERROR() do {werror(E_INTERNAL_ERROR, __FILE__, __LINE__, "error in notUsed()");} while(0)
 
 #if 0
@@ -164,7 +175,7 @@ static bool argCont (const char *arg, const char *what)
 }
 
 static bool
-z80MightBeParmInCallFromCurrentFunction(const char *what)
+mightBeParmInCallFromCurrentFunction(const char *what)
 {
   if (strchr(what, 'l') && i8085_regs_used_as_parms_in_calls_from_current_function[L_IDX])
     return TRUE;
@@ -188,7 +199,7 @@ z80MightBeParmInCallFromCurrentFunction(const char *what)
 
 /* Check if the flag implies reading what. */
 static bool
-z80MightReadFlagCondition(const char *cond, const char *what)
+mightReadFlagCondition(const char *cond, const char *what)
 {
   while(isspace (*cond))
     cond++;
@@ -210,7 +221,7 @@ z80MightReadFlagCondition(const char *cond, const char *what)
 }
 
 static bool
-z80MightReadFlag(const lineNode *pl, const char *what)
+mightReadFlag(const lineNode *pl, const char *what)
 {
   if(lineIsInst (pl, "ld") ||
      lineIsInst (pl, "or") ||
@@ -286,7 +297,7 @@ z80MightReadFlag(const lineNode *pl, const char *what)
   // catch c, nc, z, nz, po, pe, p and m
   if(lineIsInst (pl, "jp") ||
      lineIsInst (pl, "jr"))
-    return (strchr(pl->line, ',') && z80MightReadFlagCondition(pl->line + 2, what));
+    return (strchr(pl->line, ',') && mightReadFlagCondition(pl->line + 2, what));
 
   // flags don't matter according to calling convention
   if(lineIsInst (pl, "reti") ||
@@ -294,10 +305,10 @@ z80MightReadFlag(const lineNode *pl, const char *what)
     return false;
 
   if(lineIsInst (pl, "call"))
-    return (strchr(pl->line, ',') && z80MightReadFlagCondition(pl->line + 4, what));
+    return (strchr(pl->line, ',') && mightReadFlagCondition(pl->line + 4, what));
 
   if(lineIsInst (pl, "ret"))
-    return (pl->line[3] == '\t' && z80MightReadFlagCondition(pl->line + 3, what));
+    return (pl->line[3] == '\t' && mightReadFlagCondition(pl->line + 3, what));
 
   // we don't know anything about this
   if(lineIsInst (pl, "rst"))
@@ -320,13 +331,13 @@ z80MightReadFlag(const lineNode *pl, const char *what)
      lineIsInst (pl, "jnx5"))
     return true;
 
-  printf("Warning: z80MightReadFlag unknown asm inst line: %s\n", pl->line);
+  printf("Warning: mightReadFlag unknown asm inst line: %s\n", pl->line);
 
   return true; // Fail-safe: we have no idea what happens at this line, so assume it might read anything.
 }
 
 static bool
-z80MightRead(const lineNode *pl, const char *what)
+mightRead(const lineNode *pl, const char *what)
 {
   if(strcmp(what, "iyl") == 0 || strcmp(what, "iyh") == 0)
     what = "iy";
@@ -358,14 +369,14 @@ z80MightRead(const lineNode *pl, const char *what)
       if (f && IS_FUNC (f->type))
         return i8085_IsParmInCall(f->type, what);
       else // Fallback needed for calls through function pointers and for calls to literal addresses.
-        return z80MightBeParmInCallFromCurrentFunction(what);
+        return mightBeParmInCallFromCurrentFunction(what);
     }
 
   if(lineIsInst (pl, "reti") || lineIsInst (pl, "retn"))
     return(strcmp(what, "sp") == 0);
 
-  if(lineIsInst (pl, "ret")) // IY_RESERVED is unconditionally true on i8080/i8085 (there is no IY).
-    return(i8085_IsReturned(what) || z80MightBeParmInCallFromCurrentFunction(what)) || strcmp(what, "sp") == 0;
+  if(lineIsInst (pl, "ret")) // No IY on this port, so no separate IY-return-value case is needed here.
+    return(i8085_IsReturned(what) || mightBeParmInCallFromCurrentFunction(what)) || strcmp(what, "sp") == 0;
 
   if (lineIsInst (pl, "ex") && larg && rarg)
     {
@@ -552,13 +563,13 @@ z80MightRead(const lineNode *pl, const char *what)
   if(lineIsInst (pl, "rstv"))                                    /* conditional restart: may touch sp */
     return true;
 
-  printf("Warning: z80MightRead unknown asm inst line: %s\n", pl->line);
+  printf("Warning: mightRead unknown asm inst line: %s\n", pl->line);
 
   return(true);
 }
 
 static bool
-z80UncondJump(const lineNode *pl)
+uncondJump(const lineNode *pl)
 {
   if((lineIsInst (pl, "jp") || lineIsInst (pl, "jr")) &&
      strchr(pl->line, ',') == 0)
@@ -567,7 +578,7 @@ z80UncondJump(const lineNode *pl)
 }
 
 static bool
-z80CondJump(const lineNode *pl)
+condJump(const lineNode *pl)
 {
   if(((lineIsInst (pl, "jp") || lineIsInst (pl, "jr")) &&
       strchr(pl->line, ',') != 0) ||
@@ -578,7 +589,7 @@ z80CondJump(const lineNode *pl)
 
 // TODO: z80 flags only partly implemented
 static bool
-z80SurelyWritesFlag(const lineNode *pl, const char *what)
+surelyWritesFlag(const lineNode *pl, const char *what)
 {
   /* LD instruction is never change flags except LD A,I and LD A,R.
     But it is most popular instruction so place it first */
@@ -706,7 +717,7 @@ z80SurelyWritesFlag(const lineNode *pl, const char *what)
     return (!!strcmp(what, "cf"));
 
   if(lineIsInst (pl, "mlt"))
-    return true; // IS_Z80N is unconditionally false in this file.
+    return true; // mlt (Z80N-only multiply) never appears in this port's output; kept for parity with the shared dispatch shape.
 
   // pop af writes
   if(lineIsInst (pl, "pop.l"))
@@ -722,7 +733,7 @@ z80SurelyWritesFlag(const lineNode *pl, const char *what)
      lineIsInst (pl, "jx5")  || lineIsInst (pl, "jnx5") || lineIsInst (pl, "rstv"))
     return false;
 
-  printf("Warning: z80SurelyWritesFlag unknown asm inst line: %s\n", pl->line);
+  printf("Warning: surelyWritesFlag unknown asm inst line: %s\n", pl->line);
 
   return false; // Fail-safe: we have no idea what happens at this line, so assume it writes nothing.
 }
@@ -776,7 +787,7 @@ callSurelyWrites (const lineNode *pl, const char *what)
 }
 
 static bool
-z80SurelyWrites (const lineNode *pl, const char *what)
+surelyWrites (const lineNode *pl, const char *what)
 {
   if(strcmp(what, "iyl") == 0 || strcmp(what, "iyh") == 0)
     what = "iy";
@@ -879,14 +890,14 @@ z80SurelyWrites (const lineNode *pl, const char *what)
     lineIsInst (pl, "push"))
     return (false);
 
-  //printf("Warning: z80SurelyWrites unknown asm inst line: %s\n", pl->line);
+  //printf("Warning: surelyWrites unknown asm inst line: %s\n", pl->line);
   //printf("larg '%s' what '%s'\n", larg ? larg : "", what);
 
   return(false);
 }
 
 static bool
-z80SurelyReturns(const lineNode *pl)
+surelyReturns(const lineNode *pl)
 {
   if(strcmp(pl->line, "ret") == 0)
     return TRUE;
@@ -958,13 +969,13 @@ scan4op (lineNode **pl, const char *what, const char *untilOp,
 
       (*pl)->visited = TRUE;
 
-      if(isFlag ? z80MightReadFlag(*pl, what) : z80MightRead (*pl, what))
+      if(isFlag ? mightReadFlag(*pl, what) : mightRead (*pl, what))
         {
           D(("S4O_RD_OP (flag)\n"));
           return S4O_RD_OP;
         }
 
-      if (z80UncondJump (*pl))
+      if (uncondJump (*pl))
         {
           lineNode *tlbl = findLabel (*pl);
           if (!tlbl) // jp/jr could be a tail call.
@@ -984,7 +995,7 @@ scan4op (lineNode **pl, const char *what, const char *untilOp,
           *pl = tlbl;
           continue;
         }
-      if (z80CondJump(*pl))
+      if (condJump(*pl))
         {
           *plCond = findLabel (*pl);
           if (!*plCond)
@@ -996,14 +1007,14 @@ scan4op (lineNode **pl, const char *what, const char *untilOp,
           return S4O_CONDJMP;
         }
 
-      if (isFlag ? z80SurelyWritesFlag (*pl, what) : z80SurelyWrites(*pl, what))
+      if (isFlag ? surelyWritesFlag (*pl, what) : surelyWrites(*pl, what))
         {
           D (("S4O_WR_OP (flag)\n"));
           return S4O_WR_OP;
         }
 
-      /* Don't need to check for de, hl since z80MightRead() does that */
-      if(z80SurelyReturns(*pl))
+      /* Don't need to check for de, hl since mightRead() does that */
+      if(surelyReturns(*pl))
         {
           D(("S4O_TERM\n"));
           return S4O_TERM;
@@ -1121,7 +1132,7 @@ i8085_notUsed (const char *what, lineNode *endPl, lineNode *head)
            i8085_notUsed("sf", endPl, head) && i8085_notUsed("pf", endPl, head) &&
            i8085_notUsed("nf", endPl, head) && i8085_notUsed("hf", endPl, head);
 
-  if(strcmp(what, "iy") == 0) // IY_RESERVED is unconditionally true on i8080/i8085 (there is no IY).
+  if(strcmp(what, "iy") == 0) // No IY register on this port to scan for, so it can never be proven unused.
     return FALSE;
 
   if(strcmp(what, "ix") == 0)
@@ -1202,7 +1213,6 @@ i8085_canAssign (const char *op1, const char *op2, const char *exotic)
   // 8-bit regs can be assigned to each other directly.
   if(isReg(dst) && isReg(src))
     return true;
-  // HAS_IYL_INST is unconditionally false in this file (there is no IY/IX at all).
 
   // Immediates van be loaded into 8-bit registers.
   if(isReg(dst) && src[0] == '#')
@@ -1303,7 +1313,6 @@ bool i8085_canSplitReg (const char *reg, char dst[][16], int nDst)
           dst[i][1] = '\0';
         }
     }
-  // HAS_IYL_INST is unconditionally false in this file (there is no IY/IX at all).
   else
     return FALSE;
 

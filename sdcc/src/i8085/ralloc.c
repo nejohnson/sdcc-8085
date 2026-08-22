@@ -1,4 +1,4 @@
-/** @name Z80 Register allocation functions.
+/** @name i8080/i8085 Register allocation functions.
     @author Michael Hope
 
     Note: much of this is ripped straight from Sandeep's mcs51 code.
@@ -7,22 +7,12 @@
     hardware.  It allocates based on usage and how long the variable
     lives into registers or temporary memory on the stack.
 
-    On the Z80 hl and ix and a are reserved for the code generator,
-    leaving bc and de for allocation.  iy is unusable due to currently
-    as it's only addressable as a pair.  The extra register pressure
-    from reserving hl is made up for by how much easier the sub
-    operations become.  You could swap hl for iy if the undocumented
-    iyl/iyh instructions are available.
-
-    The stack frame is the common ix-bp style.  Basically:
-
-    ix+4+n:     param 1
-    ix+4:       param 0
-    ix+2:       return address
-    ix+0:       calling functions ix
-    ix-n:       local variables
-    ...
-    sp:         end of local variables
+    a, b, c, d, e, h, and l are all available for allocation; hl is
+    additionally reserved for the code generator's own use as a pointer
+    register. There is no index register (no ix/iy) on this CPU family, so
+    there is no hardware frame pointer and no ix-relative stack addressing:
+    parameters and locals are accessed via computed HL-relative offsets
+    from the current stack pointer instead.
 
     There is currently no support for bit spaces or banked functions.
 
@@ -89,12 +79,8 @@ static struct
 } _G;
 
 /* Intel 8080/8085: same GPR file as the SM83 (no IX/IY index registers).
-   The z80_regs/sm83_regs/r4k_regs arrays that were here in the shared
-   z80/ralloc.c (register files for the other z80-family sub-targets) are
-   dropped entirely: i8080/i8085 never select them (i8085_opts.sub is always
-   SUB_8080/SUB_8085 in this file), and they'd collide (same non-static
-   names) with z80/ralloc.c's own copies now that this file is genuinely
-   forked and linked. */
+   This is the only register file this port ever selects (i8085_opts.sub is
+   always SUB_8080/SUB_8085 here), so it is the only one defined. */
 reg_info i8085_gpr_regs[] = {
   {REG_GPR, A_IDX, "a", 1},
   {REG_GPR, C_IDX, "c", 1},
@@ -278,7 +264,7 @@ i8085_SpillThis (symbol * sym)
   /* if this is rematerializable or has a spillLocation
      we are okay, else we need to create a spillLocation
      for it */
-  if (!(sym->remat || sym->usl.spillLoc) || (sym->usl.spillLoc && !sym->usl.spillLoc->onStack)) // z80 port currently only supports on-stack spill locations in code generation.
+  if (!(sym->remat || sym->usl.spillLoc) || (sym->usl.spillLoc && !sym->usl.spillLoc->onStack)) // This port's code generation only supports on-stack spill locations.
     createStackSpil (sym);
   else
     D (D_ALLOC, ("Already has spilllocation %p, %s\n", (void *)(sym->usl.spillLoc), sym->usl.spillLoc->name));
@@ -1254,7 +1240,7 @@ i8085_ralloc (ebbIndex *ebbi)
   setToNull ((void *) &_G.totRegAssigned);
   _G.stackExtend = _G.dataExtend = 0;
 
-  _G.nRegs = I8085_MAX_REGS; /* IS_8080LIKE is unconditionally true in this file */
+  _G.nRegs = I8085_MAX_REGS;
 
   /* change assignments this will remove some
      live ranges reducing some register pressure */

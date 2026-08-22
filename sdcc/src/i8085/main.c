@@ -134,14 +134,11 @@ static char *_keywords[] = {
    (Game Boy/SM83-specific, and i8080_port/i8085_port are the only ports
    this file ever runs as). */
 
-/* The _asxxxx_z80 ASM_MAPPINGS table is defined once in src/z80/main.c
-   (which #includes mappings.i); i8080/i8085 share it via extern rather
-   than re-including the file, to avoid duplicate definitions when both
-   port.a archives link into the same sdcc binary. The other four tables
-   here (_isas_gb, _rgbds_gb, _z80asm_z80, _gas_z80) are Game Boy/SM83-
-   specific and are no longer referenced now that the corresponding
-   --asm= branches have been removed from _parseOptions as unreachable. */
-extern const ASM_MAPPINGS _asxxxx_z80;
+/* This port's own token-substitution table for the vendor ASxxxx
+   assembler (see mappings.i's own comment for what it does); defined here
+   rather than shared with src/z80/main.c's copy so that i8085's table can
+   be edited independently of the z80 port's. */
+#include "mappings.i"
 
 // Dont have size_t here, so we just use unsigned int, which is size_t for these ports.
 static const char z80_builtins[] =
@@ -166,7 +163,7 @@ static void
 _i8080_init (void)
 {
   i8085_opts.sub = SUB_8080;
-  asm_addTree (&_asxxxx_z80);
+  asm_addTree (&_i8085_asm_mappings);
 
   i8085_regsZ80 = i8085_gpr_regs;
   i8085_init_asmops ();
@@ -176,7 +173,7 @@ static void
 _i8085_init (void)
 {
   i8085_opts.sub = SUB_8085;
-  asm_addTree (&_asxxxx_z80);
+  asm_addTree (&_i8085_asm_mappings);
 
   i8085_regsZ80 = i8085_gpr_regs;
   i8085_init_asmops ();
@@ -662,7 +659,7 @@ _getRegByName (const char *name)
 }
 
 static void
-_z80_genAssemblerStart (FILE * of)
+_genAssemblerStart (FILE * of)
 {
   /* Both i8080 and i8085 now target vendor's as8085 directly instead of
      sdasz80/sdasz80 (see intel-mnemonic-migration-plan.md - i8080 was
@@ -813,7 +810,7 @@ oclsExpense (struct memmap *oclass)
    all; as8085 is the vendor assembler that actually matches what gen.c
    emits now. Shared by both i8080_port and i8085_port below (same vendor
    binary, same command shape - only the ".8080"/".8085"/".8085x" CPU-mode
-   directive _z80_genAssemblerStart() emits at the top of the generated
+   directive _genAssemblerStart() emits at the top of the generated
    .asm file, per TARGET_IS_I8080/TARGET_IS_I8085, tells as8085 which
    instruction subset to accept), hence the port-neutral "_i808x" name
    rather than "_i8085". */
@@ -1040,7 +1037,7 @@ PORT i8080_port =
   _getRegByName,
   NULL,
   _keywords,
-  _z80_genAssemblerStart,
+  _genAssemblerStart,
   NULL,                         /* no genAssemblerEnd */
   0,                            /* no local IVT generation code */
   0,                            /* no genXINIT code */
@@ -1188,7 +1185,7 @@ PORT i8085_port =
   _getRegByName,
   NULL,
   _keywords,
-  _z80_genAssemblerStart,
+  _genAssemblerStart,
   NULL,                         /* no genAssemblerEnd */
   0,                            /* no local IVT generation code */
   0,                            /* no genXINIT code */

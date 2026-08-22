@@ -739,7 +739,7 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
   if(input_in_A && dying_A)
     {
       if(ic->op != RETURN &&
-        !(ic->op == '=' && !POINTER_SET(ic)) && // IY_RESERVED is unconditionally true in this file.
+        !(ic->op == '=' && !POINTER_SET(ic)) &&
         !(ic->op == '*' && (IS_ITEMP(IC_LEFT(ic)) || IS_OP_LITERAL(IC_LEFT(ic))) && (IS_ITEMP(IC_RIGHT(ic)) || IS_OP_LITERAL(IC_RIGHT(ic)))) &&
         !((ic->op == '-' || ic->op == '+') && IS_OP_LITERAL(IC_RIGHT(ic))))
         {
@@ -835,7 +835,7 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
     ic->op == ADDRESS_OF ||
     ic->op == GETBYTE || ic->op == GETWORD ||
     ic->op == ROT && (getSize(operandType(IC_RESULT(ic))) == 1 || operand_in_reg(result, ia, i, G) && IS_OP_LITERAL (IC_RIGHT (ic)) && operandLitValueUll (IC_RIGHT (ic)) * 2 == bitsForType (operandType (IC_LEFT (ic)))) ||
-    !(operand_on_stack(result, a, i, G) || operand_on_stack(right, a, i, G)) && (ic->op == '=' && !POINTER_SET (ic) || ic->op == CAST) || // IS_SM83||IY_RESERVED is unconditionally true in this file.
+    !(operand_on_stack(result, a, i, G) || operand_on_stack(right, a, i, G)) && (ic->op == '=' && !POINTER_SET (ic) || ic->op == CAST) ||
     ic->op == RECEIVE || ic->op == SEND ||
     POINTER_SET(ic) && !IS_BITVAR (operandType (result)->next))
     return(true);
@@ -844,14 +844,10 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
     (IS_VALOP(right) || operand_in_reg(right, ia, i, G) && !(exstk && operand_on_stack(ic->left, a, i, G)) && (!isOperandInDirSpace(ic->left) || getSize(operandType(ic->left)) == 1)))
     return(true);
 
-  // IS_SM83-gated gbz80-specific stack-access-through-hl workarounds removed
-  // here (all unconditionally false in this file: this is i8080/i8085, never
-  // sm83).
-
-  if(IS_TRUE_SYMOP(left) && (!IS_PARM(left) || exstk) || IS_TRUE_SYMOP(right) && (!IS_PARM(right) || exstk)) // IS_SM83||IY_RESERVED is unconditionally true in this file.
+  if(IS_TRUE_SYMOP(left) && (!IS_PARM(left) || exstk) || IS_TRUE_SYMOP(right) && (!IS_PARM(right) || exstk))
     return(false);
 
-  if(IS_TRUE_SYMOP(result) && getSize(operandType(IC_RESULT(ic))) > 2) // IS_SM83||IY_RESERVED is unconditionally true in this file.
+  if(IS_TRUE_SYMOP(result) && getSize(operandType(IC_RESULT(ic))) > 2)
     return(false);
 
   // __z88dk_fastcall passes parameter in hl
@@ -917,7 +913,7 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
 
   if(ic->op == LEFT_OP && getSize(operandType(result)) <= 2 && IS_OP_LITERAL (right) && result_only_HL)
     return(true);
-  if((ic->op == LEFT_OP || ic->op == RIGHT_OP) && (getSize(operandType(result)) <= 1 || !IS_TRUE_SYMOP(result)) && // !(IS_SM83||IY_RESERVED) is unconditionally false in this file.
+  if((ic->op == LEFT_OP || ic->op == RIGHT_OP) && (getSize(operandType(result)) <= 1 || !IS_TRUE_SYMOP(result)) &&
      (!exstk ||
       ((!operand_on_stack(left,  a, i, G) || !input_in_HL && result_only_HL) &&
        (!operand_on_stack(right, a, i, G) || !input_in_HL && result_only_HL) &&
@@ -963,7 +959,7 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
          ic->op == '<' ||
          ic->op == EQ_OP ||*/
          (ic->op == '+' && getSize(operandType(IC_RESULT(ic))) == 1) ||
-         ic->op == '+' )))) // addition on gbz80 might need to use add hl, rr - moot here, IS_SM83 is unconditionally false.
+         ic->op == '+' ))))
     return(true);
 
   if((ic->op == '<' || ic->op == '>') && (IS_ITEMP(left) || IS_OP_LITERAL(left) || IS_ITEMP(right) || IS_OP_LITERAL(right))) // Todo: Fix for large stack.
@@ -1004,21 +1000,13 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
   return(true);
 }
 
-/* IYinst_ok (checked whether an iCode could validly use IY for a given
-   register assignment) removed entirely: both its call sites (below, in
-   instruction_cost, and in assignment_hopeless) are gated
-   `OPTRALLOC_IY && ...`, and OPTRALLOC_IY is unconditionally false in
-   this file (there is no IY at all on i8080/i8085 - IY_RESERVED, which
-   OPTRALLOC_IY's definition negates, is unconditionally true). Because
-   && short-circuits, IYinst_ok was never actually called here even
-   before this pass - confirmed by checking both call sites, not just
-   grepping for the macro name. */
+/* There is no IY register on i8080/i8085, so instruction_cost and
+   assignment_hopeless (below) never need to check whether a register
+   assignment could validly use IY - both simply skip that check
+   (OPTRALLOC_IY is always false on this port). */
 
-/* DEinst_ok's only real restrictions were sm83-specific ("Only sm83 might
-   need de for code generation"); the early `if (!IS_SM83) return true;`
-   is unconditionally taken in this file, so the entire rest of the
-   original body (checked against instruction_cost's call site - the only
-   caller) was unreachable and is removed, leaving the always-true result. */
+/* de has no restrictions on this port that would ever make a register
+   assignment using it invalid, so this always allows it. */
 template <class G_t, class I_t>
 bool DEinst_ok(const assignment &a, unsigned short int i, const G_t &G, const I_t &I)
 {
@@ -1109,9 +1097,6 @@ static float instruction_cost(const assignment &a, unsigned short int i, const G
 
   if(!DEinst_ok(a, i, G, I))
     return(std::numeric_limits<float>::infinity());
-
-  // OPTRALLOC_IY is unconditionally false in this file - the IYinst_ok()
-  // check that was here never fired (see the note by IYinst_ok's removal).
 
   switch(ic->op)
     {
@@ -1230,9 +1215,6 @@ static bool assignment_hopeless(const assignment &a, unsigned short int i, const
       !HLinst_ok(a, i, G, I))
     return(true);
 
-  // OPTRALLOC_IY is unconditionally false in this file - the IYinst_ok()
-  // check that was here never fired.
-
   return(false);
 }
 
@@ -1249,7 +1231,7 @@ static void get_best_local_assignment_biased(assignment &a, typename boost::grap
         {
           varset_t::const_iterator vi, vi_end;
           for(vi = ai->local.begin(), vi_end = ai->local.end(); vi != vi_end; ++vi)
-            if(ai->global[*vi] == REG_A || (ai->global[*vi] == REG_H || ai->global[*vi] == REG_L)) // OPTRALLOC_IY is unconditionally false in this file.
+            if(ai->global[*vi] == REG_A || (ai->global[*vi] == REG_H || ai->global[*vi] == REG_L))
               goto too_risky;
           ai_best = ai;
         }
@@ -1283,10 +1265,6 @@ static float rough_cost_estimate(const assignment &a, unsigned short int i, cons
 
   if(ia.registers[REG_L][1] < 0)
     c += 0.02f;
-
-  // Using IY is rarely a good choice, so discard the IY-users first when in
-  // doubt - moot here, OPTRALLOC_IY is unconditionally false (no IY exists
-  // on i8080/i8085 at all).
 
   // An artificial ordering of assignments.
   if(ia.registers[REG_E][1] < 0)
@@ -1450,14 +1428,8 @@ static bool tree_dec_ralloc(T_t &T, G_t &G, const I_t &I, SI_t &SI)
   return(!assignment_optimal);
 }
 
-// Omit the frame pointer for functions with low register pressure and few parameter accesses.
-// This is just a heuristic, including the magic value of 21. Many other, more complex heuristics have been tried, but didn't perform better for the regression tests.
-// i8080/i8085 have no index register at all (there is no ix to use as a
-// frame pointer, useable or otherwise), so the "we have to omit the frame
-// pointer if there is no useable ix" early-out (IS_8080LIKE, unconditionally
-// true here) always fires - the rest of the original heuristic (register-
-// pressure- and parameter-access-cost-based) never ran on this target and
-// is removed.
+// i8080/i8085 have no index register at all, so there is no ix to use as a
+// frame pointer - the frame pointer is always omitted on this port.
 template <class G_t>
 static bool omit_frame_ptr(const G_t &G)
 {
@@ -1469,7 +1441,7 @@ static bool omit_frame_ptr(const G_t &G)
 // static so it can't collide with z80/ralloc2.cc's own move_parms.
 static void move_parms(void)
 {
-  if(!currFunc || !i8085_should_omit_frame_ptr) // IS_SM83 is unconditionally false in this file.
+  if(!currFunc || !i8085_should_omit_frame_ptr)
     return;
 
   for(value *val = FUNC_ARGS (currFunc->type); val; val = val->next)

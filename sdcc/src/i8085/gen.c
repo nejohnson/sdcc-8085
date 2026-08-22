@@ -311,7 +311,7 @@ static struct asmop *const ASMOP_LDE = &asmop_lde;
 /* ASMOP_EBC/ASMOP_DEBC (aliases for asmop_ebc/asmop_debc) are now unused:
    their only uses were the IS_SM83-true arm of ternaries simplified away
    above (IS_SM83 is unconditionally false in this file). The underlying
-   asmop_ebc/asmop_debc storage and their z80_init_reg_asmop() calls are
+   asmop_ebc/asmop_debc storage and their init_reg_asmop() calls are
    left alone - harmless, and asmop_ebc/asmop_debc share a declaration
    line with many still-used asmop_* variables.
    ASMOP_AHL/ASMOP_AIY (aliases for asmop_ahl/asmop_aiy) are now unused
@@ -336,7 +336,7 @@ static asmop *asmopregs[] = { &asmop_a, &asmop_c, &asmop_b, &asmop_e, &asmop_d, 
 
 // Init aop as a an asmop for data in registers, as given by the -1-terminated array regidx.
 static void
-z80_init_reg_asmop(asmop *aop, const signed char *regidx)
+init_reg_asmop(asmop *aop, const signed char *regidx)
 {
   aop->type = AOP_REG;
   aop->size = 0;
@@ -356,31 +356,31 @@ z80_init_reg_asmop(asmop *aop, const signed char *regidx)
 void
 i8085_init_asmops (void)
 {
-  z80_init_reg_asmop(&asmop_a, (const signed char[]){A_IDX, -1});
-  z80_init_reg_asmop(&asmop_b, (const signed char[]){B_IDX, -1});
-  z80_init_reg_asmop(&asmop_c, (const signed char[]){C_IDX, -1});
-  z80_init_reg_asmop(&asmop_d, (const signed char[]){D_IDX, -1});
-  z80_init_reg_asmop(&asmop_e, (const signed char[]){E_IDX, -1});
-  z80_init_reg_asmop(&asmop_h, (const signed char[]){H_IDX, -1});
-  z80_init_reg_asmop(&asmop_l, (const signed char[]){L_IDX, -1});
-  z80_init_reg_asmop(&asmop_iyh, (const signed char[]){IYH_IDX, -1});
-  z80_init_reg_asmop(&asmop_iyl, (const signed char[]){IYL_IDX, -1});
-  z80_init_reg_asmop(&asmop_bc, (const signed char[]){C_IDX, B_IDX, -1});
-  z80_init_reg_asmop(&asmop_de, (const signed char[]){E_IDX, D_IDX, -1});
-  z80_init_reg_asmop(&asmop_hl, (const signed char[]){L_IDX, H_IDX, -1});
-  z80_init_reg_asmop(&asmop_iy, (const signed char[]){IYL_IDX, IYH_IDX, -1});
-  z80_init_reg_asmop(&asmop_jk, (const signed char[]){K_IDX, J_IDX, -1});
-  z80_init_reg_asmop(&asmop_ehl, (const signed char[]){L_IDX, H_IDX, E_IDX, -1});
-  z80_init_reg_asmop(&asmop_lde, (const signed char[]){E_IDX, D_IDX, L_IDX, -1});
-  z80_init_reg_asmop(&asmop_ebc, (const signed char[]){C_IDX, B_IDX, E_IDX, -1});
-  z80_init_reg_asmop(&asmop_dehl, (const signed char[]){L_IDX, H_IDX, E_IDX, D_IDX, -1});
-  z80_init_reg_asmop(&asmop_hlde, (const signed char[]){E_IDX, D_IDX, L_IDX, H_IDX, -1});
-  z80_init_reg_asmop(&asmop_hlbc, (const signed char[]){C_IDX, B_IDX, L_IDX, H_IDX, -1});
-  z80_init_reg_asmop(&asmop_debc, (const signed char[]){C_IDX, B_IDX, E_IDX, D_IDX, -1});
-  z80_init_reg_asmop(&asmop_bcde, (const signed char[]){E_IDX, D_IDX, C_IDX, B_IDX, -1});
-  z80_init_reg_asmop(&asmop_jkhl, (const signed char[]){L_IDX, H_IDX, K_IDX, J_IDX, -1});
-  z80_init_reg_asmop(&asmop_ahl, (const signed char[]){L_IDX, H_IDX, A_IDX, -1});
-  z80_init_reg_asmop(&asmop_aiy, (const signed char[]){IYL_IDX, IYH_IDX, A_IDX, -1});
+  init_reg_asmop(&asmop_a, (const signed char[]){A_IDX, -1});
+  init_reg_asmop(&asmop_b, (const signed char[]){B_IDX, -1});
+  init_reg_asmop(&asmop_c, (const signed char[]){C_IDX, -1});
+  init_reg_asmop(&asmop_d, (const signed char[]){D_IDX, -1});
+  init_reg_asmop(&asmop_e, (const signed char[]){E_IDX, -1});
+  init_reg_asmop(&asmop_h, (const signed char[]){H_IDX, -1});
+  init_reg_asmop(&asmop_l, (const signed char[]){L_IDX, -1});
+  init_reg_asmop(&asmop_iyh, (const signed char[]){IYH_IDX, -1});
+  init_reg_asmop(&asmop_iyl, (const signed char[]){IYL_IDX, -1});
+  init_reg_asmop(&asmop_bc, (const signed char[]){C_IDX, B_IDX, -1});
+  init_reg_asmop(&asmop_de, (const signed char[]){E_IDX, D_IDX, -1});
+  init_reg_asmop(&asmop_hl, (const signed char[]){L_IDX, H_IDX, -1});
+  init_reg_asmop(&asmop_iy, (const signed char[]){IYL_IDX, IYH_IDX, -1});
+  init_reg_asmop(&asmop_jk, (const signed char[]){K_IDX, J_IDX, -1});
+  init_reg_asmop(&asmop_ehl, (const signed char[]){L_IDX, H_IDX, E_IDX, -1});
+  init_reg_asmop(&asmop_lde, (const signed char[]){E_IDX, D_IDX, L_IDX, -1});
+  init_reg_asmop(&asmop_ebc, (const signed char[]){C_IDX, B_IDX, E_IDX, -1});
+  init_reg_asmop(&asmop_dehl, (const signed char[]){L_IDX, H_IDX, E_IDX, D_IDX, -1});
+  init_reg_asmop(&asmop_hlde, (const signed char[]){E_IDX, D_IDX, L_IDX, H_IDX, -1});
+  init_reg_asmop(&asmop_hlbc, (const signed char[]){C_IDX, B_IDX, L_IDX, H_IDX, -1});
+  init_reg_asmop(&asmop_debc, (const signed char[]){C_IDX, B_IDX, E_IDX, D_IDX, -1});
+  init_reg_asmop(&asmop_bcde, (const signed char[]){E_IDX, D_IDX, C_IDX, B_IDX, -1});
+  init_reg_asmop(&asmop_jkhl, (const signed char[]){L_IDX, H_IDX, K_IDX, J_IDX, -1});
+  init_reg_asmop(&asmop_ahl, (const signed char[]){L_IDX, H_IDX, A_IDX, -1});
+  init_reg_asmop(&asmop_aiy, (const signed char[]){IYL_IDX, IYH_IDX, A_IDX, -1});
 
   asmop_zero.type = AOP_LIT;
   asmop_zero.size = 1;
@@ -13650,7 +13650,7 @@ genSwap (const iCode *ic)
           idxarray[0] = result->aop->aopu.aop_reg[1]->rIdx;
           idxarray[1] = result->aop->aopu.aop_reg[0]->rIdx;
           idxarray[2] = -1;
-          z80_init_reg_asmop (&swapped_result_aop, idxarray);
+          init_reg_asmop (&swapped_result_aop, idxarray);
           genMove (&swapped_result_aop, left->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
           break;
         }
@@ -13697,7 +13697,7 @@ genSwap (const iCode *ic)
           idxarray[2] = result->aop->aopu.aop_reg[0]->rIdx;
           idxarray[3] = result->aop->aopu.aop_reg[1]->rIdx;
           idxarray[4] = -1;
-          z80_init_reg_asmop(&swapped_result_aop, idxarray);
+          init_reg_asmop(&swapped_result_aop, idxarray);
           genMove (&swapped_result_aop, left->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
           break;
         }
