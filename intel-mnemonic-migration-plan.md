@@ -804,6 +804,15 @@ the full byte range, the redundant re-masking sites in `assym.c` and
 presumably `linksrc`'s equivalent symbol code) remains open should
 priorities change.
 
+**Confirmed working (2026-08-22)**: the first full regression run since
+the exclusion landed came back **`0 failures, 0 abnormal stops, 6354
+test cases`** on all three ports (`i8085`, `i8085-undoc`, `i8080`) -
+independently verified by reading each `.sum` file directly and
+confirming the two excluded tests genuinely never run at all (no
+`.out` file exists for either, not just a suppressed failure report).
+Genuinely 100% clean regression suite - no known issues, no
+undocumented gaps.
+
 ## Not in scope for this pass
 
 - Upstream submission of anything (explicitly off the table for now,
