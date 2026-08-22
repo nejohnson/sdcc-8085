@@ -152,6 +152,16 @@ migration narration - cut it.
      at all, that's a sign of a mistake in the copy, not a real
      divergence to accept.
 
+**Peephole files (`peeph.def`, `peeph-z80.def`) - deliberately left
+untouched (2026-08-22, Neil)**: still entirely Zilog-syntax (`peeph.def`
+alone has 921 hits of `ld`/`jr`/`jp`/`ldir`/`ex` across 3193 lines), with
+generic headers giving no signal they're currently inert in this
+directory. Not addressed in this tidy-up phase - the real fix (a genuine
+Intel-syntax rewrite) is real, separate engineering work, formally
+tracked as task #17, not something to paper over with a comment or
+quietly skip. **The project is not considered fully "done" until that
+rewrite happens** - this is an explicit open item, not a closed one.
+
 ## Validation bar
 
 Same as every other phase of this project: full `test-i8085`/
