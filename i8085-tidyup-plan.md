@@ -91,6 +91,21 @@ behavior change, so any regression-suite delta at all means something
 went wrong in the rename (a missed `#include` site, a broken guard,
 etc.) - investigate immediately, don't just accept a different number.
 
+## Progress
+
+**Checkpoint 1 committed and pushed as `23d040b`** - items 1-4 done:
+`z80.h` renamed to `i8085.h` (all 6 include sites updated, no stray
+references left, both include guards fixed), `support.c`/`support.h`
+header comments and guard fixed, `gen.h`'s inherited-1998-mcs51-fork
+header fixed (copyright/license text kept intact as genuine history,
+only the misdescription corrected), 5 orphaned `peeph-*.def` files
+deleted (confirmed unused via `port.mk`'s wildcard build rule and
+`main.c`'s actual `#include` list). Independently verified before
+committing: no stray `z80.h` includes anywhere, both new include
+guards present, all three `.sum` files at 2/6356, 0 abnormal stops.
+
+Item 5 (the full editorial comment pass) not yet started - next.
+
 ## Workflow
 
 Same incremental-checkpoint pattern as the clean-sweep phase: commit
