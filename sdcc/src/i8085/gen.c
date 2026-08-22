@@ -4823,15 +4823,12 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
           spillPairReg (to->aopu.aop_reg[to_offset]->name);
           return;
         }
-#if 0 // Might destroy carry. Would also mess up interrupts on TLCS-90.
-      if (aopInReg (from, from_offset, IYH_IDX) && !to_index && a_dead)
-        {
-          _push(PAIR_IY);
-          _pop (PAIR_AF);
-          cheapMove (to, to_offset, ASMOP_A, 0, true);
-          return;
-        }
-#endif
+      // "#if 0 // Might destroy carry. Would also mess up interrupts on
+      // TLCS-90." IYH_IDX-into-a-via-PAIR_IY shortcut removed here
+      // (clean-sweep task #14) - already inert (disabled at the
+      // preprocessor level, never compiled in), and doubly dead for
+      // i8080/i8085 regardless: no IY hardware exists on this CPU family
+      // for _push (PAIR_IY) to have ever addressed.
     }
 
   if (from->type != AOP_REG && from->type != AOP_LIT && aopIsLitVal (from, from_offset, 1, 0x00))
@@ -6069,17 +6066,15 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           continue;
         }
 
-#if 0 // TODO: Bug #3882
-      if (IS_EZ80 && i + 3 == size && (result->type == AOP_DIR || result->type == AOP_IY || result->type == AOP_HL) && (source->type == AOP_LIT /*|| source->type == AOP_IMMD TODO: bug #2930*/) && hl_dead)
-        {
-          unsigned long v = ullFromVal (source->aopu.aop_lit) >> ((soffset + i) * 8) & 0xffffff;
-          emit2 ("ld.lil hl, !immed%lu", v);
-          emit2 ("ld.lil !mems, hl", aopGetLitWordLong (result, roffset + i, false));
-          i += 3;
-          continue;
-        }
-      else
-#endif
+      // "#if 0 // TODO: Bug #3882" IS_EZ80 3-byte ld.lil literal-write arm
+      // removed here (clean-sweep task #14) - already inert (disabled at
+      // the preprocessor level), and doubly dead for i8080/i8085 regardless
+      // (IS_EZ80 unconditionally false; also referenced the dead AOP_IY
+      // type). The "if (...) {...} else" wrapper is removed along with it;
+      // the "if (result->type == AOP_STK ...)" below (already its own,
+      // separately-reasoned-about dead-for-i8085 candidate per the comment
+      // just below) stands as a plain "if", same as it always effectively
+      // was once IS_EZ80 is accounted for.
       // (IS_RAB||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1||IS_EZ80)-gated
       // "ld rr, n (sp)" cached-literal arm removed here (all five
       // macros unconditionally false in this file).
@@ -14866,25 +14861,15 @@ _moveFrom_tpair_ (asmop * aop, int offset, PAIR_ID pair)
 
 static void offsetPair (PAIR_ID pair, PAIR_ID extrapair, bool save_extrapair, int val)
 {
-  if (IS_TLCS90 && (pair == PAIR_HL || pair == PAIR_IX || pair == PAIR_IY) && abs(val) > (optimize.codeSpeed ? 1 : 2))
-    {
-      emit2 ("add %s, #%d", _pairs[pair].name, val);
-      cost (3, 6);
-    }
-  else if ((IS_EZ80 || IS_R6K) && (pair == PAIR_IX || pair == PAIR_IY) && abs(val) > 1)
-    {
-      if (IS_EZ80)
-        {
-          emit2 ("lea %s, %s, #%d", _pairs[pair].name, _pairs[pair].name, val);
-          cost (3, 3);
-        }
-      else
-        {
-          emit2 ("add %s, #%d", _pairs[pair].name, val);
-          cost (3, 6);
-        }
-    }
-  else if (abs (val) >= (save_extrapair ? 6 : 4) && (pair == PAIR_HL || pair == PAIR_IX || pair == PAIR_IY))
+  // Two branches removed here (clean-sweep task #14), both entirely dead
+  // for i8080/i8085 with no live content mixed in (unlike the branch just
+  // below, which keeps a live PAIR_HL case alongside its own dead PAIR_IX/
+  // PAIR_IY sub-case): an IS_TLCS90-gated "add rr, #n" arm, and an
+  // (IS_EZ80||IS_R6K)-gated "lea"/"add rr, #n" arm. IS_TLCS90/IS_EZ80/IS_R6K
+  // are all unconditionally false (i8085_opts.sub, the only thing any of
+  // them check, is only ever SUB_8080 or SUB_8085 anywhere in this port's
+  // code - see src/i8085/main.c, its only two assignment sites).
+  if (abs (val) >= (save_extrapair ? 6 : 4) && (pair == PAIR_HL || pair == PAIR_IX || pair == PAIR_IY))
     {
       if (save_extrapair)
         _push (extrapair);
