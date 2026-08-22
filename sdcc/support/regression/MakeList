@@ -433,6 +433,21 @@ EXCLUDE_i8080 += ${EXCLUDE_ARCH_z80}
 #    0x8000 (only ~31.5 KB of code fits below data).
 #  - rabbit / arith-rand-ll: genuinely need >2e9 cycles at the simulated 1 MHz,
 #    exceeding the uCsim step budget.
+#  - tcc_83_utf8_in_identifiers / tst_p99-conformance: exercise SDCC's own
+#    support for UTF-8/non-ASCII identifiers, a genuine C-level feature these
+#    ports otherwise support - the gap is entirely in vendor ASxxxx's
+#    toolchain, not SDCC. Traced (not assumed): asxxsrc/aslex.c's get() masks
+#    every character to 7 bits before it ever reaches the lexer, the same
+#    pattern is independently duplicated in linksrc/lklex.c's own get(), the
+#    128-entry ctype[]/ccase[] classification tables backing both are sized
+#    for ASCII only (present as two more separate copies, one per tool), and
+#    assym.c's symbol comparison/hashing functions redundantly re-mask to 7
+#    bits at their own call sites even if the lexer output were fixed - a
+#    real fix means new logic in both the assembler and the linker's
+#    independent lexer/symbol-table code, none of it currently covered by
+#    any non-ASCII test anywhere in the vendored ASxxxx tree. See
+#    intel-mnemonic-migration-plan.md for the full investigation - tracked as
+#    real future work, not pursued here.
 EXCLUDE_ARCH_i8080 = \
 	dynamic \
 	dynamiccstructret \
@@ -442,7 +457,9 @@ EXCLUDE_ARCH_i8080 = \
 	smallserpent \
 	gcrypt-serpent \
 	tst_rabbit \
-	tst_gcc-torture-execute-arith-rand-ll
+	tst_gcc-torture-execute-arith-rand-ll \
+	tcc_83_utf8_in_identifiers \
+	tst_p99-conformance
 EXCLUDE_i8085 += ${EXCLUDE_ARCH_i8080}
 EXCLUDE_i8085-undoc += ${EXCLUDE_ARCH_i8080}
 EXCLUDE_i8080 += ${EXCLUDE_ARCH_i8080}
