@@ -665,8 +665,24 @@ this project has been handled.
 **Pass 1 committed and pushed as `be3a787`** - independently verified
 before committing (the `*_NOTYET` revert confirmed genuine, all three
 `.sum` files read directly at 2/6356 matching baseline, working tree
-clean with only `gen.c` modified). Pass 2 (the `#if 0` block,
-`offsetPair()`, and continuing the file-wide `IS_*` audit) underway.
+clean with only `gen.c` modified).
+
+**Pass 2 committed and pushed as `4e8df23`** - removed two `#if 0`
+blocks (a dead speculative-optimization arm referencing IY, an
+`IS_EZ80`-gated `ld.lil` arm also referencing dead `AOP_IY`) and
+`offsetPair()`'s two entirely-dead leading branches (`IS_TLCS90`-gated,
+`(IS_EZ80||IS_R6K)`-gated). Surveyed every remaining `#if 0`/`#ifdef`
+block and live `IS_*`-family reference file-wide - most of the ~380
+total are already just explanatory comments about earlier removals,
+not actual disabled code. Deliberately left alone: general-purpose
+debug scaffolding unrelated to this migration or IX/IY (out of scope
+per Neil's stated concern), and one live, correct defensive guard in
+`genPlus`. Independently verified before committing: all three `.sum`
+files at 2/6356, 0 abnormal stops, only `gen.c` modified.
+
+**Not yet done**: a dedicated line-by-line re-read pass to catch any
+remaining mixed live/dead branches under-scanned so far, and a similar
+audit of `main.c`/`ralloc.c`/`ralloc2.cc` if in scope.
 
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
