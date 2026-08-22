@@ -81,6 +81,36 @@ migration narration - cut it.
    that's still accurate today), leave it - only cut the narration
    framing, not every literal occurrence of the word.
 
+6. **Rename `z80`-prefixed functions/identifiers** (found by Neil via
+   `grep -i z80 * | wc -l` in `src/i8085/` - 452 hits, not all comments).
+   Confirmed real, live, called functions, not dead code: `peep.c`'s
+   whole `z80MightRead`/`z80MightReadFlag`/`z80MightReadFlagCondition`/
+   `z80MightBeParmInCallFromCurrentFunction`/`z80UncondJump`/
+   `z80CondJump`/`z80SurelyWrites`/`z80SurelyWritesFlag`/
+   `z80SurelyReturns` family, `gen.c`'s `z80_init_reg_asmop`, `main.c`'s
+   `_z80_genAssemblerStart`. Rename each and update every call site -
+   this is mechanical but touches a real number of call sites per
+   function, verify each rename's call sites are all caught (a grep for
+   the old name after the rename should come back empty).
+
+7. **Audit the `IS_Z80`/`IS_Z180`/`IS_R2K`/`IS_R2KA`/`IS_R3KA`/`IS_R4K`/
+   `IS_R5K`/`IS_R6K`/`IS_SM83`/`IS_TLCS90`/`IS_TLCS870`/`IS_TLCS870C`/
+   `IS_TLCS870C1`/`IS_EZ80`/`IS_Z80N`/`IS_R800` macro family** (defined
+   in `i8085.h`, checking `i8085_opts.sub` against sibling z80-family
+   sub-targets this port can never actually be). Each is still
+   referenced in 1-3 files outside `i8085.h` itself. The clean-sweep
+   phase (task #14) never specifically targeted this macro family - it
+   was scoped to dead-*branch* pruning (`IS_EZ80`/`IS_TLCS90`/`IS_RAB`/
+   `IS_R4K`-style), not identifier/macro-definition cleanup, so some of
+   these references may be genuine leftovers never audited, not
+   confirmed-necessary category-2 exceptions like `ld_cost_form`'s
+   `AOP_STK`/`AOP_IY` cost stubs. Use the exact same reachability-
+   tracing discipline as the clean-sweep for each: prove a macro
+   reference dead before removing it (and remove the macro's own
+   definition from `i8085.h` too, once nothing outside references it),
+   don't assume - some may turn out to be genuine category-2 keepers
+   like the clean-sweep found elsewhere.
+
 ## Validation bar
 
 Same as every other phase of this project: full `test-i8085`/
