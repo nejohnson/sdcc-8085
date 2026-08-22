@@ -111,6 +111,18 @@ migration narration - cut it.
    don't assume - some may turn out to be genuine category-2 keepers
    like the clean-sweep found elsewhere.
 
+8. **Delete `mappings.i`** (488 lines) - confirmed orphaned, same
+   category as the 5 already-deleted `peeph-*.def` files. Never
+   `#include`d by anything in `src/i8085/` - `main.c` gets its
+   `ASM_MAPPINGS` via `extern const ASM_MAPPINGS _asxxxx_z80;`, linking
+   against the symbol defined in `src/z80/main.c` (which `#include`s
+   the real, live `src/z80/mappings.i` - a different file). Verify this
+   directly before deleting, same as the peeph files were. Note for
+   whoever does this: that `extern` in `main.c` is a genuine, intentional,
+   already-documented dependency on `src/z80/` (same pattern as sharing
+   `peeph-z80.rul`) - don't touch it, only the orphaned local copy of
+   the file it's *not* using.
+
 ## Validation bar
 
 Same as every other phase of this project: full `test-i8085`/
