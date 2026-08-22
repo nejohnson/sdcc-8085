@@ -111,17 +111,46 @@ migration narration - cut it.
    don't assume - some may turn out to be genuine category-2 keepers
    like the clean-sweep found elsewhere.
 
-8. **Delete `mappings.i`** (488 lines) - confirmed orphaned, same
-   category as the 5 already-deleted `peeph-*.def` files. Never
-   `#include`d by anything in `src/i8085/` - `main.c` gets its
-   `ASM_MAPPINGS` via `extern const ASM_MAPPINGS _asxxxx_z80;`, linking
-   against the symbol defined in `src/z80/main.c` (which `#include`s
-   the real, live `src/z80/mappings.i` - a different file). Verify this
-   directly before deleting, same as the peeph files were. Note for
-   whoever does this: that `extern` in `main.c` is a genuine, intentional,
-   already-documented dependency on `src/z80/` (same pattern as sharing
-   `peeph-z80.rul`) - don't touch it, only the orphaned local copy of
-   the file it's *not* using.
+8. **REVISED (2026-08-22, Neil) - do NOT delete `mappings.i`. Repurpose
+   it to break the `extern` coupling instead.** Original plan (delete
+   the orphaned local file, leave `main.c`'s `extern const ASM_MAPPINGS
+   _asxxxx_z80;` pointing at `src/z80/main.c`'s table) was wrong -
+   deleting the dead local copy does nothing about the actual problem:
+   i8085/i8080 codegen currently depends on `src/z80/mappings.i`'s
+   content at build time, with zero signal to a future z80 maintainer
+   editing that file for a z80-only reason that they're also changing
+   i8085/i8080 output. Same category of implicit coupling `z80.h` ->
+   `i8085.h` was already fixed for.
+
+   **Correct fix**: give i8085 its own independent mapping table.
+   - Repurpose `mappings.i` (don't delete): keep/rename the
+     `_asxxxx_z80_mapping` table (the one i8085 actually relies on
+     today, confirmed via `gen.c`'s existing "shared, un-touchable
+     `_asxxxx_z80_mapping` table" comments) to something like
+     `_i8085_asm_mapping`. Drop the other tables in the file i8085 has
+     never used (`_asxxxx_gb_mapping`, `_asxxxx_r2k_mapping`,
+     `_rgbds_mapping`, `_rgbds_gb_mapping`, `_isas_mapping`,
+     `_isas_gb_mapping`, `_z80asm_mapping`, `_z80asm_z80_mapping`,
+     `_gas_gb_mapping`, `_gas_z80_mapping`, and the `_isas`/`_rgbds`/
+     `_z80asm` `ASM_MAPPINGS` wrapper structs - verify each is
+     genuinely unused by i8085 before dropping, same discipline as
+     everything else in this plan).
+   - `main.c`: replace `extern const ASM_MAPPINGS _asxxxx_z80;` +
+     the `asm_addTree (&_asxxxx_z80);` call sites with a locally-defined
+     table and `#include "mappings.i"` (matching how `z80/main.c` does
+     it for its own copy).
+   - **Do NOT change the table's actual content/values** - keep the
+     Zilog-flavored text (`"ld a, (hl)\ninc\thl"` etc.) exactly as-is.
+     `gen.c`'s `intelOperand()` machinery already correctly translates
+     the leftover Zilog text at the point of use - this is proven,
+     regression-verified logic from the mnemonic migration itself. This
+     fix is about *ownership* (who defines the table, so an i8085-only
+     backend never silently changes when someone edits `z80/`), not
+     about the table's content being wrong.
+   - Validate exactly like every other item: full 3-port regression,
+     unchanged 2/6356 baseline. If the extern removal changes anything
+     at all, that's a sign of a mistake in the copy, not a real
+     divergence to accept.
 
 ## Validation bar
 
