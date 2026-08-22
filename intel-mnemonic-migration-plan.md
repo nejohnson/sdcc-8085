@@ -680,9 +680,36 @@ per Neil's stated concern), and one live, correct defensive guard in
 `genPlus`. Independently verified before committing: all three `.sum`
 files at 2/6356, 0 abnormal stops, only `gen.c` modified.
 
-**Not yet done**: a dedicated line-by-line re-read pass to catch any
-remaining mixed live/dead branches under-scanned so far, and a similar
-audit of `main.c`/`ralloc.c`/`ralloc2.cc` if in scope.
+**`main.c`/`ralloc.c`/`ralloc2.cc` audit: clean, no changes needed.**
+`ralloc.c` has zero IX/IY-specific references at all. `main.c`'s only
+two live references (`_getRegByName`'s `"iyl"`/`"iyh"` mapping) are
+legitimate user-facing input-parsing robustness, not dead compiler-
+internal logic - left alone. `ralloc2.cc` already went through a prior
+careful IY-cleanup pass (`IYinst_ok()` fully removed, documented);
+its remaining `REG_IYL`/`REG_IYH` usage is load-bearing array-index
+bookkeeping in a generic multi-register cost/graph-coloring algorithm,
+correctly left alone rather than assumed removable.
+
+**Pass 3 committed and pushed as `10bf7ab`** - a systematic, exhaustive
+audit of every remaining `AOP_IY`/`AOP_STK`/`PAIR_IY`/`IYL_IDX`/
+`IYH_IDX`/`AOP_FDIR` occurrence in `gen.c` (not a literal line-by-line
+read, but every one of the 14+14+7 relevant case sites individually
+traced and categorized). One real removable site found: `aopGet`'s
+`AOP_STK`/`AOP_EXSTK` block had dead IX-indexed branches following the
+live HL-based `AOP_EXSTK` path - collapsed to the unconditional live
+path (both case labels kept as a costless safe fallback). Everything
+else confirmed already correctly minimal (register-allocator cost
+stubs, tripwires from earlier passes, small generic switch-arms
+matching their live siblings' style). Independently verified before
+committing: all three `.sum` files at 2/6356, 0 abnormal stops, only
+`gen.c` modified.
+
+**Assessment: the `gen.c` clean-sweep is substantially complete** after
+three dedicated passes (`AOP_FDIR` removal, `#if 0`/`offsetPair`
+cleanup, exhaustive case-site audit) plus the clean `main.c`/`ralloc.c`/
+`ralloc2.cc` audit. Further hunting would mostly turn up more already-
+minimal generic dispatch code, not genuine removable bloat. Task #14
+can be considered done pending final review.
 
 ## Post-migration phase: clean sweep of dead/commented code (2026-08-20, Neil)
 
