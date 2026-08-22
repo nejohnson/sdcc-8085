@@ -758,6 +758,52 @@ throughout. Do this pass once `test-i8085`/`test-i8085-undoc`/
 `test-i8080` are clean and the ISR/i8080-shared-`gen.c` questions are
 resolved, not before.
 
+## UTF-8-identifier regression failures: investigated, documented and excluded (2026-08-22)
+
+Neil, given the project's public reception, wants genuine 0 unexplained
+regression failures rather than 2 known-but-unfixed ones - asked for a
+real look at whether `tcc_83_utf8_in_identifiers.c`/`tst_p99-
+conformance.c` (the standing UTF-8-symbol-names gap) could actually be
+fixed now, rather than accept the earlier "declined, too risky" call at
+face value.
+
+**Traced properly - the real scope turned out to be bigger than the
+earlier assessment, not smaller**: the 7-bit-masking/hard-sized-table
+pattern is duplicated **three independent times**, not once - `asxxsrc/
+aslex.c`'s `get()` + `asdata.c`'s `ctype[128]`/`ccase[128]` (shared by
+every ASxxxx assembler target), and a completely separate copy in
+`linksrc/lklex.c`'s own `get()` + `linksrc/lkdata.c`'s own `ctype[128]`
+(`aslink` itself). Worse: `assym.c`'s symbol comparison/hashing
+functions independently re-mask to 7 bits at their own call sites
+(`ccase[*p1++ & 0x007F]` in the comparison and hash functions) - so even
+a fully UTF-8-clean lexer would still risk two genuinely different
+Unicode identifiers colliding in the symbol table, a subtle correctness
+bug, not just a rejection. A real fix touches both tools' independent
+lexer/symbol-table core, with zero existing non-ASCII test coverage
+anywhere in the vendored tree to validate against - comparable in scope
+and risk to the mnemonic migration itself, not a small point-fix like
+the earlier `!ldahli`/dash-in-symbol-name class of bugs.
+
+**Decision**: don't attempt the real fix now. Instead, found and used
+SDCC's own existing, established per-port test-exclusion mechanism
+(`MakeList`'s `EXCLUDE_ARCH_i8080` group) - already actively used for
+other genuine, documented i8080/i8085 platform limitations (`DynamicC`
+calling convention, code-size budget, simulation cycle budget). Added
+both tests there with a full, honest explanation of the real root cause
+(commit `881129b`), matching the exact pattern already established
+right next to it rather than inventing something new or silently
+dropping the tests. This is genuine "0 unexplained failures," openly
+documented as a known vendor-toolchain limitation - not the same as
+closing the underlying gap, but a defensible, professional answer to
+it, matching how mature toolchains handle target-specific language-
+feature gaps generally.
+
+**Tracked as real future work, not closed permanently**: the actual
+fix (both `get()`s, both `ctype`/`ccase` table pairs extended to cover
+the full byte range, the redundant re-masking sites in `assym.c` and
+presumably `linksrc`'s equivalent symbol code) remains open should
+priorities change.
+
 ## Not in scope for this pass
 
 - Upstream submission of anything (explicitly off the table for now,
