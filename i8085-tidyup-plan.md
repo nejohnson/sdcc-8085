@@ -216,6 +216,13 @@ Next: `main.c`'s comment pass (small), then `gen.c` as one combined
 comment-pass-plus-macro-audit effort (~18,400 lines, the largest
 remaining piece of the whole plan) - checkpointed by logical section.
 
+**Checkpoint 3 committed and pushed as `6f5b3a9`** - `main.c`'s comment
+pass done, including finding and fixing a genuinely broken reference
+(a comment pointing at `_z80AsmCmd above`, an array removed earlier in
+the project - not just stale, actively wrong). Verified: 0/6354 on all
+three ports, 0 abnormal stops, only `main.c` modified. `gen.c` next -
+the largest remaining piece.
+
 ## Workflow
 
 Same incremental-checkpoint pattern as the clean-sweep phase: commit
