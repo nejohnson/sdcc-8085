@@ -1,5 +1,5 @@
 /*-------------------------------------------------------------------------
-  main.c - Z80 specific definitions.
+  main.c - i8080/i8085 port definitions.
 
   Michael Hope <michaelh@juju.net.nz> 2001
   Copyright (C) 2021, Sebastian 'basxto' Riedel <sdcc@basxto.de>
@@ -58,8 +58,8 @@ static char _z80_defaultRules[] = {
 #include "peeph-z80.rul"
 };
 
-/* i8085_opts is this port's own copy of the option state (see i8085.h) -
-   defined once here, no longer shared with src/z80/main.c's z80_opts. */
+/* i8085_opts is this port's own copy of the option state (see i8085.h),
+   independent of src/z80/main.c's own z80_opts. */
 I8085_OPTS i8085_opts;
 
 static OPTION _i8080_options[] = {
@@ -129,11 +129,6 @@ static char *_keywords[] = {
   NULL
 };
 
-/* "extern PORT sm83_port;" removed: it was only used by the "rgbds"/"isas"
-   --asm= branches in _parseOptions, both removed below as unreachable
-   (Game Boy/SM83-specific, and i8080_port/i8085_port are the only ports
-   this file ever runs as). */
-
 /* This port's own token-substitution table for the vendor ASxxxx
    assembler (see mappings.i's own comment for what it does); defined here
    rather than shared with src/z80/main.c's copy so that i8085's table can
@@ -187,11 +182,9 @@ _reset_regparm (struct sym_link *ftype)
   if (IFFUNC_ISZ88DK_FASTCALL (ftype) && IFFUNC_HASVARARGS (ftype))
     werror (E_Z88DK_FASTCALL_PARAMETERS);
   /* The Dynamic C calling convention has the caller save IX as the frame
-     pointer; the i8080/i8085 have no index register, so the convention cannot
-     be honoured ABI-compatibly (it was a Rabbit/Z180-only convention). Reject
-     it rather than silently emitting a subtly-incompatible variant.
-     IS_8080LIKE is unconditionally true in this file (only i8080_port/
-     i8085_port run this code), so the check always fires for __dynamicc. */
+     pointer; i8080/i8085 have no index register, so the convention cannot
+     be honoured ABI-compatibly. Reject it rather than silently emitting a
+     subtly-incompatible variant. */
   if (IFFUNC_ISDYNAMICC (ftype))
     werror (E_DYNAMICC_UNSUPPORTED);
 }
@@ -246,15 +239,8 @@ do_pragma (int id, const char *name, const char *cp)
             break;
 
           case TOKEN_INT:
-            // "switch (_G.asmType) { case ASM_TYPE_ASXXXX: ...; case
-            // ASM_TYPE_RGBDS: ...; case ASM_TYPE_ISAS: ...; case
-            // ASM_TYPE_GAS: ...; default: wassert (0); }" collapsed to just
-            // the ASM_TYPE_ASXXXX arm: _G.asmType is only ever assigned
-            // ASM_TYPE_ASXXXX now (the "rgbds"/"isas"/"z80asm"/"gas" --asm=
-            // branches that used to set it to the other values were removed
-            // from _parseOptions as unreachable), and it is otherwise
-            // zero-initialized (ASM_TYPE_ASXXXX is the first/0 enumerator),
-            // so this switch can never take any other case.
+            // This port only ever targets the ASxxxx assembler, so the bank
+            // pragma's numeric form is always formatted the same way.
             dbuf_printf (&buffer, "CODE_%d", token.val.int_val);
             break;
 
@@ -386,32 +372,20 @@ _process_pragma (const char *s)
   return process_pragma_tbl (pragma_tbl, s);
 }
 
-/* _sm83_rgbasmCmd/_sm83_rgblinkCmd/_sm83_rgblink() removed: they existed
-   solely to support the "rgbds" --asm= branch in _parseOptions, removed
-   below as unreachable (Game Boy/SM83-specific; i8080_port/i8085_port are
-   the only ports this file ever runs as). */
-
 static bool
 _parseOptions (int *pargc, char **argv, int *i)
 {
   if (argv[*i][0] == '-')
     {
       /* OPTION_BO/OPTION_BA (ROM/RAM bank selection) are z80/sm83-only
-         options, not present in _i8080_options/_i8085_options, so the
-         IS_SM83/IS_Z80 branch that handled them (both always false on
-         i8080/i8085) is unreachable here and has been removed. */
+         options and are not applicable to i8080/i8085, so they are not
+         present in _i8080_options/_i8085_options and are not handled here. */
 
       if (!strncmp (argv[*i], OPTION_ASM, sizeof (OPTION_ASM) - 1))
         {
           char *asmblr = getStringArg (OPTION_ASM, argv, i, *pargc);
 
-          // Dropped: "rgbds"/"isas"/"z80asm"/"gas" branches (Game Boy/
-          // SM83-specific assemblers, unreachable for i8080/i8085 -
-          // i8080_port/i8085_port are the only ports defined in this file,
-          // so this parser can never run while any other port is active;
-          // the removed "rgbds" branch even mutated sm83_port's fields
-          // directly regardless of which port is actually running, a clear
-          // tell it was never reachable here).
+          // This port only ever targets the asxxxx assembler.
           if (!strcmp (asmblr, "asxxxx"))
             {
               _G.asmType = ASM_TYPE_ASXXXX;
@@ -536,7 +510,8 @@ _finaliseOptions (void)
   port->mem.default_local_map = data;
   port->mem.default_globl_map = data;
 
-  /* IY_RESERVED is unconditionally true on i8080/i8085 (there is no IY). */
+  /* There is no IY on i8080/i8085, so its 2 register slots are never
+     allocatable. */
   port->num_regs -= 2;
 
   _setValues ();
@@ -545,29 +520,20 @@ _finaliseOptions (void)
 static void
 _setDefaultOptions (void)
 {
-  /* Peephole optimisation disabled by default (stopgap, not a permanent
-     policy): src/i8085/peeph.def's replacement templates are still
-     written in Zilog syntax (e.g. "ld hl, #%1" / "add hl, sp"), left over
-     from before the Intel mnemonic migration (see
-     intel-mnemonic-migration-plan.md). A rule's *match* side can key off
-     operand shapes that still look the same in both dialects (or, once
-     the migration is complete, off Intel-syntax text) while its
-     *replacement* side unconditionally emits the old Zilog text -
-     confirmed actually firing and corrupting real output (bug-3013.c:
-     a run of "inc sp" got rewritten to "ld hl,#5 / add hl,sp /
-     ld sp,hl" mid-migration). This is not a transitional-only hazard:
-     any rule whose match side happens to still be dialect-ambiguous even
-     after the migration is complete is a permanent landmine as long as
-     its replacement side is unaudited Zilog text. Auditing/rewriting all
-     3193 lines of peeph.def under Intel semantics is real, separate,
-     tracked follow-up work (intel-mnemonic-migration-plan.md), not part
-     of this migration - until that happens, disabling peephole here is
-     the safe default for both i8085_port and i8080_port (this function
-     is shared by both - see their PORT struct entries below - so both
-     get the fix; they'd be equally broken by the same rules). A user can
-     still opt back in for their own audited rules via --peep-file
-     (readRules()/initPeepHole() in SDCCpeeph.c apply it regardless of
-     nopeep), just not via the stock rule file. */
+  /* Peephole optimization is disabled by default: src/i8085/peeph.def's
+     replacement templates are written in Zilog syntax (e.g. "ld hl, #%1" /
+     "add hl, sp"), not the Intel syntax gen.c actually emits. A rule's
+     *match* side can still key off an operand shape that happens to look
+     the same in both dialects, letting the rule fire, while its
+     *replacement* side unconditionally emits the old Zilog text into real
+     output - corrupting it (see bug-3013.c). Auditing/rewriting all 3193
+     lines of peeph.def under Intel semantics is real, separate, tracked
+     work (intel-mnemonic-migration-plan.md); until that lands, disabling
+     peephole is the safe default for both i8085_port and i8080_port (this
+     function is shared by both, and both are equally exposed to the same
+     rules). A user can still opt back in for their own audited rules via
+     --peep-file (readRules()/initPeepHole() in SDCCpeeph.c apply it
+     regardless of nopeep), just not via the stock rule file. */
   options.nopeep = 1;
   options.stackAuto = 1;
   /* first the options part */
@@ -661,16 +627,11 @@ _getRegByName (const char *name)
 static void
 _genAssemblerStart (FILE * of)
 {
-  /* Both i8080 and i8085 now target vendor's as8085 directly instead of
-     sdasz80/sdasz80 (see intel-mnemonic-migration-plan.md - i8080 was
-     retargeted alongside i8085, since it shares this same gen.c). Vendor's
-     assembler doesn't recognize the .optsdcc directive SDAS added as an
-     SDCC-only extension, so emit it as a ';'-prefixed comment instead for
-     both ports - still useful for a human (or future tooling) reading the
-     .asm, but harmless to vendor's as8085. (Previously only i8085 got the
-     comment-form; i8080 still emitted the real !optsdcc directive from when
-     it targeted sdasz80, which broke as8085 assembly of every i8080-compiled
-     .c file until this was caught via a real device-library build.) */
+  /* Both i8080 and i8085 target vendor's as8085 assembler, which doesn't
+     recognize the .optsdcc directive SDAS added as an SDCC-only extension,
+     so emit it as a ';'-prefixed comment instead for both ports - still
+     useful for a human (or future tooling) reading the .asm, but harmless
+     to as8085. */
   if (!options.noOptsdccInAsm)
     {
       tfprintf (of, (TARGET_IS_I8085 || TARGET_IS_I8080) ? "\t;optsdcc -m%s" : "\t!optsdcc -m%s", port->target);
@@ -686,12 +647,6 @@ _genAssemblerStart (FILE * of)
   else if (TARGET_IS_I8085)
     fprintf (of, options.allow_undoc_inst ? "\t.8085x\n" : "\t.8085\n");
 }
-
-/* rab_genIVT (Rabbit-family interrupt vector table generation) is not used:
-   both i8080_port and i8085_port pass 0 for genIVT (see the PORT struct
-   below), so it was dead code even before this port existed as a separate
-   backend. Removed along with RAB_INTERRUPTS_COUNT/rab_int_names, which it
-   alone referenced. */
 
 static bool
 _hasNativeMulFor (iCode *ic, sym_link *left, sym_link *right)
@@ -765,55 +720,28 @@ oclsExpense (struct memmap *oclass)
 }
 
 
-//#define LINKCMD "sdld{port} -nf {dstfilename}"
-/*
-#define LINKCMD \
-    "sdld{port} -n -c -- {z80bases} -m -j" \
-    " {z80libspec}" \
-    " {z80extralibfiles} {z80extralibpaths}" \
-    " {z80outputtypeflag} \"{linkdstfilename}\"" \
-    " {z80crt0}" \
-    " \"{dstfilename}{objext}\"" \
-    " {z80extraobj}"
-*/
-
 /* i8085 and i8080 both target vendor's (patched) as8085/aslink directly
-   rather than sdasz80/sdldz80 (see asxxxx-integration-plan.md and
-   intel-mnemonic-migration-plan.md). i8080 originally stayed on SDAS's own
-   sdasz80/sdldz80, unmodified, while only i8085 switched toolchains (the
-   ASxxxx-integration phase) - but once src/i8085/gen.c started emitting
-   Intel mnemonics unconditionally for both ports (the mnemonic-migration
-   phase), i8080's continued use of sdasz80 (which only ever understood
-   Zilog syntax) meant i8080 could no longer assemble at all. The SDAS-
-   targeting "_z80AsmCmd"/"_z80LinkCmd" command arrays i8080_port used to
-   point at (literally "sdasz80 ..."/"sdldz80 -nf ...") are gone entirely
-   now, not just unreferenced - neither port struct below points at
-   anything SDAS-shaped any more, and nothing else in this file needs
-   them. */
+   rather than SDAS's sdasz80/sdldz80 (see asxxxx-integration-plan.md).
+   Neither port struct below points at anything SDAS-shaped. */
 
-/* The assembler invocation drops the explicit output-.rel-filename
-   positional argument SDAS's syntax needs ("$2" in _z80AsmCmd above):
-   vendor's as8085 takes just "[-options] file1 [file2...]" and derives the
-   output name from the input file automatically, which already produces
-   exactly the filename SDCC needs.
+/* The assembler invocation has no explicit output-.rel-filename positional
+   argument: vendor's as8085 takes just "[-options] file1 [file2...]" and
+   derives the output name from the input file automatically, which already
+   produces exactly the filename SDCC needs.
 
    "as8085", not "asz80": both are built from the exact same asxxsrc
    core sources (asdata/asdbg/asexpr/aslex/aslist/asmain/asmcro/asout/assubr/assym -
    confirmed identical file list against asxmak/vs22/build/as8085/
    as8085.vcxproj), differing only in the machine-specific files
    (as8085/{i85mch,i85pst}.c vs asz80/{z80adr,z80mch,z80pst}.c) - i.e. only
-   in which mnemonics/encodings they accept, not in CLI flags, object
-   format, or any of the ASxxxx-track fixes already landed for this
-   project. Since src/i8085/gen.c now emits Intel mnemonics unconditionally
-   (both i8085_port and i8080_port - see intel-mnemonic-migration-plan.md),
-   asz80 (Zilog-syntax-only) can no longer assemble this port's output at
-   all; as8085 is the vendor assembler that actually matches what gen.c
-   emits now. Shared by both i8080_port and i8085_port below (same vendor
-   binary, same command shape - only the ".8080"/".8085"/".8085x" CPU-mode
-   directive _genAssemblerStart() emits at the top of the generated
-   .asm file, per TARGET_IS_I8080/TARGET_IS_I8085, tells as8085 which
-   instruction subset to accept), hence the port-neutral "_i808x" name
-   rather than "_i8085". */
+   in which mnemonics/encodings they accept, not in CLI flags or object
+   format. src/i8085/gen.c emits Intel mnemonics, which only as8085
+   understands (asz80 only understands Zilog syntax); as8085 is shared by
+   both i8080_port and i8085_port below (same vendor binary, same command
+   shape - only the ".8080"/".8085"/".8085x" CPU-mode directive
+   _genAssemblerStart() emits at the top of the generated .asm file, per
+   TARGET_IS_I8080/TARGET_IS_I8085, tells as8085 which instruction subset
+   to accept), hence the port-neutral "_i808x" name rather than "_i8085". */
 static const char *_i808xVendorAsmCmd[] = {
   "as8085", "$l", "$3", "$1.asm", NULL
 };
