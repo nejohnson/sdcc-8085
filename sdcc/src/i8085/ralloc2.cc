@@ -1002,8 +1002,7 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
 
 /* There is no IY register on i8080/i8085, so instruction_cost and
    assignment_hopeless (below) never need to check whether a register
-   assignment could validly use IY - both simply skip that check
-   (OPTRALLOC_IY is always false on this port). */
+   assignment could validly use IY - both simply skip that check. */
 
 /* de has no restrictions on this port that would ever make a register
    assignment using it invalid, so this always allows it. */

@@ -66,9 +66,6 @@ extern I8085_OPTS i8085_opts;
 #define IS_SM83 (i8085_opts.sub == SUB_SM83)
 #define IS_TLCS90 (i8085_opts.sub == SUB_TLCS90)
 #define IS_TLCS870 (i8085_opts.sub == SUB_TLCS870)
-#define IS_TLCS870C (i8085_opts.sub == SUB_TLCS870C)
-#define IS_TLCS870C1 (i8085_opts.sub == SUB_TLCS870C1)
-#define IS_TLCS (IS_TLCS90 || IS_TLCS870 || IS_TLCS870C || IS_TLCS870C1)
 #define IS_EZ80 (i8085_opts.sub == SUB_EZ80)
 #define IS_Z80N (i8085_opts.sub == SUB_Z80N)
 #define IS_R800 (i8085_opts.sub == SUB_R800)
@@ -82,6 +79,4 @@ extern I8085_OPTS i8085_opts;
 /* The 8080/8085 have no IY (or IX) at all, so treat IY as permanently
    reserved: every "IY not usable" fallback then applies to them too. */
 #define IY_RESERVED (i8085_opts.reserveIY || IS_8080LIKE)
-
-#define OPTRALLOC_IY !(IY_RESERVED || IS_SM83 || IS_TLCS870 || IS_8080LIKE)
 

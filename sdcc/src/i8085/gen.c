@@ -5079,16 +5079,6 @@ genCopyStack (asmop *result, int roffset, asmop *source, int soffset, int n, boo
           continue;
         }
 
-      // source_sp/result_sp removed: both were "IS_RAB && ... ||
-      // (IS_TLCS90||IS_TLCS870C||IS_TLCS870C1) && ..." and so
-
-
-      // now removed as entirely dead.
-      // (IS_R4K||IS_R5K||IS_R6K)-gated "ld jkhl, ..." 32-bit-pair-copy
-      // arm and (IS_RAB||IS_EZ80||IS_TLCS90||IS_TLCS870C||
-      // IS_TLCS870C1)-gated "ld hl, ..." 16-bit-pair-copy arm removed
-
-
       // Better than having to push/pop af below. Still prefer a, if free, to avoid spilling cached values in hl.
       /* AOP_STK is dead for i8085 (see this file's other AOP_STK-dead
          comments) - this whole branch (both result->type and source->type
@@ -5186,17 +5176,6 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
 
       if (assigned[i])
         i++;
-      // IS_R4K||IS_R5K||IS_R6K-gated 32-bit-load, !IS_SM83&&!IS_TLCS870&&
-      // !IS_RAB&&!(IS_TLCS90&&...)-gated ex-(sp),hl, and the
-      // fp/sp-relative-ld arm above (whose full condition reduces to
-      // always-false once IS_RAB/IS_TLCS90/IS_EZ80 are eliminated: its
-      // last `&&`-clause was `(... && IS_RAB) || (... && (IS_EZ80 ||
-
-      // here. Also removed: the (IS_RAB||IS_TLCS90||IS_TLCS870C||
-      // IS_TLCS870C1)-gated ld-iy-to-stack arm.
-
-      // ex (sp), hl; the Rabbits and tlcs90 have it, but ld 0 (sp), hl
-      // is faster - none of that applies here).
       else if (i + 1 < n && aopOnStack (result, roffset + i, 2) && !sp_offset &&
         aopInReg (source, soffset + i, HL_IDX) && hl_dead && // If we knew that iy was dead, we could also use ex (sp), iy here.
         !regalloc_dry_run) // Stack positions will change, so do not assume this is possible in the cost function.
@@ -5212,8 +5191,6 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
         }
       else if (i + 1 < n && aopOnStack (result, roffset + i, 2) && getPairId_o (source, soffset + i) != PAIR_INVALID && !sp_offset && !regalloc_dry_run) // Stack positions will change, so do not assume this is possible in the cost function.
         {
-          // IS_Z80||IS_Z80N||IS_SM83||IS_TLCS870C||IS_TLCS870C1-gated pop
-
           emit2 ("inx sp");
           cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
           emit2 ("inx sp");
@@ -5225,8 +5202,6 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
           size -= 2;
           i += 2;  
         }
-      // (IS_RAB||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1)-gated ex-de,hl
-
       else if (i + 1 < n && aopOnStack (result, roffset + i, 2) && requiresHL (result) &&
         aopInReg (source, soffset + i, HL_IDX) && hl_free)
         {
@@ -5747,7 +5722,6 @@ skip_byte:
           size -= 2;
           i += 2;
         }
-      // (IS_RAB||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1||IS_EZ80)-gated
 
       else if (i + 1 < n && !assigned[i + 1] && (source->type == AOP_STK || source->type == AOP_EXSTK) && requiresHL (source) &&
         (aopInReg (result, roffset + i, HL_IDX) || aopInReg (result, roffset + i, H_IDX) && aopInReg (result, roffset + i + 1, L_IDX))) // Stack access might go through hl.
@@ -7246,7 +7220,6 @@ genPointerPush (const iCode *ic)
       if (i + 1 < size && isRegDead (BC_IDX, ic))
         {
 
-          // IS_TLCS90||IS_TLCS870||IS_TLCS870C||IS_TLCS870C1, and IS_EZ80,
 
           emit2 ("mov b, m");
           cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 4, 3, 2, 2);
@@ -7590,7 +7563,6 @@ genCall (const iCode *ic)
         {
           genMove (ASMOP_HL, ic->left->aop, a_free, hl_free, de_free, true);
           adjustStack (prestackadjust, a_not_parm, bc_not_parm, de_not_parm, false, false);
-          // (IS_R4K||IS_R5K||IS_R6K||IS_TLCS)-gated "call (hl)" arm
 
           // this file).
             {
@@ -9525,7 +9497,6 @@ genPlus (iCode * ic)
           started = true;
           i += 2;
         }
-      // (IS_R6K||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1)-gated
 
       // When adding a literal, the 16 bit addition results in smaller, faster code than two 8-bit additions.
       else if (!maskedword && (!premoved || i) && aopInReg (IC_RESULT (ic)->aop, i, HL_IDX) && aopInReg (leftop, i, HL_IDX) && (rightop->type == AOP_LIT && !aopIsLitVal (rightop, i, 1, 0) || rightop->type == AOP_IMMD))
@@ -10139,7 +10110,6 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
       bool hl_dead = l_dead && h_dead;
 
       // Three (IS_R4K||IS_R5K||IS_R6K)-gated "neg" arms and one
-      // (IS_R6K||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1)-gated
 
       // Two (!IS_SM83 && !IS_8080LIKE)-gated "sub/sbc hl, rr" arms removed
 
@@ -11117,9 +11087,6 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
           goto release;
         }
 
-      // (IS_TLCS90||IS_TLCS870C||IS_TLCS870C1||IS_R4K||IS_R5K||IS_R6K)-gated
-      // "cp hl, rr" wide non-destructive compare and
-      // (IS_R6K||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1)-gated
 
       if (right->aop->type == AOP_LIT && !ullFromVal (right->aop->aopu.aop_lit)) // special case: comparison to 0. Do it here early, so we don't run into sm83 workarounds below.
         {
@@ -12275,7 +12242,6 @@ genAnd (const iCode *ic, iCode *ifx)
       goto release;
     }
 
-  // (IS_RAB||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1)-gated "and hl, de"
 
   // this file).
 
@@ -12333,11 +12299,7 @@ genAnd (const iCode *ic, iCode *ifx)
 
         }
 
-      // (IS_R6K||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1)-gated "and hl,
 
-      // (IS_RAB||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1)-gated
-      // "and hl, de" byte-pair-recognition arm, (IS_RAB||IS_TLCS90)-
-      // gated stack "and hl, de" arm, and (IS_RAB||IS_TLCS90||
 
 
       if (!a_free)
@@ -12623,9 +12585,6 @@ genOr (const iCode * ic, iCode * ifx)
 
         }
 
-      // (IS_R6K||IS_TLCS90||IS_TLCS870C||IS_TLCS870C1)-gated "or hl,
-      // n (sp)/(ix)" arm and an entirely IS_RAB-gated block (byte-pair
-      // "or hl/iy, de" recognition, including a nested PAIR_IY-keyed
 
 
       // Two (IS_RAB||IS_TLCS90||[IS_EZ80])-gated stack "or hl, de"/
@@ -14741,7 +14700,6 @@ genPointerGet (const iCode *ic)
       int offset = 0;
 
       // IS_RAB-gated "ld hl, n (iy)" and (IS_EZ80||IS_TLCS90||
-      // IS_TLCS870C||IS_TLCS870C1)-gated "ld rr, n (iy)" arms removed
 
       // enclosing "getPairId (left->aop) == PAIR_IY" check itself is
       // left untouched: there is no IY at all on i8080/i8085, but that
@@ -14869,13 +14827,10 @@ genPointerGet (const iCode *ic)
         fetchPairLong (pair, left->aop, ic, 0);
     }
 
- // (isPair(result->aop) && (IS_EZ80||IS_TLCS))-gated "ld rr, (hl)" arm
 
  if (pair == PAIR_HL && !bit_field && (getPairId (result->aop) == PAIR_HL || size == 2 && (aopInReg (result->aop, 0, L_IDX) || aopInReg (result->aop, 0, H_IDX))))
     {
       wassertl (size == 2, "HL must be of size 2");
-      // (IS_EZ80||IS_TLCS)-gated "ld hl, (hl)" arm and
-      // (IS_RAB||IS_TLCS870||IS_TLCS870C||IS_TLCS870C1)-gated
       if (aopInReg (result->aop, 1, A_IDX))
         {
           offsetPair (pair, extrapair, !isPairDead (extrapair, ic), rightval + 1);
@@ -14904,7 +14859,6 @@ genPointerGet (const iCode *ic)
       spillPair (PAIR_HL);
       goto release;
     }
-  // (IS_RAB||IS_TLCS870||IS_TLCS870C||IS_TLCS870C1||IS_TLCS&&!rightval||
 
 
   bool noadjustptr = pair == PAIR_IY && rightval >= 0 && rightval + size < 128;
@@ -14983,7 +14937,6 @@ genPointerGet (const iCode *ic)
                       last_offset++;
                     }
 
-                  // (IS_EZ80||IS_TLCS)-gated "ld rr, (hl)" arm removed
 
                   // file).
 
@@ -14991,7 +14944,6 @@ genPointerGet (const iCode *ic)
                   offset++;
                 }
 
-              // (IS_RAB||IS_TLCS870||IS_TLCS870C||IS_TLCS870C1)-gated
 
                 {
                   r = (l > h ? l : h);
@@ -15080,7 +15032,6 @@ genPointerGet (const iCode *ic)
             (result->aop->regs[L_IDX] >= 0 && result->aop->regs[L_IDX] < offset || result->aop->regs[H_IDX] >= 0 && result->aop->regs[H_IDX] < offset))
             UNIMPLEMENTED;
 
-          // (IS_EZ80||IS_TLCS)-gated "ld rr, n(iy)/(hl)" arm removed
 
           if (pair == PAIR_HL && result->aop->type == AOP_REG && (!bit_field || blen > 8))
             {
@@ -15651,8 +15602,6 @@ genIfx (iCode *ic, iCode *popIc)
 
   // "type" (sym_link *type = operandType (cond);) removed: it was only
   // read by the now-removed "!IS_FLOAT (type)" guards on the dead
-  // IS_RAB/IS_TLCS90/IS_TLCS870C/IS_TLCS870C1/IS_R4K/IS_R5K/IS_R6K-gated
-  // 32-bit-bool arms above.
   aopOp (cond, ic, FALSE, TRUE);
 
   /* Special case: Condition is bool */
