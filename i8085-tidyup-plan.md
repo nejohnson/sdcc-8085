@@ -185,7 +185,56 @@ deleted (confirmed unused via `port.mk`'s wildcard build rule and
 committing: no stray `z80.h` includes anywhere, both new include
 guards present, all three `.sum` files at 2/6356, 0 abnormal stops.
 
-Item 5 (the full editorial comment pass) not yet started - next.
+**Checkpoint 2 committed and pushed as `83ee902`** - item 8 (mappings.i
+repurposed, not deleted - i8085 now owns an independent
+`_i8085_asm_mapping`/`_i8085_asm_mappings` table rather than
+`extern`-referencing `src/z80/main.c`'s copy), item 6 (all
+`z80`-prefixed identifiers renamed and call sites verified: `peep.c`'s
+`z80MightRead`-family, `gen.c`'s `z80_init_reg_asmop`, `main.c`'s
+`_z80_genAssemblerStart`), and item 5's comment pass on `peep.c`,
+`ralloc.c`, and `ralloc2.cc`.
+
+**Checkpoint 3 committed and pushed as `6f5b3a9`** - item 5's comment
+pass on `main.c`, including catching a genuinely broken dangling
+reference (a comment pointing at `_z80AsmCmd`, an array already
+removed entirely in earlier work).
+
+**Checkpoint 4 committed and pushed as `75f45f5`** - item 5's comment
+pass on `gen.c` (the largest file in scope, ~670 narration markers
+removed or rewritten to state current fact). Found a real, latent bug
+in `genBuiltInMemset` while removing an adjacent comment (an ungated
+`emit2("ldir")` - a Zilog-only mnemonic with no 8080/8085 equivalent -
+reachable whenever its cost estimate comes out cheapest); out of scope
+for a zero-behavior-change pass, tracked separately as task #18 with a
+`TODO(#18)` marker left at the call site.
+
+**Checkpoint 5 committed and pushed as `ec58d6d`** - item 7's macro
+audit, completed for the full `IS_*`/`HAS_IYL_INST`/`IY_RESERVED`/
+`OPTRALLOC_IY` family across all five files. `peep.c`/`ralloc.c`/
+`ralloc2.cc` already had zero references (removed by the earlier
+comment passes on those files). Cross-checked against `gen.c`/`main.c`
+to find which macro *definitions* were actually removable from
+`i8085.h`: `IS_TLCS`, `IS_TLCS870C`, `IS_TLCS870C1`, and
+`OPTRALLOC_IY` qualified (zero external references, not needed as a
+building block for any surviving macro) and were removed, along with
+their orphaned comment mentions. Everything else stayed, including
+several macros with zero *direct* external references that are still
+required building blocks of live composite macros (`IS_R2K`/`IS_R2KA`/
+`IS_R3KA` for `IS_RAB`; `IS_Z80`/`IS_Z80N`/`IS_R800` for
+`HAS_IYL_INST`; `IS_8080` for `IS_8080LIKE`), and the `*_NOTYET` family
+(Neil's explicit forward-looking-scaffolding ruling from the
+clean-sweep phase).
+
+## Status: all 8 scope items complete
+
+Items 1-8 are all landed. The one explicit, deliberate exclusion is
+`peeph-z80.def`'s (and `peeph.def`'s) Zilog-syntax rule content itself
+- not renamed or rewritten as part of this pass, tracked separately as
+task #17 (write a real Intel-syntax `peeph-i8085.def`; peephole
+optimization stays disabled by default, `options.nopeep = 1`, until
+that lands). Every regression checkpoint across items 1-8 landed at
+the clean baseline (2/6356 before the UTF-8-identifier fix, 0/6354
+after) with 0 abnormal stops.
 
 **Checkpoint 2 committed and pushed as `83ee902`**:
 - `mappings.i` repurposed (not deleted) - `i8085` now has its own
