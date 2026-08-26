@@ -1,0 +1,72 @@
+// peeph-i8085.def - Intel-syntax peephole rules for the i8080/i8085 ports.
+//
+// Replaces the inert Zilog-syntax peeph.def/peeph-z80.def (see main.c's
+// _setDefaultOptions() and the leading comment in peep.c) for this port.
+// Rules are ported from the shared z80-family peeph.def one tight logical
+// group at a time; each group is validated individually (hand-reasoning
+// against the 8085 data sheet, a targeted regression test that proves the
+// rule actually fires via a peephole-off/peephole-on .asm diff, and a
+// ucsim behavioral check) before landing, tracked as project task #17.
+// options.nopeep stays 1 (peephole optimization off by default) until
+// every phase-1 group has landed this way - see main.c.
+//
+// Group 1: dead-load / dead-result elimination. Ported from peeph.def's
+// peephole 0a/158 (redundant self-move), 2b (dead 16-bit add result),
+// 2d (dead accumulator-rotate result), 6b (dead 8-bit ALU result), and
+// 6c (dead comparison result).
+
+// common peephole 0a/158 (Zilog): removed a redundant self-load. Intel's
+// "mov %1, %1" is the same idea - copying a register into itself is
+// always a no-op (never affects flags), so it can simply be deleted
+// regardless of whether the result is used afterward.
+replace restart {
+	mov	%1, %1
+} by {
+	; dead self-move %1, %1 removed
+} if notVolatile(%1)
+
+// common peephole 2b (Zilog: "add hl, %2"). dad's result (the new hl) and
+// its only flag effect (cy - see peep.c's surelyWritesFlag()) can both be
+// proven dead the same way the Zilog rule did; ac/n/p/s/z are not part of
+// dad's effect at all (8085 data sheet), so they are not queried here.
+replace restart {
+	dad	%1
+} by {
+	; dead dad %1 removed: hl result and carry both unused
+} if notUsed('hl'), notUsed('cf')
+
+// common peephole 2d (Zilog: same(%1 'rlca' 'rla' 'rrca' 'rra')). Intel's
+// accumulator-only rotates are rlc/rrc/ral/rar (see peep.c's isIntelM()-
+// adjacent comments on the operand-count discriminator from Zilog's
+// per-register CB-prefixed rlc/rrc of the same name - this rule's match
+// pattern has no operand slot at all, so it can never accidentally catch
+// that other, unrelated instruction). All four only ever affect cy.
+replace restart {
+	%1
+} by {
+	; dead %1 removed: accumulator result and carry both unused
+} if same(%1 'rlc' 'rrc' 'ral' 'rar'), notUsed('a'), notUsed('cf')
+
+// common peephole 6b (Zilog: "%1 a, %2" for add/adc/sub/sbc/and/or/xor).
+// Intel splits this one Zilog mnemonic family into a register/M form and
+// a separate immediate-mnemonic form (see gen.c's emit_A_ARITH8()), but
+// both are single-operand with an implicit accumulator destination, so
+// one match pattern covers both. cmp/cpi are deliberately excluded here -
+// they never write a at all, so their dead-result condition is different
+// (see the next rule) - and notUsed('af') covers both the accumulator
+// result and every flag these eight always redefine (peep.c's
+// surelyWritesFlag()).
+replace restart {
+	%1	%2
+} by {
+	; dead %1 %2 removed: accumulator result and flags unused
+} if same(%1 'add' 'adc' 'sub' 'sbb' 'ana' 'xra' 'ora' 'adi' 'aci' 'sui' 'sbi' 'ani' 'ori' 'xri'), notUsed('af')
+
+// common peephole 6c (Zilog: "cp a, %1"). cmp/cpi never write a - only
+// flags - so unlike the rule above this only needs notUsed('f'), not
+// notUsed('af').
+replace restart {
+	%1	%2
+} by {
+	; dead %1 %2 removed: comparison result (flags) unused
+} if same(%1 'cmp' 'cpi'), notUsed('f')
