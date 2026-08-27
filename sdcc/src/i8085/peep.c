@@ -266,6 +266,21 @@ findLabel (const lineNode *pl)
   char *p;
   lineNode *cpl;
 
+  /* pchl (uncondJump() recognizes it as a real, live unconditional jump -
+     see its own comment) has no operand at all: the jump target is
+     whatever's in hl at runtime, never a label this function could ever
+     resolve. Every other jump uncondJump()/condJump() recognize always
+     has one (this file's Zilog-syntax jp/jr checks, and Intel's jmp/
+     j<cc>, all take a label operand) - pchl is the sole exception, so it
+     needs its own short-circuit here rather than reaching the "no
+     operand at all" sanity check below, which is a genuine internal-
+     error signal for every other caller and must stay one. Returning
+     NULL (not erroring) matches what every caller of findLabel() already
+     does with an unresolvable target - see scan4op()'s own tail-call
+     fallback, and, failing that, S4O_ABORT. */
+  if (lineIsInst (pl, "pchl"))
+    return NULL;
+
   /* 1. extract label in opcode */
 
   /* In each z80 jumping opcode the label is at the end of the opcode */

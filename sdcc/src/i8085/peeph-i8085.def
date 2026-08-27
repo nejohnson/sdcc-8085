@@ -70,3 +70,236 @@ replace restart {
 } by {
 	; dead %1 %2 removed: comparison result (flags) unused
 } if same(%1 'cmp' 'cpi'), notUsed('f')
+
+// A note on notVolatile() used throughout the rest of this file: the
+// shared, cross-port notVolatileVariable() in SDCCpeeph.c recognizes
+// Zilog operand text ("(hl)", "(bc)", "(de)", ...) to decide whether an
+// operand denotes a possibly-volatile memory access; anything without
+// an underscore-prefixed symbol name that doesn't match one of those
+// literal substrings - which includes every Intel-syntax memory operand
+// this port ever produces ("m", or ldax/stax's bare pair-selector "b"/
+// "d"/"h") - falls through to its "found no symbol name, so it can't be
+// volatile" default and returns true unconditionally, regardless of
+// whether the access is genuinely volatile. notVolatile(%N) is
+// therefore only trustworthy here when %N is a plain register (a/b/c/
+// d/e/h/l) - never "m" or a pair-selector - which every use of it below
+// is careful to guarantee, either by construction (the operand can only
+// ever be a register in that position) or explicit exclusion. Wherever
+// this file needs to protect an actual memory access, it uses bare
+// notVolatile (no parameter), which scans the underlying iCodes
+// directly rather than pattern-matching operand text, and is unaffected
+// by this gap. Not something this port's own peep.c can fix (this
+// function lives in the shared core, not per-port code) - flagged, not
+// fixed here.
+
+// Group 2: register-to-register mov loads. Ported from peeph.def's
+// peephole 22a: a value is moved into a register purely to feed the
+// very next 8-bit ALU op, and that register is never used again - fold
+// the move into the ALU op's operand directly. notSame(%2 'a') is
+// essential, not optional (found the hard way - an earlier draft of
+// this rule omitted it, matched real code, and was wrong): if %2 were
+// "a" itself, "%3 %2" is really "%3 a", a *self-referential* op whose
+// result depends on the value mov just wrote into a (e.g. "mov a, m" /
+// "ora a" - a self-or, always equal to whatever mov loaded, regardless
+// of a's previous contents). Folding that into "%3 %1" (e.g. "ora m")
+// instead computes old-a OP %1 - a completely different, wrong result,
+// since it now depends on a's *previous* value instead. Restricting to
+// notSame(%2 'a') is exactly the guard the original Zilog rule already
+// carried (notSame('a' %2)) for this same reason - lost in an earlier
+// draft's translation and restored here after the corpus scan below
+// caught a real instance of the bug. %2 is otherwise always a plain
+// register (never "m") by construction - it must be a valid mov
+// destination the *previous* line assigned it, and, since %3 %2
+// requires %2 to also be an arith8 operand, in practice always is one.
+// canAssign(%1 'b') (borrowed as-is from the original Zilog predicate)
+// confirms %1 itself is assignable into a plain register, i.e. a valid
+// arith8 register/M operand, before folding it into %1's place.
+replace restart {
+	mov	%2, %1
+	%3	%2
+} by {
+	%3	%1
+} if notUsed(%2), notSame(%1 'a'), notSame(%2 'a'), same(%3 'add' 'adc' 'sub' 'sbb' 'ana' 'xra' 'ora' 'cmp'), canAssign(%1 'b'), notVolatile
+
+// Group 3: immediate loads. Ported from peeph.def's peephole 92a/92b/
+// 92c/93a/93b/93c: two separate 8-bit immediate loads that together
+// build up a 16-bit register pair get combined into one 16-bit
+// immediate load. 92*/93* differ only in which of the two registers is
+// the pair's high vs. low half (canJoinRegs(hi lo dst) - see its own
+// doc comment in peep.c); 92b/92c/93b/93c are the "xra a" zero-idiom
+// variant (SDCC often builds a zero byte this way instead of "mvi r,
+// #0"), needing the extra notUsed('a' 'cf' 'zf') to confirm the
+// xra's own effects are also safely subsumed by the combined load.
+
+replace {
+	mvi	%5, #%1
+	mvi	%6, #%2
+} by {
+	; combined immediate loads into %7 (low=%5=#%1, high=%6=#%2)
+	lxi	%7, #%4
+} if canJoinRegs(%6 %5 %7), operandsLiteral(%1 %2), immdInRange(0x00 0xffff '*' %2 0x100 %3), immdInRange(0x00 0xffff '|' %3 %1 %x4)
+
+replace {
+	mvi	%5, #%1
+	mvi	%6, #%2
+} by {
+	; combined immediate loads into %7 (high=%5=#%1, low=%6=#%2)
+	lxi	%7, #%4
+} if canJoinRegs(%5 %6 %7), operandsLiteral(%1 %2), immdInRange(0x00 0xffff '*' %1 0x100 %3), immdInRange(0x00 0xffff '|' %3 %2 %x4)
+
+replace {
+	xra	a
+	mov	%5, a
+	mvi	%6, #%2
+} by {
+	; combined immediate loads into %7 (low=%5=zero, high=%6=#%2)
+	lxi	%7, #%4
+} if canJoinRegs(%6 %5 %7), operandsLiteral(%2), immdInRange(0x00 0xffff '*' %2 0x100 %x4), notUsed('a' 'cf' 'zf')
+
+replace {
+	xra	a
+	mvi	%5, #%1
+	mov	%6, a
+} by {
+	; combined immediate loads into %7 (low=%5=#%1, high=%6=zero)
+	lxi	%7, #%1
+} if canJoinRegs(%6 %5 %7), operandsLiteral(%1), notUsed('a' 'cf' 'zf')
+
+replace {
+	xra	a
+	mov	%5, a
+	mvi	%6, #%2
+} by {
+	; combined immediate loads into %7 (high=%5=zero, low=%6=#%2)
+	lxi	%7, #%2
+} if canJoinRegs(%5 %6 %7), operandsLiteral(%2), notUsed('a' 'cf' 'zf')
+
+replace {
+	xra	a
+	mvi	%5, #%1
+	mov	%6, a
+} by {
+	; combined immediate loads into %7 (high=%5=#%1, low=%6=zero)
+	lxi	%7, #%4
+} if canJoinRegs(%5 %6 %7), operandsLiteral(%1), immdInRange(0x00 0xffff '*' %1 0x100 %x4), notUsed('a' 'cf' 'zf')
+
+// Group 4: direct-address (lda/sta/lhld/shld). Ported from peeph.def's
+// peephole 17/18/19/20: hl is loaded with a constant address purely to
+// read or write one byte through it, and hl itself is never used
+// afterward - use lda/sta directly on that address instead. Two match
+// variants each (lxi hl vs. lxi h) since gen.c emits either spelling of
+// the same pair operand interchangeably depending on call site (see
+// peep.c's intelPairOperand() comment).
+replace restart {
+	lxi	hl, #%1
+	mov	a, m
+} by {
+	; loaded %1 into a directly instead of through hl
+	lda	%1
+} if notUsed('hl')
+
+replace restart {
+	lxi	h, #%1
+	mov	a, m
+} by {
+	; loaded %1 into a directly instead of through hl
+	lda	%1
+} if notUsed('hl')
+
+replace restart {
+	lxi	hl, #%1 + %2
+	mov	a, m
+} by {
+	; loaded %1+%2 into a directly instead of through hl
+	lda	%1 + %2
+} if notUsed('hl')
+
+replace restart {
+	lxi	hl, #%1
+	mov	m, a
+} by {
+	; stored a to %1 directly instead of through hl
+	sta	%1
+} if notUsed('hl')
+
+replace restart {
+	lxi	h, #%1
+	mov	m, a
+} by {
+	; stored a to %1 directly instead of through hl
+	sta	%1
+} if notUsed('hl')
+
+replace restart {
+	lxi	hl, #%1 + %2
+	mov	m, a
+} by {
+	; stored a to %1+%2 directly instead of through hl
+	sta	%1 + %2
+} if notUsed('hl')
+
+// Group 5: indirect (ldax/stax). ldax always loads straight into a (see
+// gen.c's emit_A_LD()'s LDF_LDAX case) - there is no intermediate
+// register for a "forward through" rule the way group 2's plain mov
+// case has, so the one clean, safe rule here mirrors group 1's dead-dad
+// rule: a load through bc/de whose result in a is never used at all can
+// simply be dropped. Guarded by bare notVolatile (not notVolatile(%1),
+// which - per this file's notVolatile() note above - cannot correctly
+// tell whether the memory pointed to by bc/de is volatile from "b"/"d"
+// alone): a genuinely volatile memory-mapped read must still happen for
+// its side effect even when the value it produces goes unused.
+replace restart {
+	ldax	%1
+} by {
+	; dead ldax %1 removed: accumulator result unused
+} if notUsed('a'), notVolatile
+
+// Group 6: push/pop. Ported from peeph.def's peephole 50a/50b - both
+// entirely dialect-neutral (push/pop are spelled identically in both
+// syntaxes, and neither rule's correctness depends on what's inside the
+// pushed/popped pair, only on the net stack-pointer and register
+// effect, which is unconditionally a no-op in the push/pop order and
+// conditionally so - notUsed(%1) - in the pop/push order). No
+// volatility guard needed: push/pop always address the stack via sp,
+// never a general (possibly memory-mapped) operand.
+replace restart {
+	pop	%1
+	push	%1
+} by {
+	; dead pop/push %1 pair removed: popped value unused
+} if notUsed(%1)
+
+replace restart {
+	push	%1
+	pop	%1
+} by {
+	; dead push/pop %1 pair removed: no-op round trip
+}
+
+// Group 7: add hl,rr (i.e. dad, when its result *is* used - group 1
+// only covered the dead-result case). Ported from peeph.def's peephole
+// 119 and 120, both exploiting addition's commutativity to avoid a
+// redundant register copy or to fold two additions' constants together
+// at assemble time; both are already pure 8-bit-register-and-pair
+// operations in their Zilog form, so they translate directly.
+replace restart {
+	mov	c, l
+	mov	b, h
+	lxi	h, #%1
+	dad	b
+} by {
+	; loaded #%1 into bc directly instead of copying hl there first
+	lxi	b, #%1
+	dad	b
+} if notUsed('bc')
+
+replace restart {
+	lxi	h, #%1
+	dad	%2
+	lxi	b, #%4
+	dad	b
+} by {
+	; combined the two constant additions to hl into one
+	lxi	h, #%1 + %4
+	dad	%2
+} if notUsed('bc')
