@@ -1,14 +1,15 @@
 // peeph-i8085.def - Intel-syntax peephole rules for the i8080/i8085 ports.
 //
-// Replaces the inert Zilog-syntax peeph.def/peeph-z80.def (see main.c's
-// _setDefaultOptions() and the leading comment in peep.c) for this port.
-// Rules are ported from the shared z80-family peeph.def one tight logical
-// group at a time; each group is validated individually (hand-reasoning
-// against the 8085 data sheet, a targeted regression test that proves the
-// rule actually fires via a peephole-off/peephole-on .asm diff, and a
-// ucsim behavioral check) before landing, tracked as project task #17.
-// options.nopeep stays 1 (peephole optimization off by default) until
-// every phase-1 group has landed this way - see main.c.
+// Replaces the formerly-inert Zilog-syntax peeph.def/peeph-z80.def (see
+// main.c's _setDefaultOptions() and the leading comment in peep.c) for
+// this port. This is now the active default rule set (options.nopeep = 0
+// in main.c) - every phase-1 rule group below landed incrementally, each
+// validated individually before being folded in (hand-reasoning against
+// the 8085 data sheet, a real-corpus scan with --peep-file to find
+// genuine firing instances, and a ucsim behavioral check), tracked as
+// project task #17. Phase-2 (control-flow rules - jp/jmp/call/ret,
+// needing real rework since this hardware has no jr/djnz) is a separate,
+// explicitly out-of-scope follow-on, not part of phase-1.
 //
 // Group 1: dead-load / dead-result elimination. Ported from peeph.def's
 // peephole 0a/158 (redundant self-move), 2b (dead 16-bit add result),

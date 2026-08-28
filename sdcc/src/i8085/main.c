@@ -50,12 +50,13 @@
 #define OPTION_SMALL_MODEL      "--model-small"
 #define OPTION_MEDIUM_MODEL     "--model-medium"
 
-/* Only the plain z80 peephole ruleset is used by i8080/i8085; the
-   sm83/r2k/tlcs90/ez80/z80n variants from the shared z80/main.c are not
-   reachable here since only i8080_port/i8085_port exist in this file. */
-static char _z80_defaultRules[] = {
-#include "peeph.rul"
-#include "peeph-z80.rul"
+/* This port's own Intel-syntax peephole rules (src/i8085/peeph-i8085.def -
+   see peep.c's leading comment and the "Intel-mnemonic instruction
+   classification" block it introduces). Replaces the shared z80-family
+   peeph.def/peeph-z80.def, which are Zilog-syntax and were never actually
+   applied here - see the git history of this file for that era. */
+static char _i8085_defaultRules[] = {
+#include "peeph-i8085.rul"
 };
 
 /* i8085_opts is this port's own copy of the option state (see i8085.h),
@@ -520,21 +521,20 @@ _finaliseOptions (void)
 static void
 _setDefaultOptions (void)
 {
-  /* Peephole optimization is disabled by default: src/i8085/peeph.def's
-     replacement templates are written in Zilog syntax (e.g. "ld hl, #%1" /
-     "add hl, sp"), not the Intel syntax gen.c actually emits. A rule's
-     *match* side can still key off an operand shape that happens to look
-     the same in both dialects, letting the rule fire, while its
-     *replacement* side unconditionally emits the old Zilog text into real
-     output - corrupting it (see bug-3013.c). Auditing/rewriting all 3193
-     lines of peeph.def under Intel semantics is real, separate, tracked
-     work (intel-mnemonic-migration-plan.md); until that lands, disabling
-     peephole is the safe default for both i8085_port and i8080_port (this
-     function is shared by both, and both are equally exposed to the same
-     rules). A user can still opt back in for their own audited rules via
-     --peep-file (readRules()/initPeepHole() in SDCCpeeph.c apply it
-     regardless of nopeep), just not via the stock rule file. */
-  options.nopeep = 1;
+  /* Peephole optimization is enabled by default via this port's own
+     Intel-syntax rule set, src/i8085/peeph-i8085.def (_i8085_defaultRules
+     above) - written and validated specifically against the Intel
+     mnemonics gen.c actually emits, unlike the shared z80-family
+     peeph.def/peeph-z80.def this port used to (uselessly, and unsafely -
+     see bug-3013.c) inherit. Landed incrementally, one tight logical
+     group of rules at a time, each validated by hand-reasoning against
+     the 8085 data sheet, a real-corpus scan with --peep-file to find
+     genuine firing instances (not just regression-neutrality, which
+     can't tell a correct rule from one that simply never fires), and a
+     ucsim behavioral check - see peeph-i8085.def's own header and its
+     git history for the full record. This function is shared by both
+     i8085_port and i8080_port, and both get the same validated rules. */
+  options.nopeep = 0;
   options.stackAuto = 1;
   /* first the options part */
   options.intlong_rent = 1;
@@ -891,7 +891,7 @@ PORT i8080_port =
     _libs_i8080,                /* libs */
   },
   {                             /* Peephole optimizer */
-    _z80_defaultRules,
+    _i8085_defaultRules,
     i8085_instructionSize,
     NULL,
     NULL,
@@ -1039,7 +1039,7 @@ PORT i8085_port =
     _libs_i8085,                /* libs */
   },
   {                             /* Peephole optimizer */
-    _z80_defaultRules,
+    _i8085_defaultRules,
     i8085_instructionSize,
     NULL,
     NULL,

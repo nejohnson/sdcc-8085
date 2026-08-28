@@ -34,25 +34,21 @@
    "ld", "jp", "ex", "rlca", ...) recognizes Zilog-syntax mnemonics, not the
    Intel mnemonics gen.c emits (mov, jmp, xchg, ral, ...) for most of this
    file's history. This is registered as the port's peephole-optimizer
-   support (port->peep in main.c) and is only ever reached while applying
-   peephole rules, which only load (readRules() in SDCCpeeph.c) when
-   options.nopeep is false; this port sets options.nopeep = 1 by default, so
-   none of it runs in a default build. A user-supplied --peep-file
-   re-enables the rule engine regardless of that default and would exercise
-   this matching against real Intel-syntax lines.
+   support (port->peep in main.c) and is reached whenever peephole rules are
+   applied, which is unconditionally in a default build now: this port's
+   own src/i8085/peeph-i8085.def is the active rule set (options.nopeep = 0
+   in main.c's _setDefaultOptions()), so every function in this file runs
+   on every compile, not just under --peep-file.
    The classifier functions below (mightRead/mightReadFlag/surelyWrites/
    surelyWritesFlag/uncondJump/condJump/callSurelyWrites/i8085_canAssign/
-   i8085_instructionSize) now recognize the actual Intel mnemonic set gen.c
+   i8085_instructionSize) recognize the actual Intel mnemonic set gen.c
    emits - see the "Intel-mnemonic instruction classification" block below -
    checked before any Zilog-syntax branch in the same function, so real
    output is always resolved by the Intel-aware checks. The original
    Zilog-syntax branches are left in place after them, unreachable for this
    port's own output (gen.c never emits Zilog text) but still exercised by
    the z80/z180/etc. ports that share this same lineage of logic in
-   src/z80/peep.c - not something to remove here. peeph-i8085.def (the
-   Intel-syntax rule file itself, replacing the inert peeph.def/peeph-z80.def
-   for this port) is the next piece of this same project, tracked and staged
-   separately. */
+   src/z80/peep.c - not something to remove here. */
 #define NOTUSEDERROR() do {werror(E_INTERNAL_ERROR, __FILE__, __LINE__, "error in notUsed()");} while(0)
 
 #if 0
@@ -831,10 +827,37 @@ mightRead(const lineNode *pl, const char *what)
   if(lineIsInst (pl, "cpd") || lineIsInst (pl, "cpdr") || lineIsInst (pl, "cpi") || lineIsInst (pl, "cpir"))
     return(strchr("abchl", *what));
 
-  if(lineIsInst (pl, "out"))
-    return(strstr(strchr(pl->line + 4, ','), what) != 0 || strstr(pl->line + 4, "(c)") && (!strcmp(what, "b") || !strcmp(what, "c")));
-  if(lineIsInst (pl, "in"))
-    return(!strstr(strchr(pl->line + 4, ','), "(c)") && !strcmp(what, "a") || strstr(strchr(pl->line + 4, ','), "(c)") && (!strcmp(what, "b") || !strcmp(what, "c")));
+  /* Real, live i8085/i8080 in/out: single-operand, port address only -
+     the accumulator is implicit on both sides (gen.c's own comments at
+     the "in !mems"/"out %s" emission sites call this out explicitly:
+     "Intel's IN is single-operand (port only); the accumulator is
+     implicit, unlike Zilog's 'in a, (port)'"). out reads a (the value
+     being sent) and nothing else; in reads nothing at all (the value
+     comes from hardware, not a register) and writes a - see
+     surelyWrites() below. Zilog's "in r,(c)"/"out (c),r" (port
+     addressed via c, not a fixed immediate) has no 8080/8085 hardware
+     equivalent at all, so there is no second case to handle here the
+     way mightReadFlag()'s equivalent check needs one.
+     This replaces, rather than sits alongside, the two mnemonics'
+     previous Zilog-shaped checks: those assumed a comma always exists
+     in the line (finding the port operand via strchr(pl->line+4, ','),
+     then handing that pointer straight to strstr with no NULL check) -
+     true for Zilog's two-operand form, never true for Intel's real
+     single-operand one, so every real "in"/"out" line crashed the
+     compiler outright (SIGSEGV) the moment any peephole rule's
+     notUsed()-style scan walked through one - confirmed via gdb
+     (bug-3165.c and bug3379723.c, both __sfr port access, are what
+     surfaced it). Kept for real Zilog input this port never
+     produces, the old code would still crash even in Zilog's own
+     comma-shaped case if that comma-derived strstr ever found nothing
+     to match, an existing latent bug in the shared lineage this exact
+     mnemonic pair happened to expose here first - not preserved, since
+     this check now unconditionally intercepts both mnemonics before
+     the old code could ever run again regardless of dialect. */
+  if (lineIsInst (pl, "out"))
+    return !strcmp (what, "a");
+  if (lineIsInst (pl, "in"))
+    return false;
 
   if(lineIsInst (pl, "ini") || lineIsInst (pl, "ind") || lineIsInst (pl, "inir") || lineIsInst (pl, "indr") ||
     lineIsInst (pl, "outi") || lineIsInst (pl, "outd") || lineIsInst (pl, "otir") || lineIsInst (pl, "otdr"))
@@ -967,13 +990,18 @@ surelyWritesFlag(const lineNode *pl, const char *what)
       return argCont(p, "i") || argCont(p, "r");
     }
 
-  if(lineIsInst (pl, "in"))
-    {
-      if(strstr(strchr(pl->line + 4, ','), "(c)") || strstr(strchr(pl->line + 4, ','), "(bc)"))
-        return !!strcmp(what, "cf");
-      else
-        return false;
-    }
+  /* Real, live i8085/i8080 in: single-operand (see mightRead()'s own
+     comment on this same mnemonic pair) and touches no flags at all on
+     real 8080/8085 hardware. Replaces, not just precedes, the old
+     Zilog-shaped check below it: that one assumed a comma always
+     exists in the line to find Zilog's "in r,(c)" port-via-c form (no
+     8080/8085 hardware equivalent - see mightRead()'s comment), and
+     crashed (NULL passed to strstr) on every real "in" line, the exact
+     same class of bug as mightRead()'s in/out fix, caught the same way
+     (gdb, bug-3165.c/bug3379723.c). This check now unconditionally
+     intercepts every "in" line before the old one could run again. */
+  if (lineIsInst (pl, "in"))
+    return false;
 
   if(lineIsInst (pl, "rlca") ||
      lineIsInst (pl, "rrca") ||
@@ -1279,6 +1307,20 @@ surelyWrites (const lineNode *pl, const char *what)
     return(!strcmp (what, "ix"));
   if (larg && lineIsInst (pl, "ld") && !strncmp (larg, "iy,", 3))
     return(!strcmp (what, "iy"));
+  /* Real, live i8085/i8080 in/out (see mightRead()'s own comment on
+     this mnemonic pair): in writes a (the value read from the port);
+     out writes no register at all (only a memory-mapped port, which
+     this predicate isn't asking about). Checked before the "ld"/"in"
+     combination below, which - unlike mightRead()'s and
+     surelyWritesFlag()'s equivalent Zilog-shaped in/out checks - reads
+     larg (already NULL-safe, not a raw strchr(pl->line+N, ',') offset)
+     and so was never a crash risk here, just silent on the one
+     question that actually matters for "in": whether it writes a. */
+  if (lineIsInst (pl, "out"))
+    return false;
+  if (lineIsInst (pl, "in"))
+    return !strcmp (what, "a");
+
   if (larg && (lineIsInst (pl, "ld") || lineIsInst (pl, "in"))
     && strlen(what) > 1 && larg && larg[0] && larg[1] == ',')
     return (false);
