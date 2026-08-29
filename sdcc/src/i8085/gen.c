@@ -16914,12 +16914,11 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
 {
   operand *dst, *c, *n;
   bool direct_c, direct_cl;
-  bool preinc = FALSE;
-  unsigned long sizecost_ldir, sizecost_direct, sizecost_loop;
+  unsigned long sizecost_direct, sizecost_loop;
   bool double_loop;
   unsigned size;
-  bool live_BC = !isPairDead (PAIR_BC, ic), live_DE = !isPairDead (PAIR_DE, ic), live_HL = !isPairDead (PAIR_HL, ic), live_B = !isRegDead (B_IDX, ic);
-  bool saved_BC = FALSE, saved_DE = FALSE, saved_HL = FALSE;
+  bool live_HL = !isPairDead (PAIR_HL, ic), live_B = !isRegDead (B_IDX, ic);
+  bool saved_BC = FALSE, saved_HL = FALSE;
 
   wassertl (nParams == 3, "Built-in memset() must have three parameters");
 
@@ -16954,10 +16953,23 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
   sizecost_direct += (live_HL) * 2;
   sizecost_loop = 9 + double_loop * 2 + ((size % 2) && double_loop) * 2 + !direct_cl * sizecost_ld_a_caop;
   sizecost_loop += (live_HL + live_B) * 2;
-  sizecost_ldir = 12 + !direct_c * sizecost_ld_a_caop;
-  sizecost_ldir += (live_HL + live_DE + live_BC) * 2;
 
-  if (sizecost_direct <= sizecost_loop && sizecost_direct < sizecost_ldir) // straight-line code.
+  /* Two ways to fill the buffer on real 8080/8085 hardware: straight-line
+     (one store per byte, unrolled) or a loop counted in b (at most 255
+     iterations, or 510 bytes via the double_loop 2x-unroll below - a
+     single 8-bit counter register cannot represent more). Zilog's ldir
+     (block-copy-and-decrement-bc, no 8080/8085 equivalent at all) used
+     to be weighed as a third option here whenever it costed out cheaper
+     than both - unconditionally reachable on this port, since nothing
+     gated it out, and unassemblable by as8085 when picked (task #18).
+     Removed rather than gated: with no ldir, size <= 510 chooses
+     whichever of direct/loop is genuinely cheaper, exactly as before;
+     size > 510 (past the loop's counter range) now falls back to
+     direct instead of the no-longer-available third option - direct
+     has no upper size bound (see its own cost formula above), so it
+     always produces working code, just increasingly large for very big
+     literal sizes. */
+  if (sizecost_direct <= sizecost_loop || size > 510) // straight-line code.
     {
       if (live_HL)
         {
@@ -16976,7 +16988,7 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
             emit3w (A_INC, ASMOP_HL, 0);
         }
     }
-  else if (size <= 510 && sizecost_loop < sizecost_ldir) // Loop
+  else // Loop (size <= 510, and sizecost_loop < sizecost_direct - guaranteed by the branch above not being taken)
     {
       symbol *tlbl1 = regalloc_dry_run ? 0 : newiTempLabel (NULL);
       symbol *tlbl2 = regalloc_dry_run ? 0 : newiTempLabel (NULL);
@@ -16999,9 +17011,23 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
 
       if (double_loop && size % 2)
         {
+          /* Odd total size, 2x-unrolled loop: skip the first of the two
+             per-iteration stores on this one, first pass through only,
+             so b's ceil(size/2) iterations still add up to exactly
+             size stores in total (see the loop body below - the very
+             first pass writes just the one byte at tlbl2, every
+             subsequent pass writes the normal two). 8080/8085 has no
+             relative jump at all (no jr, unlike z80) - jmp (unconditional,
+             absolute) is the exact right replacement for what is simply
+             an unconditional jump to a label here, not a real z80-vs-
+             8080 semantic gap the way ldir above was (task #18: this
+             was "jr", still unassemblable by as8085, but otherwise
+             already correct control flow - fixed by mnemonic
+             substitution alone, nothing about the loop's structure
+             needed to change). */
           if (!regalloc_dry_run)
-            emit2 ("jr !tlabel", labelKey2num (tlbl2->key));
-          regalloc_dry_run_cost += 2;
+            emit2 ("jmp !tlabel", labelKey2num (tlbl2->key));
+          regalloc_dry_run_cost += 3;
         }
 
       if (!regalloc_dry_run)
@@ -17023,46 +17049,6 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
         }
       regalloc_dry_run_cost += (double_loop ? 6 : 4);
     }
-  else // Use ldir / lsidr
-    {
-      if (live_HL)
-        {
-          _push (PAIR_HL);
-          saved_HL = true;
-        }
-      if (live_DE)
-        {
-          _push (PAIR_DE);
-          saved_DE = true;
-        }
-      if (live_BC)
-        {
-          _push (PAIR_BC);
-          saved_BC = true;
-        }
-      // "if (indirect_c) {fetchPair (PAIR_DE, dst->aop); pointPairToAop
-      setupForMemset (ic, dst, c, direct_c);
-
-      if (!regalloc_dry_run)
-        emit_intel_move ("m", intelOperand (aopGet (direct_c ? c->aop : ASMOP_A, 0, FALSE)));
-      regalloc_dry_run_cost += (direct_c && c->aop->type == AOP_LIT) ? 2 : 1;
-      if (ulFromVal (n->aop->aopu.aop_lit) <= 1)
-        goto done;
-
-      emit3 (A_LD, ASMOP_E, ASMOP_L);
-      emit3 (A_LD, ASMOP_D, ASMOP_H);
-      emit3w (A_INC, ASMOP_DE, 0);
-      preinc = true;
-      emit2 ("lxi b, !immedword", (unsigned)(size - preinc));
-      cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-      // TODO(#18): "ldir" is a Zilog-only block-transfer mnemonic with no
-      // 8080/8085 hardware equivalent - as8085 will not assemble it. This
-      // branch is reachable whenever sizecost_ldir above comes out cheapest
-      // (currently ungated, unlike this file's other ldir-cost sites), so
-      // it can be selected by real code today. Not fixed here - see #18.
-      emit2 ("ldir");
-      regalloc_dry_run_cost += 2;
-    }
 
 done:
   spillPair (PAIR_HL);
@@ -17073,8 +17059,6 @@ done:
 
   if (saved_BC)
     _pop (PAIR_BC);
-  if (saved_DE)
-    _pop (PAIR_DE);
   if (saved_HL)
     _pop (PAIR_HL);
 
