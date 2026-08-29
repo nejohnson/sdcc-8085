@@ -92,7 +92,7 @@ reg_info i8085_gpr_regs[] = {
   {REG_CND, CND_IDX, "c", 1}
 };
 
-reg_info *i8085_regsZ80;
+reg_info *i8085_regs;
 
 /** Number of usable registers (all but C) */
 #define I8085_MAX_REGS ((sizeof (i8085_gpr_regs) / sizeof (i8085_gpr_regs[0]))-1)
@@ -109,9 +109,9 @@ i8085_regWithIdx (int idx)
 
   for (i = C_IDX; i < _G.nRegs; i++)
     {
-      if (i8085_regsZ80[i].rIdx == idx)
+      if (i8085_regs[i].rIdx == idx)
         {
-          return &i8085_regsZ80[i];
+          return &i8085_regs[i];
         }
     }
 
@@ -537,7 +537,7 @@ freeAllRegs ()
   D (D_ALLOC, ("freeAllRegs: running.\n"));
 
   for (i = C_IDX; i < _G.nRegs; i++)
-    i8085_regsZ80[i].i8085_isFree = 1;
+    i8085_regs[i].i8085_isFree = 1;
 }
 
 /*-----------------------------------------------------------------*/
@@ -1272,7 +1272,7 @@ i8085_ralloc (ebbIndex *ebbi)
       dumpLiveRanges (DUMP_LRANGE, liveRanges);
     }
 
-  i8085_genZ80Code (ic);
+  i8085_genCode (ic);
 
   /* free up any stackSpil locations allocated */
   applyToSet (_G.stackSpil, deallocStackSpil);

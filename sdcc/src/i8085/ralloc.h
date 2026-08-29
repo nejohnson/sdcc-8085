@@ -71,7 +71,7 @@ typedef struct reg_info
   unsigned i8085_isFree:1;            /* is currently unassigned  */
 } reg_info;
 
-extern reg_info *i8085_regsZ80;
+extern reg_info *i8085_regs;
 
 void assignRegisters (eBBlock **, int);
 reg_info *i8085_regWithIdx (int);

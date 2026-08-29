@@ -82,7 +82,7 @@ typedef struct asmop
 }
 asmop;
 
-void i8085_genZ80Code (iCode *);
+void i8085_genCode (iCode *);
 void i8085_emitDebuggerSymbol (const char *);
 
 

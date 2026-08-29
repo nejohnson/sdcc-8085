@@ -334,7 +334,7 @@ init_reg_asmop(asmop *aop, const signed char *regidx)
   
   for(int i = 0; regidx[i] >= 0; i++)
     {
-      aop->aopu.aop_reg[i] = i8085_regsZ80 + regidx[i];
+      aop->aopu.aop_reg[i] = i8085_regs + regidx[i];
       aop->regs[regidx[i]] = i;
       aop->size++;
     }
@@ -4630,10 +4630,10 @@ poppairwithsavedreg (PAIR_ID pair, short survivingreg, short tempreg)
 {
   if (tempreg >= 0)
     {
-      emit2 ("mov %s, %s", i8085_regsZ80[tempreg].name, i8085_regsZ80[survivingreg].name);
+      emit2 ("mov %s, %s", i8085_regs[tempreg].name, i8085_regs[survivingreg].name);
       ld_cost (ASMOP_L, 0, ASMOP_H, 0, true);
       _pop (pair);
-      emit2 ("mov %s, %s", i8085_regsZ80[survivingreg].name, i8085_regsZ80[tempreg].name);
+      emit2 ("mov %s, %s", i8085_regs[survivingreg].name, i8085_regs[tempreg].name);
       ld_cost (ASMOP_L, 0, ASMOP_H, 0, true);
       return;
     }
@@ -4646,7 +4646,7 @@ poppairwithsavedreg (PAIR_ID pair, short survivingreg, short tempreg)
   cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
   emit2 ("dad sp");
   cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3 , 1, 1);
-  emit2 ("mov m, %s", i8085_regsZ80[survivingreg].name);
+  emit2 ("mov m, %s", i8085_regs[survivingreg].name);
   cost2 (1, 2, 2, 2, 7, 7, 6, 6, 8, 6, 3, 3, 3, 2, 2);
   _pop (PAIR_HL);
   _pop (PAIR_AF);
@@ -13733,12 +13733,12 @@ genLeftShift (const iCode *ic)
     goto end;
   if (shift_by_lit && shiftcount > 1 && !unroll_8080)
     {
-      emit2 ("mvi %s, !immedbyte", i8085_regsZ80[countreg].name, (unsigned)shiftcount);
+      emit2 ("mvi %s, !immedbyte", i8085_regs[countreg].name, (unsigned)shiftcount);
       cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
     }
   else if (!shift_by_lit && !aopIsNotLitVal (right->aop, 0, 1, 0))
     {
-      emit2 ("inr %s", i8085_regsZ80[countreg].name);
+      emit2 ("inr %s", i8085_regs[countreg].name);
       cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
       emitJP (tlbl1, NULL, 1.0f, true);
     }
@@ -13818,7 +13818,7 @@ genLeftShift (const iCode *ic)
 
       // true, so !IS_8080LIKE is always false).
         {
-          emit2 ("dcr %s", i8085_regsZ80[countreg].name);
+          emit2 ("dcr %s", i8085_regs[countreg].name);
           cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
           emitJP (tlbl, "nz", 1.0f, true);
         }
@@ -14231,7 +14231,7 @@ genRightShift (const iCode * ic)
           _push (PAIR_AF);
           pushed_a = true;
         }
-      emit2 ("mvi %s, !immedbyte", i8085_regsZ80[countreg].name, (unsigned)shiftcount);
+      emit2 ("mvi %s, !immedbyte", i8085_regs[countreg].name, (unsigned)shiftcount);
       cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
     }
   // !IS_8080LIKE-gated "srl/srl/srl/inc" bytewise-shift-detection arm
@@ -14241,7 +14241,7 @@ genRightShift (const iCode * ic)
     {
       if (shiftop->regs[countreg] >= 0)
         UNIMPLEMENTED;
-      emit2 ("inr %s", i8085_regsZ80[countreg].name);
+      emit2 ("inr %s", i8085_regs[countreg].name);
       cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
       emitJP (tlbl1, NULL, 1.0f, true);
     }
@@ -14284,11 +14284,11 @@ genRightShift (const iCode * ic)
 
       // true, so !IS_8080LIKE is always false).
         {
-          emit2 ("dcr %s", i8085_regsZ80[countreg].name);
+          emit2 ("dcr %s", i8085_regs[countreg].name);
           cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
           emitJP (tlbl, "nz", 1.0f, true);
         }
-      spillPairReg (i8085_regsZ80[countreg].name);
+      spillPairReg (i8085_regs[countreg].name);
     }
 
 end:
@@ -17404,10 +17404,10 @@ genBuiltIn (iCode *ic)
 }
 
 /*-------------------------------------------------------------------------------------*/
-/* genZ80iCode - generate code for Z80 based controllers for a single iCode instruction*/
+/* genICode - generate code for a single iCode instruction */
 /*-------------------------------------------------------------------------------------*/
 static void
-genZ80iCode (iCode * ic)
+genICode (iCode * ic)
 {
   genLine.lineElement.ic = ic;
 
@@ -17663,7 +17663,7 @@ genZ80iCode (iCode * ic)
 }
 
 float
-i8085_dryZ80iCode (iCode * ic)
+i8085_dryICode (iCode * ic)
 {
   regalloc_dry_run = true;
   regalloc_dry_run_cost = 0;
@@ -17673,7 +17673,7 @@ i8085_dryZ80iCode (iCode * ic)
   initGenLineElement ();
   _G.omitFramePtr = i8085_should_omit_frame_ptr;
 
-  genZ80iCode (ic);
+  genICode (ic);
 
   destroy_line_list ();
   freeTrace (&_G.trace.aops);
@@ -17695,14 +17695,14 @@ i8085_dryZ80iCode (iCode * ic)
 
 #ifdef DEBUG_DRY_COST
 static void
-dryZ80Code (iCode * lic)
+dryICodeDebug (iCode * lic)
 {
   iCode *ic;
 
   for (ic = lic; ic; ic = ic->next)
     if (ic->op != FUNCTION && ic->op != ENDFUNCTION && ic->op != LABEL && ic->op != GOTO && ic->op != INLINEASM)
       {
-        printf ("; iCode %d total cost: %f ", ic->key, i8085_dryZ80iCode (ic));
+        printf ("; iCode %d total cost: %f ", ic->key, i8085_dryICode (ic));
         const unsigned int state_cost_divider = 8u << (optimize.codeSize * 3 + !optimize.codeSpeed * 3);
         printf ("(%f + %f * %f * 0.0001 / %u\n", (float)regalloc_dry_run_cost_bytes, regalloc_dry_run_cost_states, ic->count, state_cost_divider);
       }
@@ -17710,13 +17710,13 @@ dryZ80Code (iCode * lic)
 #endif
 
 /*-------------------------------------------------------------------------------------*/
-/* i8085_genZ80Code - generate code for Z80 based controllers for a block of instructions    */
+/* i8085_genCode - generate code for a block of instructions */
 /*-------------------------------------------------------------------------------------*/
 void
-i8085_genZ80Code (iCode * lic)
+i8085_genCode (iCode * lic)
 {
 #ifdef DEBUG_DRY_COST
-  dryZ80Code (lic);
+  dryICodeDebug (lic);
 #endif
 
   iCode *ic;
@@ -17755,7 +17755,7 @@ i8085_genZ80Code (iCode * lic)
       //regalloc_dry_run_cost = 0;
       regalloc_dry_run_cost_bytes = 0;
       regalloc_dry_run_cost_states = 0;
-      genZ80iCode (ic);
+      genICode (ic);
 
 #if 0 // Helpful to debug "Unbalanced stack" errors.
       printf("After ic %d (op %d): _G.stack.pushed: %d\n", ic->key, ic->op, _G.stack.pushed);

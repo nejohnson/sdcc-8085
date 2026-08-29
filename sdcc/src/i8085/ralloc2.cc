@@ -27,7 +27,7 @@
 extern "C"
 {
   #include "i8085.h"
-  float i8085_dryZ80iCode (iCode * ic);
+  float i8085_dryICode (iCode * ic);
   bool i8085_assignment_optimal;
   bool i8085_should_omit_frame_ptr;
 }
@@ -1045,7 +1045,7 @@ static void assign_operand_for_cost(operand *o, const assignment &a, unsigned sh
       var_t v = oi->second;
       if(a.global[v] >= 0)
         {
-          sym->regs[I[v].byte] = i8085_regsZ80 + a.global[v];
+          sym->regs[I[v].byte] = i8085_regs + a.global[v];
           sym->accuse = 0;
           sym->isspilt = false;
           sym->nRegs = I[v].size;
@@ -1145,7 +1145,7 @@ static float instruction_cost(const assignment &a, unsigned short int i, const G
     case ENDCRITICAL:
       assign_operands_for_cost(a, i, G, I);
       set_surviving_regs(a, i, G, I);
-      c = i8085_dryZ80iCode(ic);
+      c = i8085_dryICode(ic);
       ic->generated = false;
       return(c);
 
@@ -1400,7 +1400,7 @@ static bool tree_dec_ralloc(T_t &T, G_t &G, const I_t &I, SI_t &SI)
       if(winner.global[v] >= 0)
         {
          
-          sym->regs[I[v].byte] = i8085_regsZ80 + winner.global[v];
+          sym->regs[I[v].byte] = i8085_regs + winner.global[v];
           sym->accuse = 0;
           sym->isspilt = false;
           sym->nRegs = I[v].size;

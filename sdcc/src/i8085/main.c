@@ -153,7 +153,7 @@ static const char z80_builtins_c90[] =
 
 extern reg_info i8085_gpr_regs[];
 extern void i8085_init_asmops (void);
-extern reg_info *i8085_regsZ80;
+extern reg_info *i8085_regs;
 
 static void
 _i8080_init (void)
@@ -161,7 +161,7 @@ _i8080_init (void)
   i8085_opts.sub = SUB_8080;
   asm_addTree (&_i8085_asm_mappings);
 
-  i8085_regsZ80 = i8085_gpr_regs;
+  i8085_regs = i8085_gpr_regs;
   i8085_init_asmops ();
 }
 
@@ -171,7 +171,7 @@ _i8085_init (void)
   i8085_opts.sub = SUB_8085;
   asm_addTree (&_i8085_asm_mappings);
 
-  i8085_regsZ80 = i8085_gpr_regs;
+  i8085_regs = i8085_gpr_regs;
   i8085_init_asmops ();
 }
 

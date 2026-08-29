@@ -4,7 +4,7 @@
 #include <math.h>
 
 int
-i8085_convertFloat (Z80_FLOAT * f, double native)
+i8085_convertFloat (I8085_FLOAT * f, double native)
 {
   unsigned long mantissa, exponent;
   double f2;

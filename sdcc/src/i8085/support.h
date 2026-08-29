@@ -12,9 +12,9 @@ typedef struct
     WORD w[2];
     BYTE b[4];
   }
-Z80_FLOAT;
+I8085_FLOAT;
 
-/** Convert a native float into 'z80' format */
-int i8085_convertFloat (Z80_FLOAT * f, double native);
+/** Convert a native float into i8085 format */
+int i8085_convertFloat (I8085_FLOAT * f, double native);
 
 #endif
