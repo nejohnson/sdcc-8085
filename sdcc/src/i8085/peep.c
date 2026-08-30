@@ -279,7 +279,7 @@ findLabel (const lineNode *pl)
 
   /* 1. extract label in opcode */
 
-  /* In each z80 jumping opcode the label is at the end of the opcode */
+  /* In each jumping opcode the label is at the end of the opcode */
   p = strlen (pl->line) - 1 + pl->line;
 
   /* scan backward until ',' or '\t' */
@@ -926,7 +926,6 @@ condJump(const lineNode *pl)
   return FALSE;
 }
 
-// TODO: z80 flags only partly implemented
 static bool
 surelyWritesFlag(const lineNode *pl, const char *what)
 {
