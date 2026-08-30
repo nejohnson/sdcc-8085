@@ -431,18 +431,22 @@ cost (unsigned int bytes, float states)
 }
 
 static void // Count costs for register allocator.
-/* Only the first two arguments (z80_bytes, z80n_states) are actually used -
-   this port only ever costs its own two columns (reusing the z80 columns).
-   Every other argument corresponds to a cost for a different z80-family
-   sub-target (TLCS90/870/EZ80/R800/Rabbit/SM83/...) that this port never
-   targets, and is accepted but ignored. The full 15-argument signature is
-   kept so that none of the many cost2(...) call sites throughout this file
-   need editing to drop the now-unused arguments. */
-cost2 (int z80_bytes, int tlcs90_bytes, int tlcs870_bytes, int tlcs870c_bytes,
-  float z80n_states, float z180_states, float r4k_clocks, float r6k_clocks, float sm83_cycles, float tlcs90_states, float tlcs870_cycles, float tlcs870c_cycles, float tlcs870c1_cycles, float ez80_cycles, float r800_cycles)
+/* Only the first two arguments (used_bytes, used_states) are actually used -
+   this port only ever costs its own two columns. Every other argument
+   corresponds to a cost for a different Zilog-family sub-target
+   (TLCS90/870/EZ80/R800/Rabbit/SM83/Z80/Z80N/...) that this port never
+   targets, and is accepted but ignored. Whether the two live columns'
+   actual numeric costs (passed at each call site throughout this file)
+   are themselves accurate for real 8080/8085 hardware, as opposed to
+   inherited Z80 timings, is tracked separately as task #21 - out of
+   scope here. The full 15-argument signature is kept so that none of
+   the many cost2(...) call sites throughout this file need editing to
+   drop the now-unused arguments. */
+cost2 (int used_bytes, int tlcs90_bytes, int tlcs870_bytes, int tlcs870c_bytes,
+  float used_states, float z180_states, float r4k_clocks, float r6k_clocks, float sm83_cycles, float tlcs90_states, float tlcs870_cycles, float tlcs870c_cycles, float tlcs870c1_cycles, float ez80_cycles, float r800_cycles)
 {
-  int bytes = z80_bytes;
-  float states = z80n_states;
+  int bytes = used_bytes;
+  float states = used_states;
 
   wassert (bytes >= 0 && states >= 0.0f);
   regalloc_dry_run_cost_bytes += bytes;
@@ -450,9 +454,9 @@ cost2 (int z80_bytes, int tlcs90_bytes, int tlcs870_bytes, int tlcs870c_bytes,
 }
 
 static void // TODO: This function shall be fully replaced by cost2 in the future.
-cost2old (unsigned int bytes, unsigned int z80_states /* also z80n */, unsigned int z180_states, unsigned int r2k_clocks, unsigned int sm83_cycles, unsigned int tlcs90_states, unsigned int ez80_cycles, unsigned int r800_cycles)
+cost2old (unsigned int bytes, unsigned int used_states /* the same single live column cost2 above uses */, unsigned int z180_states, unsigned int r2k_clocks, unsigned int sm83_cycles, unsigned int tlcs90_states, unsigned int ez80_cycles, unsigned int r800_cycles)
 {
-  cost2 (bytes, bytes, bytes, bytes, z80_states, z180_states, r2k_clocks, r2k_clocks, sm83_cycles, tlcs90_states, -1, -1, -1, ez80_cycles, r800_cycles);
+  cost2 (bytes, bytes, bytes, bytes, used_states, z180_states, r2k_clocks, r2k_clocks, sm83_cycles, tlcs90_states, -1, -1, -1, ez80_cycles, r800_cycles);
 }
 
 /* Forward declarations for the 8080/8085 CB-instruction synthesis helpers,

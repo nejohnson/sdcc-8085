@@ -182,7 +182,7 @@ assign_cost(const assignment &a, unsigned short int i, const G_t &G, const I_t &
   if(!right || !IS_SYMOP(right) || !result || !IS_SYMOP(result) || POINTER_GET(ic) || POINTER_SET(ic))
     return(default_instruction_cost(a, i, G, I));
 
-  reg_t byteregs[4] = {-1, -1, -1, -1}; // Todo: Change this when sdcc supports variables larger than 4 bytes in register allocation for z80.
+  reg_t byteregs[4] = {-1, -1, -1, -1}; // Todo: Change this when sdcc supports variables larger than 4 bytes in register allocation here.
 
   operand_map_t::const_iterator oi, oi_end;
 
@@ -614,11 +614,11 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
     }
 
   // 8080/8085: bitwise and/or/xor compute their result in A (and/or/xor a,x),
-  // clobbering whatever was there. z80 can test a bit non-destructively
-  // (bit n,r), but 8080 has no such instruction, so an operand kept in A that
-  // is still live after this instruction - and is not itself the result - is
-  // destroyed. Seen in mblen: `while (c & 0x80) c <<= 1;` keeps c in A across
-  // the `and a,#0x80`, which overwrites c before the shift reads it.
+  // clobbering whatever was there. There is no non-destructive bit-test
+  // instruction, so an operand kept in A that is still live after this
+  // instruction - and is not itself the result - is destroyed. Seen in
+  // mblen: `while (c & 0x80) c <<= 1;` keeps c in A across the
+  // `and a,#0x80`, which overwrites c before the shift reads it.
   if((ic->op == BITWISEAND || ic->op == '|' || ic->op == '^') &&
     input_in_A && !result_in_A)
     {
@@ -630,8 +630,8 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
 
   // 8080/8085: and/or/xor and the (comparison + boolean) ops below carry out
   // their work through A, so A cannot also hold an unrelated value that must
-  // survive the instruction. z80 has room (bit n,r, non-destructive tests) to
-  // keep a bystander in A; 8080 does not. If A holds a value that this
+  // survive the instruction. There is no non-destructive bit-test instruction
+  // to keep a bystander in A instead. If A holds a value that this
   // instruction neither reads nor writes and that is still live afterwards, it
   // would be clobbered - so reject. Seen in bitfields-bits2: the left boolean
   // of `(var->bitN>0) != ((value&mask)>0)` was kept in A across the
