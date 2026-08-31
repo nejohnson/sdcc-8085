@@ -37,14 +37,12 @@
 #define OPTION_CONST_SEG        "--constseg"
 #define OPTION_DATA_SEG         "--dataseg"
 #define OPTION_CALLEE_SAVES_BC  "--callee-saves-bc"
-#define OPTION_PORTMODE         "--portmode="
 #define OPTION_ASM              "--asm="
 #define OPTION_NO_STD_CRT0      "--no-std-crt0"
 #define OPTION_RESERVE_IY       "--reserve-regs-iy"
 #define OPTION_FRAMEPOINTER     "--fno-omit-frame-pointer"
 #define OPTION_EMIT_EXTERNS     "--emit-externs"
 #define OPTION_LEGACY_BANKING   "--legacy-banking"
-#define OPTION_NMOS_Z80         "--nmos-z80"
 #define OPTION_SDCCCALL         "--sdcccall"
 #define OPTION_ALLOW_UNDOC_INST "--allow-undocumented-instructions"
 #define OPTION_SMALL_MODEL      "--model-small"
@@ -96,7 +94,6 @@ typedef enum
   ASM_TYPE_ASXXXX,
   ASM_TYPE_RGBDS,
   ASM_TYPE_ISAS,
-  ASM_TYPE_Z80ASM,
   ASM_TYPE_GAS
 }
 ASM_TYPE;
@@ -137,14 +134,14 @@ static char *_keywords[] = {
 #include "mappings.i"
 
 // Dont have size_t here, so we just use unsigned int, which is size_t for these ports.
-static const char z80_builtins[] =
+static const char i8085_builtins[] =
   "extern void *__builtin_memcpy (void *restrict dest, const void *restrict src, unsigned int n) __builtin__;\n"
   "extern char *__builtin_strcpy (char dest[restrict static 1], const char src[restrict static 1]) __builtin__;\n"
   "extern char *__builtin_strncpy (char *restrict dest, const char *restrict src, unsigned int n) __builtin__;\n"
   "extern char *__builtin_strchr (const char s[static 1], int c) __builtin__;\n"
   "extern void *__builtin_memset (void *s, int c, unsigned int n) __builtin__;\n";
 
-static const char z80_builtins_c90[] =
+static const char i8085_builtins_c90[] =
   "extern void *__builtin_memcpy (void *dest, const void *src, unsigned int n) __builtin__;\n"
   "extern char *__builtin_strcpy (char *dest, const char *src) __builtin__;\n"
   "extern char *__builtin_strncpy (char *dest, const char *src, unsigned int n) __builtin__;\n"
@@ -209,7 +206,6 @@ _reg_parm (sym_link *l, bool reentrant)
 enum
 {
   P_BANK = 1,
-  P_PORTMODE,
   P_CODESEG,
   P_CONSTSEG,
 };
@@ -266,48 +262,6 @@ do_pragma (int id, const char *name, const char *cp)
       }
       break;
 
-    case P_PORTMODE:
-      {                         /*.p.t.20030716 - adding pragma to manipulate z80 i/o port addressing modes */
-        const char *str;
-
-        cp = get_pragma_token (cp, &token);
-
-        if (TOKEN_EOL == token.type)
-          {
-            err = 1;
-            break;
-          }
-
-        str = get_pragma_string (&token);
-
-        cp = get_pragma_token (cp, &token);
-        if (TOKEN_EOL != token.type)
-          {
-            err = 1;
-            break;
-          }
-
-        if (!strcmp (str, "z80"))
-          {
-            i8085_opts.port_mode = 80;
-          }
-        else if (!strcmp (str, "z180"))
-          {
-            i8085_opts.port_mode = 180;
-          }
-        else if (!strcmp (str, "save"))
-          {
-            i8085_opts.port_back = i8085_opts.port_mode;
-          }
-        else if (!strcmp (str, "restore"))
-          {
-            i8085_opts.port_mode = i8085_opts.port_back;
-          }
-        else
-          err = 1;
-      }
-      break;
-
     case P_CODESEG:
     case P_CONSTSEG:
       {
@@ -361,7 +315,6 @@ do_pragma (int id, const char *name, const char *cp)
 
 static struct pragma_s pragma_tbl[] = {
   {"bank", P_BANK, 0, do_pragma},
-  {"portmode", P_PORTMODE, 0, do_pragma},
   {"codeseg", P_CODESEG, 0, do_pragma},
   {"constseg", P_CONSTSEG, 0, do_pragma},
   {NULL, 0, 0, NULL},
@@ -393,21 +346,6 @@ _parseOptions (int *pargc, char **argv, int *i)
               return TRUE;
             }
         }
-      else if (!strncmp (argv[*i], OPTION_PORTMODE, sizeof (OPTION_PORTMODE) - 1))
-        {
-          char *portmode = getStringArg (OPTION_ASM, argv, i, *pargc);
-
-          if (!strcmp (portmode, "z80"))
-            {
-              i8085_opts.port_mode = 80;
-              return TRUE;
-            }
-          else if (!strcmp (portmode, "z180"))
-            {
-              i8085_opts.port_mode = 180;
-              return TRUE;
-            }
-        }
       else if (!strncmp (argv[*i], OPTION_EMIT_EXTERNS, sizeof (OPTION_EMIT_EXTERNS) - 1))
         {
           port->assembler.externGlobal = 1;
@@ -421,7 +359,6 @@ static void
 _setValues (void)
 {
   const char *s;
-  struct dbuf_s dbuf;
 
   if (options.nostdlib == FALSE)
     {
@@ -441,7 +378,7 @@ _setValues (void)
       dbuf_append_str (&dbuf, path);
       Safe_free (path);
 
-      setMainValue ("z80libspec", dbuf_c_str (&dbuf));
+      setMainValue ("i8085_libspec", dbuf_c_str (&dbuf));
       dbuf_destroy (&dbuf);
 
       for (s = setFirstItem (libDirsSet); s != NULL; s = setNextItem (libDirsSet))
@@ -459,46 +396,36 @@ _setValues (void)
         }
 
       if (s == NULL)
-        setMainValue ("z80crt0", "\"crt0{objext}\"");
+        setMainValue ("i8085_crt0", "\"crt0{objext}\"");
       else
         {
           struct dbuf_s dbuf;
 
           dbuf_init (&dbuf, 128);
           dbuf_printf (&dbuf, "\"%s\"", path);
-          setMainValue ("z80crt0", dbuf_c_str (&dbuf));
+          setMainValue ("i8085_crt0", dbuf_c_str (&dbuf));
           dbuf_destroy (&dbuf);
         }
     }
   else
     {
-      setMainValue ("z80libspec", "");
-      setMainValue ("z80crt0", "");
+      setMainValue ("i8085_libspec", "");
+      setMainValue ("i8085_crt0", "");
     }
 
-  setMainValue ("z80extralibfiles", (s = joinStrSet (libFilesSet)));
+  setMainValue ("i8085_extralibfiles", (s = joinStrSet (libFilesSet)));
   Safe_free ((void *) s);
-  setMainValue ("z80extralibpaths", (s = joinStrSet (libPathsSet)));
+  setMainValue ("i8085_extralibpaths", (s = joinStrSet (libPathsSet)));
   Safe_free ((void *) s);
 
-  setMainValue ("z80outputtypeflag", "-i");
-  setMainValue ("z80outext", ".ihx");
+  setMainValue ("i8085_outputtypeflag", "-i");
+  setMainValue ("i8085_outext", ".ihx");
 
   setMainValue ("stdobjdstfilename", "{dstfilename}{objext}");
-  setMainValue ("stdlinkdstfilename", "{dstfilename}{z80outext}");
+  setMainValue ("stdlinkdstfilename", "{dstfilename}{i8085_outext}");
 
-  setMainValue ("z80extraobj", (s = joinStrSet (relFilesSet)));
+  setMainValue ("i8085_extraobj", (s = joinStrSet (relFilesSet)));
   Safe_free ((void *) s);
-
-  dbuf_init (&dbuf, 128);
-  /* z80bases is unused by both i8080 and i8085: both link via the "$1.lk"
-     script SDCCmain.c writes (port->linker.needLinkerScript), which gets
-     its area bases from WRITE_SEG_LOC directly, not from this macro. Kept
-     as "-b..." (SDAS's own meaning) for parity with the still-unused
-     upstream z80/main.c version of this function. */
-  dbuf_printf (&dbuf, "-b_CODE=0x%04X -b_DATA=0x%04X", options.code_loc, options.data_loc);
-  setMainValue ("z80bases", dbuf_c_str (&dbuf));
-  dbuf_destroy (&dbuf);
 }
 
 static void
@@ -506,7 +433,7 @@ _finaliseOptions (void)
 {
   
   if (!options.std_c99 && port->c_preamble)
-    port->c_preamble = z80_builtins_c90;
+    port->c_preamble = i8085_builtins_c90;
 
   port->mem.default_local_map = data;
   port->mem.default_globl_map = data;
@@ -987,7 +914,7 @@ PORT i8080_port =
   0,                            /* leave == */
   FALSE,                        /* Array initializer support. */
   0,                            /* no CSE cost estimation yet */
-  z80_builtins,                 // builtin functions
+  i8085_builtins,               // builtin functions
   GPOINTER,                     /* treat unqualified pointers as "generic" pointers */
   false,                        // there is no __far, and thus no pointers into it.
   false,                        // there is no __far, and thus no pointers into it.
@@ -1135,7 +1062,7 @@ PORT i8085_port =
   0,                            /* leave == */
   FALSE,                        /* Array initializer support. */
   0,                            /* no CSE cost estimation yet */
-  z80_builtins,                 // builtin functions
+  i8085_builtins,               // builtin functions
   GPOINTER,                     /* treat unqualified pointers as "generic" pointers */
   false,                        // there is no __far, and thus no pointers into it.
   false,                        // there is no __far, and thus no pointers into it.

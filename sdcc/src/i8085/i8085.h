@@ -35,12 +35,9 @@ typedef struct
   {
     Z80_SUB_PORT sub;
     int calleeSavesBC;
-    int port_mode;
-    int port_back;
     int reserveIY;
     int noOmitFramePtr;
     int legacyBanking;
-    int nmosZ80;
   }
 I8085_OPTS;
 

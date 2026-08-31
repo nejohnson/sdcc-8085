@@ -4278,14 +4278,6 @@ aopGet (asmop *aop, int offset, bool bit16)
                   emit2 ("ld a, !msbimmeds", aop->aopu.aop_dir);
                   emit2 ("in a, (!lsbimmeds)", aop->aopu.aop_dir);
                 }
-              else if (i8085_opts.port_mode == 180)
-                {
-                  /* z180 in0/out0 mode - same pre-existing gap as the OUT side's
-                     out0 case (no 8080/8085 equivalent to "in0" either); left as
-                     literal text that will fail to assemble rather than silently
-                     target the wrong hardware. */
-                  emit2 ("in0 a, !mems", aop->aopu.aop_dir);
-                }
               else
                 {
                   /* 8 bit mode - the only shape valid on real 8080/8085 hardware.
@@ -4465,24 +4457,11 @@ aopPut (asmop *aop, const char *s, int offset)
               else
                 spillPair (PAIR_BC);
             }
-          else if (i8085_opts.port_mode == 180)
-            {
-              /* z180 in0/out0 mode - same gap as the banked case just above
-                 (no 8080/8085 equivalent to "out0" either), same treatment:
-                 translate what can be, leave the rest as literal text that
-                 will fail to assemble rather than silently target the
-                 wrong hardware. i8085_opts.port_mode is reachable here
-                 regardless of target CPU (--portmode=z180/#pragma portmode
-                 z180 aren't gated by -mi8085 vs -mz180 anywhere in this
-                 file's own option handling). */
-              emit_intel_move ("a", s);
-              emit2 ("out0 (%s), a", aop->aopu.aop_dir);
-            }
           else
             {
               /* 8 bit mode - the only shape valid on real 8080/8085
-                 hardware, and the only one this port's own -mi8085 default
-                 option state should ever actually produce. */
+                 hardware. Intel's OUT is single-operand (port only); the
+                 accumulator is implicit, unlike Zilog's "out (port), a". */
               if (strcmp (s, "a"))
                 emit_intel_move ("a", s);
               emit2 ("out %s", aop->aopu.aop_dir);
