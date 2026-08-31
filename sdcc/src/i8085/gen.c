@@ -1,5 +1,5 @@
 /*-------------------------------------------------------------------------
-  gen.c - code generator for Z80 and related.
+  gen.c - code generator for the i8080/i8085 port.
 
   Copyright (C) 1998, Sandeep Dutta . sandeep.dutta@usa.net
   Copyright (C) 1999, Jean-Louis VERN.jlvern@writeme.com
@@ -1738,12 +1738,12 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       return;
     case A_PUSH:
       wassert (!op2);
-      if (op1->type == AOP_LIT || op1->type == AOP_IMMD)
-        {
-          wassert (IS_Z80N || IS_R4K || IS_R5K || IS_R6K);
-          cost2 (4, -1, -1, -1, 23, -1, 15, 16, -1, -1, -1, -1, -1, -1, -1);
-        }
-      else if (aopInReg (op1, offset1, IY_IDX))
+      // "if (op1->type == AOP_LIT || op1->type == AOP_IMMD) {...}" removed:
+      // it was gated by "wassert (IS_Z80N||IS_R4K||IS_R5K||IS_R6K);" -
+      // pushing a literal/immediate 16-bit value directly is a Z80N/Rabbit
+      // extension with no i8080/i8085 hardware equivalent (push only takes
+      // a register pair on real hardware).
+      if (aopInReg (op1, offset1, IY_IDX))
         cost2 (2, 1, -1, 2, 15, 13, 12, 13, -1, 8, -1, 4, 4, 4, 5);
       else
         cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4);
@@ -1770,19 +1770,18 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
 }
 
 /* aopGet()/aopPut() render HL-indirect addressing as the literal text
-   "(hl)" (the "!*hl" token, expanded via the shared _asxxxx_z80_mapping
-   table in src/z80/mappings.i - unconditionally "(hl)" for every z80-family
-   target including i8085, not something this port can change without
-   affecting z80/z180/etc too; confirmed by reading the table, not assumed).
-   Intel syntax has no parenthesized-memory addressing at all - the
-   equivalent is the M pseudo-register, valid only in the "reg" operand slot
-   of instructions that take one (mov/mvi now, and - per i85pst.c's S_ADD/
-   S_ADI mnemonic classes - add/adc/sub/sbb/ana/xra/ora/cmp will need this
-   exact same substitution when their turn comes). Rather than touch the
-   shared mapping table (every other z80-family target still needs "(hl)"
-   verbatim, e.g. inside "ld a, (hl)"), translate the *text* at the one
-   remaining seam - wherever Intel-syntax emission code consumes an
-   already-rendered aopGet()/aopPut() string. Found and fixed proactively,
+   "(hl)" (the "!*hl" token, expanded via this port's own _i8085_asm_mapping
+   table in i8085/mappings.i - unconditionally "(hl)", confirmed by reading
+   the table, not assumed). Intel syntax has no parenthesized-memory
+   addressing at all - the equivalent is the M pseudo-register, valid only
+   in the "reg" operand slot of instructions that take one (mov/mvi now,
+   and - per i85pst.c's S_ADD/S_ADI mnemonic classes - add/adc/sub/sbb/
+   ana/xra/ora/cmp will need this exact same substitution when their turn
+   comes). Rather than touch the mapping table (every other "!*hl" consumer
+   in this port's own gen.c/peep.c output still needs "(hl)" verbatim, e.g.
+   inside "ld a, (hl)"), translate the *text* at the one remaining seam -
+   wherever Intel-syntax emission code consumes an already-rendered
+   aopGet()/aopPut() string. Found and fixed proactively,
    before it was known to have actually miscompiled anything (checked:
    no test file compiled so far exercises A_LD with an HL-indirect operand,
    so this was a latent gap, not a confirmed-live bug) - exactly the kind of
@@ -1968,9 +1967,9 @@ emit_A_ARITH8 (enum asminst inst, asmop *op2, int offset2)
 
   /* intelOperand() is applied unconditionally: it is a no-op for anything
      other than the literal "(hl)" text aopGet() can produce (AOP_HL/
-     AOP_EXSTK/AOP_PAIRPTR-in-PAIR_HL all render that way via the shared,
-     un-touchable _asxxxx_z80_mapping table - see intelOperand()'s own
-     comment), so applying it to an immediate's "#nn" text is harmless. */
+     AOP_EXSTK/AOP_PAIRPTR-in-PAIR_HL all render that way via this port's
+     own _i8085_asm_mapping table - see intelOperand()'s own comment), so
+     applying it to an immediate's "#nn" text is harmless. */
   emit2 ("%s %s", immediate ? imm_mnemonic[idx] : reg_mnemonic[idx],
          intelOperand (aopGet (op2, offset2, FALSE)));
 }
@@ -2678,7 +2677,7 @@ aopForSym (const iCode *ic, symbol *sym, bool result, bool requires_a)
           if (aop->banked && !regalloc_dry_run)
             werror (E_SFR_BANKED_UNSUPPORTED);
           aop->bcInUse = isPairInUse (PAIR_BC, ic);
-          /* emitDebug (";Z80 AOP_SFR for %s banked:%d bc:%d", sym->rname, FUNC_REGBANK (sym->type), aop->bcInUse); */
+          /* emitDebug (";AOP_SFR for %s banked:%d bc:%d", sym->rname, FUNC_REGBANK (sym->type), aop->bcInUse); */
 
           return (aop);
         }
@@ -2686,7 +2685,11 @@ aopForSym (const iCode *ic, symbol *sym, bool result, bool requires_a)
 
   if (IN_FARSPACE (space))
     {
-      wassertl (IS_EZ80 || IS_RAB || IS_TLCS90, "__far for eZ80, Rabbits and TLCS-90 only");
+      // __far was only ever supported on eZ80, Rabbits and TLCS-90 - none
+      // of which this port ever targets (see the port struct's own "there
+      // is no __far, and thus no pointers into it" fields), so IN_FARSPACE
+      // should never actually be true here.
+      wassert (0);
       sym->aop = aop = newAsmop (AOP_FDIR);
     }
   else if (getSize (sym->type) == 1 && isRegDead(A_IDX, ic) && !isRegDead(HL_IDX, ic) &&
@@ -3920,10 +3923,11 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
                   if (ic && bitVectBitValue (ic->rMask, A_IDX))
                     _push (PAIR_AF);
 
-                  /* "!ldahli" (another shared, un-touchable _asxxxx_z80_mapping
-                     token - see intelOperand()'s comment and the "!ldahlsp"
-                     one in setupPair() above for the pattern) expands to the
-                     2-instruction Zilog "ld a, (hl)" / "inc hl" sequence -
+                  /* "!ldahli" (another token in this port's own
+                     _i8085_asm_mapping table - see intelOperand()'s comment
+                     and the "!ldahlsp" one in setupPair() above for the
+                     pattern) expands to the 2-instruction Zilog
+                     "ld a, (hl)" / "inc hl" sequence -
                      emitted directly here instead, as "mov a, m" / "inx h"
                      (all 5 of this file's !ldahli/!ldahld/!lldahli/!lldahld
                      call sites get the same treatment, since - unlike
@@ -4103,8 +4107,6 @@ static void pointPairToAop (PAIR_ID pairId, const asmop *aop, int offset)
   switch (aop->type)
     {
     case AOP_STK:
-      wassertl (!IS_SM83 && !IS_TLCS870, "The SM83 and TLCS-870 don't have a non-extended stack");
-
     case AOP_EXSTK:
       ;
       int abso = aop->aopu.aop_stk + offset + _G.stack.offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
@@ -4256,14 +4258,12 @@ aopGet (asmop *aop, int offset, bool bit16)
           break;
 
         case AOP_DIR:
-          wassert (!IS_TLCS870);
           emit2 ("lda %s+%d", aop->aopu.aop_dir, offset);
           cost2 (3, 4, -1, 4, 13, 12, 9, 9, 16, 10, -1, 5, 5, 4, 4);
           dbuf_append_char (&dbuf, 'a');
           break;
 
         case AOP_SFR:
-          wassertl (!IS_TLCS90, "TLCS-90 does not have a separate I/O space");
           {
               if (aop->banked)
                 {
@@ -4313,7 +4313,6 @@ aopGet (asmop *aop, int offset, bool bit16)
           break;
 
         case AOP_IY:
-          wassert (!IS_SM83);
           pointPairToAop (PAIR_IY, aop, 0);
           dbuf_tprintf (&dbuf, "!*iyx", offset);
           break;
@@ -4425,7 +4424,6 @@ aopPut (asmop *aop, const char *s, int offset)
       break;
 
     case AOP_SFR:
-      wassertl (!IS_TLCS90, "TLCS-90 does not have a separate I/O space");
       {
           if (aop->banked)
             {
@@ -7183,12 +7181,10 @@ genPointerPush (const iCode *ic)
   genMove (ASMOP_HL, IC_LEFT (ic)->aop, true, true, swap_de ? false : isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
 
   int size = getSize (operandType (ic->left)->next);
-  if (TARGET_IS_TLCS90 && size >= (optimize.codeSpeed? 3 : 4))
-    {
-      emit2 ("add hl, !immed%d", size - 1);
-      cost (3, 6);
-    }
-  else if (isRegDead (BC_IDX, ic) && size > 5)
+  // "if (TARGET_IS_TLCS90 && ...) {add hl, !immed%d; ...}" removed:
+  // TARGET_IS_TLCS90 checks port->id, which is fixed to this port's own
+  // TARGET_ID_I8080/TARGET_ID_I8085 at runtime - unconditionally dead here.
+  if (isRegDead (BC_IDX, ic) && size > 5)
     {
       emit2 ("lxi b, !immed%d", size - 1);
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
@@ -7549,8 +7545,8 @@ genCall (const iCode *ic)
 
           // this file).
             {
-              /* "!jphl" (another shared, un-touchable _asxxxx_z80_mapping
-                 token - see intelOperand()'s comment and the "!ldahli"
+              /* "!jphl" (another token in this port's own _i8085_asm_mapping
+                 table - see intelOperand()'s comment and the "!ldahli"
                  one earlier in this file for the pattern) expands to
                  Zilog "jp (hl)" - emitted directly here instead, as
                  Intel's PCHL (jump-via-HL, single mnemonic, no operand). */
@@ -10973,9 +10969,9 @@ genIfxJump (iCode *ic, const char *jval)
         {
           inst = "po";
         }
-      else if ((IS_R6K_NOTYET || IS_TLCS90) && !strcmp (jval, "gt"))
+      else if (IS_R6K_NOTYET && !strcmp (jval, "gt"))
         inst = "le";
-      else if ((IS_R6K_NOTYET || IS_TLCS90) && !strcmp (jval, "lt"))
+      else if (IS_R6K_NOTYET && !strcmp (jval, "lt"))
         inst = "ge";
       else if (IS_R6K_NOTYET && !strcmp (jval, "gtu"))
         inst = "leu";
@@ -10986,7 +10982,6 @@ genIfxJump (iCode *ic, const char *jval)
           inst = "z";
         }
     }
-  // Z80 can do a conditional long jump
   emitJP (jlbl, inst, 0.5f, false);
 }
 
@@ -15656,7 +15651,10 @@ genAddrOf (const iCode *ic)
   aopOp (IC_RESULT (ic), ic, true, false);
   bool pushed_pair = false;
 
-  wassertl (PTR_TYPE (SPEC_OCLS (getSpec (operandType (ic->left)))) != FPOINTER || IS_EZ80 || IS_RAB || IS_TLCS90, "Only eZ80, Rabbits and TLCS-90 support __far pointers.");
+  // __far (FPOINTER) was only ever supported on eZ80, Rabbits and TLCS-90 -
+  // none of which this port ever targets, so this simplifies to a plain
+  // "never FPOINTER" check.
+  wassertl (PTR_TYPE (SPEC_OCLS (getSpec (operandType (ic->left)))) != FPOINTER, "Only eZ80, Rabbits and TLCS-90 support __far pointers.");
 
   if (sym->onStack)
     {
@@ -15715,10 +15713,12 @@ genAddrOf (const iCode *ic)
   if (pushed_pair)
     _pop (pair);
 
-  // Upper byte of pointer to __far
+  // Upper byte of pointer to __far - eZ80/Rabbits/TLCS-90 only, none of
+  // which this port ever targets (see genAddrOf's FPOINTER wassertl
+  // above), so this branch should never actually be reached.
   if (ic->result->aop->size > 2)
     {
-      wassert (IS_RAB || IS_TLCS90 || IS_EZ80);
+      wassert (0);
 
       if (sym->onStack)
         cheapMove (ic->result->aop, 2, ASMOP_ZERO, 0, isRegDead (A_IDX, ic) && ic->result->aop->regs[A_IDX] < 0);
@@ -16764,7 +16764,6 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
   for (i = 0; i < nparams; i++)
     aopOp (pparams[i], ic, FALSE, FALSE);
 
-  wassertl (!IS_SM83, "Built-in memcpy() not available on sm83.");
   wassertl (nparams == 3, "Built-in memcpy() must have three parameters.");
 
   count = pparams[2];
@@ -17060,7 +17059,6 @@ genBuiltInStrcpy (const iCode *ic, int nParams, operand **pparams)
                       IS_TRUE_SYMOP (IC_RESULT (ic));
 
   wassertl (nParams == 2, "Built-in strcpy() must have two parameters.");
-  wassertl (!IS_SM83, "Built-in strcpy() not available for sm83.");
 
   dst = pparams[0];
   src = pparams[1];
@@ -17153,7 +17151,6 @@ genBuiltInStrncpy (const iCode *ic, int nparams, operand **pparams)
   for (i = 0; i < nparams; i++)
     aopOp (pparams[i], ic, FALSE, FALSE);
 
-  wassertl (!IS_SM83, "Built-in strncpy() not available on sm83.");
   wassertl (nparams == 3, "Built-in strncpy() must have three parameters.");
   wassertl (pparams[2]->aop->type == AOP_LIT, "Last parameter to builtin strncpy() must be literal.");
 

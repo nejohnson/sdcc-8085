@@ -7,33 +7,24 @@
 #include "peep.h"
 #include "support.h"
 
+/* This port only ever targets one of two sub-architectures - Intel's 8080
+   or 8085 - selected once at startup (main.c) and never changed. It used
+   to be a whole Zilog-family sub-target enum (SUB_Z80, SUB_Z180, SUB_R2K/
+   R2KA/R3KA/R4K/R5K/R6K, SUB_SM83, SUB_TLCS90/870/870C/870C1, SUB_EZ80(_Z80),
+   SUB_Z80N, SUB_R800) inherited wholesale from src/z80/main.c, but only
+   SUB_8080/SUB_8085 were ever assigned - the other 17 values, and their
+   IS_* macros below, were provably dead by construction. Collapsed down to
+   just the two values this port actually uses. */
 typedef enum
   {
-    SUB_Z80,
-    SUB_Z180,
-    SUB_R2K,
-    SUB_R2KA,
-    SUB_R3KA,
-    SUB_R4K,
-    SUB_R5K,
-    SUB_R6K,
-    SUB_SM83,
-    SUB_TLCS90,
-    SUB_TLCS870,
-    SUB_TLCS870C,
-    SUB_TLCS870C1,
-    SUB_EZ80_Z80,
-    SUB_EZ80,
-    SUB_Z80N,
-    SUB_R800,
     SUB_8080,
     SUB_8085
   }
-Z80_SUB_PORT;
+I808X_SUB;
 
 typedef struct
   {
-    Z80_SUB_PORT sub;
+    I808X_SUB sub;
     int calleeSavesBC;
     int reserveIY;
     int noOmitFramePtr;
@@ -48,30 +39,20 @@ I8085_OPTS;
    copy (or vice versa) at all. */
 extern I8085_OPTS i8085_opts;
 
-#define IS_Z80 (i8085_opts.sub == SUB_Z80)
-#define IS_Z180 (i8085_opts.sub == SUB_Z180)
-#define IS_R2K (i8085_opts.sub == SUB_R2K)
-#define IS_R2KA (i8085_opts.sub == SUB_R2KA)
-#define IS_R3KA (i8085_opts.sub == SUB_R3KA)
-#define IS_R4K (i8085_opts.sub == SUB_R4K)
-#define IS_R5K (i8085_opts.sub == SUB_R5K)
-#define IS_R6K (i8085_opts.sub == SUB_R6K)
 #define IS_R4K_NOTYET false // Replace when we have r4k/r5k assembler support (function by function in gen.c, to make debugging easier)
 #define IS_R5K_NOTYET false // Replace when we have r4k/r5k assembler support (")
 #define IS_R6K_NOTYET false // Replace when we have r6k assembler support (")
-#define IS_RAB (IS_R2K || IS_R2KA || IS_R3KA || IS_R4K || IS_R5K || IS_R6K)
-#define IS_SM83 (i8085_opts.sub == SUB_SM83)
-#define IS_TLCS90 (i8085_opts.sub == SUB_TLCS90)
-#define IS_TLCS870 (i8085_opts.sub == SUB_TLCS870)
-#define IS_EZ80 (i8085_opts.sub == SUB_EZ80)
-#define IS_Z80N (i8085_opts.sub == SUB_Z80N)
-#define IS_R800 (i8085_opts.sub == SUB_R800)
 #define IS_8080 (i8085_opts.sub == SUB_8080)
 #define IS_8085 (i8085_opts.sub == SUB_8085)
 /* Intel 8080/8085: a subset of the Z80 with no index registers, no relative
    jumps, no alternate register set, and no CB/ED-prefix instructions. */
 #define IS_8080LIKE (IS_8080 || IS_8085)
-#define HAS_IYL_INST (IS_Z80N || IS_EZ80 || IS_R800 || IS_Z80 && options.allow_undoc_inst)
+/* This port has no IY (or IX) hardware at all, so none of the sub-targets
+   that could ever make HAS_IYL_INST true (Z80N/eZ80/R800/undoc-Z80) exist
+   here any more - permanently 0. Left as a named macro (rather than
+   deleted outright) so its handful of call sites - each already documented
+   as unreachable, see their own comments - don't need editing. */
+#define HAS_IYL_INST 0
 
 /* The 8080/8085 have no IY (or IX) at all, so treat IY as permanently
    reserved: every "IY not usable" fallback then applies to them too. */
