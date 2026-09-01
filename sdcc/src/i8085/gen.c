@@ -1415,8 +1415,10 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
                 }
               return (1);
             }
-          else if (op1->aopu.aop_pairId == PAIR_IY || op1->aopu.aop_pairId == PAIR_IX)
+          else if (op1->aopu.aop_pairId == PAIR_IY || op1->aopu.aop_pairId == PAIR_IX) // dead for i8085 - no index registers.
             {
+              if (form_out) // see the AOP_STK comment above for why this is gated
+                wassertl (0, "AOP_PAIRPTR(IX/IY) is dead for i8085 (no index registers)");
               if (count)
                 cost2 (3, 3, -1, 3, 19, 15, 10, 11, -1, 10, -1, 5, 4, 4, 5); // ld d(ix), r
               return (3);
@@ -1431,8 +1433,10 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
                 cost2 (2, 3, 2, 2, 10, 9, 7, 7, 12, 8, 3, 4, 3, 3, 3); // ld (hl), n
               return (2);
             }
-          else if (op1->aopu.aop_pairId == PAIR_IY || op1->aopu.aop_pairId == PAIR_IX)
+          else if (op1->aopu.aop_pairId == PAIR_IY || op1->aopu.aop_pairId == PAIR_IX) // dead for i8085 - no index registers.
             {
+              if (form_out) // see the AOP_STK comment above for why this is gated
+                wassertl (0, "AOP_PAIRPTR(IX/IY) is dead for i8085 (no index registers)");
               if (count)
                  cost2 (4, 4, -1, 4, 19, 15, 11, 12, -1, 12, -1, 6, 5, 5, 5); // ld d(ix), n
                return (4);
@@ -1508,9 +1512,7 @@ op8_cost (const asmop *op, int offset)
     case AOP_PAIRPTR:
       if (op->aopu.aop_pairId == PAIR_HL)
         cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 3, 3, 2, 2);
-      else if (op->aopu.aop_pairId == PAIR_IY || op->aopu.aop_pairId == PAIR_IX)
-        cost2 (3, 3, -1, 3, 19, 14, 9, 10, -1, 10, -1, 5, 5, 4, 5);
-      else
+      else // dead for i8085 - aop_pairId is never PAIR_IY/PAIR_IX (no index registers).
         wassert (0);
       return;
     default:
@@ -1552,11 +1554,7 @@ incdec_cost (const asmop *op, int offset)
           cost2 (1, 2, 1, 2, 11, 10, 8, 8, 12, 8, 4, 4, 4, 4, 4);
           return;
         }
-      if (op->aopu.aop_pairId == PAIR_IY || op->aopu.aop_pairId == PAIR_IX)
-        {
-          cost2 (3, 3, -1, 3, 23, 18, 12, 13, -1, 12, -1, 6, 6, 6, 7);
-          return;
-        }
+      // dead for i8085 - aop_pairId is never PAIR_IY/PAIR_IX (no index registers).
     default:
       printf ("op8_cost op: %d\n", (int) (op->type));
       wassert (0);
@@ -2065,7 +2063,8 @@ pairAsmop (PAIR_ID p)
     case PAIR_HL: return ASMOP_HL;
     case PAIR_DE: return ASMOP_DE;
     case PAIR_BC: return ASMOP_BC;
-    case PAIR_IY: return ASMOP_IY;
+    // PAIR_IY case removed: dead for i8085 - all 3 call sites only ever
+    // pass PAIR_DE/PAIR_BC/PAIR_INVALID, traced directly, never PAIR_IY.
     default: return 0;
     }
 }
@@ -2467,14 +2466,11 @@ isPair (const asmop *aop)
 static bool
 isUnsplitable (const asmop * aop)
 {
-  switch (getPairId (aop))
-    {
-    case PAIR_IX:
-    case PAIR_IY:
-      return TRUE;
-    default:
-      return FALSE;
-    }
+  // "case PAIR_IX: case PAIR_IY: return TRUE;" removed: dead for i8085 -
+  // getPairId() can never return PAIR_IX (no code path in getPairId_o()
+  // produces it - its switch has no PAIR_IX arm at all) or PAIR_IY (its
+  // PAIR_IY arm requires IYL_IDX/IYH_IDX register-backing, which is never
+  // allocated on this port - see the AOP_IY/#22 investigation).
   return FALSE;
 }
 
