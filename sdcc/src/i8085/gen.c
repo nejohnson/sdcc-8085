@@ -1223,7 +1223,6 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
            of a plain register-to-a move preceding the "out", so its own
            form_out (discarded, NULL) is irrelevant here regardless. */
         return (2 + ld_cost_form (ASMOP_A, 0, op2, offset2, count, NULL));
-    case AOP_IY:               /* 4 from ld iy, #... */
     case AOP_EXSTK:            /* 4 from ld iy, #... */
       /* CONFIRMED reachable for i8085 - empirically, not by static reading
          alone: this fired (with form_out unconditional at the time) while
@@ -1242,10 +1241,12 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
             above (mov/mvi into a computed memory address), just arriving
             through a different entry point because the swap didn't apply.
             AOP_IMMD/AOP_LIT here is genuinely "mvi into the EXSTK
-            location"; AOP_HL/AOP_EXSTK/AOP_IY here would be a
-            memory-to-memory move Intel syntax can't do in one instruction
-            (mov m, m does not exist) - untested whether that specific
-            shape is ever actually constructed for i8085.
+            location"; AOP_HL/AOP_EXSTK here would be a memory-to-memory
+            move Intel syntax can't do in one instruction (mov m, m does
+            not exist) - untested whether that specific shape is ever
+            actually constructed for i8085 (AOP_IY was a third
+            possibility here too, but is now known impossible - see
+            newAsmop()'s callers, no AOP_IY asmop is ever constructed).
          2. Critically, the real emission for the case that *did* fire
             went through aopPut()/aopGet() directly, one line above the
             ld_cost() call - not through emit3(A_LD, ...)/emit3_o() at
@@ -1261,7 +1262,7 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
          reach this switch and should not trip an assertion over a
          mnemonic nobody asked for. */
       if (form_out)
-        wassertl (0, "AOP_IY/AOP_EXSTK as a 16-bit ld_cost op1, with form_out set - real-emission reachability not yet confirmed, see comment");
+        wassertl (0, "AOP_EXSTK as a 16-bit ld_cost op1, with form_out set - real-emission reachability not yet confirmed, see comment");
       switch (op2type)
         {
         case AOP_IMMD:
@@ -1272,11 +1273,10 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
         case AOP_STK:
         case AOP_HL:           /* 3 from ld hl, #... */
           return (10);
-        case AOP_IY:
         case AOP_EXSTK:
           return (16);
         default:
-          printf ("ld_cost op1: AOP_IY, op2: %d\n", (int) (op2type));
+          printf ("ld_cost op1: AOP_EXSTK, op2: %d\n", (int) (op2type));
           wassert (0);
         }
     case AOP_STK:
@@ -1311,7 +1311,9 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
               cost2 (3, 3, -1, 3, 19, 15, 10, 11, -1, 10, -1, 5, 4, 4, 5); // ld d(ix), a
             }
           return (7);
-        case AOP_IY:
+        case AOP_IY: // dead for i8085 - no IY register exists on this CPU family.
+          if (form_out) // see the AOP_STK comment above (op1 case) for why this is gated
+            wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
           if (count)
             {
               cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4); // ld iy, #nn
@@ -1375,7 +1377,9 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
               cost2 (1, 2, 1, 1, 7, 7, 6, 6, 8, 6, 2, 2, 2, 2, 2); // ld (hl), a
             }
           return (8);
-        case AOP_IY:
+        case AOP_IY: // dead for i8085 - no IY register exists on this CPU family.
+          if (form_out) // see the AOP_STK comment above (op1 case) for why this is gated
+            wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
           if (count)
             {
               cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4); // ld iy, #nn
@@ -1493,9 +1497,8 @@ op8_cost (const asmop *op, int offset)
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3); // ld hl, #nn
       cost2 (1, 2, 2, 2, 7, 6, 5, 5, 8, 6, 3, 3, 3, 2, 2);
       return;
-    case AOP_IY:
-      cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4); // ld iy, #nn
-      cost2 (3, 3, -1, 3, 19, 14, 9, 10, -1, 10, -1, 5, 5, 4, 5);
+    case AOP_IY: // dead for i8085 - no IY register exists on this CPU family.
+      wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
       return;
     case AOP_PAIRPTR:
       if (op->aopu.aop_pairId == PAIR_HL)
@@ -1535,9 +1538,8 @@ incdec_cost (const asmop *op, int offset)
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3); // ld hl, #nn
       cost2 (1, 2, 1, 2, 11, 10, 8, 8, 12, 8, 4, 4, 4, 4, 4);
       return;
-    case AOP_IY:
-      cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4); // ld iy, #nn
-      cost2 (3, 3, -1, 3, 23, 18, 12, 13, -1, 12, -1, 6, 6, 6, 7);
+    case AOP_IY: // dead for i8085 - no IY register exists on this CPU family.
+      wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
       return;
     case AOP_PAIRPTR:
       if (op->aopu.aop_pairId == PAIR_HL)
@@ -1574,9 +1576,8 @@ bit8_cost (const asmop *op)
       cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3); // ld hl, #nn
       cost2 (2, 2, -1, -1, 15, 6, 10, 10, 16, 8, -1, -1, -1, 5, 5);
       return;
-    case AOP_IY:
-      cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4); // ld iy, #nn
-      cost2 (4, 3, -1, -1, 23, 19, 13, 14, -1, 12, -1, -1, -1, 7, 7);
+    case AOP_IY: // dead for i8085 - no IY register exists on this CPU family.
+      wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
       return;
     default:
       printf ("bit8_cost op: %d\n", (int) (op->type));
@@ -2919,8 +2920,8 @@ aopSame (const asmop *aop1, int offset1, const asmop *aop2, int offset2, int siz
         continue;
 
       // Same file-scope variable.
-      if ((aop1->type == AOP_DIR || aop1->type == AOP_HL || aop1->type == AOP_IY) &&
-        (aop2->type == AOP_DIR || aop2->type == AOP_HL || aop2->type == AOP_IY) &&
+      if ((aop1->type == AOP_DIR || aop1->type == AOP_HL) &&
+        (aop2->type == AOP_DIR || aop2->type == AOP_HL) &&
         offset1 == offset2 && !strcmp(aop1->aopu.aop_dir, aop2->aopu.aop_dir))
         return (true);
   
@@ -3374,7 +3375,6 @@ aopGetLitWordLong (const asmop *aop, int offset, bool with_hash)
   switch (aop->type)
     {
     case AOP_HL:
-    case AOP_IY:
     case AOP_IMMD:
       /* PENDING: for re-target */
       if (with_hash)
@@ -3492,7 +3492,8 @@ requiresHL (const asmop *aop)
 {
   switch (aop->type)
     {
-    case AOP_IY:
+    case AOP_IY: // dead for i8085 - no IY register exists on this CPU family.
+      wassertl (0, "requiresHL: AOP_IY is dead for i8085 (no IY hardware)");
       return false;
     case AOP_HL:
     case AOP_EXSTK:
@@ -3523,7 +3524,7 @@ updatePair (PAIR_ID pairId, int diff)
 {
   if (_G.pairs[pairId].last_type == AOP_LIT)
     _G.pairs[pairId].value = (_G.pairs[pairId].value + (unsigned int)diff) & 0xffff;
-  else if (_G.pairs[pairId].last_type == AOP_IMMD || _G.pairs[pairId].last_type == AOP_IY || _G.pairs[pairId].last_type == AOP_HL ||
+  else if (_G.pairs[pairId].last_type == AOP_IMMD || _G.pairs[pairId].last_type == AOP_HL ||
     _G.pairs[pairId].last_type == AOP_STK || _G.pairs[pairId].last_type == AOP_EXSTK)
     _G.pairs[pairId].offset += diff;
 }
@@ -3569,7 +3570,6 @@ fetchLitPair (PAIR_ID pairId, asmop *left, int offset, bool f_dead, bool dry)
                 }
             }
           if ((_G.pairs[pairId].last_type == AOP_IMMD && left->type == AOP_IMMD) ||
-              (_G.pairs[pairId].last_type == AOP_IY && left->type == AOP_IY) ||
               (_G.pairs[pairId].last_type == AOP_HL && left->type == AOP_HL))
             {
               if (!regalloc_dry_run && _G.pairs[pairId].base && !strcmp (_G.pairs[pairId].base, base))  // Todo: Exact cost.
@@ -3851,7 +3851,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
          instruction (and 0xED is LHLX on the 8085). Only HL can be loaded from a
          direct address, via LHLD. Load DE/BC byte-wise through A with LDA, which
          leaves HL untouched. */
-      else if (pairId != PAIR_HL && (aop->type == AOP_IY || aop->type == AOP_HL) &&
+      else if (pairId != PAIR_HL && aop->type == AOP_HL &&
         (aop->size - offset >= 1))
         {
           bool pushed_a = ic && bitVectBitValue (ic->rMask, A_IDX);
@@ -3877,7 +3877,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
             _pop (PAIR_AF);
           spillPair (pairId);
         }
-      else if ((aop->type == AOP_IY || aop->type == AOP_HL) &&
+      else if (aop->type == AOP_HL &&
         (aop->size >= 2 || pairId != PAIR_IY && optimize.allow_unsafe_read))
         {
           /* Instead of fetching relative to IY, just grab directly
@@ -4122,7 +4122,6 @@ static void pointPairToAop (PAIR_ID pairId, const asmop *aop, int offset)
 
     // Legacy.
     case AOP_HL:
-    case AOP_IY:
       fetchLitPair (pairId, (asmop *) aop, offset, true, false);
       _G.pairs[pairId].offset = offset;
       break;
@@ -4149,8 +4148,8 @@ setupPair (PAIR_ID pairId, asmop *aop, int offset)
 {
   switch (aop->type)
     {
-    case AOP_IY:
-      wassertl (pairId == PAIR_IY || pairId == PAIR_HL, "AOP_IY must be in IY or HL");
+    case AOP_IY: // dead for i8085 - no IY register exists on this CPU family.
+      wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
       fetchLitPair (pairId, aop, 0, true, false);
       break;
 
@@ -4312,9 +4311,8 @@ aopGet (asmop *aop, int offset, bool bit16)
           dbuf_tprintf (&dbuf, "!*hl");
           break;
 
-        case AOP_IY:
-          pointPairToAop (PAIR_IY, aop, 0);
-          dbuf_tprintf (&dbuf, "!*iyx", offset);
+        case AOP_IY: // dead for i8085 - no IY register exists on this CPU family (same evidence as aopPut's AOP_IY case).
+          wassertl (0, "aopGet: AOP_IY is dead for i8085 (no IY hardware)");
           break;
 
         case AOP_EXSTK:
@@ -4801,7 +4799,21 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
       return;
     }
 
-  // Try to push to avoid setting up temporary stack pointer in hl or iy.
+  /* Try to push to avoid setting up temporary stack pointer in hl or iy.
+     Dead code: aopInReg() unconditionally returns false whenever its aop
+     argument isn't AOP_REG (see aopInReg()'s own first line), but the
+     first clause below requires to->type to be AOP_STK/AOP_EXSTK - so the
+     third clause's aopInReg(to, ...) calls can never return true, making
+     this whole if unreachable regardless of what registers exist. (Also
+     unreachable a second, independent way: even if it were reachable, the
+     "iy" text in the emit2() below - reached whenever from's register is
+     none of A/B/D/H - is dead too, since IY is never register-allocated
+     on this port; see newAsmop()'s callers and i8085_gpr_regs[].)
+     Reads like a to/from mix-up - the comment and surrounding logic
+     suggest the intent was to check whether *from* (the value being
+     pushed) is a register pair, not *to* (the stack destination) - but
+     since nobody has ever observed this executing, left exactly as
+     found rather than "corrected" to a guess about 20-year-old intent. */
   if ((to->type == AOP_STK || to->type == AOP_EXSTK) && _G.omitFramePtr &&
     (aopInReg (to, to_offset, A_IDX) || aopInReg (to, to_offset, B_IDX) || aopInReg (to, to_offset, D_IDX) || aopInReg (to, to_offset, H_IDX) || aopInReg (to, to_offset, IYH_IDX)))
     {
@@ -4823,17 +4835,8 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
         }
     }
 
-  if (from->type == AOP_IY && aopInReg (to, to_offset, A_IDX) && from_offset < from->size)
-    {
-      emit2 ("ld a, (%s+%d)", from->aopu.aop_dir, from_offset);
-      cost2 (3, 4, -1, 4, 13, 12, 9, 9, 16, 10, -1, 5, 5, 4, 4);
-    }
-  else if (aopInReg (from, from_offset, A_IDX) && to->type == AOP_IY)
-    {
-      wassert (to_offset < to->size);
-      emit2 ("ld (%s+%d), a", to->aopu.aop_dir, to_offset);
-      cost2 (3, 4, -1, 4, 13, 13, 10, 10, 16, 10, -1, 5, 5, 4, 4);
-    }
+  if (from->type == AOP_IY || to->type == AOP_IY) // dead for i8085 - no IY register exists on this CPU family.
+    wassertl (0, "cheapMove: AOP_IY is dead for i8085 (no IY hardware)");
   else if ((aopInReg (to, to_offset, J_IDX) || aopInReg (to, to_offset, K_IDX)) && // Only very few instructions can write jk. Use hl instead.
     !aopInReg (from, from_offset, H_IDX) && !aopInReg (from, from_offset, L_IDX))
     {
@@ -4858,7 +4861,7 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
     }
   else if (!aopInReg (to, to_offset, A_IDX) && !aopInReg (from, from_offset, A_IDX) && // Go through a.
     (from->type == AOP_DIR || from->type == AOP_SFR || to->type == AOP_SFR ||
-    (to->type == AOP_DIR || to->type == AOP_HL || to->type == AOP_IY || to->type == AOP_EXSTK || to->type == AOP_STK) && (from->type == AOP_HL || from->type == AOP_IY || from->type == AOP_EXSTK || from->type == AOP_STK) ||
+    (to->type == AOP_DIR || to->type == AOP_HL || to->type == AOP_EXSTK || to->type == AOP_STK) && (from->type == AOP_HL || from->type == AOP_EXSTK || from->type == AOP_STK) ||
     (to->type == AOP_HL || to->type == AOP_EXSTK) && (aopInReg(from, from_offset, L_IDX) || aopInReg(from, from_offset, H_IDX)) ||
     to->type == AOP_PAIRPTR && from->type == AOP_PAIRPTR ||
     to->type == AOP_PAIRPTR && to->aopu.aop_pairId == PAIR_DE && from->type == AOP_LIT ||
@@ -4930,7 +4933,7 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
     }
 
   /* PENDING: Verify this. */
-  else if (id == PAIR_HL && requiresHL (aop) && aop->type != AOP_HL && aop->type != AOP_IY)
+  else if (id == PAIR_HL && requiresHL (aop) && aop->type != AOP_HL)
     {
       if (!isRegDead (D_IDX, ic))
         _push (PAIR_DE);
@@ -4956,7 +4959,7 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
 
       // "(!IS_8080LIKE || id == PAIR_HL)" simplified to "id == PAIR_HL"
 
-      if ((aop->type == AOP_IY || aop->type == AOP_HL) && aop->size == 2 && id == PAIR_HL)
+      if (aop->type == AOP_HL && aop->size == 2 && id == PAIR_HL)
         {
           /* id == PAIR_HL is guaranteed by the outer condition (see the
              comment above) - shld (Intel's direct-store-from-HL, single
@@ -5920,7 +5923,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
         /* 8080/8085: only ld (nn),hl (SHLD) exists; ld (nn),de/bc are Z80
            ED-prefix ops, so let non-HL pairs fall through to a byte-wise store. */
         (getPairId_o(source, soffset + i) == PAIR_HL) &&
-        (result->type == AOP_IY || result->type == AOP_DIR || result->type == AOP_HL && (getPairId_o(source, soffset + i) == PAIR_HL || !hl_dead)))
+        (result->type == AOP_DIR || result->type == AOP_HL && (getPairId_o(source, soffset + i) == PAIR_HL || !hl_dead)))
         {
           /* getPairId_o(source, soffset+i) == PAIR_HL is guaranteed by
              this arm's own guard above - shld (single operand) is
@@ -5939,7 +5942,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
         /* 8080/8085: only ld hl,(nn) (LHLD) exists; ld bc/de,(nn) are Z80
            ED-prefix ops, so let non-HL pairs fall through to a byte-wise load. */
         (getPairId_o(result, roffset + i) == PAIR_HL) &&
-        (source->type == AOP_IY || source->type == AOP_DIR || source->type == AOP_HL && (getPairId_o(result, roffset + i) == PAIR_HL || !hl_dead)))
+        (source->type == AOP_DIR || source->type == AOP_HL && (getPairId_o(result, roffset + i) == PAIR_HL || !hl_dead)))
         {
           /* getPairId_o(result, roffset+i) == PAIR_HL is guaranteed by
              this arm's own guard above - lhld (single operand) is
@@ -5961,7 +5964,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           continue;
         }
       else if (i + 1 < size &&
-        (result->type == AOP_IY || result->type == AOP_DIR || result->type == AOP_HL) &&
+        (result->type == AOP_DIR || result->type == AOP_HL) &&
         source->type == AOP_IMMD && hl_dead)
         {
           genMove_o (ASMOP_HL, 0, source, soffset + i, 2, a_dead, true, false, iy_dead, f_dead);
@@ -5974,7 +5977,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
 
       // 16-bit load into register might be cheaper than 8-bit, if the latter has to go through a. For bc and de it is only worth it if a would have to be saved.
       if ((optimize.allow_unsafe_read || i + 1 == size && soffset + i + 1 <= source->size) && result->type == AOP_REG && !aopInReg (result, roffset + i, A_IDX) &&
-        (i + 1 == size || soffset + i + 1 >= source->size) && (source->type == AOP_HL && fetchLitPair (PAIR_HL, source, soffset + i, f_dead, true) || source->type == AOP_IY))
+        (i + 1 == size || soffset + i + 1 >= source->size) && source->type == AOP_HL && fetchLitPair (PAIR_HL, source, soffset + i, f_dead, true))
         {
           bool upper = aopInReg (result, roffset + i, B_IDX) || aopInReg (result, roffset + i, D_IDX) || aopInReg (result, roffset + i, H_IDX) || aopInReg (result, roffset + i, IYH_IDX);
           PAIR_ID pair = PAIR_INVALID;
@@ -6012,7 +6015,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
       // Cache a copy of zero in a.
       if (f_dead && !zeroed_a && a_dead && source->regs[A_IDX] <= i &&
         (size > 1 && result->type != AOP_REG && aopIsLitVal (source, soffset + i, 2, 0x0000) ||
-        size == 1 && (result->type == AOP_HL && fetchLitPair (PAIR_HL, result, roffset + i, f_dead, true) || result->type == AOP_IY && fetchLitPair (PAIR_IY, result, roffset + i, f_dead, true)) && aopIsLitVal (source, soffset + i, 1, 0x00)))
+        size == 1 && result->type == AOP_HL && fetchLitPair (PAIR_HL, result, roffset + i, f_dead, true) && aopIsLitVal (source, soffset + i, 1, 0x00)))
         {
           emit3 (A_XOR, ASMOP_A, ASMOP_A);
           zeroed_a = true;
@@ -6053,7 +6056,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           bool premoved_a = false;
 
           if (!i && a_dead && // Avoid setting up hl or iy for a single byte.
-            (source->type == AOP_HL && fetchLitPair (PAIR_HL, source, soffset + i, f_dead, true) || source->type == AOP_IY && fetchLitPair (PAIR_IY, source, soffset + i, f_dead, true)) &&
+            source->type == AOP_HL && fetchLitPair (PAIR_HL, source, soffset + i, f_dead, true) &&
             result->type == AOP_REG && (i + 1 > size || soffset + i < source->size))
             {
 
@@ -6081,17 +6084,11 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
                   pushed_hl = true;
                 }
             }
-          else if (result->type == AOP_IY && !iy_dead && !aopInReg (source, soffset + i, A_IDX))
-            {
-              via_a = true;
-              if (!a_dead)
-                _push (PAIR_AF);
-            }
-          else if (!premoved_a && source->type == AOP_IY && result->type == AOP_REG && a_dead && i == 0 && i + 1 == size) // Using free a is cheaper than using iy.
-            via_a = true;
+          else if (result->type == AOP_IY || source->type == AOP_IY) // dead for i8085 - no IY register exists on this CPU family (both arms this replaces - the "iy_dead" fast-in-a path and the "free a is cheaper than iy" shortcut - were entirely gated on one of these).
+            wassertl (0, "genMove_o: AOP_IY is dead for i8085 (no IY hardware)");
           if (!premoved_a)
             {
-              bool save_iy = !iy_dead && source->type == AOP_IY && (result->type == AOP_REG && !via_a && !aopInReg (result, roffset + i, A_IDX));
+              bool save_iy = false; // was "!iy_dead && source->type == AOP_IY && ..." - dead for i8085, see the AOP_IY comment above.
               if (save_iy)
                 _push (PAIR_IY);
               cheapMove (via_a ? ASMOP_A : result, via_a ? 0 : (roffset + i), source, soffset + i, via_a || a_dead);
@@ -8563,7 +8560,7 @@ genPlusIncr (const iCode *ic)
     }
 
   if (size == 2 && icount <= 2 && isPairDead (PAIR_HL, ic) &&
-    (IC_LEFT (ic)->aop->type == AOP_HL || IC_LEFT (ic)->aop->type == AOP_IY))
+    IC_LEFT (ic)->aop->type == AOP_HL)
     {
       genMove (ASMOP_HL, IC_LEFT (ic)->aop, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true);
       while (icount--)
@@ -8635,13 +8632,8 @@ genPlusIncr (const iCode *ic)
   if (sameRegs (ic->left->aop, ic->result->aop))
     {
       bool save_iy = false;
-      if (ic->left->aop->type == AOP_IY)
-        {
-          if (isRegDead (HL_IDX, ic))
-            ic->left->aop->type = AOP_HL;
-          else
-            save_iy = !isRegDead (IY_IDX, ic);
-        }
+      if (ic->left->aop->type == AOP_IY) // dead for i8085 - no IY register exists on this CPU family.
+        wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
       if (save_iy)
         _push (PAIR_IY);
       while (icount--)
@@ -8659,7 +8651,7 @@ couldDestroyCarry (const asmop *aop)
 {
   if (aop)
     {
-      if (aop->type == AOP_EXSTK || aop->type == AOP_IY)
+      if (aop->type == AOP_EXSTK)
         {
           return TRUE;
         }
@@ -8902,7 +8894,7 @@ genPlus (iCode * ic)
         }
     }
   else if (!maskedtopbyte && size == 2 && getPairId (ic->result->aop) == PAIR_HL && (isPairDead (PAIR_DE, ic) || isPairDead (PAIR_BC, ic)) &&
-    (ic->right->aop->type == AOP_LIT || ic->right->aop->type == AOP_IMMD || ic->left->aop->type == AOP_IMMD && (ic->right->aop->type == AOP_HL || ic->right->aop->type == AOP_IY)))
+    (ic->right->aop->type == AOP_LIT || ic->right->aop->type == AOP_IMMD || ic->left->aop->type == AOP_IMMD && ic->right->aop->type == AOP_HL))
     {
       PAIR_ID extrapair = isPairDead (PAIR_DE, ic) ? PAIR_DE : PAIR_BC;
       genMove (ASMOP_HL, ic->left->aop, isRegDead (A_IDX, ic), true, isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
@@ -8937,8 +8929,7 @@ genPlus (iCode * ic)
       _pop (PAIR_IY);
       goto release;
     }
-  else if (!maskedtopbyte && getPairId (ic->result->aop) == PAIR_IY &&
-    ic->left->aop->type != AOP_IY && ic->right->aop->type != AOP_IY)
+  else if (!maskedtopbyte && getPairId (ic->result->aop) == PAIR_IY)
     {
       bool save_pair = FALSE;
       PAIR_ID pair;
@@ -9218,7 +9209,7 @@ genPlus (iCode * ic)
   // Avoid overwriting operand in h or l when setupToPreserveCarry () loads hl - only necessary if carry is actually used during addition.
   premoved = FALSE;
   if (size > 1 &&
-    !(size == 2 && isPair (leftop) && (rightop->type == AOP_LIT || rightop->type == AOP_IY)) && !(size == 2 && leftop->type == AOP_STL && isPairDead (PAIR_HL, ic))) // No need to setup if a single 16 bit addition is sufficient below.
+    !(size == 2 && isPair (leftop) && rightop->type == AOP_LIT) && !(size == 2 && leftop->type == AOP_STL && isPairDead (PAIR_HL, ic))) // No need to setup if a single 16 bit addition is sufficient below.
     {
       if (!couldDestroyCarry (leftop) && (couldDestroyCarry (rightop) || couldDestroyCarry (IC_RESULT (ic)->aop)))
         {
@@ -10109,7 +10100,7 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
         }
       else if (size == 1 && !offset && !maskedbyte && (aopIsLitVal (right, offset, 1, 0x01) || aopIsLitVal (right, offset, 1, 0x02)) &&
         (result->type == AOP_REG && !aopInReg (left, offset, A_IDX) && (!aopInReg (left, offset, IYL_IDX) && !aopInReg (result, offset, IYH_IDX)) ||
-          (result->type == AOP_STK || result->type == AOP_HL || result->type == AOP_IY || result->type == AOP_PAIRPTR && result->aopu.aop_pairId == PAIR_HL) && aopSame (left, 0, result, 0, 1)))
+          (result->type == AOP_STK || result->type == AOP_HL || result->type == AOP_PAIRPTR && result->aopu.aop_pairId == PAIR_HL) && aopSame (left, 0, result, 0, 1)))
         {
           cheapMove (result, 0, left, 0, a_dead);
           emit3 (A_DEC, result, 0);
@@ -11279,7 +11270,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
             }
           else if (size >= 2 && (!sign || size > 2) && !left_already_in_a &&
             isPairDead (PAIR_HL, ic) &&
-            (getPairId_o (left->aop, offset) == PAIR_HL || (left->aop->type == AOP_LIT || left->aop->type == AOP_IMMD || left->aop->type == AOP_HL || left->aop->type == AOP_IY) && right->aop->regs[L_IDX] < offset && right->aop->regs[H_IDX] < offset) &&
+            (getPairId_o (left->aop, offset) == PAIR_HL || (left->aop->type == AOP_LIT || left->aop->type == AOP_IMMD || left->aop->type == AOP_HL) && right->aop->regs[L_IDX] < offset && right->aop->regs[H_IDX] < offset) &&
             (getPairId_o (right->aop, offset) == PAIR_DE || getPairId_o (right->aop, offset) == PAIR_BC))
             {
               genMove_o (ASMOP_HL, 0, left->aop, offset, 2, isRegDead (A_IDX, ic), true, false, true, !offset);
@@ -11293,8 +11284,8 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
             }
           else if (size >= 2 && (!sign || size > 2) && !left_already_in_a &&
             isPairDead (PAIR_HL, ic) && isPairDead (PAIR_DE, ic) && left->aop->regs[E_IDX] < offset + 1 && left->aop->regs[D_IDX] < offset + 1 &&
-            (getPairId_o (left->aop, offset) == PAIR_HL || left->aop->type == AOP_LIT || left->aop->type == AOP_IMMD || left->aop->type == AOP_HL || left->aop->type == AOP_IY) &&
-            (right->aop->type == AOP_LIT || right->aop->type == AOP_IMMD || right->aop->type == AOP_HL || right->aop->type == AOP_IY))
+            (getPairId_o (left->aop, offset) == PAIR_HL || left->aop->type == AOP_LIT || left->aop->type == AOP_IMMD || left->aop->type == AOP_HL) &&
+            (right->aop->type == AOP_LIT || right->aop->type == AOP_IMMD || right->aop->type == AOP_HL))
             {
               genMove_o (ASMOP_DE, 0, right->aop, offset, 2, isRegDead (A_IDX, ic), getPairId_o (left->aop, offset) != PAIR_HL, true, true, !offset);
               genMove_o (ASMOP_HL, 0, left->aop, offset, 2, isRegDead (A_IDX, ic), true, false, true, !offset);
@@ -11544,7 +11535,7 @@ gencjneshort (operand *left, operand *right, symbol *lbl, const iCode *ic)
   if (left->aop->size == 1 && aopInReg (left->aop, 0, A_IDX) && !isRegDead (A_IDX, ic) &&
     (right->aop->type == AOP_LIT ||
     right->aop->type == AOP_REG && (right->aop->aopu.aop_reg[offset]->rIdx != IYL_IDX && right->aop->aopu.aop_reg[offset]->rIdx != IYH_IDX) ||
-    right->aop->type == AOP_STK || right->aop->type == AOP_HL || right->aop->type == AOP_IY))
+    right->aop->type == AOP_STK || right->aop->type == AOP_HL))
     {
       bool pushed_hl = false;
       if(requiresHL (right->aop) && right->aop->type != AOP_REG && !isPairDead(PAIR_HL, ic))
@@ -11717,7 +11708,6 @@ gencjneshort (operand *left, operand *right, symbol *lbl, const iCode *ic)
      pointed to by HL, IX or IY */
   else if (right->aop->type == AOP_REG ||
            right->aop->type == AOP_HL ||
-           right->aop->type == AOP_IY ||
            right->aop->type == AOP_STK ||
            right->aop->type == AOP_EXSTK ||
            right->aop->type == AOP_IMMD ||
@@ -12141,7 +12131,7 @@ genAnd (const iCode *ic, iCode *ifx)
             }
           /* Non-destructive and when exactly one bit per byte is set. */
           else if (isLiteralBit (bytelit) >= 0 &&
-            (left->aop->type == AOP_STK || aopInReg (left->aop, offset, A_IDX) || left->aop->type == AOP_HL || left->aop->type == AOP_IY ||
+            (left->aop->type == AOP_STK || aopInReg (left->aop, offset, A_IDX) || left->aop->type == AOP_HL ||
               left->aop->type == AOP_REG && !aopInReg (left->aop, offset, IYL_IDX) && !aopInReg (left->aop, offset, IYH_IDX)))
             {
               if (requiresHL (left->aop) && left->aop->type != AOP_REG)
@@ -12507,7 +12497,7 @@ genOr (const iCode * ic, iCode * ifx)
       else if (left->aop->type == AOP_REG && right->aop->type == AOP_REG && // Try to use ld (nn), rr, etc.
         aopIsLitVal (left->aop, i + 1, 1, 0x00) && aopIsLitVal (right->aop, i, 1, 0x00) &&
         (aopInReg (right->aop, i + 1, B_IDX) && aopInReg (left->aop, i, C_IDX) || aopInReg (right->aop, i + 1, D_IDX) && aopInReg (left->aop, i, E_IDX) || aopInReg (right->aop, i + 1, H_IDX) && aopInReg (left->aop, i, L_IDX) || aopInReg (right->aop, i + 1, IYH_IDX) && aopInReg (left->aop, i, IYL_IDX)) &&
-        (result->aop->type == AOP_DIR ||result->aop->type == AOP_HL || result->aop->type == AOP_IY))
+        (result->aop->type == AOP_DIR ||result->aop->type == AOP_HL))
         {
           asmop *source = aopInReg (right->aop, i + 1, B_IDX) ? ASMOP_BC : aopInReg (right->aop, i + 1, D_IDX) ? ASMOP_DE : aopInReg (right->aop, i + 1, H_IDX) ? ASMOP_HL : ASMOP_IY;
           genMove_o (result->aop, i, source, 0, 2, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic), true);
@@ -13370,7 +13360,7 @@ genRotW (const iCode *ic)
 
 
   if (left->aop->type == AOP_REG || result->aop->type == AOP_STK ||
-    result->aop->type == AOP_HL || result->aop->type == AOP_IY ||
+    result->aop->type == AOP_HL ||
     result->aop->type == AOP_EXSTK || result->aop->type == AOP_REG)
     {
       if (!isRegDead (A_IDX, ic))
@@ -15792,14 +15782,13 @@ genAssign (const iCode *ic)
 
 
   // "if (result->aop->type == AOP_FDIR || right->aop->type == AOP_FDIR)
-  if (isPair (result->aop) && getPairId (result->aop) != PAIR_IY ||
-    isPair (right->aop) && result->aop->type == AOP_IY && size == 2)
+  // "isPair (right->aop) && result->aop->type == AOP_IY && size == 2" arm
+  // removed above (and the two "Use ld (nn)/(hl), hl" AOP_IY-gated arms
+  // below): dead for i8085 - no IY register exists on this CPU family.
+  if (isPair (result->aop) && getPairId (result->aop) != PAIR_IY)
     genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
   else if (size == 2 && isPairDead (PAIR_HL, ic) &&
-
-    ((right->aop->type == AOP_STK && !_G.omitFramePtr || right->aop->type == AOP_IY || right->aop->type == AOP_LIT) && result->aop->type == AOP_IY || // Use ld (nn), hl
-    right->aop->type == AOP_IY && (result->aop->type == AOP_STK && !_G.omitFramePtr || result->aop->type == AOP_IY) || // Use ld hl, (nn)
-    right->aop->type == AOP_LIT && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) && (result->aop->aopu.aop_stk + offset + _G.stack.offset + (result->aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) + _G.stack.pushed) == 0)) // Use ex (sp), hl
+    right->aop->type == AOP_LIT && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) && (result->aop->aopu.aop_stk + offset + _G.stack.offset + (result->aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) + _G.stack.pushed) == 0) // Use ex (sp), hl
     {
       fetchPair (PAIR_HL, right->aop);
       genMove (result->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic));
@@ -15823,22 +15812,15 @@ genAssign (const iCode *ic)
                   emit2 ("inx sp");
                   regalloc_dry_run_cost += 3;
                 }
-              if (result->aop->type == AOP_IY) /* Take care not to overwrite iy */
-                {
-                  emit2 ("ld (%s+%d), a", result->aop->aopu.aop_dir, size);
-                  cost2 (3, 4, -1, 4, 13, 13, 10, 10, 16, 10, -1, 5, 5, 4, 4);
-                }
+              if (result->aop->type == AOP_IY) // dead for i8085 - no IY register exists on this CPU family.
+                wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
               else
                 cheapMove (result->aop, size, ASMOP_A, 0, true);
             }
           else if (size == 1)
             {
-              if (result->aop->type == AOP_IY) /* Take care not to overwrite iy */
-                {
-                  emit2 ("ld !mems, iy", result->aop->aopu.aop_dir);
-                  cost2 (4, 4, -1, 4, 20, 19, 15, 15, -1, 12, -1, 6, 6, 6, 6);
-                  size--;
-                }
+              if (result->aop->type == AOP_IY) // dead for i8085 - no IY register exists on this CPU family.
+                wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
               else if (result->aop->type == AOP_EXSTK)
                 {
                   bool pushed_pair = FALSE;
@@ -15864,12 +15846,8 @@ genAssign (const iCode *ic)
             }
           else
             {
-              if (result->aop->type == AOP_IY) /* Take care not to overwrite iy */
-                {
-                  cheapMove (ASMOP_A, 0, ASMOP_ZERO, 0, true);
-                  emit2 ("ld (%s+%d), a", result->aop->aopu.aop_dir, size);
-                  cost2 (3, 4, -1, 4, 13, 13, 10, 10, 16, 10, -1, 5, 5, 4, 4);
-                }
+              if (result->aop->type == AOP_IY) // dead for i8085 - no IY register exists on this CPU family.
+                wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
               else
                 cheapMove (result->aop, size, ASMOP_ZERO, 0, true);
             }
@@ -15918,9 +15896,8 @@ genAssign (const iCode *ic)
             down = true;
 
       if (!down &&
-          (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK || result->aop->type == AOP_DIR
-           || result->aop->type == AOP_IY) && (right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK
-               || right->aop->type == AOP_DIR || right->aop->type == AOP_IY) && size >= 2)
+          (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK || result->aop->type == AOP_DIR) &&
+          (right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK || right->aop->type == AOP_DIR) && size >= 2)
         {
           // This estimation is only accurate, if neither operand is AOP_EXSTK, and we are optimizing for code size or targeting the Z80, Z180, eZ80, Z80N or Rabbit 3000A.
           int sizecost_n, sizecost_l, cyclecost_n, cyclecost_l;
@@ -15937,14 +15914,14 @@ genAssign (const iCode *ic)
           sizecost_n = 6 * size; // Use 8-Bit loads: Z80, Z180, Z80N.
 
           sizecost_l = 13 + hl_alive * 2 + de_alive * 2 + bc_alive * 2 -
-            (right->aop->type == AOP_DIR || right->aop->type == AOP_IY) -
-            (result->aop->type == AOP_DIR || result->aop->type == AOP_IY) * 2;
+            (right->aop->type == AOP_DIR) -
+            (result->aop->type == AOP_DIR) * 2;
 
           cyclecost_n = 38 * size; // Z80, Z80N
 
           cyclecost_l = 21 * size + 51 + hl_alive * 21 + de_alive * 21 + bc_alive * 21 - // Z80
-              (right->aop->type == AOP_DIR || right->aop->type == AOP_IY) * 11 -
-              (result->aop->type == AOP_DIR || result->aop->type == AOP_IY) * 15;
+              (right->aop->type == AOP_DIR) * 11 -
+              (result->aop->type == AOP_DIR) * 15;
 
           if (optimize.codeSize)
             l_better = (sizecost_l < sizecost_n || sizecost_l == sizecost_n && cyclecost_l < cyclecost_n);
@@ -16017,7 +15994,7 @@ genAssign (const iCode *ic)
               goto release;
             }
         }
-      if ((result->aop->type == AOP_REG || result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK || result->aop->type == AOP_IY || result->aop->type == AOP_HL) && (right->aop->type == AOP_REG || right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK || right->aop->type == AOP_LIT || right->aop->type == AOP_IMMD || right->aop->type == AOP_DIR || right->aop->type == AOP_IY || right->aop->type == AOP_HL))
+      if ((result->aop->type == AOP_REG || result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK || result->aop->type == AOP_HL) && (right->aop->type == AOP_REG || right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK || right->aop->type == AOP_LIT || right->aop->type == AOP_IMMD || right->aop->type == AOP_DIR || right->aop->type == AOP_HL))
         genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic));
       else
         while (size--)
