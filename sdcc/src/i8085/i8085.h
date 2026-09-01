@@ -39,9 +39,6 @@ I8085_OPTS;
    copy (or vice versa) at all. */
 extern I8085_OPTS i8085_opts;
 
-#define IS_R4K_NOTYET false // Replace when we have r4k/r5k assembler support (function by function in gen.c, to make debugging easier)
-#define IS_R5K_NOTYET false // Replace when we have r4k/r5k assembler support (")
-#define IS_R6K_NOTYET false // Replace when we have r6k assembler support (")
 #define IS_8080 (i8085_opts.sub == SUB_8080)
 #define IS_8085 (i8085_opts.sub == SUB_8085)
 /* Intel 8080/8085: a subset of the Z80 with no index registers, no relative

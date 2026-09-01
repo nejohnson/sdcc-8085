@@ -305,7 +305,12 @@ static struct asmop *const ASMOP_HL = &asmop_hl;
 static struct asmop *const ASMOP_DE = &asmop_de;
 static struct asmop *const ASMOP_BC = &asmop_bc;
 static struct asmop *const ASMOP_IY = &asmop_iy;
-static struct asmop *const ASMOP_JK = &asmop_jk;
+/* ASMOP_JK (alias for asmop_jk) is unused on this port as of #23 (its only
+   call site - "ex jk, hl", Rabbit 4000-only - was gated on the now-removed
+   IS_R4K_NOTYET||IS_R5K_NOTYET||IS_R6K_NOTYET dead code). The underlying
+   asmop_jk storage and its init_reg_asmop() call are left in place -
+   harmless, and it shares a declaration line with several still-used
+   asmop_* variables, same as the ASMOP_EBC/etc. group below. */
 static struct asmop *const ASMOP_EHL = &asmop_ehl;
 static struct asmop *const ASMOP_LDE = &asmop_lde;
 /* ASMOP_EBC/ASMOP_DEBC/ASMOP_AHL/ASMOP_AIY/ASMOP_HLBC (aliases for
@@ -5125,7 +5130,10 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
   
   a_dead |= (result->regs[A_IDX] >= roffset && result->regs[A_IDX] < roffset + sizex);
   hl_dead |= (result->regs[L_IDX] >= roffset && result->regs[L_IDX] < roffset + sizex && result->regs[H_IDX] >= roffset && result->regs[H_IDX] < roffset + sizex);
-  bool bc_dead = (result->regs[C_IDX] >= roffset && result->regs[C_IDX] < roffset + sizex && result->regs[B_IDX] >= roffset && result->regs[B_IDX] < roffset + sizex);
+  // bc_dead removed: only read by the four dead Rabbit-only blocks removed
+  // just below in this function (IS_R4K_NOTYET||IS_R5K_NOTYET||IS_R6K_NOTYET
+  // are permanently-false placeholders for a Rabbit assembler backend this
+  // port does not have).
   de_dead |= (result->regs[E_IDX] >= roffset && result->regs[E_IDX] < roffset + sizex && result->regs[D_IDX] >= roffset && result->regs[D_IDX] < roffset + sizex);
   iy_dead |= (result->regs[IYL_IDX] >= roffset && result->regs[IYL_IDX] < roffset + sizex && result->regs[IYH_IDX] >= roffset && result->regs[IYH_IDX] < roffset + sizex);
   jk_dead |= (result->regs[K_IDX] >= roffset && result->regs[K_IDX] < roffset + sizex && result->regs[J_IDX] >= roffset && result->regs[J_IDX] < roffset + sizex);
@@ -5350,217 +5358,16 @@ skip_byte_push_iy:
         }
     }
 
-  // Try to use Rabbit 4000 ex bc, hl
-  if (IS_R4K_NOTYET || IS_R5K_NOTYET || IS_R6K_NOTYET) // BUG: stdcbench selftest fails if this is enabled!! Testing on hardware shows that ex bc, hl in mode 10 apparently just copies bc into hl?
-    {
-      int ex[4] = {-2, -2, -2, -2}; // Swapped bytes
-      bool no = false; // Still needed byte would be overwritten
-
-      // Find L and check that it is exchanged with E, find H and check that it is exchanged with D.
-      for (int i = 0; i < n; i++)
-        {
-          if (assigned[i] &&
-            (aopInReg (result, roffset + i, C_IDX) || aopInReg (result, roffset + i, L_IDX) || aopInReg (result, roffset + i, B_IDX) || aopInReg (result, roffset + i, H_IDX)))
-            no = true;
-       
-          if (!assigned[i] && aopInReg (source, soffset + i, C_IDX))
-            if (aopInReg (result, roffset + i, L_IDX))
-              ex[0] = i;
-            else
-              no = true;
-          if (!assigned[i] && aopInReg (source, soffset + i, L_IDX))
-            if (aopInReg (result, roffset + i, C_IDX))
-              ex[1] = i;
-            else
-              no = true;
-          if (!assigned[i] && aopInReg (source, soffset + i, B_IDX))
-            if (aopInReg (result, roffset + i, H_IDX))
-              ex[2] = i;
-            else
-              no = true;
-          if (!assigned[i] && aopInReg (source, soffset + i, H_IDX))
-            if (aopInReg (result, roffset + i, B_IDX))
-              ex[3] = i;
-            else
-              no = true; 
-        }
-
-      int exsum = (ex[0] >= 0) + (ex[1] >= 0) + (ex[2] >= 0) + (ex[3] >= 0);
-
-      if (!no && exsum >= 2 && hl_dead && bc_dead)
-        {
-          emit3w (A_EX, ASMOP_BC, ASMOP_HL);
-          swapPairs (PAIR_BC, PAIR_HL);
-          if(ex[0] >= 0)
-            assigned[ex[0]] = true;
-          if(ex[1] >= 0)
-            assigned[ex[1]] = true;
-          if(ex[2] >= 0)
-            assigned[ex[2]] = true;
-          if(ex[3] >= 0)
-            assigned[ex[3]] = true;
-          regsize -= exsum;
-          size -= exsum;
-        }
-    }
-
-  // Try to use Rabbit 4000 ex jk, hl
-  if (IS_R4K_NOTYET || IS_R5K_NOTYET || IS_R6K_NOTYET) // BUG!! Testing on hardware shows that ex jk, hl in mode 10 apparently just copies jk into hl?
-    {
-      int ex[4] = {-2, -2, -2, -2}; // Swapped bytes
-      bool no = false; // Still needed byte would be overwritten
-
-      // Find L and check that it is exchanged with E, find H and check that it is exchanged with D.
-      for (int i = 0; i < n; i++)
-        {
-          if (assigned[i] &&
-            (aopInReg (result, roffset + i, K_IDX) || aopInReg (result, roffset + i, L_IDX) || aopInReg (result, roffset + i, J_IDX) || aopInReg (result, roffset + i, H_IDX)))
-            no = true;
-       
-          if (!assigned[i] && aopInReg (source, soffset + i, K_IDX))
-            if (aopInReg (result, roffset + i, L_IDX))
-              ex[0] = i;
-            else
-              no = true;
-          if (!assigned[i] && aopInReg (source, soffset + i, L_IDX))
-            if (aopInReg (result, roffset + i, K_IDX))
-              ex[1] = i;
-            else
-              no = true;
-          if (!assigned[i] && aopInReg (source, soffset + i, J_IDX))
-            if (aopInReg (result, roffset + i, H_IDX))
-              ex[2] = i;
-            else
-              no = true;
-          if (!assigned[i] && aopInReg (source, soffset + i, H_IDX))
-            if (aopInReg (result, roffset + i, J_IDX))
-              ex[3] = i;
-            else
-              no = true; 
-        }
-
-      int exsum = (ex[0] >= 0) + (ex[1] >= 0) + (ex[2] >= 0) + (ex[3] >= 0);
-
-      if (!no && exsum >= 2 && hl_dead && jk_dead)
-        {
-          emit3w (A_EX, ASMOP_JK, ASMOP_HL);
-          swapPairs (PAIR_JK, PAIR_HL);
-          if(ex[0] >= 0)
-            assigned[ex[0]] = true;
-          if(ex[1] >= 0)
-            assigned[ex[1]] = true;
-          if(ex[2] >= 0)
-            assigned[ex[2]] = true;
-          if(ex[3] >= 0)
-            assigned[ex[3]] = true;
-          regsize -= exsum;
-          size -= exsum;
-        }
-    }
-
-  // Try to use Rabbit 4000 rlc bcde, 8.
-  if ((IS_R4K_NOTYET || IS_R5K_NOTYET || IS_R6K_NOTYET) && regsize >= 3)
-    {
-      int ex[4] = {-1, -1, -1, -1};
-      bool no = !bc_dead || !de_dead;
-
-      for (int i = 0; i < n; i++)
-        {
-          if (assigned[i] &&
-            (aopInReg (result, roffset + i, B_IDX) || aopInReg (result, roffset + i, C_IDX) || aopInReg (result, roffset + i, D_IDX) || aopInReg (result, roffset + i, E_IDX)))
-            no = true;
-
-          if (!assigned[i] && aopInReg (result, roffset + i, B_IDX))
-            if (aopInReg (source, soffset + i, C_IDX))
-              ex[0] = i;
-            else
-              no = true;
-          if (!assigned[i] && aopInReg (result, roffset + i, C_IDX))
-            if (aopInReg (source, soffset + i, D_IDX))
-              ex[1] = i;
-            else
-              no = true;
-          if (!assigned[i] && aopInReg (result, roffset + i, D_IDX))
-            if (aopInReg (source, soffset + i, E_IDX))
-              ex[2] = i;
-            else
-              no = true;
-          if (!assigned[i] && aopInReg (result, roffset + i, E_IDX))
-            if (aopInReg (source, soffset + i, B_IDX))
-              ex[3] = i;
-            else
-              no = true;
-        }
-     int exsum = (ex[0] >= 0) + (ex[1] >= 0) + (ex[2] >= 0) + (ex[3] >= 0);
-     if (!no && exsum >= 3)
-        {
-          emit2 ("rlc bcde, 8");
-          cost (2, 4);
-          if(ex[0] >= 0)
-            assigned[ex[0]] = true;
-          if(ex[1] >= 0)
-            assigned[ex[1]] = true;
-          if(ex[2] >= 0)
-            assigned[ex[2]] = true;
-          if(ex[3] >= 0)
-            assigned[ex[3]] = true;
-          regsize -= exsum;
-          size -= exsum;
-        }
-    }
-
-  // Todo: try to use Rabbit 4000 rrc bcde, 8.
-  if ((IS_R4K_NOTYET || IS_R5K_NOTYET || IS_R6K_NOTYET) && regsize >= 3)
-    {
-      int ex[4] = {-1, -1, -1, -1};
-      bool no = !bc_dead || !de_dead;
-
-      for (int i = 0; i < n; i++)
-        {
-          if (assigned[i] &&
-            (aopInReg (result, roffset + i, B_IDX) || aopInReg (result, roffset + i, C_IDX) || aopInReg (result, roffset + i, D_IDX) || aopInReg (result, roffset + i, E_IDX)))
-            no = true;
-
-          if (!assigned[i] && aopInReg (result, roffset + i, B_IDX))
-            if (aopInReg (source, soffset + i, E_IDX))
-              ex[0] = i;
-            else
-              no = true;
-          if (!assigned[i] && aopInReg (result, roffset + i, C_IDX))
-            if (aopInReg (source, soffset + i, B_IDX))
-              ex[1] = i;
-            else
-              no = true;
-          if (!assigned[i] && aopInReg (result, roffset + i, D_IDX))
-            if (aopInReg (source, soffset + i, C_IDX))
-              ex[2] = i;
-            else
-              no = true;
-          if (!assigned[i] && aopInReg (result, roffset + i, E_IDX))
-            if (aopInReg (source, soffset + i, D_IDX))
-              ex[3] = i;
-            else
-              no = true;
-        }
-     int exsum = (ex[0] >= 0) + (ex[1] >= 0) + (ex[2] >= 0) + (ex[3] >= 0);
-     if (!no && exsum >= 3)
-        {
-          emit2 ("rrc bcde, 8");
-          cost (2, 4);
-          if(ex[0] >= 0)
-            assigned[ex[0]] = true;
-          if(ex[1] >= 0)
-            assigned[ex[1]] = true;
-          if(ex[2] >= 0)
-            assigned[ex[2]] = true;
-          if(ex[3] >= 0)
-            assigned[ex[3]] = true;
-          regsize -= exsum;
-          size -= exsum;
-        }
-    }
-
-
+  /* "Try to use Rabbit 4000 ex bc, hl" / "ex jk, hl" / "rlc bcde, 8" /
+     "rrc bcde, 8" blocks removed: all four were gated on
+     "IS_R4K_NOTYET||IS_R5K_NOTYET||IS_R6K_NOTYET", a compile-time-constant
+     false (each macro is literally "#define IS_x_NOTYET false" - a
+     permanent placeholder for a Rabbit assembler backend this port does
+     not have and never targets), so all four were unconditionally dead
+     "if (0) {...}" blocks. The removed ex-bc/ex-jk blocks' own "BUG:"
+     comments about real Rabbit-4000 hardware behavior were never
+     applicable to this port either way - noted here in case anyone goes
+     looking for why they are gone. */
 
   while (regsize && result->type == AOP_REG && source->type == AOP_REG)
     {
@@ -10909,9 +10716,10 @@ genIfxJump (iCode *ic, const char *jval)
       else if (!strcmp (jval, "z") || !strcmp (jval, "nz") || !strcmp (jval, "c") || !strcmp (jval, "nc") ||
         !strcmp (jval, "m") || !strcmp (jval, "p") || !strcmp (jval, "po") || !strcmp (jval, "pe"))
         inst = jval;
-      else if (IS_R6K_NOTYET &&
-        (!strcmp (jval, "ge") || !strcmp (jval, "le") || !strcmp (jval, "leu")))
-        inst = jval;
+      // "else if (IS_R6K_NOTYET && (...ge/le/leu...)) inst = jval;" removed:
+      // IS_R6K_NOTYET is a permanent "#define IS_R6K_NOTYET false"
+      // placeholder for a Rabbit 6000 assembler backend this port does not
+      // have - unconditionally dead "if (0)".
       else
         {
           /* The buffer contains the bit on A that we should test */
@@ -10960,12 +10768,10 @@ genIfxJump (iCode *ic, const char *jval)
         {
           inst = "po";
         }
-      else if (IS_R6K_NOTYET && !strcmp (jval, "gt"))
-        inst = "le";
-      else if (IS_R6K_NOTYET && !strcmp (jval, "lt"))
-        inst = "ge";
-      else if (IS_R6K_NOTYET && !strcmp (jval, "gtu"))
-        inst = "leu";
+      // "else if (IS_R6K_NOTYET && ...) inst = ...;" (gt/le, lt/ge, gtu/leu)
+      // removed: IS_R6K_NOTYET is a permanent "#define IS_R6K_NOTYET false"
+      // placeholder for a Rabbit 6000 assembler backend this port does not
+      // have - unconditionally dead "if (0)".
       else
         {
           /* The buffer contains the bit on A that we should test */
