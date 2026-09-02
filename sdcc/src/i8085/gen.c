@@ -4689,114 +4689,35 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
       return;
     }
 
-  const bool from_index = aopInReg (from, from_offset, IYL_IDX) || aopInReg (from, from_offset, IYH_IDX);
-  const bool to_index = aopInReg (to, to_offset, IYL_IDX) || aopInReg (to, to_offset, IYH_IDX);
-  const bool index = to_index || from_index;
-
+  /* from_index/to_index/index (whether from's/to's register is IYL_IDX/
+     IYH_IDX) were always false - aopInReg(..., IYL_IDX/IYH_IDX) is always
+     false, since neither register allocator ever assigns those indices
+     (see #22's investigation) - making every block below that depended on
+     them entirely dead:
+     - The "if (!index) {...}" wrapper just below reduced to always-true
+       (its body - the ordinary AOP_REG-to-AOP_REG move/cost/spill - is
+       kept, just unconditional now).
+     - An entire IX-relative-addressing emulation cluster (~80 lines,
+       6 if/else-if arms covering every from_index/to_index combination,
+       each doing _push(PAIR_IY)/"xthl"/cheapMove-into-L-or-H/_pop(PAIR_IY)
+       to fake up "ld reg, d(ix)"-style access via IY) was removed outright
+       - none of its 6 arms' guard conditions could ever be true. */
   if (to->type == AOP_REG && from->type == AOP_REG &&
     !aopInReg (to, to_offset, J_IDX) && !aopInReg (to, to_offset, K_IDX) && !aopInReg (from, from_offset, J_IDX) && !aopInReg (from, from_offset, K_IDX))
     {
       if (to->aopu.aop_reg[to_offset] == from->aopu.aop_reg[from_offset])
         return;
 
-
-      if (!index)
-        {
-          if (!regalloc_dry_run)
-            aopPut (to, aopGet (from, from_offset, false), to_offset);
-          ld_cost (to, to_offset, from, from_offset, true);
-          spillPairReg (to->aopu.aop_reg[to_offset]->name);
-          return;
-        }
-      // "#if 0 // Might destroy carry. Would also mess up interrupts on
+      if (!regalloc_dry_run)
+        aopPut (to, aopGet (from, from_offset, false), to_offset);
+      ld_cost (to, to_offset, from, from_offset, true);
+      spillPairReg (to->aopu.aop_reg[to_offset]->name);
+      return;
     }
 
   if (from->type != AOP_REG && from->type != AOP_LIT && aopIsLitVal (from, from_offset, 1, 0x00))
     {
       cheapMove (to, to_offset, ASMOP_ZERO, 0, a_dead);
-      return;
-    }
-
-
-  if (to->type == AOP_REG && from_index && !to_index && - _G.stack.pushed - _G.stack.offset >= -128 && !_G.omitFramePtr)
-    {
-      _push(PAIR_IY);
-      if (!regalloc_dry_run)
-        emit2 ("ld %s, %d (ix)", aopGet (to, to_offset, false), - _G.stack.pushed - _G.stack.offset + aopInReg (from, from_offset, IYH_IDX));
-      cost2 (3, 3, -1, 3, 19, 14, 9, 10, -1, 10, -1, 5, 5, 4, 5);
-      spillPairReg (to->aopu.aop_reg[to_offset]->name);
-      _pop(PAIR_IY);
-      return;
-    }
-   else if (to_index && !from_index && from->type == AOP_REG && - _G.stack.pushed - _G.stack.offset >= -128 && !_G.omitFramePtr)
-    {
-      _push(PAIR_IY);
-      if (!regalloc_dry_run)
-        emit2 ("ld %d (ix), %s", - _G.stack.pushed - _G.stack.offset + aopInReg (to, to_offset, IYH_IDX), aopGet (from, from_offset, false));
-      cost2 (3, 3, -1, 3, 19, 15, 10, 11, -1, 10, -1, 5, 4, 4, 5);
-      _pop(PAIR_IY);
-      return;
-    }
-
-  if (from_index && !to_index && !aopInReg (to, to_offset, L_IDX) && !aopInReg (to, to_offset, H_IDX))
-    {
-      _push (PAIR_IY);
-      emit2 ("xthl");
-      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
-      cheapMove (to, to_offset, aopInReg (from, from_offset, IYL_IDX) ? ASMOP_L : ASMOP_H, 0, a_dead);
-      emit2 ("xthl");
-      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
-      _pop (PAIR_IY);
-      return;
-    }
-  else if (to_index && !from_index && !aopInReg (from, from_offset, L_IDX) && !aopInReg (from, from_offset, H_IDX))
-    {
-      _push (PAIR_IY);
-      emit2 ("xthl");
-      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
-      cheapMove (aopInReg (to, to_offset, IYL_IDX) ? ASMOP_L : ASMOP_H, 0, from, from_offset, a_dead);
-      emit2 ("xthl");
-      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
-      _pop (PAIR_IY);
-      return;
-    }
-  else if (from_index && !to_index)
-    {
-      wassert (aopInReg (to, to_offset, L_IDX) || aopInReg (to, to_offset, H_IDX));
-      _push (PAIR_IY);
-      emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-      emit2 ("xthl");
-      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
-      cheapMove (aopInReg (to, to_offset, L_IDX) ? ASMOP_E : ASMOP_D, 0, aopInReg (from, from_offset, IYL_IDX) ? ASMOP_L : ASMOP_H, 0, a_dead);
-      emit2 ("xthl");
-      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
-      emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-      _pop (PAIR_IY);
-      return;
-    }
-  else if (to_index && !from_index)
-    {
-      wassert (aopInReg (from, from_offset, L_IDX) || aopInReg (from, from_offset, H_IDX));
-      _push (PAIR_IY);
-      emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-      emit2 ("xthl");
-      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
-      cheapMove (aopInReg (to, to_offset, IYL_IDX) ? ASMOP_L : ASMOP_H, 0, aopInReg (from, from_offset, L_IDX) ? ASMOP_E : ASMOP_D, 0, a_dead);
-      emit2 ("xthl");
-      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
-      emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-      _pop (PAIR_IY);
-      return;
-    }
-  else if (to_index && from_index)
-    {
-      _push (PAIR_IY);
-      emit2 ("xthl");
-      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
-      cheapMove (aopInReg (to, to_offset, IYL_IDX) ? ASMOP_L : ASMOP_H, 0, aopInReg (to, to_offset, IYL_IDX) ? ASMOP_L : ASMOP_H, 0, a_dead);
-      emit2 ("xthl");
-      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5);
-      _pop (PAIR_IY);
       return;
     }
 
