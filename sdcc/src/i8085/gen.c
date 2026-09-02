@@ -6267,7 +6267,7 @@ release:
 static void
 restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand *result, const iCode *const ic)
 {
-  bool a_live, b_live, c_live, d_live, e_live, h_live, l_live, iyl_live, iyh_live, j_live, k_live;
+  bool a_live, b_live, c_live, d_live, e_live, h_live, l_live, j_live, k_live;
   bool SomethingReturned;
 
   SomethingReturned = result && IS_ITEMP (result) && (OP_SYMBOL_CONST (result)->nRegs || OP_SYMBOL_CONST (result)->spildir)
@@ -6283,8 +6283,6 @@ restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand
       e_live = bitVectBitValue (rv, E_IDX);
       h_live = bitVectBitValue (rv, H_IDX);
       l_live = bitVectBitValue (rv, L_IDX);
-      iyh_live = bitVectBitValue (rv, IYH_IDX);
-      iyl_live = bitVectBitValue (rv, IYL_IDX);
       j_live = bitVectBitValue (rv, J_IDX);
       k_live = bitVectBitValue (rv, K_IDX);
       freeBitVect (rv);
@@ -6298,8 +6296,6 @@ restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand
       e_live = false;
       h_live = false;
       l_live = false;
-      iyh_live = false;
-      iyl_live = false;
       j_live = false;
       k_live = false;
     }
@@ -6320,26 +6316,19 @@ restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand
         h_live = true;
       if (!hl && !isRegDead (L_IDX, ic))
         l_live = true;
-      if (!iy && !isRegDead (IYH_IDX, ic))
-        iyh_live = true;
-      if (!iy && !isRegDead (IYL_IDX, ic))
-        iyl_live = true;
     }
 
   if (ix)
     _pop (PAIR_IX);
-    
-  if (iy)
-    {
-      if (iyh_live && iyl_live)
-        wassertl (0, "Shouldn't push IY if it's wiped out by the return");
-      else if (iyh_live)
-        poppairwithsavedreg (PAIR_IY, IYH_IDX, -1);
-      else if (iyl_live)
-        poppairwithsavedreg (PAIR_IY, IYL_IDX, -1);
-      else
-        _pop (PAIR_IY);
-    }
+
+  // "if (iy) {...}" removed: iy (this function's parameter) is always
+  // false - all 4 call sites pass either literal false or
+  // _G.stack.pushedIY, which can itself never become true now that
+  // push_iy (in _saveRegsForCall(), the only place that ever set it) is
+  // provably always false too (isRegDead(IYH_IDX/IYL_IDX, ic) is always
+  // true - IY is never register-allocated, see #22/#24). iyh_live/
+  // iyl_live (only ever read inside this now-removed block) removed
+  // along with it.
 
   if (bc && de && !b_live && !c_live && !d_live && !e_live)
     pop (ASMOP_BCDE, 0, 4);
@@ -6487,11 +6476,20 @@ _saveRegsForCall (const iCode *ic, bool saveHLifused, bool dontsaveIY)
       const bool push_hl = !isRegDead (H_IDX, ic) && (!call_preserves_h || saveHLifused) || !isRegDead (L_IDX, ic) && (!call_preserves_l || saveHLifused);
       const bool push_bc = !isRegDead (B_IDX, ic) && !call_preserves_b || !isRegDead (C_IDX, ic) && !call_preserves_c;
       const bool push_de = !isRegDead (D_IDX, ic) && !call_preserves_d || !isRegDead (E_IDX, ic) && !call_preserves_e;
-      const bool push_iy = !dontsaveIY && (!isRegDead (IYH_IDX, ic) || !isRegDead (IYL_IDX, ic));
       // "push_jk" removed: it was "(IS_R4K||IS_R5K||IS_R6K) && ...", so
       // always false in this file, and the "if (push_jk) {push (ASMOP_JKHL,
       // ...); ...}" arm it guarded (there is no jk pair on i8080/i8085) is
       // unconditionally dead - removed.
+      // push_iy removed, same reasoning: isRegDead(IYH_IDX/IYL_IDX, ic) is
+      // always true (IY is never register-allocated - see #22/#24), so
+      // "!isRegDead(...)" is always false and push_iy was always false
+      // regardless of dontsaveIY. The "if (push_iy) {push(ASMOP_IY,...);
+      // _G.stack.pushedIY = true;}" arm it guarded is removed below; that
+      // in turn means _G.stack.pushedIY can now never become true, which
+      // makes restoreRegs()'s own "iy" parameter always false too (see its
+      // own comment). dontsaveIY (this function's parameter) is now
+      // unused - always passed false by all 4 callers already, left
+      // declared rather than touching this function's signature.
       const bool push_ix = FUNC_ISDYNAMICC (ftype);
 
       if (push_hl)
@@ -6517,11 +6515,6 @@ _saveRegsForCall (const iCode *ic, bool saveHLifused, bool dontsaveIY)
               push (ASMOP_DE, 0, 2);
               _G.stack.pushedDE = true;
             }
-        }
-      if (push_iy)
-        {
-          push (ASMOP_IY, 0, 2);
-          _G.stack.pushedIY = true;
         }
       if (push_ix)
         {
