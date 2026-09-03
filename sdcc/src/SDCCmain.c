@@ -139,6 +139,7 @@ char buffer[PATH_MAX * 2];
 #define OPTION_OPT_CODE_SPEED       "--opt-code-speed"
 #define OPTION_OPT_CODE_SIZE        "--opt-code-size"
 #define OPTION_STD                  "--std"
+#define OPTION_FFUNCTION_SECTIONS   "--ffunction-sections"
 #define OPTION_CODE_SEG             "--codeseg"
 #define OPTION_CONST_SEG            "--constseg"
 #define OPTION_DATA_SEG             "--dataseg"
@@ -220,6 +221,7 @@ static const OPTION optionsTable[] = {
   {0,   OPTION_NO_XINIT_OPT, &options.noXinitOpt, "don't memcpy initialized xram from code"},
   {0,   OPTION_NO_CCODE_IN_ASM, &options.noCcodeInAsm, "don't include c-code as comments in the asm file"},
   {0,   OPTION_NO_PEEP_COMMENTS, &options.noPeepComments, "don't include peephole optimizer comments"},
+  {0,   OPTION_FFUNCTION_SECTIONS, &options.ffunction_sections, "place each function in its own area, so the linker can discard unused ones"},
   {0,   OPTION_CODE_SEG, NULL, "<name> use this name for the code segment"},
   {0,   OPTION_CONST_SEG, NULL, "<name> use this name for the const segment"},
   {0,   OPTION_DATA_SEG, NULL, "<name> use this name for the data segment"},
@@ -1797,6 +1799,21 @@ parseCmdLine (int argc, char **argv)
       options.float_rent++;
     }
 
+  /* .function and .endfunc are ASxxxx directives.  No assembler SDCC
+     currently invokes understands them - sdas does not have them at
+     all - so the option is refused rather than allowed to produce
+     assembly that cannot be assembled.  The z80 family is the one
+     being moved onto the ASxxxx toolchain;  when another family
+     follows, this test is where it is admitted. */
+  if (options.ffunction_sections && !TARGET_Z80_LIKE)
+    {
+      fprintf (stderr,
+               "error: --ffunction-sections needs an assembler providing"
+               " .function and .endfunc,\n"
+               "       which is not available for this target.\n");
+      exit (EXIT_FAILURE);
+    }
+
   /* if debug option is set then open the cdbFile */
   if (options.debug && fullSrcFileName)
     {
@@ -1990,6 +2007,25 @@ linkEdit (char **envp)
       if (port->extraAreas.genExtraAreaLinkOptions)
         {
           port->extraAreas.genExtraAreaLinkOptions (lnkfile);
+        }
+
+      /* With --ffunction-sections each function is in an area of its
+         own and the linker discards the areas nothing reaches.  Two of
+         them have to be named as roots:  the static initialisation
+         fragments each module contributes are run by being laid end to
+         end rather than by being called, so no relocation points at
+         them and reachability alone would throw them all away.  The
+         areas holding initialised data need no root here - the linker
+         keeps any area named by a reference to the a_, l_, s_ or m_
+         symbols it generates for it, which is how the startup code
+         finds them.  A name that matches no area is reported by the
+         linker, so a mismatch here cannot pass unnoticed. */
+      if (options.ffunction_sections)
+        {
+          if (STATIC_NAME)
+            fprintf (lnkfile, "-r %s%s\n", port->fun_prefix, STATIC_NAME);
+          if (GSFINAL_NAME)
+            fprintf (lnkfile, "-r %s%s\n", port->fun_prefix, GSFINAL_NAME);
         }
 
       /* add the extra linker options */

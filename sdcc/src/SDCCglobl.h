@@ -323,6 +323,7 @@ struct options
     int signed_char;            /* use signed for char without signed/unsigned modifier */
     bool const_stringlit;       /* make string literals const, like in C++ */
     bool const_code;            /* make objects in read-only __code space implicitly const */
+    bool ffunction_sections;    /* place each function in its own area */
     char *code_seg;             /* segment name to use instead of CSEG */
     char *const_seg;            /* segment name to use instead of CONST */
     char *data_seg;             /* segment name to use instead of DATA */
