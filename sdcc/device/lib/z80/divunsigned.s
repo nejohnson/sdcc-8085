@@ -29,7 +29,6 @@
         ;; Originally from GBDK by Pascal Felber.
 
 	.module divunsigned
-	.optsdcc -mz80 sdcccall(1)
 
 .area   _CODE
 

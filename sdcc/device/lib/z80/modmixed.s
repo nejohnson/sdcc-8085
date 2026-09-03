@@ -27,7 +27,6 @@
 ;--------------------------------------------------------------------------
 
 	.module modmixed
-	.optsdcc -mz80 sdcccall(1)
 
 .globl	__modsuchar
 .globl	__moduschar

@@ -27,7 +27,6 @@
 ;--------------------------------------------------------------------------
 
 	.module divmixed
-	.optsdcc -mz80 sdcccall(1)
 
 .globl	__divsuchar
 .globl	__divuschar

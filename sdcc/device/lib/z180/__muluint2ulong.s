@@ -29,7 +29,6 @@
 .module __muluint2ulong
 
 .hd64
-.optsdcc -mz180 sdcccall(1)
   
 .globl ___muluint2ulong
 

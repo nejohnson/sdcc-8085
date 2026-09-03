@@ -1864,6 +1864,24 @@ getOutFmtExt (void)
 }
 
 /*-----------------------------------------------------------------*/
+/* libPathSep - trailing separator to append to a -k library path  */
+/*                                                                 */
+/* ASxxxx joins the -k path to the library or module name with no  */
+/* separator of its own, so the path has to carry one - its manual */
+/* writes them that way ("-k c:\\iosystem\\").  sdld inserts the     */
+/* separator itself, so SDCC has never had to supply it.           */
+/*-----------------------------------------------------------------*/
+static const char *
+libPathSep (const char *path)
+{
+  size_t n = strlen (path);
+
+  if (!port->linker.asxxxx || (n && IS_DIR_SEPARATOR (path[n - 1])))
+    return "";
+  return DIR_SEPARATOR_STRING;
+}
+
+/*-----------------------------------------------------------------*/
 /* linkEdit : - calls the linkage editor  with options             */
 /*-----------------------------------------------------------------*/
 static void
@@ -2039,13 +2057,13 @@ linkEdit (char **envp)
 
       /* command line defined library paths if specified */
       for (s = setFirstItem (libPathsSet); s != NULL; s = setNextItem (libPathsSet))
-        fprintf (lnkfile, "-k %s\n", s);
+        fprintf (lnkfile, "-k %s%s\n", s, libPathSep (s));
 
       /* standard library path */
       if (!options.nostdlib)
         {
           for (s = setFirstItem (libDirsSet); s != NULL; s = setNextItem (libDirsSet))
-            fprintf (lnkfile, "-k %s\n", s);
+            fprintf (lnkfile, "-k %s%s\n", s, libPathSep (s));
         }
 
       /* command line defined library files if specified */

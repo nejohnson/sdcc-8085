@@ -5,10 +5,19 @@ srcdir = @srcdir@
 top_builddir = @top_builddir@
 abs_top_builddir = @abs_top_builddir@
 
-LIB_TYPE     = @LIB_TYPE@
+# This port links with vendor ASxxxx aslink, whose lklibr.c reads a library
+# as a plain-text list of .rel file names, one per line - it cannot parse an
+# ar archive at all.  The configured default (@LIB_TYPE@, normally RANLIB)
+# would build a library aslink cannot open, so pin the format here rather
+# than forcing it on every port at configure time.  Any value other than
+# SDCCLIB/AR/RANLIB falls through to the plain-list branch below.
+LIB_TYPE     = ASXVENDOR
 
 EXTRA_CFLAGS = -mz180 --max-allocs-per-node 25000
-SAS = $(top_builddir)/bin/sdasz80
+# Vendor ASxxxx asz80, not sdasz80: the .s files here are assembled directly
+# rather than through bin/sdcc, so they bypass the port's assembler.cmd, and
+# crt0.s now uses the (BANK=_CSEG) syntax that only ASxxxx understands.
+SAS = $(top_builddir)/bin/asz80
 
 # override PORTDIR defined by super (parent) makefile
 override PORTDIR = ../build/z180

@@ -27,7 +27,6 @@
 ;--------------------------------------------------------------------------
 
 	.module crt0
-	.optsdcc -mz80 sdcccall(1)
 	.globl	_main
 
 	.area	_HEADER (ABS)
@@ -73,17 +72,30 @@ init:
 	jp	_exit
 
 	;; Ordering of segments for the linker.
-	.area	_HOME
+	;;
+	;; ASxxxx aslink lays out the areas of a bank consecutively from that
+	;; bank's base, and packs areas belonging to no bank from address 0 -
+	;; it does not simply continue from the previous area the way sdld
+	;; does.  Naming a bank is therefore what keeps this sequence together
+	;; behind _CODE, instead of every area here landing on top of the ABS
+	;; _HEADER.  _CODE and _DATA carry no attribute because the assembler
+	;; predefines them, already in _CSEG and _DSEG respectively (see the
+	;; area[]/bank[] tables in ASxxxx's <target>pst.c); repeating it here
+	;; would be a multiple-definition error.  Only the first declaration
+	;; of an area may carry attributes, and a module that declares an area
+	;; plainly - as every compiled module does - inherits the bank from
+	;; whichever module did name one, so this file alone settles the layout.
+	.area	_HOME (BANK=_CSEG)
 	.area	_CODE
-	.area	_INITIALIZER
-	.area   _GSINIT
-	.area   _GSFINAL
+	.area	_INITIALIZER (BANK=_CSEG)
+	.area   _GSINIT (BANK=_CSEG)
+	.area   _GSFINAL (BANK=_CSEG)
 
 	.area	_DATA
-	.area	_INITIALIZED
-	.area	_BSEG
-	.area   _BSS
-	.area   _HEAP
+	.area	_INITIALIZED (BANK=_DSEG)
+	.area	_BSEG (BANK=_DSEG)
+	.area   _BSS (BANK=_DSEG)
+	.area   _HEAP (BANK=_DSEG)
 
 	.area   _CODE
 __clock::
@@ -103,11 +115,16 @@ _exit::
 gsinit::
 
 	; Default-initialized global variables.
+	;
+	; a_<area> is the start address of an area and l_<area> its length.
+	; sdld spells that start address s_<area>; in ASxxxx s_<area>_<n> means
+	; something else - the base of module n's segment of the area - so the
+	; area-wide name is the one to pair with l_<area>.
         ld      bc, #l__DATA
         ld      a, b
         or      a, c
         jr      Z, zeroed_data
-        ld      hl, #s__DATA
+        ld      hl, #a__DATA
         ld      (hl), #0x00
         dec     bc
         ld      a, b
@@ -124,8 +141,8 @@ zeroed_data:
 	ld	a, b
 	or	a, c
 	jr	Z, gsinit_next
-	ld	de, #s__INITIALIZED
-	ld	hl, #s__INITIALIZER
+	ld	de, #a__INITIALIZED
+	ld	hl, #a__INITIALIZER
 	ldir
 
 gsinit_next:
