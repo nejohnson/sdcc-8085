@@ -8174,39 +8174,31 @@ genPlusIncr (const iCode *ic)
   /* If result is a pair */
   if (resultId != PAIR_INVALID)
     {
-      bool delayed_move;
       if (isLitWord (ic->left->aop))
         {
-          /* resultId is PAIR_BC/PAIR_DE/PAIR_HL (live - lxi) or PAIR_IY
-             (dead - no IY hardware on i8080/i8085, left as unmodified
-             Zilog text, matching this file's established practice). */
-          if (resultId == PAIR_IY)
-            emit2 ("ld %s, !hashedstr", _pairs[resultId].name, aopGetLitWordLong (ic->left->aop, icount, false));
-          else
-            emit2 ("lxi %s, !hashedstr", _pairs[resultId].name, aopGetLitWordLong (ic->left->aop, icount, false));
-          if (resultId == PAIR_IY)
-            cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
-          else
-            cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
+          /* resultId is always PAIR_BC/PAIR_DE/PAIR_HL here - getPairId()
+             can never return PAIR_IY (no IY hardware on i8080/i8085, see
+             #24 checkpoint 1's proof), so this is always "lxi". */
+          emit2 ("lxi %s, !hashedstr", _pairs[resultId].name, aopGetLitWordLong (ic->left->aop, icount, false));
+          cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
           return true;
         }
 
-      if (size == 2 && icount == 256 && ic->result->aop->type == AOP_REG && ic->left->aop->type == AOP_REG && ic->result->aop->aopu.aop_reg[0]->rIdx == ic->left->aop->aopu.aop_reg[0]->rIdx &&
-        (!aopInReg (ic->result->aop, 1, IYL_IDX) && !aopInReg (ic->result->aop, 1, IYH_IDX)))
+      if (size == 2 && icount == 256 && ic->result->aop->type == AOP_REG && ic->left->aop->type == AOP_REG && ic->result->aop->aopu.aop_reg[0]->rIdx == ic->left->aop->aopu.aop_reg[0]->rIdx)
         {
           cheapMove (ic->result->aop, 1, ic->left->aop, 1, isRegDead (A_IDX, ic));
           emit3_o (A_INC, ic->result->aop, 1, 0, 0);
           return true;
         }
 
-      if (icount == 255 && resultId != PAIR_IY)
+      if (icount == 255) // resultId != PAIR_IY dropped: getPairId() never returns PAIR_IY.
         {
           fetchPair (resultId, IC_LEFT (ic)->aop);
           emit3w (A_DEC, ic->result->aop, 0);
           emit3_o (A_INC, ic->result->aop, 1, 0, 0);
           return true;
         }
-      else if (icount == 257 && resultId != PAIR_IY)
+      else if (icount == 257) // resultId != PAIR_IY dropped: getPairId() never returns PAIR_IY.
         {
           fetchPair (resultId, IC_LEFT (ic)->aop);
           emit3w (A_INC, ic->result->aop, 0);
@@ -8216,7 +8208,7 @@ genPlusIncr (const iCode *ic)
       // (IS_Z80N||IS_TLCS90||IS_R6K)-gated "add dd, !immed" arm removed
 
 
-      if (isPair (IC_LEFT (ic)->aop) && getPairId (IC_LEFT (ic)->aop) != PAIR_IY && resultId == PAIR_HL && icount > 3)
+      if (isPair (IC_LEFT (ic)->aop) && resultId == PAIR_HL && icount > 3) // getPairId(...) != PAIR_IY dropped: never PAIR_IY.
         {
           if (getPairId (IC_LEFT (ic)->aop) == PAIR_HL)
             {
@@ -8239,19 +8231,17 @@ genPlusIncr (const iCode *ic)
       if (icount > 5)
         return FALSE;
       /* Inc a pair */
-      delayed_move = (getPairId (IC_RESULT (ic)->aop) == PAIR_IY && getPairId (IC_LEFT (ic)->aop) != PAIR_INVALID
-                      && isPairDead (getPairId (IC_LEFT (ic)->aop), ic));
+      // delayed_move (was "getPairId(result) == PAIR_IY && ...") is
+      // always false: getPairId() never returns PAIR_IY. Simplified below
+      // to the always-!delayed_move path.
       if (!sameRegs (IC_LEFT (ic)->aop, IC_RESULT (ic)->aop))
         {
           if (icount > 3)
             return FALSE;
-          if (!delayed_move)
-            genMove (IC_RESULT (ic)->aop, IC_LEFT (ic)->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
+          genMove (IC_RESULT (ic)->aop, IC_LEFT (ic)->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
         }
       while (icount--)
-        emit3w (A_INC, delayed_move ? ic->left->aop : ic->result->aop, 0);
-      if (delayed_move)
-        fetchPair (getPairId (IC_RESULT (ic)->aop), IC_LEFT (ic)->aop);
+        emit3w (A_INC, ic->result->aop, 0);
       return true;
     }
 
@@ -8290,7 +8280,7 @@ genPlusIncr (const iCode *ic)
   if (!optimize.nosidechannels &&
     sameRegs (ic->left->aop, ic->result->aop) && size > 1 && icount == 1 &&
     ic->left->aop->type != AOP_FDIR &&
-    (size == 2 && getPairId (IC_RESULT (ic)->aop) != PAIR_INVALID || size >= 2 && !aopInReg (IC_RESULT (ic)->aop, 0, IYL_IDX) && !aopInReg (IC_RESULT (ic)->aop, 0, IYH_IDX) && !aopInReg (IC_RESULT (ic)->aop, 1, IYL_IDX) && !aopInReg (IC_RESULT (ic)->aop, 1, IYH_IDX)))
+    size >= 2) // Was "(size==2 && getPairId(...)!=PAIR_INVALID || size>=2 && ...IYL_IDX/IYH_IDX checks...)" - the IY checks are always true (aopInReg(...,IYL_IDX/IYH_IDX) always false), collapsing the whole disjunction to just "size >= 2".
     {
       int offset = 0;
       symbol *tlbl = regalloc_dry_run ? 0 : newiTempLabel (0);
@@ -8311,10 +8301,8 @@ genPlusIncr (const iCode *ic)
               offset += 2;
               break;
             }
-          if (aopInReg (IC_RESULT (ic)->aop, offset, IYL_IDX) || aopInReg (IC_RESULT (ic)->aop, offset, IYH_IDX))
-            UNIMPLEMENTED;
-          else
-            emit3_o (A_INC, IC_RESULT (ic)->aop, offset++, 0, 0);
+          // "if (aopInReg(...,IYL_IDX) || aopInReg(...,IYH_IDX)) UNIMPLEMENTED; else" removed: always false.
+          emit3_o (A_INC, IC_RESULT (ic)->aop, offset++, 0, 0);
           if (size)
             emitJP (tlbl, "nz", 1.0f, true);
         }
@@ -8335,11 +8323,9 @@ genPlusIncr (const iCode *ic)
   if (IC_RESULT (ic)->aop->type == AOP_REG)
     {
       cheapMove (IC_RESULT (ic)->aop, LSB, IC_LEFT (ic)->aop, LSB, true);
+      // "if (aopInReg(...,IYL_IDX) || aopInReg(...,IYH_IDX)) UNIMPLEMENTED; else" removed: always false.
       while (icount--)
-        if (aopInReg (IC_RESULT (ic)->aop, 0, IYL_IDX) || aopInReg (IC_RESULT (ic)->aop, 0, IYH_IDX))
-          UNIMPLEMENTED;
-        else
-          emit3_o (A_INC, IC_RESULT (ic)->aop, 0, 0, 0);
+        emit3_o (A_INC, IC_RESULT (ic)->aop, 0, 0, 0);
       return TRUE;
     }
 
@@ -8394,9 +8380,10 @@ shiftIntoPair (PAIR_ID id, asmop *aop)
       // (setupPairFromSP preserves HL via ex de, hl).
       setupPair (PAIR_DE, aop, 0);
       break;
-    case PAIR_IY:
-      setupPair (PAIR_IY, aop, 0);
-      break;
+    // "case PAIR_IY: setupPair (PAIR_IY, aop, 0); break;" removed: dead -
+    // id is never PAIR_IY (all callers of this function pass only literal
+    // PAIR_HL/PAIR_DE, traced exhaustively - see #24 checkpoint 1). Falls
+    // to the default case below, same as any other genuinely-unexpected id.
     default:
       wassertl (0, "Internal error - hit default case");
     }
@@ -8530,18 +8517,12 @@ genPlus (iCode * ic)
           dbuf_init (&dbuf, 128);
           dbuf_printf (&dbuf, "!immed(%s + %s)", left, right);
           Safe_free (left);
-          /* getPairName() returns "bc"/"de"/"hl" (live - lxi) or "iy"
-             (dead - no IY hardware on i8080/i8085, left as unmodified
-             Zilog text, matching this file's established practice). */
-          if (getPairId (ic->result->aop) == PAIR_IY)
-            emit2 ("ld %s, %s", getPairName (IC_RESULT (ic)->aop), dbuf_c_str (&dbuf));
-          else
-            emit2 ("lxi %s, %s", getPairName (IC_RESULT (ic)->aop), dbuf_c_str (&dbuf));
+          /* getPairId() never returns PAIR_IY (no IY hardware on
+             i8080/i8085, see #24 checkpoint 1's proof), so this is
+             always "lxi". */
+          emit2 ("lxi %s, %s", getPairName (IC_RESULT (ic)->aop), dbuf_c_str (&dbuf));
           dbuf_destroy (&dbuf);
-          if (getPairId (ic->result->aop) == PAIR_IY)
-            cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
-          else
-            cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
+          cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
           goto release;
         }
       Safe_free (left);
@@ -8557,25 +8538,25 @@ genPlus (iCode * ic)
 
       spillPair (PAIR_HL);
 
-      if (left == PAIR_HL && right != PAIR_INVALID && (right != PAIR_IY))
+      if (left == PAIR_HL && right != PAIR_INVALID) // right != PAIR_IY dropped: getPairId() never returns PAIR_IY.
         {
           emit3w (A_ADD, ASMOP_HL, ic->right->aop);
           goto release;
         }
-      else if (right == PAIR_HL && left != PAIR_INVALID && (left != PAIR_IY))
+      else if (right == PAIR_HL && left != PAIR_INVALID) // left != PAIR_IY dropped: getPairId() never returns PAIR_IY.
         {
           emit3w (A_ADD, ASMOP_HL, ic->left->aop);
           goto release;
         }
-      else if (right != PAIR_INVALID && right != PAIR_HL && (right != PAIR_IY))
+      else if (right != PAIR_INVALID && right != PAIR_HL) // right != PAIR_IY dropped: getPairId() never returns PAIR_IY.
         {
-          genMove_o (ASMOP_HL, 0, ic->left->aop, 0, 2, isRegDead (A_IDX, ic), true, isRegDead (DE_IDX, ic) && right != PAIR_DE, isRegDead (IY_IDX, ic) && right != PAIR_IY, true);
+          genMove_o (ASMOP_HL, 0, ic->left->aop, 0, 2, isRegDead (A_IDX, ic), true, isRegDead (DE_IDX, ic) && right != PAIR_DE, true, true); // was "isRegDead(IY_IDX,ic) && right != PAIR_IY" - both always true.
           emit3w (A_ADD, ASMOP_HL, ic->right->aop);
           goto release;
         }
-      else if (left != PAIR_INVALID && left != PAIR_HL && (left != PAIR_IY))
+      else if (left != PAIR_INVALID && left != PAIR_HL) // left != PAIR_IY dropped: getPairId() never returns PAIR_IY.
         {
-          genMove_o (ASMOP_HL, 0, ic->right->aop, 0, 2, isRegDead (A_IDX, ic), true, isRegDead (DE_IDX, ic) && left != PAIR_DE, isRegDead (IY_IDX, ic) && left != PAIR_IY, true);
+          genMove_o (ASMOP_HL, 0, ic->right->aop, 0, 2, isRegDead (A_IDX, ic), true, isRegDead (DE_IDX, ic) && left != PAIR_DE, true, true); // was "isRegDead(IY_IDX,ic) && left != PAIR_IY" - both always true.
           emit3w (A_ADD, ASMOP_HL, ic->left->aop);
           goto release;
         }
@@ -8634,74 +8615,13 @@ genPlus (iCode * ic)
       genMove (IC_RESULT (ic)->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true);
       goto release;
     }
-  else if (!maskedtopbyte && getPairId (IC_RESULT (ic)->aop) == PAIR_IY &&
-    (getPairId (IC_LEFT (ic)->aop) == PAIR_HL && isPair (IC_RIGHT (ic)->aop) && getPairId (IC_RIGHT (ic)->aop) != PAIR_IY || getPairId (IC_RIGHT (ic)->aop) == PAIR_HL && isPair (IC_LEFT (ic)->aop) && getPairId (IC_LEFT (ic)->aop) != PAIR_IY) &&
-    isPairDead (PAIR_HL, ic))
-    {
-      PAIR_ID pair = (getPairId (IC_LEFT (ic)->aop) == PAIR_HL ? getPairId (IC_RIGHT (ic)->aop) : getPairId (IC_LEFT (ic)->aop));
-      emit2 ("dad %s", _pairs[pair].name);
-      cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3 , 1, 1);
-      spillPair (PAIR_HL);
-      _push (PAIR_HL);
-      _pop (PAIR_IY);
-      goto release;
-    }
-  else if (!maskedtopbyte && getPairId (ic->result->aop) == PAIR_IY)
-    {
-      bool save_pair = FALSE;
-      PAIR_ID pair;
-
-      if (getPairId (IC_RIGHT (ic)->aop) == PAIR_IY || getPairId (IC_LEFT (ic)->aop) == PAIR_BC || getPairId (IC_LEFT (ic)->aop) == PAIR_DE ||
-          ic->left->aop->regs[IYL_IDX] < 0 && ic->left->aop->regs[IYH_IDX] < 0 && (ic->right->aop->type == AOP_IMMD || ic->right->aop->type == AOP_LIT))
-        {
-          operand *t = IC_RIGHT (ic);
-          IC_RIGHT (ic) = IC_LEFT (ic);
-          IC_LEFT (ic) = t;
-          leftop = IC_LEFT (ic)->aop;
-          rightop = IC_RIGHT (ic)->aop;
-        }
-      pair = getPairId (IC_RIGHT (ic)->aop);
-      if (pair != PAIR_BC && pair != PAIR_DE)
-        {
-          if (IC_RIGHT (ic)->aop->type == AOP_REG && IC_RIGHT (ic)->aop->aopu.aop_reg[0]->rIdx == C_IDX
-              && (isRegDead (B_IDX, ic) || !isPairDead (PAIR_DE, ic)))
-            pair = PAIR_BC;
-          else if (IC_RIGHT (ic)->aop->type == AOP_REG && IC_RIGHT (ic)->aop->aopu.aop_reg[0]->rIdx == E_IDX
-                   && (isRegDead (D_IDX, ic) || !isPairDead (PAIR_BC, ic)))
-            pair = PAIR_DE;
-          else
-            pair = isPairDead (PAIR_DE, ic) ? PAIR_DE : PAIR_BC;
-          if (!isPairDead (pair, ic))
-            save_pair = TRUE;
-        }
-      genMove (ASMOP_IY, IC_LEFT (ic)->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
-      if (save_pair)
-        _push (pair);
-      asmop *raop;
-      switch (pair)
-       {
-       case PAIR_BC:
-         raop = ASMOP_BC;
-         break;
-       case PAIR_DE:
-         raop = ASMOP_DE;
-         break;
-       case PAIR_IY:
-         raop = ASMOP_IY;
-         break;
-       default:
-         raop = 0;
-         wassert (0);
-       }   
-      genMove (raop, ic->right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
-      emit2 ("add iy, %s", _pairs[pair].name);
-      cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
-      spillPair (PAIR_IY);
-      if (save_pair)
-        _pop (pair);
-      goto release;
-    }
-
+  // Two "else if" arms removed here: both were entirely gated on
+  // "getPairId(...) == PAIR_IY", which can never be true - getPairId()
+  // never returns PAIR_IY (no IY hardware on i8080/i8085, see #24
+  // checkpoint 1's proof) - making both whole arms unconditionally dead.
+  // The first handled "dad iy, rr" (adding a live pair into IY); the
+  // second handled the general "result is in IY" case via genMove(
+  // ASMOP_IY, ...) + "add iy, rr".
 
   // ld hl, sp+n (which trashes the carry flag) for stack-based 16-bit
   // and 32-bit additions - an sm83-only concern.
