@@ -3558,9 +3558,16 @@ fetchLitPair (PAIR_ID pairId, asmop *left, int offset, bool f_dead, bool dry)
 
   if (isPtr (pair))
     {
-      if (pairId == PAIR_HL || pairId == PAIR_IY)
+      // pairId == PAIR_IY dropped throughout this block: fetchLitPair()'s
+      // pairId is never PAIR_IY - every one of its 10 call sites resolves
+      // through an already-proven-never-IY path (#24 checkpoint 1's
+      // pointPairToAop()/shiftIntoPair() proofs, the already-dead AOP_IY
+      // case in setupPair(), an explicit wassertl(pairId==PAIR_HL,...), or
+      // a literal PAIR_HL). Removed the "pairId == PAIR_IY && offset ==
+      // ..." inner arm it also gated (a second "goto adjusted" case).
+      if (pairId == PAIR_HL)
         {
-          if (pairId == PAIR_HL && base[0] == '0')      // Ugly workaround
+          if (base[0] == '0')      // Ugly workaround
             {
               unsigned int tmpoffset;
               const char *tmpbase;
@@ -3575,17 +3582,11 @@ fetchLitPair (PAIR_ID pairId, asmop *left, int offset, bool f_dead, bool dry)
             {
               if (!regalloc_dry_run && _G.pairs[pairId].base && !strcmp (_G.pairs[pairId].base, base))  // Todo: Exact cost.
                 {
-                  if (pairId == PAIR_HL && abs (_G.pairs[pairId].offset - offset) < 3)
+                  if (abs (_G.pairs[pairId].offset - offset) < 3)
                     {
                       if (dry) // Just report matching base
                         return (0);
                       adjustPair (pair, &_G.pairs[pairId].offset, offset);
-                      goto adjusted;
-                    }
-                  if (pairId == PAIR_IY && offset == _G.pairs[pairId].offset)
-                    {
-                      if (dry) // Just report matching base
-                        return (0);
                       goto adjusted;
                     }
                 }
