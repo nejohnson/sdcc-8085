@@ -153,6 +153,12 @@ typedef struct
     const char *file_ext;
     /** If non-null will be used to execute the assembler. */
     void (*do_assemble) (set *);
+    /** TRUE when cmd invokes Alan Baldwin's ASxxxx assembler rather than
+        one of SDCC's sdas forks.  ASxxxx names its object file with
+        -o+base instead of taking the name as a separate argument, has no
+        .optsdcc directive, and is the only one of the two providing
+        .function / .endfunc. */
+    bool asxxxx;
   }
   assembler;
 
@@ -171,6 +177,13 @@ typedef struct
     const int needLinkerScript;
     const char *const *crt;
     const char *const *libs;
+    /** TRUE when cmd invokes Alan Baldwin's ASxxxx aslink rather than one
+        of SDCC's sdld forks.  aslink sets an area's base address with -a,
+        reserving -b for a *bank* base, and renames an output file with
+        -i+name rather than -i name.  It also reads only the plain-list
+        library format, so device libraries must be built with
+        LIB_TYPE=LIB rather than the default ar archives. */
+    bool asxxxx;
   }
   linker;
 

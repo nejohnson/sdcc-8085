@@ -1073,7 +1073,10 @@ _getRegByName (const char *name)
 static void
 _z80_genAssemblerStart (FILE * of)
 {
-  if (!options.noOptsdccInAsm)
+  /* .optsdcc is an sdas extension.  ASxxxx does not know it and stops with
+     a directive error rather than ignoring it, so it must not be emitted
+     for a port assembled by ASxxxx. */
+  if (!options.noOptsdccInAsm && !port->assembler.asxxxx)
     {
       tfprintf (of, "\t!optsdcc -m%s", port->target);
       fprintf (of, " sdcccall(%d)", options.sdcccall);
@@ -1249,6 +1252,20 @@ static const char *_z80LinkCmd[] = {
   "sdldz80", "-nf", "$1", "$L", NULL
 };
 
+/* Alan Baldwin's ASxxxx tools, which the z80, z180 and z80n ports use in
+   place of the sdas/sdld forks.  asz80 assembles all three instruction
+   sets (it has the Z180 mlt/in0/out0 and the Z80N swapnib/ldix), but not
+   the R800's multuw/mulub, so r800 stays on sdasz80.  The assembler
+   differs in one spelling: it derives every output file name from -o+base
+   rather than taking the object file name as a separate argument. */
+static const char *_asxxxxZ80AsmCmd[] = {
+  "asz80", "$l", "$3", "-o+$1", "$1.asm", NULL
+};
+
+static const char *_asxxxxLinkCmd[] = {
+  "aslink", "-nf", "$1", "$L", NULL
+};
+
 static const char *_gbLinkCmd[] = {
   "sdldgb", "-nf", "$1", "$L", NULL
 };
@@ -1308,21 +1325,24 @@ PORT z80_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _z80AsmCmd,
+    _asxxxxZ80AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx asz80, not sdasz80 */
   },
   {                             /* Linker */
-    _z80LinkCmd,                //NULL,
+    _asxxxxLinkCmd,             //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,                          /* needLinkerScript */
     _crt,                       /* crt */
     _libs_z80,                  /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldz80 */
   },
   {                             /* Peephole optimizer */
     _z80_defaultRules,
@@ -1445,21 +1465,24 @@ PORT z80n_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _z80AsmCmd,
+    _asxxxxZ80AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx asz80, not sdasz80 */
   },
   {                             /* Linker */
-    _z80LinkCmd,                //NULL,
+    _asxxxxLinkCmd,             //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_z80n,                 /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldz80 */
   },
   {                             /* Peephole optimizer */
     _z80n_defaultRules,
@@ -1582,21 +1605,24 @@ PORT z180_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _z80AsmCmd,
+    _asxxxxZ80AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx asz80, not sdasz80 */
   },
   {                             /* Linker */
-    _z80LinkCmd,                //NULL,
+    _asxxxxLinkCmd,             //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_z180,                 /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldz80 */
   },
   {                             /* Peephole optimizer */
     _z80_defaultRules,

@@ -1799,13 +1799,13 @@ parseCmdLine (int argc, char **argv)
       options.float_rent++;
     }
 
-  /* .function and .endfunc are ASxxxx directives.  No assembler SDCC
-     currently invokes understands them - sdas does not have them at
-     all - so the option is refused rather than allowed to produce
-     assembly that cannot be assembled.  The z80 family is the one
-     being moved onto the ASxxxx toolchain;  when another family
-     follows, this test is where it is admitted. */
-  if (options.ffunction_sections && !TARGET_Z80_LIKE)
+  /* .function and .endfunc are ASxxxx directives;  the sdas forks do not
+     have them at all.  Refuse the option rather than let it produce
+     assembly the port's own assembler cannot assemble.  Asking the port
+     which assembler it invokes is exact, where the earlier test on the
+     z80 family was only a proxy - and the wrong one, since every
+     TARGET_Z80_LIKE port ran sdasz80 until this commit. */
+  if (options.ffunction_sections && !port->assembler.asxxxx)
     {
       fprintf (stderr,
                "error: --ffunction-sections needs an assembler providing"
@@ -1882,6 +1882,11 @@ linkEdit (char **envp)
   if (port->linker.needLinkerScript)
     {
       char out_fmt = (options.out_fmt == 0) ? 'i' : options.out_fmt;
+      /* Both linkers name the output file with the option that selects its
+         format, but they separate option from name differently: the sdld
+         forks take it as the option's argument, ASxxxx aslink appends it
+         to the option letter with a '+'. */
+      const char *out_sep = port->linker.asxxxx ? "+" : " ";
 
       if (NULL != fullDstFileName)
         {
@@ -1903,11 +1908,11 @@ linkEdit (char **envp)
 
       if (TARGET_Z80_LIKE||TARGET_MOS6502_LIKE)
         {
-          fprintf (lnkfile, "-mjwx\n-%c %s\n", out_fmt, dbuf_c_str (&binFileName));
+          fprintf (lnkfile, "-mjwx\n-%c%s%s\n", out_fmt, out_sep, dbuf_c_str (&binFileName));
         }
       else                      /* For all the other ports which need linker script */
         {
-          fprintf (lnkfile, "-muwx\n-%c %s\n", out_fmt, dbuf_c_str (&binFileName));
+          fprintf (lnkfile, "-muwx\n-%c%s%s\n", out_fmt, out_sep, dbuf_c_str (&binFileName));
           if (TARGET_MCS51_LIKE)
             fprintf (lnkfile, "-M\n");
         }
@@ -1940,7 +1945,8 @@ linkEdit (char **envp)
     char *c, *segName; \
     segName = Safe_strdup (N); \
     c = strtok (segName, " \t"); \
-    fprintf (lnkfile,"-b %s = 0x%04x\n", c, L); \
+    fprintf (lnkfile, "%s %s = 0x%04x\n", \
+             port->linker.asxxxx ? "-a" : "-b", c, L); \
     if (segName) { Safe_free (segName); } \
   }
 
