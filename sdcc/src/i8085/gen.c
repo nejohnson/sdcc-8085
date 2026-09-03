@@ -3730,14 +3730,7 @@ push (asmop *aop, int offset, int size)
           _G.stack.pushed--;
           size--;
         }
-      else if (aopInReg (aop, offset + size - 1, IYH_IDX))
-        {
-          _push (PAIR_IY);
-          emit2 ("inx sp");
-          cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
-          _G.stack.pushed--;
-          size--;
-        }
+      // "else if (aopInReg(..., IYH_IDX)) {...}" removed: always false.
       else
         wassert (0);
     }
@@ -3880,7 +3873,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
           spillPair (pairId);
         }
       else if (aop->type == AOP_HL &&
-        (aop->size >= 2 || pairId != PAIR_IY && optimize.allow_unsafe_read))
+        (aop->size >= 2 || optimize.allow_unsafe_read)) // pairId != PAIR_IY dropped: always true (see the pairId comment just below).
         {
           /* Instead of fetching relative to IY, just grab directly
              from the address IY refers to. pairId is PAIR_HL (live -
@@ -3971,31 +3964,18 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
             }
           else
             {
-              if (pairId == PAIR_HL && (aopInReg (aop, offset, IYL_IDX) || aopInReg (aop, offset, IYH_IDX)))
-                UNIMPLEMENTED;
+              // "if (pairId == PAIR_HL && (aopInReg(...,IYL_IDX/IYH_IDX))) UNIMPLEMENTED;" removed (x2 below too): always false.
               if (!aopInReg (aop, offset, _pairs[pairId].l_idx))
                 {
-                  if (aopInReg (aop, offset, IYL_IDX) || aopInReg (aop, offset, IYH_IDX))
-                    UNIMPLEMENTED;
-                  else
-                    {
-                      if (!regalloc_dry_run)
-                        emit_intel_move (_pairs[pairId].l, intelOperand (aopGet (aop, offset, false)));
-                      ld_cost (pairId == PAIR_HL ? ASMOP_L : pairId == PAIR_DE ? ASMOP_E : ASMOP_C, 0, aop, offset, true);
-                    }
+                  if (!regalloc_dry_run)
+                    emit_intel_move (_pairs[pairId].l, intelOperand (aopGet (aop, offset, false)));
+                  ld_cost (pairId == PAIR_HL ? ASMOP_L : pairId == PAIR_DE ? ASMOP_E : ASMOP_C, 0, aop, offset, true);
                 }
-              if (pairId == PAIR_HL && (aopInReg (aop, offset + 1, IYL_IDX) || aopInReg (aop, offset + 1, IYH_IDX)))
-                UNIMPLEMENTED;
               if (!aopInReg (aop, offset + 1, _pairs[pairId].h_idx))
                 {
-                  if (aopInReg (aop, offset + 1, IYL_IDX) || aopInReg (aop, offset + 1, IYH_IDX))
-                    UNIMPLEMENTED;
-                  else
-                    {
-                      if (!regalloc_dry_run)
-                        emit_intel_move (_pairs[pairId].h, intelOperand (aopGet (aop, offset + 1, false)));
-                      ld_cost (pairId == PAIR_HL ? ASMOP_H : pairId == PAIR_DE ? ASMOP_D : ASMOP_B, 0, aop, offset + 1, true);
-                    }
+                  if (!regalloc_dry_run)
+                    emit_intel_move (_pairs[pairId].h, intelOperand (aopGet (aop, offset + 1, false)));
+                  ld_cost (pairId == PAIR_HL ? ASMOP_H : pairId == PAIR_DE ? ASMOP_D : ASMOP_B, 0, aop, offset + 1, true);
                 }
             }
         }
@@ -4013,7 +3993,11 @@ fetchPair (PAIR_ID pairId, asmop *aop)
 static void
 setupPairFromSP (PAIR_ID id, int offset)
 {
-  wassertl (id == PAIR_HL || id == PAIR_DE || id == PAIR_IY, "Setup relative to SP only implemented for HL, DE, IY");
+  // id == PAIR_IY dropped: all 3 call sites traced (#24) - two resolve
+  // through already-proven-never-IY paths (pointPairToAop()/setupPair()'s
+  // own pairId), the third computes "(getPairId(...)==PAIR_IY) ? PAIR_IY
+  // : PAIR_HL", always PAIR_HL since getPairId() never returns PAIR_IY.
+  wassertl (id == PAIR_HL || id == PAIR_DE, "Setup relative to SP only implemented for HL, DE");
 
   if (_G.preserveCarry)
     {
@@ -4040,32 +4024,17 @@ setupPairFromSP (PAIR_ID id, int offset)
   if (id == PAIR_DE)
     emit3w (A_EX, ASMOP_DE, ASMOP_HL);
 
-  if (offset < INT8MIN || offset > INT8MAX || id == PAIR_IY)
+  if (offset < INT8MIN || offset > INT8MAX) // id == PAIR_IY dropped: never true, see the wassertl comment above.
     {
       struct dbuf_s dbuf;
-      PAIR_ID lid = (id == PAIR_DE) ? PAIR_HL : id;
+      PAIR_ID lid = (id == PAIR_DE) ? PAIR_HL : id; // always PAIR_HL now.
       dbuf_init (&dbuf, sizeof(int) * 3 + 1);
       dbuf_printf (&dbuf, "%d", offset);
-      /* "ld %s, !hashedstr" + "add %s, sp" below: lid is PAIR_IY (dead - no
-         IY hardware on i8080/i8085) or PAIR_HL (the DE->HL remap above, or
-         id was already PAIR_HL) - never anything else. Same "lxi"/"dad sp"
-         translation as the sibling "!ldahlsp" fix just below (same
-         function) for the live PAIR_HL case; the dead PAIR_IY arm is left
-         as unmodified Zilog text (matching how the other dead-IY "add iy, %s"
-         sites elsewhere in this file were left alone - harmless since never
-         executed, and there is no real 8080/8085 IY-pair-add encoding to
-         translate it *to* even if it somehow were). */
-      emit2 (lid == PAIR_IY ? "ld %s, !hashedstr" : "lxi %s, !hashedstr", _pairs[lid].name, dbuf_c_str (&dbuf));
-      if (lid == PAIR_IY)
-        cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
-      else
-        cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
+      emit2 ("lxi %s, !hashedstr", _pairs[lid].name, dbuf_c_str (&dbuf));
+      cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
       dbuf_destroy (&dbuf);
-      emit2 (lid == PAIR_IY ? "add iy, sp" : "dad sp");
-      if (lid == PAIR_IY)
-        cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
-      else
-        cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3 , 1, 1);
+      emit2 ("dad sp");
+      cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3 , 1, 1);
     }
   else
     {
@@ -4339,11 +4308,9 @@ aopGet (asmop *aop, int offset, bool bit16)
 
         case AOP_PAIRPTR:
           setupPair (aop->aopu.aop_pairId, aop, offset);
-          if (aop->aopu.aop_pairId == PAIR_IX)
-            dbuf_tprintf (&dbuf, "!*ixx", offset);
-          else if (aop->aopu.aop_pairId == PAIR_IY)
-            dbuf_tprintf (&dbuf, "!*iyx", offset);
-          else if (aop->aopu.aop_pairId == PAIR_HL)
+          // "if (aop_pairId == PAIR_IX) ...; else if (aop_pairId == PAIR_IY) ...;"
+          // removed: aop_pairId is never PAIR_IX/PAIR_IY (see #24 checkpoint 1).
+          if (aop->aopu.aop_pairId == PAIR_HL)
             /* Same "!*hl" token the AOP_HL case above uses - renders as the
                shared mapping's literal "(hl)" text, which intelOperand()
                (applied by aopGet()'s callers) turns into "m". */
@@ -4620,7 +4587,7 @@ poppairwithsavedreg (PAIR_ID pair, short survivingreg, short tempreg)
     }
 
   // No tempreg, need to do it the hard way via stack access.
-  bool isupperbyte = (survivingreg == B_IDX || survivingreg == D_IDX || survivingreg == H_IDX || survivingreg == IYH_IDX);
+  bool isupperbyte = (survivingreg == B_IDX || survivingreg == D_IDX || survivingreg == H_IDX); // survivingreg == IYH_IDX dropped: never passed by any of this function's 27 call sites.
   _push (PAIR_AF); // Save flags
   _push (PAIR_HL); // Save hl
   emit2 ("lxi h, !immedword", 4 + isupperbyte);
