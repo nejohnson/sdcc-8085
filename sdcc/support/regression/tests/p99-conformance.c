@@ -73,6 +73,20 @@
 #define SKIP_UNIVERSAL
 #endif
 
+/* The z80, z180 and z80n ports are assembled by ASxxxx, which is not
+   8-bit clean in a symbol name:  it truncates one at the first non-ASCII
+   byte, silently, so two identifiers can collide or come out undefined.
+   This fork does not support non-ASCII identifiers - C source here is
+   7-bit ASCII - and SDCC turns a universal character name in an
+   identifier into UTF-8 in the symbol it emits, so the whole universal
+   character block is skipped rather than only the parts that spell an
+   identifier.  The universal character *literals* it also skips do
+   assemble correctly;  they are lost here only because SKIP_UNIVERSAL
+   is the switch this test provides. */
+#if defined(__SDCC_z80) || defined(__SDCC_z180) || defined(__SDCC_z80n)
+#define SKIP_UNIVERSAL
+#endif
+
 #ifndef SKIP_VA_ARGS_MACRO
 # define FIRST(X, ...) X
 # if FIRST(0, something)
