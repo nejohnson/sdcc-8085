@@ -911,10 +911,18 @@ getPairId_o (const asmop *aop, int offset)
             return PAIR_DE;
           if ((aop->aopu.aop_reg[offset]->rIdx == L_IDX) && (aop->aopu.aop_reg[offset + 1]->rIdx == H_IDX))
             return PAIR_HL;
-          if ((aop->aopu.aop_reg[offset]->rIdx == IYL_IDX) && (aop->aopu.aop_reg[offset + 1]->rIdx == IYH_IDX))
-            return PAIR_IY;
-          if ((aop->aopu.aop_reg[offset]->rIdx == K_IDX) && (aop->aopu.aop_reg[offset + 1]->rIdx == J_IDX))
-            return PAIR_JK;
+          // "if ((aop->aopu.aop_reg[offset]->rIdx == IYL_IDX) && (...rIdx
+          // == IYH_IDX)) return PAIR_IY;" removed: always false - no byte
+          // is ever register-allocated to IY on this port (#24), so this
+          // detection arm can never fire (confirming getPairId()/
+          // getPairId_o() never return PAIR_IY).
+          // "if ((aop->aopu.aop_reg[offset]->rIdx == K_IDX) && (...rIdx ==
+          // J_IDX)) return PAIR_JK;" removed: same reasoning applies to
+          // the Rabbit-only JK pair - i8085_gpr_regs[] (ralloc.c, the
+          // fixed register pool both allocators draw from for every
+          // SUB_8080/SUB_8085 sub-target, see main.c's _i8080_init()/
+          // _i8085_init()) has no J_IDX/K_IDX entries either, so no byte
+          // is ever register-allocated to JK on this port (#24).
         }
     }
   return PAIR_INVALID;
@@ -2451,9 +2459,9 @@ getPairName (asmop *aop)
         case L_IDX:
           return "hl";
           break;
-        case IYL_IDX:
-          return "iy";
-          break;
+        // "case IYL_IDX: return "iy"; break;" removed: always false - no
+        // byte is ever register-allocated to IY on this port (#24), so
+        // aop_reg[0]->rIdx can never be IYL_IDX.
         }
     }
   wassertl (0, "Tried to get the pair name of something that isn't a pair");
@@ -2507,10 +2515,14 @@ spillPairReg (const char *regname)
         case 'c':
           spillPair (PAIR_BC);
           break;
-        case 'j':
-        case 'k':
-          spillPair (PAIR_JK);
-          break;
+        // "case 'j': case 'k': spillPair (PAIR_JK); break;" removed:
+        // unreachable - all 4 call sites of spillPairReg() pass a
+        // register name drawn from aop_reg[...]->name or
+        // i8085_regs[countreg].name, both always sourced from the fixed
+        // 8-entry i8085_gpr_regs[] pool (ralloc.c), which has no
+        // "j"/"k" register at all (nor "iy"/"ix" - see the sibling arms
+        // below, whose identical reasoning is noted but not acted on
+        // here, out of scope for this specific check) (#24).
         }
     }
   else if (!strncmp (regname, "iy", 2))
@@ -5806,12 +5818,11 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
             wassertl (0, "genMove_o: AOP_IY is dead for i8085 (no IY hardware)");
           if (!premoved_a)
             {
-              bool save_iy = false; // was "!iy_dead && source->type == AOP_IY && ..." - dead for i8085, see the AOP_IY comment above.
-              if (save_iy)
-                _push (PAIR_IY);
+              // "save_iy" (was "!iy_dead && source->type == AOP_IY && ...",
+              // already simplified to a hardcoded false) and its guarded
+              // _push(PAIR_IY)/_pop(PAIR_IY) calls removed: save_iy was
+              // always false, see the AOP_IY comment above (#24).
               cheapMove (via_a ? ASMOP_A : result, via_a ? 0 : (roffset + i), source, soffset + i, via_a || a_dead);
-              if (save_iy)
-                _pop (PAIR_IY);
             }
           if (pushed_hl)
             _pop (PAIR_HL);
@@ -6059,10 +6070,8 @@ _toBoolean (const operand *oper, bool needflag)
   while (size--)
     if (size != skipbyte)
       {
-        if (aopInReg (oper->aop, size, IYL_IDX) || aopInReg (oper->aop, size, IYH_IDX))
-          UNIMPLEMENTED;
-        else
-          emit3_o (A_OR, ASMOP_A, 0, oper->aop, size);
+        // "if (aopInReg(...,IYL_IDX) || aopInReg(...,IYH_IDX)) UNIMPLEMENTED; else" removed: always false.
+        emit3_o (A_OR, ASMOP_A, 0, oper->aop, size);
       }
 }
 
@@ -6078,10 +6087,8 @@ _castBoolean (const operand *right)
   if (right->aop->size == 1 && !aopInReg (right->aop, 0, A_IDX))
     {
       emit3 (A_XOR, ASMOP_A, ASMOP_A);
-      if (aopInReg (right->aop, 0, IYL_IDX) || aopInReg (right->aop, 0, IYH_IDX))
-        UNIMPLEMENTED;
-      else
-        emit3 (A_CP, ASMOP_A, right->aop);
+      // "if (aopInReg(...,IYL_IDX) || aopInReg(...,IYH_IDX)) UNIMPLEMENTED; else" removed: always false.
+      emit3 (A_CP, ASMOP_A, right->aop);
     }
   else
     {
@@ -6638,8 +6645,16 @@ genIpush (const iCode *ic)
       bool e_free = isRegDead (E_IDX, ic) && (ic->left->aop->regs[E_IDX] < 0 || ic->left->aop->regs[E_IDX] >= size - 1);
       bool h_free = isRegDead (H_IDX, ic) && (ic->left->aop->regs[H_IDX] < 0 || ic->left->aop->regs[H_IDX] >= size - 1);
       bool l_free = isRegDead (L_IDX, ic) && (ic->left->aop->regs[L_IDX] < 0 || ic->left->aop->regs[L_IDX] >= size - 1);
-      bool iyh_free = isRegDead (IYH_IDX, ic) && (ic->left->aop->regs[IYH_IDX] < 0 || ic->left->aop->regs[IYH_IDX] >= size - 1);
-      bool iyl_free = isRegDead (IYL_IDX, ic) && (ic->left->aop->regs[IYL_IDX] < 0 || ic->left->aop->regs[IYL_IDX] >= size - 1);
+      // iyh_free/iyl_free/iy_free (were "isRegDead(IYH_IDX/IYL_IDX, ic) &&
+      // (ic->left->aop->regs[IYH_IDX/IYL_IDX] < 0 || ...)" and
+      // "isPairDead(PAIR_IY, ic) && (iyh_free || ...) && (iyl_free ||
+      // ...)") are always true: isRegDead(IYH_IDX/IYL_IDX, ic) and
+      // isPairDead(PAIR_IY, ic) are always true (IY's bits are never live
+      // in ic->rSurv - nothing ever computes into IY on this port), and
+      // ic->left->aop->regs[IYH_IDX]/regs[IYL_IDX] are always -1 (no byte
+      // is ever register-allocated to IY) - see #24.
+      bool iyh_free = true;
+      bool iyl_free = true;
       // j_free/k_free/jk_free removed: only read by the (IS_R4K||
       // IS_R5K||IS_R6K)-gated 4-byte "push jkhl" arms above, both now
 
@@ -6647,7 +6662,7 @@ genIpush (const iCode *ic)
       bool bc_free = isPairDead (PAIR_BC, ic) && (b_free || ic->left->aop->regs[B_IDX] >= size - 2) && (c_free || ic->left->aop->regs[C_IDX] >= size - 2);
       bool de_free = isPairDead (PAIR_DE, ic) && (d_free || ic->left->aop->regs[D_IDX] >= size - 2) && (e_free || ic->left->aop->regs[E_IDX] >= size - 2);
       bool hl_free = isPairDead (PAIR_HL, ic) && (h_free || ic->left->aop->regs[H_IDX] >= size - 2) && (l_free || ic->left->aop->regs[L_IDX] >= size - 2);
-      bool iy_free = isPairDead (PAIR_IY, ic) && (iyh_free || ic->left->aop->regs[H_IDX] >= size - 2) && (iyl_free || ic->left->aop->regs[IYL_IDX] >= size - 2);
+      bool iy_free = true;
 
       // (IS_R4K||IS_R5K||IS_R6K)-gated "push bcde/jkhl" (4-byte
 
@@ -8324,15 +8339,12 @@ genPlusIncr (const iCode *ic)
      same */
   if (sameRegs (ic->left->aop, ic->result->aop))
     {
-      bool save_iy = false;
+      // "save_iy" (hardcoded false) and its guarded _push(PAIR_IY)/
+      // _pop(PAIR_IY) calls removed: always false (#24).
       if (ic->left->aop->type == AOP_IY) // dead for i8085 - no IY register exists on this CPU family.
         wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
-      if (save_iy)
-        _push (PAIR_IY);
       while (icount--)
         emit3 (A_INC, ic->left->aop, 0);
-      if (save_iy)
-        _pop (PAIR_IY);
       return true;
     }
 
@@ -8969,18 +8981,13 @@ genPlus (iCode * ic)
             }
         }
 
-      if (!maskedword && (!premoved || i) && !started && leftop->size - i >= 2 && rightop->size - i >= 2 &&
-        aopInReg (IC_RESULT (ic)->aop, i, IY_IDX) &&
-        (aopInReg (leftop, i, IY_IDX) && (aopInReg (rightop, i, BC_IDX) || aopInReg (rightop, i, DE_IDX)) || aopInReg (rightop, i, IY_IDX) && (aopInReg (leftop, i, BC_IDX) || aopInReg (leftop, i, DE_IDX))))
-        {
-          PAIR_ID pair = aopInReg(aopInReg (leftop, i, IY_IDX) ? rightop : leftop, i, BC_IDX) ? PAIR_BC : PAIR_DE;
-          emit2 ("add iy, %s", _pairs[pair].name);
-          cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
-          spillPair (PAIR_IY);
-          started = true;
-          i += 2;
-        }
-      else if (!maskedword && (!premoved || i) && !started && i == size - 2 && !i && isPair (rightop) && leftop->type == AOP_IMMD &&
+      // "if (!maskedword && ... && aopInReg(IC_RESULT(ic)->aop, i, IY_IDX)
+      // && (...)) { ... "add iy, %s" ...; spillPair(PAIR_IY); ... }"
+      // removed: aopInReg(...,IY_IDX) is always false (it requires
+      // aopInReg(...,IYL_IDX), itself always false - no byte is ever
+      // register-allocated to IY on this port, #24), so this whole block
+      // could never execute.
+      if (!maskedword && (!premoved || i) && !started && i == size - 2 && !i && isPair (rightop) && leftop->type == AOP_IMMD &&
         getPairId (rightop) != PAIR_HL && (getPairId (rightop) != PAIR_IY) &&
         isPairDead (PAIR_HL, ic))
         {
