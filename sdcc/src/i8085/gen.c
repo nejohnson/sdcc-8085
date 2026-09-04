@@ -9179,8 +9179,8 @@ genPlus (iCode * ic)
         !maskedword && i == size - 2 && started && aopIsLitVal (rightop, i, 2, 0) && (
         aopInReg (IC_RESULT (ic)->aop, i, BC_IDX) && aopInReg (leftop, i, BC_IDX) ||
         aopInReg (IC_RESULT (ic)->aop, i, DE_IDX) && aopInReg (leftop, i, DE_IDX) ||
-        aopInReg (IC_RESULT (ic)->aop, i, HL_IDX) && aopInReg (leftop, i, HL_IDX) ||
-        aopInReg (IC_RESULT (ic)->aop, i, IY_IDX) && aopInReg (leftop, i, IY_IDX)))
+        aopInReg (IC_RESULT (ic)->aop, i, HL_IDX) && aopInReg (leftop, i, HL_IDX)))
+        // "|| aopInReg(...,IY_IDX) && aopInReg(...,IY_IDX)" dropped: always false (#24).
         {
           if (!tlbl && !regalloc_dry_run)
             tlbl = newiTempLabel (0);
@@ -9197,8 +9197,7 @@ genPlus (iCode * ic)
         !aopInReg (leftop, i, A_IDX) && // adc a, #0 is cheaper than conditional inc.
         (i < leftop->size &&
         leftop->type == AOP_REG && IC_RESULT (ic)->aop->type == AOP_REG &&
-        leftop->aopu.aop_reg[i]->rIdx == IC_RESULT (ic)->aop->aopu.aop_reg[i]->rIdx &&
-        (leftop->aopu.aop_reg[i]->rIdx != IYL_IDX && leftop->aopu.aop_reg[i]->rIdx != IYH_IDX) ||
+        leftop->aopu.aop_reg[i]->rIdx == IC_RESULT (ic)->aop->aopu.aop_reg[i]->rIdx || // "&& (rIdx != IYL_IDX && rIdx != IYH_IDX)" dropped: always true (#24).
         leftop->type == AOP_STK && leftop == IC_RESULT (ic)->aop ||
         leftop->type == AOP_PAIRPTR && leftop->aopu.aop_pairId == PAIR_HL))
         {
@@ -9253,18 +9252,12 @@ genPlus (iCode * ic)
         }
       else
         {
-          if (aopInReg (rightop, i, IYL_IDX) || aopInReg (rightop, i, IYH_IDX))
-            if (!premoved && !aopInReg (leftop, i, IYL_IDX) && !aopInReg (leftop, i, IYL_IDX))
-              {
-                operand *t = IC_RIGHT (ic);
-                IC_RIGHT (ic) = IC_LEFT (ic);
-                IC_LEFT (ic) = t;
-                leftop = IC_LEFT (ic)->aop;
-                rightop = IC_RIGHT (ic)->aop;
-              }
-            else // Can't handle both sides in iy.
-              UNIMPLEMENTED;
-          else if (rightop->type == AOP_STL && i < 2) // can't handle rematerialized stack location on the right efficiently.
+          // "if (aopInReg(rightop,i,IYL_IDX) || aopInReg(rightop,i,IYH_IDX))
+          // if (...) {swap operands} else UNIMPLEMENTED;" removed: the
+          // outer condition is always false (#24), so this whole
+          // if/inner-if/else was dead, falling straight through to the
+          // "rightop->type == AOP_STL" check below.
+          if (rightop->type == AOP_STL && i < 2) // can't handle rematerialized stack location on the right efficiently.
             {
               operand *t = IC_RIGHT (ic);
               IC_RIGHT (ic) = IC_LEFT (ic);
@@ -9298,8 +9291,7 @@ genPlus (iCode * ic)
               started = true;
               _pop (PAIR_HL);
             }
-          else if (aopInReg (rightop, i, IYL_IDX) || aopInReg (rightop, i, IYH_IDX))
-            UNIMPLEMENTED;
+          // "else if (aopInReg(rightop,i,IYL_IDX) || aopInReg(rightop,i,IYH_IDX)) UNIMPLEMENTED;" removed: always false.
           else
             {
               emit3_o (started ? A_ADC : A_ADD, ASMOP_A, 0, rightop, i);
@@ -9733,7 +9725,7 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
           continue;
         }
       else if (size == 1 && !offset && !maskedbyte && (aopIsLitVal (right, offset, 1, 0x01) || aopIsLitVal (right, offset, 1, 0x02)) &&
-        (result->type == AOP_REG && !aopInReg (left, offset, A_IDX) && (!aopInReg (left, offset, IYL_IDX) && !aopInReg (result, offset, IYH_IDX)) ||
+        (result->type == AOP_REG && !aopInReg (left, offset, A_IDX) || // "&& (!aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX))" dropped: always true (#24).
           (result->type == AOP_STK || result->type == AOP_HL || result->type == AOP_PAIRPTR && result->aopu.aop_pairId == PAIR_HL) && aopSame (left, 0, result, 0, 1)))
         {
           cheapMove (result, 0, left, 0, a_dead);
@@ -9792,9 +9784,8 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
               pushed_hl = true;
             }
 
-          if (aopInReg (right, offset, IYL_IDX) || aopInReg (right, offset, IYH_IDX))
-            UNIMPLEMENTED;
-          else if (right->type == AOP_STL && offset < 2)
+          // "if (aopInReg(right,offset,IYL_IDX) || aopInReg(right,offset,IYH_IDX)) UNIMPLEMENTED;" removed: always false.
+          if (right->type == AOP_STL && offset < 2)
             {
               cheapMove (ASMOP_A, 0, left, offset, true);
               if (!hl_dead && !pushed_hl)
@@ -9905,7 +9896,7 @@ genMinus (const iCode *ic, const iCode *ifx)
     {
       wassert (ic->result->aop->size == 1 && IS_OP_LITERAL (ic->right) && ullFromVal (OP_VALUE (ic->right)) == 1);
 
-      if (ic->result->aop->type == AOP_REG && (!aopInReg (ic->result->aop, 0, IYL_IDX) && !aopInReg (ic->result->aop, 0, IYH_IDX)))
+      if (ic->result->aop->type == AOP_REG) // "&& (!aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX))" dropped: always true (#24).
         {
           cheapMove (ic->result->aop, 0, ic->left->aop, 0, isRegDead (A_IDX, ic));
           emit3 (A_DEC, ic->result->aop, 0);
