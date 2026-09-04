@@ -5017,7 +5017,15 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
   // are permanently-false placeholders for a Rabbit assembler backend this
   // port does not have).
   de_dead |= (result->regs[E_IDX] >= roffset && result->regs[E_IDX] < roffset + sizex && result->regs[D_IDX] >= roffset && result->regs[D_IDX] < roffset + sizex);
-  iy_dead |= (result->regs[IYL_IDX] >= roffset && result->regs[IYL_IDX] < roffset + sizex && result->regs[IYH_IDX] >= roffset && result->regs[IYH_IDX] < roffset + sizex);
+  // "iy_dead |= (result->regs[IYL_IDX] ... regs[IYH_IDX] ...)" removed:
+  // always a no-op. result->regs[IYL_IDX]/regs[IYH_IDX] are always -1
+  // here - no genCopy/genMove_o/genMove call site anywhere in this file
+  // ever passes one of the four static IY-backed asmops (asmop_iy/
+  // asmop_iyh/asmop_iyl/asmop_aiy) as result or source, and no other
+  // AOP_REG asmop's regs[IYL_IDX]/regs[IYH_IDX] can be non-negative
+  // either (no byte is ever register-allocated to IY on this port,
+  // the same fact behind aopInReg(...,IYL_IDX/IYH_IDX) always being
+  // false - see #24).
   jk_dead |= (result->regs[K_IDX] >= roffset && result->regs[K_IDX] < roffset + sizex && result->regs[J_IDX] >= roffset && result->regs[J_IDX] < roffset + sizex);
 
   size = n;
@@ -5043,7 +5051,12 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
       bool a_free = a_dead && (source->regs[A_IDX] < soffset || assigned[source->regs[A_IDX] - soffset] || i == source->regs[A_IDX] - soffset);
       bool hl_free = hl_dead && (source->regs[L_IDX] < soffset || assigned[source->regs[L_IDX] - soffset] || i == source->regs[L_IDX] - soffset) && (source->regs[H_IDX] < soffset || assigned[source->regs[H_IDX] - soffset] || i == source->regs[H_IDX] - soffset);
       bool de_free = de_dead && (source->regs[E_IDX] < soffset || assigned[source->regs[E_IDX] - soffset] || i == source->regs[E_IDX] - soffset) && (source->regs[D_IDX] < soffset || assigned[source->regs[D_IDX] - soffset] || i == source->regs[D_IDX] - soffset);
-      bool iy_free = iy_dead && (source->regs[IYL_IDX] < soffset || assigned[source->regs[IYL_IDX] - soffset] || i == source->regs[IYL_IDX] - soffset) && (source->regs[IYH_IDX] < soffset || assigned[source->regs[IYH_IDX] - soffset] || i == source->regs[IYH_IDX] - soffset);
+      // was "iy_dead && (source->regs[IYL_IDX] < soffset || ...) &&
+      // (source->regs[IYH_IDX] < soffset || ...)" - source->regs[IYL_IDX]/
+      // regs[IYH_IDX] are always -1 (see the iy_dead comment above), so
+      // both "< soffset" conjuncts are always true, collapsing this to
+      // just iy_dead.
+      bool iy_free = iy_dead;
 
       int fp_offset = result->aopu.aop_stk + (result->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) + roffset + i;
       int sp_offset = fp_offset + _G.stack.pushed + _G.stack.offset;
@@ -5489,7 +5502,9 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
   a_dead_global |= result->type == AOP_REG && result->regs[A_IDX] >= roffset && result->regs[A_IDX] < roffset + size;
   hl_dead_global |= result->type == AOP_REG && result->regs[L_IDX] >= roffset && result->regs[L_IDX] < roffset + size && result->regs[H_IDX] >= roffset && result->regs[H_IDX] < roffset + size;
   de_dead_global |= result->type == AOP_REG && result->regs[E_IDX] >= roffset && result->regs[E_IDX] < roffset + size && result->regs[D_IDX] >= roffset && result->regs[D_IDX] < roffset + size;
-  iy_dead_global |= result->type == AOP_REG && result->regs[IYL_IDX] >= roffset && result->regs[IYL_IDX] < roffset + size && result->regs[IYH_IDX] >= roffset && result->regs[IYH_IDX] < roffset + size;
+  // "iy_dead_global |= ... result->regs[IYL_IDX] ... regs[IYH_IDX] ..."
+  // removed: always a no-op, same reasoning as genCopy's identical
+  // computation above (see its comment).
   bool bc_dead_global = result->type == AOP_REG && result->regs[C_IDX] >= roffset && result->regs[C_IDX] < roffset + size && result->regs[B_IDX] >= roffset && result->regs[B_IDX] < roffset + size;
   bool jk_dead_global = result->type == AOP_REG && result->regs[K_IDX] >= roffset && result->regs[K_IDX] < roffset + size && result->regs[J_IDX] >= roffset && result->regs[J_IDX] < roffset + size;
 
@@ -5511,7 +5526,11 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
       bool a_dead = a_dead_global && result->regs[A_IDX] < roffset;
       bool hl_dead = hl_dead_global && result->regs[H_IDX] < roffset && result->regs[L_IDX] < roffset;
       bool de_dead = de_dead_global && result->regs[D_IDX] < roffset && result->regs[E_IDX] < roffset;
-      bool iy_dead = iy_dead_global && result->regs[IYH_IDX] < roffset && result->regs[IYL_IDX] < roffset;
+      // was "iy_dead_global && result->regs[IYH_IDX] < roffset &&
+      // result->regs[IYL_IDX] < roffset" - the regs[] conjuncts are always
+      // true (see the iy_dead_global comment above), collapsing this to
+      // just iy_dead_global.
+      bool iy_dead = iy_dead_global;
       genMove_o (result, roffset, ASMOP_ZERO, 0, size, a_dead, hl_dead, de_dead, iy_dead, f_dead);
       return;
     }
@@ -5524,7 +5543,12 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
       bool a_dead = a_dead_global && source->regs[A_IDX] <= soffset + i && (result->regs[A_IDX] < 0 || result->regs[A_IDX] >= roffset + i);
       bool hl_dead = hl_dead_global && source->regs[L_IDX] <= soffset + i && source->regs[H_IDX] <= soffset + i && (result->regs[L_IDX] < 0 || result->regs[L_IDX] >= roffset + i) && (result->regs[H_IDX] < 0 || result->regs[H_IDX] >= roffset + i);
       bool de_dead = de_dead_global && source->regs[E_IDX] <= soffset + i && source->regs[D_IDX] <= soffset + i && (result->regs[E_IDX] < 0 || result->regs[E_IDX] >= roffset + i) && (result->regs[D_IDX] < 0 || result->regs[D_IDX] >= roffset + i);
-      bool iy_dead = iy_dead_global && source->regs[IYL_IDX] <= soffset + i && source->regs[IYH_IDX] <= soffset + i && (result->regs[IYL_IDX] < 0 || result->regs[IYL_IDX] >= roffset + i) && (result->regs[IYH_IDX] < 0 || result->regs[IYH_IDX] >= roffset + i);
+      // was "iy_dead_global && source->regs[IYL_IDX] <= soffset + i &&
+      // ... && (result->regs[IYL_IDX] < 0 || ...) && (result->regs[IYH_IDX]
+      // < 0 || ...)" - source/result's regs[IYL_IDX]/regs[IYH_IDX] are
+      // always -1 (see the iy_dead_global comment above), so every
+      // conjunct is always true, collapsing this to just iy_dead_global.
+      bool iy_dead = iy_dead_global;
       bool bc_dead = bc_dead_global && source->regs[C_IDX] <= soffset + i && source->regs[B_IDX] <= soffset + i && (result->regs[C_IDX] < 0 || result->regs[C_IDX] >= roffset + i) && (result->regs[B_IDX] < 0 || result->regs[B_IDX] >= roffset + i);
 
 
@@ -5668,7 +5692,9 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
       if ((optimize.allow_unsafe_read || i + 1 == size && soffset + i + 1 <= source->size) && result->type == AOP_REG && !aopInReg (result, roffset + i, A_IDX) &&
         (i + 1 == size || soffset + i + 1 >= source->size) && source->type == AOP_HL && fetchLitPair (PAIR_HL, source, soffset + i, f_dead, true))
         {
-          bool upper = aopInReg (result, roffset + i, B_IDX) || aopInReg (result, roffset + i, D_IDX) || aopInReg (result, roffset + i, H_IDX) || aopInReg (result, roffset + i, IYH_IDX);
+          // "|| aopInReg (result, roffset + i, IYH_IDX)" dropped from
+          // "upper": always false (#24).
+          bool upper = aopInReg (result, roffset + i, B_IDX) || aopInReg (result, roffset + i, D_IDX) || aopInReg (result, roffset + i, H_IDX);
           PAIR_ID pair = PAIR_INVALID;
           if ((aopInReg (result, roffset + i, C_IDX) || aopInReg (result, roffset + i, B_IDX)) && bc_dead && !a_dead)
             pair = PAIR_BC;
@@ -5676,8 +5702,11 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
             pair = PAIR_DE;
           else if ((aopInReg (result, roffset + i, L_IDX) || aopInReg (result, roffset + i, H_IDX)) && hl_dead)
             pair = PAIR_HL;
-          else if ((aopInReg (result, roffset + i, IYL_IDX) || aopInReg (result, roffset + i, IYH_IDX)) && iy_dead)
-            pair = PAIR_IY;
+          // "else if ((aopInReg (result, roffset + i, IYL_IDX) ||
+          // aopInReg (result, roffset + i, IYH_IDX)) && iy_dead) pair =
+          // PAIR_IY;" removed: aopInReg(...,IYL_IDX/IYH_IDX) is always
+          // false (#24), and even were it reachable, the "if" just below
+          // requires pair == PAIR_HL to actually use it.
 
           /* 8080/8085: only ld hl,(nn) (LHLD) exists; ld bc/de,(nn) are Z80
              ED-prefix ops, so this "load a whole pair from a direct address"
