@@ -6730,13 +6730,9 @@ genIpush (const iCode *ic)
            cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
            d = 1;
          }
-       else if (aopInReg (IC_LEFT (ic)->aop, size - 1, IYH_IDX))
-         {
-           emit3w (A_PUSH, ASMOP_IY, 0);
-           emit2 ("inx sp");
-           cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
-           d = 1;
-         }
+       // "else if (aopInReg (IC_LEFT (ic)->aop, size - 1, IYH_IDX)) { push iy; ... }"
+       // removed: aopInReg(...,IYH_IDX) is always false - no byte is ever
+       // register-allocated to IY on this port (#24).
        else if (a_free)
          {
            genMove_o (ASMOP_A, 0, IC_LEFT (ic)->aop, size - 1, 1, a_free, h_free && l_free, d_free && e_free, iyh_free && iyl_free, true);
@@ -15396,64 +15392,10 @@ genAssign (const iCode *ic)
     }
   else if (size == 2 && getPairId (right->aop) != PAIR_INVALID)
     genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic));
-  // (size<=2 && requiresHL(right->aop) && requiresHL(result->aop) &&
-
-  // this file).
-  else if (getPairId (right->aop) == PAIR_IY && result->aop->type != AOP_REG)
-    {
-      while (size--)
-        {
-          if (size == 0)
-            {
-
-                {
-                  emit3w (A_PUSH, ASMOP_IY, 0);
-                  emit2 ("dcx sp");
-                  emit2 ("pop af");
-                  emit2 ("inx sp");
-                  regalloc_dry_run_cost += 3;
-                }
-              if (result->aop->type == AOP_IY) // dead for i8085 - no IY register exists on this CPU family.
-                wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
-              else
-                cheapMove (result->aop, size, ASMOP_A, 0, true);
-            }
-          else if (size == 1)
-            {
-              if (result->aop->type == AOP_IY) // dead for i8085 - no IY register exists on this CPU family.
-                wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
-              else if (result->aop->type == AOP_EXSTK)
-                {
-                  bool pushed_pair = FALSE;
-                  PAIR_ID pair = getDeadPairId (ic);
-                  if (pair == PAIR_INVALID)
-                  {
-                    pair = PAIR_HL;
-                    _push(pair);
-                    pushed_pair= TRUE;
-                  }
-                  fetchPair (pair, right->aop);
-                  commitPair (result->aop, pair, ic, FALSE);
-                  if (pushed_pair)
-                    _pop (pair);
-                  size--;
-                }
-              else
-                {
-                  _push (PAIR_IY);
-                  _pop (PAIR_AF);
-                  cheapMove (result->aop, size, ASMOP_A, 0, true);
-                }
-            }
-          else
-            {
-              if (result->aop->type == AOP_IY) // dead for i8085 - no IY register exists on this CPU family.
-                wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
-              else
-                cheapMove (result->aop, size, ASMOP_ZERO, 0, true);
-            }
-        }
-    }
+  // "else if (getPairId (right->aop) == PAIR_IY && result->aop->type !=
+  // AOP_REG) { ... }" (byte-by-byte assignment via "push iy"/"ex (sp),
+  // iy"-family tricks) removed: dead for i8085 - getPairId() never
+  // returns PAIR_IY (no IY hardware on this CPU family, see #24).
   else if (size == 4 && (requiresHL (right->aop) && right->aop->type != AOP_REG) && (requiresHL (result->aop) && result->aop->type != AOP_REG ) && isPairDead (PAIR_DE, ic))
     {
       /* Special case - simple memcpy */
