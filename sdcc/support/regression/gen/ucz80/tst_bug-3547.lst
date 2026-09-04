@@ -1,0 +1,832 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_3547
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _f
+                             12 	.globl _render
+                             13 	.globl ___prints
+                             14 	.globl ___numCases
+                             15 	.globl ___runSuite
+                             16 	.globl ___getSuiteName
+                             17 ;--------------------------------------------------------
+                             18 ; special function registers
+                             19 ;--------------------------------------------------------
+                             20 ;--------------------------------------------------------
+                             21 ; ram data
+                             22 ;--------------------------------------------------------
+                             23 	.area _DATA (BANK=_DSEG)
+                             24 ;--------------------------------------------------------
+                             25 ; ram data
+                             26 ;--------------------------------------------------------
+                             27 	.area _INITIALIZED
+                             28 ;--------------------------------------------------------
+                             29 ; absolute ram data
+                             30 ;--------------------------------------------------------
+                             31 	.area _DABS (ABS)
+                             32 	.area _DABS (ABS)
+                             33 ;--------------------------------------------------------
+                             34 ; global & static initialisations
+                             35 ;--------------------------------------------------------
+                             36 	.area _HOME
+                             37 	.area _GSINIT
+                             38 	.area _GSFINAL
+                             39 	.area _GSINIT
+                             40 ;--------------------------------------------------------
+                             41 ; Home
+                             42 ;--------------------------------------------------------
+                             43 	.area _HOME (BANK=_CSEG)
+                             44 	.area _HOME (BANK=_CSEG)
+                             45 ;--------------------------------------------------------
+                             46 ; code
+                             47 ;--------------------------------------------------------
+                             48 	.area _CODE (BANK=_CSEG)
+                             49 ;cases/./../tests/bug-3547.c:23: void render(Point3D p1, Point3D p2)
+                             50 ;	genLabel
+                             51 ;	genFunction
+                             52 ;	---------------------------------
+                             53 ; Function render
+                             54 ; ---------------------------------
+                             55 ;	Register assignment is optimal.
+                             56 ; Stack space usage: 0 bytes.
+   0000                      57 _render::
+                             58 ;cases/./../tests/bug-3547.c:25: }
+                             59 ;	genLabel
+                             60 ; common peephole 159 removed unused label 00101$.
+                             61 ;	genEndFunction
+   0000 E1            [10]   62 	pop	hl
+                             63 ;	adjustStack by 12
+   0001 F1            [10]   64 	pop	af
+   0002 F1            [10]   65 	pop	af
+   0003 F1            [10]   66 	pop	af
+   0004 F1            [10]   67 	pop	af
+   0005 F1            [10]   68 	pop	af
+   0006 F1            [10]   69 	pop	af
+   0007 E9            [ 4]   70 	jp	(hl)
+                             71 ;	Total render function size at codegen: 8 bytes.
+                             72 ;cases/./../tests/bug-3547.c:27: void f(void)
+                             73 ;	genLabel
+                             74 ;	genFunction
+                             75 ;	---------------------------------
+                             76 ; Function f
+                             77 ; ---------------------------------
+                             78 ;	Register assignment might be sub-optimal.
+                             79 ; Stack space usage: 134 bytes.
+   0008                      80 _f::
+                             81 ;	adjustStack by -134
+   0008 21 7A FF      [10]   82 	ld	hl, #-134
+   000B 39            [11]   83 	add	hl, sp
+   000C F9            [ 6]   84 	ld	sp, hl
+                             85 ;cases/./../tests/bug-3547.c:29: unsigned int  angles[3] = {47, 10, 0};
+                             86 ;	skipping iCode since result will be rematerialized
+                             87 ;	genPointerSet
+                             88 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000D FD 21 00 00   [14]   89 	ld	iy, #0
+   0011 FD 39         [15]   90 	add	iy, sp
+   0013 FD 36 00 2F   [19]   91 	ld	0 (iy), #0x2f
+   0017 AF            [ 4]   92 	xor	a, a
+   0018 FD 77 01      [19]   93 	ld	1 (iy), a
+                             94 ;	skipping iCode since result will be rematerialized
+                             95 ;	genPointerSet
+                             96 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001B FD 23         [10]   97 	inc	iy
+   001D FD 23         [10]   98 	inc	iy
+   001F FD 36 00 0A   [19]   99 	ld	0 (iy), #0x0a
+   0023 FD 36 01 00   [19]  100 	ld	1 (iy), #0
+                            101 ; peephole 178 direct load zero constant to memory addressed by index register
+                            102 ;	genPlus
+   0027 21 04 00      [10]  103 	ld	hl, #4
+   002A 39            [11]  104 	add	hl, sp
+                            105 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 0 f_dead 1
+   002B EB            [ 4]  106 	ex	de, hl
+                            107 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 0 f_dead 1
+                            108 ;	genPointerSet
+                            109 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002C AF            [ 4]  110 	xor	a, a
+   002D 12            [ 7]  111 	ld	(de), a
+   002E 13            [ 6]  112 	inc	de
+   002F 12            [ 7]  113 	ld	(de), a
+                            114 ;cases/./../tests/bug-3547.c:30: const unsigned char sides[][2] = {
+                            115 ;	skipping iCode since result will be rematerialized
+                            116 ;	genPointerSet
+                            117 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0030 FD 21 06 00   [14]  118 	ld	iy, #6
+   0034 FD 39         [15]  119 	add	iy, sp
+   0036 FD 36 00 07   [19]  120 	ld	0 (iy), #0x07
+                            121 ;	skipping iCode since result will be rematerialized
+                            122 ;	genPointerSet
+                            123 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   003A FD 23         [10]  124 	inc	iy
+   003C FD 36 00 08   [19]  125 	ld	0 (iy), #0x08
+                            126 ;	skipping iCode since result will be rematerialized
+                            127 ;	genPointerSet
+                            128 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0040 FD 23         [10]  129 	inc	iy
+   0042 FD 36 00 08   [19]  130 	ld	0 (iy), #0x08
+                            131 ;	skipping iCode since result will be rematerialized
+                            132 ;	genPointerSet
+                            133 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0046 FD 23         [10]  134 	inc	iy
+   0048 FD 36 00 09   [19]  135 	ld	0 (iy), #0x09
+                            136 ;	skipping iCode since result will be rematerialized
+                            137 ;	genPointerSet
+                            138 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   004C FD 23         [10]  139 	inc	iy
+   004E FD 36 00 08   [19]  140 	ld	0 (iy), #0x08
+                            141 ;	skipping iCode since result will be rematerialized
+                            142 ;	genPointerSet
+                            143 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0052 FD 23         [10]  144 	inc	iy
+   0054 FD 36 00 0A   [19]  145 	ld	0 (iy), #0x0a
+                            146 ;	skipping iCode since result will be rematerialized
+                            147 ;	genPointerSet
+                            148 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0058 FD 23         [10]  149 	inc	iy
+   005A FD 36 00 0A   [19]  150 	ld	0 (iy), #0x0a
+                            151 ;	skipping iCode since result will be rematerialized
+                            152 ;	genPointerSet
+                            153 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   005E FD 23         [10]  154 	inc	iy
+   0060 FD 36 00 0B   [19]  155 	ld	0 (iy), #0x0b
+                            156 ;	skipping iCode since result will be rematerialized
+                            157 ;	genPointerSet
+                            158 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0064 FD 23         [10]  159 	inc	iy
+   0066 FD 36 00 0B   [19]  160 	ld	0 (iy), #0x0b
+                            161 ;	skipping iCode since result will be rematerialized
+                            162 ;	genPointerSet
+                            163 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   006A FD 23         [10]  164 	inc	iy
+   006C FD 36 00 09   [19]  165 	ld	0 (iy), #0x09
+                            166 ;	skipping iCode since result will be rematerialized
+                            167 ;	genPointerSet
+                            168 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0070 FD 23         [10]  169 	inc	iy
+   0072 FD 36 00 09   [19]  170 	ld	0 (iy), #0x09
+                            171 ;	skipping iCode since result will be rematerialized
+                            172 ;	genPointerSet
+                            173 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0076 FD 23         [10]  174 	inc	iy
+   0078 FD 36 00 06   [19]  175 	ld	0 (iy), #0x06
+                            176 ;	skipping iCode since result will be rematerialized
+                            177 ;	genPointerSet
+                            178 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   007C FD 23         [10]  179 	inc	iy
+   007E FD 36 00 06   [19]  180 	ld	0 (iy), #0x06
+                            181 ;	skipping iCode since result will be rematerialized
+                            182 ;	genPointerSet
+                            183 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0082 FD 23         [10]  184 	inc	iy
+   0084 FD 36 00 00   [19]  185 	ld	0 (iy), #0x00
+                            186 ;	skipping iCode since result will be rematerialized
+                            187 ;	genPointerSet
+                            188 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0088 FD 23         [10]  189 	inc	iy
+   008A FD 36 00 00   [19]  190 	ld	0 (iy), #0x00
+                            191 ;	skipping iCode since result will be rematerialized
+                            192 ;	genPointerSet
+                            193 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   008E FD 23         [10]  194 	inc	iy
+   0090 FD 36 00 01   [19]  195 	ld	0 (iy), #0x01
+                            196 ;	skipping iCode since result will be rematerialized
+                            197 ;	genPointerSet
+                            198 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0094 FD 23         [10]  199 	inc	iy
+   0096 FD 36 00 01   [19]  200 	ld	0 (iy), #0x01
+                            201 ;	skipping iCode since result will be rematerialized
+                            202 ;	genPointerSet
+                            203 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   009A FD 23         [10]  204 	inc	iy
+   009C FD 36 00 07   [19]  205 	ld	0 (iy), #0x07
+                            206 ;	skipping iCode since result will be rematerialized
+                            207 ;	genPointerSet
+                            208 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A0 FD 23         [10]  209 	inc	iy
+   00A2 FD 36 00 07   [19]  210 	ld	0 (iy), #0x07
+                            211 ;	skipping iCode since result will be rematerialized
+                            212 ;	genPointerSet
+                            213 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A6 FD 23         [10]  214 	inc	iy
+   00A8 FD 36 00 04   [19]  215 	ld	0 (iy), #0x04
+                            216 ;	skipping iCode since result will be rematerialized
+                            217 ;	genPointerSet
+                            218 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00AC FD 23         [10]  219 	inc	iy
+   00AE FD 36 00 06   [19]  220 	ld	0 (iy), #0x06
+                            221 ;	skipping iCode since result will be rematerialized
+                            222 ;	genPointerSet
+                            223 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B2 FD 23         [10]  224 	inc	iy
+   00B4 FD 36 00 05   [19]  225 	ld	0 (iy), #0x05
+                            226 ;	skipping iCode since result will be rematerialized
+                            227 ;	genPointerSet
+                            228 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B8 FD 23         [10]  229 	inc	iy
+   00BA FD 36 00 00   [19]  230 	ld	0 (iy), #0x00
+                            231 ;	skipping iCode since result will be rematerialized
+                            232 ;	genPointerSet
+                            233 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00BE FD 23         [10]  234 	inc	iy
+   00C0 FD 36 00 03   [19]  235 	ld	0 (iy), #0x03
+                            236 ;	skipping iCode since result will be rematerialized
+                            237 ;	genPointerSet
+                            238 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00C4 FD 23         [10]  239 	inc	iy
+   00C6 FD 36 00 01   [19]  240 	ld	0 (iy), #0x01
+                            241 ;	skipping iCode since result will be rematerialized
+                            242 ;	genPointerSet
+                            243 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00CA FD 23         [10]  244 	inc	iy
+   00CC FD 36 00 02   [19]  245 	ld	0 (iy), #0x02
+                            246 ;	skipping iCode since result will be rematerialized
+                            247 ;	genPointerSet
+                            248 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00D0 FD 23         [10]  249 	inc	iy
+   00D2 FD 36 00 04   [19]  250 	ld	0 (iy), #0x04
+                            251 ;	skipping iCode since result will be rematerialized
+                            252 ;	genPointerSet
+                            253 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00D6 FD 23         [10]  254 	inc	iy
+   00D8 FD 36 00 05   [19]  255 	ld	0 (iy), #0x05
+                            256 ;	skipping iCode since result will be rematerialized
+                            257 ;	genPointerSet
+                            258 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00DC FD 23         [10]  259 	inc	iy
+   00DE FD 36 00 05   [19]  260 	ld	0 (iy), #0x05
+                            261 ;	skipping iCode since result will be rematerialized
+                            262 ;	genPointerSet
+                            263 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E2 FD 23         [10]  264 	inc	iy
+   00E4 FD 36 00 0C   [19]  265 	ld	0 (iy), #0x0c
+                            266 ;	skipping iCode since result will be rematerialized
+                            267 ;	genPointerSet
+                            268 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E8 FD 23         [10]  269 	inc	iy
+   00EA FD 36 00 0C   [19]  270 	ld	0 (iy), #0x0c
+                            271 ;	skipping iCode since result will be rematerialized
+                            272 ;	genPointerSet
+                            273 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00EE FD 23         [10]  274 	inc	iy
+   00F0 FD 36 00 04   [19]  275 	ld	0 (iy), #0x04
+                            276 ;	skipping iCode since result will be rematerialized
+                            277 ;	genPointerSet
+                            278 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00F4 FD 23         [10]  279 	inc	iy
+   00F6 FD 36 00 0D   [19]  280 	ld	0 (iy), #0x0d
+                            281 ;	skipping iCode since result will be rematerialized
+                            282 ;	genPointerSet
+                            283 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00FA FD 23         [10]  284 	inc	iy
+   00FC FD 36 00 02   [19]  285 	ld	0 (iy), #0x02
+                            286 ;	skipping iCode since result will be rematerialized
+                            287 ;	genPointerSet
+                            288 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0100 FD 23         [10]  289 	inc	iy
+   0102 FD 36 00 0D   [19]  290 	ld	0 (iy), #0x0d
+                            291 ;	skipping iCode since result will be rematerialized
+                            292 ;	genPointerSet
+                            293 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0106 FD 23         [10]  294 	inc	iy
+   0108 FD 36 00 03   [19]  295 	ld	0 (iy), #0x03
+                            296 ;	skipping iCode since result will be rematerialized
+                            297 ;	genPointerSet
+                            298 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   010C FD 23         [10]  299 	inc	iy
+   010E FD 36 00 0D   [19]  300 	ld	0 (iy), #0x0d
+                            301 ;	skipping iCode since result will be rematerialized
+                            302 ;	genPointerSet
+                            303 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0112 FD 23         [10]  304 	inc	iy
+   0114 FD 36 00 0C   [19]  305 	ld	0 (iy), #0x0c
+                            306 ;	skipping iCode since result will be rematerialized
+                            307 ;	genPointerSet
+                            308 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0118 FD 23         [10]  309 	inc	iy
+   011A FD 36 00 05   [19]  310 	ld	0 (iy), #0x05
+                            311 ;	skipping iCode since result will be rematerialized
+                            312 ;	genPointerSet
+                            313 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   011E FD 23         [10]  314 	inc	iy
+   0120 FD 36 00 03   [19]  315 	ld	0 (iy), #0x03
+                            316 ;	skipping iCode since result will be rematerialized
+                            317 ;	genPointerSet
+                            318 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0124 FD 23         [10]  319 	inc	iy
+   0126 FD 36 00 03   [19]  320 	ld	0 (iy), #0x03
+                            321 ;	skipping iCode since result will be rematerialized
+                            322 ;	genPointerSet
+                            323 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   012A FD 23         [10]  324 	inc	iy
+   012C FD 36 00 02   [19]  325 	ld	0 (iy), #0x02
+                            326 ;	skipping iCode since result will be rematerialized
+                            327 ;	genPointerSet
+                            328 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0130 FD 23         [10]  329 	inc	iy
+   0132 FD 36 00 02   [19]  330 	ld	0 (iy), #0x02
+                            331 ;	skipping iCode since result will be rematerialized
+                            332 ;	genPointerSet
+                            333 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            334 ; common peephole 157b merged offset into storage instruction.
+   0136 FD 36 01 04   [19]  335 	ld	1 (iy), #0x04
+                            336 ;cases/./../tests/bug-3547.c:54: Point3D points[POINT_AMOUNT] = {
+                            337 ;	genAddrOf
+   013A 21 32 00      [10]  338 	ld	hl, #50
+   013D 39            [11]  339 	add	hl, sp
+                            340 ;	genPointerSet
+                            341 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            342 ; common peephole 32b removed de/hl swap.
+   013E 5D            [ 4]  343 	ld	e, l
+   013F 54            [ 4]  344 	ld	d, h
+                            345 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0140 36 20         [10]  346 	ld	(hl), #0x20
+   0142 23            [ 6]  347 	inc	hl
+   0143 36 00         [10]  348 	ld	(hl), #0x00
+                            349 ;	skipping iCode since result will be rematerialized
+                            350 ;	genPointerSet
+                            351 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            352 ; common peephole 65 used hl instead of iy.
+                            353 ; common peephole 130a removed unnecessary +0 from constant
+   0145 21 34 00      [10]  354 	ld	hl, #52
+   0148 39            [11]  355 	add	hl, sp
+   0149 36 20         [10]  356 	ld	(hl), #0x20
+   014B 23            [ 6]  357 	inc	hl
+   014C 36 00         [10]  358 	ld	(hl), #0
+                            359 ; peephole 178 direct load zero constant to memory addressed by index register
+                            360 ;	genPlus
+                            361 ;fetchPairLong
+   014E 21 04 00      [10]  362 	ld	hl, #0x0004
+   0151 19            [11]  363 	add	hl, de
+                            364 ;	genPointerSet
+                            365 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0152 AF            [ 4]  366 	xor	a, a
+   0153 77            [ 7]  367 	ld	(hl), a
+   0154 23            [ 6]  368 	inc	hl
+   0155 77            [ 7]  369 	ld	(hl), a
+                            370 ;	genPlus
+                            371 ;fetchPairLong
+   0156 21 06 00      [10]  372 	ld	hl, #0x0006
+   0159 19            [11]  373 	add	hl, de
+                            374 ;	genPointerSet
+                            375 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   015A AF            [ 4]  376 	xor	a, a
+   015B 77            [ 7]  377 	ld	(hl), a
+   015C 23            [ 6]  378 	inc	hl
+   015D 77            [ 7]  379 	ld	(hl), a
+                            380 ;	skipping iCode since result will be rematerialized
+                            381 ;	genPointerSet
+                            382 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            383 ; common peephole 65 used hl instead of iy.
+                            384 ; common peephole 130a removed unnecessary +0 from constant
+   015E 21 3A 00      [10]  385 	ld	hl, #58
+   0161 39            [11]  386 	add	hl, sp
+   0162 36 20         [10]  387 	ld	(hl), #0x20
+   0164 23            [ 6]  388 	inc	hl
+   0165 36 00         [10]  389 	ld	(hl), #0
+                            390 ; peephole 178 direct load zero constant to memory addressed by index register
+                            391 ;	genPlus
+                            392 ;fetchPairLong
+   0167 21 0A 00      [10]  393 	ld	hl, #0x000a
+   016A 19            [11]  394 	add	hl, de
+                            395 ;	genPointerSet
+                            396 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   016B AF            [ 4]  397 	xor	a, a
+   016C 77            [ 7]  398 	ld	(hl), a
+   016D 23            [ 6]  399 	inc	hl
+   016E 77            [ 7]  400 	ld	(hl), a
+                            401 ;	genPlus
+                            402 ;fetchPairLong
+   016F 21 0C 00      [10]  403 	ld	hl, #0x000c
+   0172 19            [11]  404 	add	hl, de
+                            405 ;	genPointerSet
+                            406 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0173 AF            [ 4]  407 	xor	a, a
+   0174 77            [ 7]  408 	ld	(hl), a
+   0175 23            [ 6]  409 	inc	hl
+   0176 77            [ 7]  410 	ld	(hl), a
+                            411 ;	skipping iCode since result will be rematerialized
+                            412 ;	genPointerSet
+                            413 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0177 FD 21 40 00   [14]  414 	ld	iy, #64
+   017B FD 39         [15]  415 	add	iy, sp
+   017D FD 36 00 20   [19]  416 	ld	0 (iy), #0x20
+   0181 FD 36 01 00   [19]  417 	ld	1 (iy), #0
+                            418 ; peephole 178 direct load zero constant to memory addressed by index register
+                            419 ;	skipping iCode since result will be rematerialized
+                            420 ;	genPointerSet
+                            421 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0185 FD 23         [10]  422 	inc	iy
+   0187 FD 23         [10]  423 	inc	iy
+   0189 FD 36 00 20   [19]  424 	ld	0 (iy), #0x20
+   018D FD 36 01 00   [19]  425 	ld	1 (iy), #0
+                            426 ; peephole 178 direct load zero constant to memory addressed by index register
+                            427 ;	skipping iCode since result will be rematerialized
+                            428 ;	genPointerSet
+                            429 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0191 FD 23         [10]  430 	inc	iy
+   0193 FD 23         [10]  431 	inc	iy
+   0195 FD 36 00 20   [19]  432 	ld	0 (iy), #0x20
+   0199 FD 36 01 00   [19]  433 	ld	1 (iy), #0
+                            434 ; peephole 178 direct load zero constant to memory addressed by index register
+                            435 ;	skipping iCode since result will be rematerialized
+                            436 ;	genPointerSet
+                            437 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   019D FD 23         [10]  438 	inc	iy
+   019F FD 23         [10]  439 	inc	iy
+   01A1 FD 36 00 20   [19]  440 	ld	0 (iy), #0x20
+   01A5 FD 36 01 00   [19]  441 	ld	1 (iy), #0
+                            442 ; peephole 178 direct load zero constant to memory addressed by index register
+                            443 ;	skipping iCode since result will be rematerialized
+                            444 ;	genPointerSet
+                            445 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01A9 FD 23         [10]  446 	inc	iy
+   01AB FD 23         [10]  447 	inc	iy
+   01AD FD 36 00 20   [19]  448 	ld	0 (iy), #0x20
+   01B1 FD 36 01 00   [19]  449 	ld	1 (iy), #0
+                            450 ; peephole 178 direct load zero constant to memory addressed by index register
+                            451 ;	genPlus
+                            452 ;fetchPairLong
+   01B5 21 18 00      [10]  453 	ld	hl, #0x0018
+   01B8 19            [11]  454 	add	hl, de
+                            455 ;	genPointerSet
+                            456 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01B9 AF            [ 4]  457 	xor	a, a
+   01BA 77            [ 7]  458 	ld	(hl), a
+   01BB 23            [ 6]  459 	inc	hl
+   01BC 77            [ 7]  460 	ld	(hl), a
+                            461 ;	genPlus
+                            462 ;fetchPairLong
+   01BD 21 1A 00      [10]  463 	ld	hl, #0x001a
+   01C0 19            [11]  464 	add	hl, de
+                            465 ;	genPointerSet
+                            466 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01C1 AF            [ 4]  467 	xor	a, a
+   01C2 77            [ 7]  468 	ld	(hl), a
+   01C3 23            [ 6]  469 	inc	hl
+   01C4 77            [ 7]  470 	ld	(hl), a
+                            471 ;	skipping iCode since result will be rematerialized
+                            472 ;	genPointerSet
+                            473 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01C5 FD 21 4E 00   [14]  474 	ld	iy, #78
+   01C9 FD 39         [15]  475 	add	iy, sp
+   01CB FD 36 00 20   [19]  476 	ld	0 (iy), #0x20
+   01CF FD 36 01 00   [19]  477 	ld	1 (iy), #0
+                            478 ; peephole 178 direct load zero constant to memory addressed by index register
+                            479 ;	skipping iCode since result will be rematerialized
+                            480 ;	genPointerSet
+                            481 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01D3 FD 23         [10]  482 	inc	iy
+   01D5 FD 23         [10]  483 	inc	iy
+   01D7 FD 36 00 20   [19]  484 	ld	0 (iy), #0x20
+   01DB FD 36 01 00   [19]  485 	ld	1 (iy), #0
+                            486 ; peephole 178 direct load zero constant to memory addressed by index register
+                            487 ;	genPlus
+                            488 ;fetchPairLong
+   01DF 21 20 00      [10]  489 	ld	hl, #0x0020
+   01E2 19            [11]  490 	add	hl, de
+                            491 ;	genPointerSet
+                            492 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01E3 AF            [ 4]  493 	xor	a, a
+   01E4 77            [ 7]  494 	ld	(hl), a
+   01E5 23            [ 6]  495 	inc	hl
+   01E6 77            [ 7]  496 	ld	(hl), a
+                            497 ;	skipping iCode since result will be rematerialized
+                            498 ;	genPointerSet
+                            499 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01E7 FD 21 54 00   [14]  500 	ld	iy, #84
+   01EB FD 39         [15]  501 	add	iy, sp
+   01ED FD 36 00 20   [19]  502 	ld	0 (iy), #0x20
+   01F1 FD 36 01 00   [19]  503 	ld	1 (iy), #0
+                            504 ; peephole 178 direct load zero constant to memory addressed by index register
+                            505 ;	skipping iCode since result will be rematerialized
+                            506 ;	genPointerSet
+                            507 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01F5 FD 23         [10]  508 	inc	iy
+   01F7 FD 23         [10]  509 	inc	iy
+   01F9 FD 36 00 20   [19]  510 	ld	0 (iy), #0x20
+   01FD FD 36 01 00   [19]  511 	ld	1 (iy), #0
+                            512 ; peephole 178 direct load zero constant to memory addressed by index register
+                            513 ;	genPlus
+                            514 ;fetchPairLong
+   0201 21 26 00      [10]  515 	ld	hl, #0x0026
+   0204 19            [11]  516 	add	hl, de
+                            517 ;	genPointerSet
+                            518 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0205 AF            [ 4]  519 	xor	a, a
+   0206 77            [ 7]  520 	ld	(hl), a
+   0207 23            [ 6]  521 	inc	hl
+   0208 77            [ 7]  522 	ld	(hl), a
+                            523 ;	genPlus
+                            524 ;fetchPairLong
+   0209 21 28 00      [10]  525 	ld	hl, #0x0028
+   020C 19            [11]  526 	add	hl, de
+                            527 ;	genPointerSet
+                            528 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   020D AF            [ 4]  529 	xor	a, a
+   020E 77            [ 7]  530 	ld	(hl), a
+   020F 23            [ 6]  531 	inc	hl
+   0210 77            [ 7]  532 	ld	(hl), a
+                            533 ;	genPlus
+                            534 ;fetchPairLong
+   0211 21 2A 00      [10]  535 	ld	hl, #0x002a
+   0214 19            [11]  536 	add	hl, de
+                            537 ;	genPointerSet
+                            538 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0215 AF            [ 4]  539 	xor	a, a
+   0216 77            [ 7]  540 	ld	(hl), a
+   0217 23            [ 6]  541 	inc	hl
+   0218 77            [ 7]  542 	ld	(hl), a
+                            543 ;	genPlus
+                            544 ;fetchPairLong
+   0219 21 2C 00      [10]  545 	ld	hl, #0x002c
+   021C 19            [11]  546 	add	hl, de
+                            547 ;	genPointerSet
+                            548 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   021D AF            [ 4]  549 	xor	a, a
+   021E 77            [ 7]  550 	ld	(hl), a
+   021F 23            [ 6]  551 	inc	hl
+   0220 77            [ 7]  552 	ld	(hl), a
+                            553 ;	genPlus
+                            554 ;fetchPairLong
+   0221 21 2E 00      [10]  555 	ld	hl, #0x002e
+   0224 19            [11]  556 	add	hl, de
+                            557 ;	genPointerSet
+                            558 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0225 AF            [ 4]  559 	xor	a, a
+   0226 77            [ 7]  560 	ld	(hl), a
+   0227 23            [ 6]  561 	inc	hl
+   0228 77            [ 7]  562 	ld	(hl), a
+                            563 ;	skipping iCode since result will be rematerialized
+                            564 ;	genPointerSet
+                            565 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            566 ; common peephole 65 used hl instead of iy.
+                            567 ; common peephole 130a removed unnecessary +0 from constant
+   0229 21 62 00      [10]  568 	ld	hl, #98
+   022C 39            [11]  569 	add	hl, sp
+   022D 36 08         [10]  570 	ld	(hl), #0x08
+   022F 23            [ 6]  571 	inc	hl
+   0230 36 00         [10]  572 	ld	(hl), #0
+                            573 ; peephole 178 direct load zero constant to memory addressed by index register
+                            574 ;	genPlus
+                            575 ;fetchPairLong
+   0232 21 32 00      [10]  576 	ld	hl, #0x0032
+   0235 19            [11]  577 	add	hl, de
+                            578 ;	genPointerSet
+                            579 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0236 AF            [ 4]  580 	xor	a, a
+   0237 77            [ 7]  581 	ld	(hl), a
+   0238 23            [ 6]  582 	inc	hl
+   0239 77            [ 7]  583 	ld	(hl), a
+                            584 ;	genPlus
+                            585 ;fetchPairLong
+   023A 21 34 00      [10]  586 	ld	hl, #0x0034
+   023D 19            [11]  587 	add	hl, de
+                            588 ;	genPointerSet
+                            589 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   023E AF            [ 4]  590 	xor	a, a
+   023F 77            [ 7]  591 	ld	(hl), a
+   0240 23            [ 6]  592 	inc	hl
+   0241 77            [ 7]  593 	ld	(hl), a
+                            594 ;	skipping iCode since result will be rematerialized
+                            595 ;	genPointerSet
+                            596 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            597 ; common peephole 65 used hl instead of iy.
+                            598 ; common peephole 130a removed unnecessary +0 from constant
+   0242 21 68 00      [10]  599 	ld	hl, #104
+   0245 39            [11]  600 	add	hl, sp
+   0246 36 10         [10]  601 	ld	(hl), #0x10
+   0248 23            [ 6]  602 	inc	hl
+   0249 36 00         [10]  603 	ld	(hl), #0
+                            604 ; peephole 178 direct load zero constant to memory addressed by index register
+                            605 ;	genPlus
+                            606 ;fetchPairLong
+   024B 21 38 00      [10]  607 	ld	hl, #0x0038
+   024E 19            [11]  608 	add	hl, de
+                            609 ;	genPointerSet
+                            610 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   024F AF            [ 4]  611 	xor	a, a
+   0250 77            [ 7]  612 	ld	(hl), a
+   0251 23            [ 6]  613 	inc	hl
+   0252 77            [ 7]  614 	ld	(hl), a
+                            615 ;	genPlus
+                            616 ;fetchPairLong
+   0253 21 3A 00      [10]  617 	ld	hl, #0x003a
+   0256 19            [11]  618 	add	hl, de
+                            619 ;	genPointerSet
+                            620 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0257 AF            [ 4]  621 	xor	a, a
+   0258 77            [ 7]  622 	ld	(hl), a
+   0259 23            [ 6]  623 	inc	hl
+   025A 77            [ 7]  624 	ld	(hl), a
+                            625 ;	skipping iCode since result will be rematerialized
+                            626 ;	genPointerSet
+                            627 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            628 ; common peephole 65 used hl instead of iy.
+                            629 ; common peephole 130a removed unnecessary +0 from constant
+   025B 21 6E 00      [10]  630 	ld	hl, #110
+   025E 39            [11]  631 	add	hl, sp
+   025F 36 08         [10]  632 	ld	(hl), #0x08
+   0261 23            [ 6]  633 	inc	hl
+   0262 36 00         [10]  634 	ld	(hl), #0
+                            635 ; peephole 178 direct load zero constant to memory addressed by index register
+                            636 ;	genPlus
+                            637 ;fetchPairLong
+   0264 21 3E 00      [10]  638 	ld	hl, #0x003e
+   0267 19            [11]  639 	add	hl, de
+                            640 ;	genPointerSet
+                            641 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0268 AF            [ 4]  642 	xor	a, a
+   0269 77            [ 7]  643 	ld	(hl), a
+   026A 23            [ 6]  644 	inc	hl
+   026B 77            [ 7]  645 	ld	(hl), a
+                            646 ;	skipping iCode since result will be rematerialized
+                            647 ;	genPointerSet
+                            648 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   026C FD 21 72 00   [14]  649 	ld	iy, #114
+   0270 FD 39         [15]  650 	add	iy, sp
+   0272 FD 36 00 10   [19]  651 	ld	0 (iy), #0x10
+   0276 FD 36 01 00   [19]  652 	ld	1 (iy), #0
+                            653 ; peephole 178 direct load zero constant to memory addressed by index register
+                            654 ;	skipping iCode since result will be rematerialized
+                            655 ;	genPointerSet
+                            656 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   027A FD 23         [10]  657 	inc	iy
+   027C FD 23         [10]  658 	inc	iy
+   027E FD 36 00 10   [19]  659 	ld	0 (iy), #0x10
+   0282 FD 36 01 00   [19]  660 	ld	1 (iy), #0
+                            661 ; peephole 178 direct load zero constant to memory addressed by index register
+                            662 ;	genPlus
+                            663 ;fetchPairLong
+   0286 21 44 00      [10]  664 	ld	hl, #0x0044
+   0289 19            [11]  665 	add	hl, de
+                            666 ;	genPointerSet
+                            667 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   028A AF            [ 4]  668 	xor	a, a
+   028B 77            [ 7]  669 	ld	(hl), a
+   028C 23            [ 6]  670 	inc	hl
+   028D 77            [ 7]  671 	ld	(hl), a
+                            672 ;	skipping iCode since result will be rematerialized
+                            673 ;	genPointerSet
+                            674 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   028E FD 21 78 00   [14]  675 	ld	iy, #120
+   0292 FD 39         [15]  676 	add	iy, sp
+   0294 FD 36 00 10   [19]  677 	ld	0 (iy), #0x10
+   0298 FD 36 01 00   [19]  678 	ld	1 (iy), #0
+                            679 ; peephole 178 direct load zero constant to memory addressed by index register
+                            680 ;	skipping iCode since result will be rematerialized
+                            681 ;	genPointerSet
+                            682 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   029C FD 23         [10]  683 	inc	iy
+   029E FD 23         [10]  684 	inc	iy
+   02A0 FD 36 00 10   [19]  685 	ld	0 (iy), #0x10
+   02A4 FD 36 01 00   [19]  686 	ld	1 (iy), #0
+                            687 ; peephole 178 direct load zero constant to memory addressed by index register
+                            688 ;	genPlus
+                            689 ;fetchPairLong
+   02A8 21 4A 00      [10]  690 	ld	hl, #0x004a
+   02AB 19            [11]  691 	add	hl, de
+                            692 ;	genPointerSet
+                            693 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   02AC AF            [ 4]  694 	xor	a, a
+   02AD 77            [ 7]  695 	ld	(hl), a
+   02AE 23            [ 6]  696 	inc	hl
+   02AF 77            [ 7]  697 	ld	(hl), a
+                            698 ;	skipping iCode since result will be rematerialized
+                            699 ;	genPointerSet
+                            700 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   02B0 FD 21 7E 00   [14]  701 	ld	iy, #126
+   02B4 FD 39         [15]  702 	add	iy, sp
+   02B6 FD 36 00 30   [19]  703 	ld	0 (iy), #0x30
+   02BA FD 36 01 00   [19]  704 	ld	1 (iy), #0
+                            705 ; peephole 178 direct load zero constant to memory addressed by index register
+                            706 ;	skipping iCode since result will be rematerialized
+                            707 ;	genPointerSet
+                            708 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   02BE FD 23         [10]  709 	inc	iy
+   02C0 FD 23         [10]  710 	inc	iy
+   02C2 FD 36 00 10   [19]  711 	ld	0 (iy), #0x10
+   02C6 FD 36 01 00   [19]  712 	ld	1 (iy), #0
+                            713 ; peephole 178 direct load zero constant to memory addressed by index register
+                            714 ;	skipping iCode since result will be rematerialized
+                            715 ;	genPointerSet
+                            716 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   02CA FD 23         [10]  717 	inc	iy
+   02CC FD 23         [10]  718 	inc	iy
+   02CE FD 36 00 20   [19]  719 	ld	0 (iy), #0x20
+   02D2 FD 36 01 00   [19]  720 	ld	1 (iy), #0
+                            721 ; peephole 178 direct load zero constant to memory addressed by index register
+                            722 ;	skipping iCode since result will be rematerialized
+                            723 ;	genPointerSet
+                            724 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   02D6 FD 23         [10]  725 	inc	iy
+   02D8 FD 23         [10]  726 	inc	iy
+   02DA FD 36 00 30   [19]  727 	ld	0 (iy), #0x30
+   02DE FD 36 01 00   [19]  728 	ld	1 (iy), #0
+                            729 ; peephole 178 direct load zero constant to memory addressed by index register
+                            730 ;cases/./../tests/bug-3547.c:72: for (unsigned char i = 0; i < SIDE_AMOUNT; i++)
+                            731 ;	genLabel
+   02E2                     732 00115$:
+                            733 ;	genAssign
+                            734 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   02E2 AF            [ 4]  735 	xor	a, a
+                            736 ;	genLabel
+   02E3                     737 00106$:
+                            738 ;	genCmpLt
+   02E3 FE 16         [ 7]  739 	cp	a, #0x16
+                            740 ; common peephole 163 changed absolute to relative conditional jump.
+   02E5 30 FB         [12]  741 	jr	nc, 00115$
+                            742 ;	skipping generated iCode
+                            743 ;	genPlus
+   02E7 3C            [ 4]  744 	inc	a
+                            745 ;	genGoto
+                            746 ; common peephole 162 changed absolute to relative unconditional jump.
+   02E8 18 F9         [12]  747 	jr	00106$
+                            748 ;	genLabel
+                            749 ; common peephole 159 removed unused label 00108$.
+                            750 ;cases/./../tests/bug-3547.c:77: }
+                            751 ;	genEndFunction
+                            752 ;	adjustStack by 134
+   02EA 21 86 00      [10]  753 	ld	hl, #134
+   02ED 39            [11]  754 	add	hl, sp
+   02EE F9            [ 6]  755 	ld	sp, hl
+   02EF C9            [10]  756 	ret
+                            757 ;	Total f function size at codegen: 6 bytes.
+                            758 ;cases/./../tests/bug-3547.c:81: testBug (void)
+                            759 ;	genLabel
+                            760 ;	genFunction
+                            761 ;	---------------------------------
+                            762 ; Function testBug
+                            763 ; ---------------------------------
+                            764 ;	Register assignment is optimal.
+                            765 ; Stack space usage: 0 bytes.
+   02F0                     766 _testBug::
+                            767 ;cases/./../tests/bug-3547.c:83: }
+                            768 ;	genLabel
+                            769 ; common peephole 159 removed unused label 00101$.
+                            770 ;	genEndFunction
+   02F0 C9            [10]  771 	ret
+                            772 ;	Total testBug function size at codegen: 1 bytes.
+                            773 ;cases/tst_bug-3547.c:4: __runSuite(void)
+                            774 ;	genLabel
+                            775 ;	genFunction
+                            776 ;	---------------------------------
+                            777 ; Function __runSuite
+                            778 ; ---------------------------------
+                            779 ;	Register assignment is optimal.
+                            780 ; Stack space usage: 0 bytes.
+   02F1                     781 ___runSuite::
+                            782 ;cases/tst_bug-3547.c:6: __prints("Running testBug\n");
+                            783 ;	skipping iCode since result will be rematerialized
+                            784 ;	skipping iCode since result will be rematerialized
+                            785 ;	genSend
+                            786 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   02F1 21rF7s02      [10]  787 	ld	hl, #___str_0
+                            788 ;	genCall
+                            789 ;cases/tst_bug-3547.c:7: testBug();
+                            790 ;	genLabel
+                            791 ; common peephole 159 removed unused label 00101$.
+                            792 ;cases/tst_bug-3547.c:8: }
+                            793 ;	genEndFunction
+   02F4 C3r00s00      [10]  794 	jp	___prints
+                            795 ; common peephole 152 removed unused ret.
+                            796 ;	Total __runSuite function size at codegen: 1 bytes.
+   02F7                     797 ___str_0:
+   02F7 52 75 6E 6E 69 6E   798 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   0306 0A                  799 	.db 0x0a
+   0307 00                  800 	.db 0x00
+                            801 ;cases/tst_bug-3547.c:13: __getSuiteName(void)
+                            802 ;	genLabel
+                            803 ;	genFunction
+                            804 ;	---------------------------------
+                            805 ; Function __getSuiteName
+                            806 ; ---------------------------------
+                            807 ;	Register assignment is optimal.
+                            808 ; Stack space usage: 0 bytes.
+   0308                     809 ___getSuiteName::
+                            810 ;cases/tst_bug-3547.c:15: return "bug-3547.c";
+                            811 ;	skipping iCode since result will be rematerialized
+                            812 ;	skipping iCode since result will be rematerialized
+                            813 ;	genRet
+                            814 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0308 11r0Es03      [10]  815 	ld	de, #___str_1
+                            816 ;	genLabel
+                            817 ; common peephole 159 removed unused label 00101$.
+                            818 ;cases/tst_bug-3547.c:16: }
+                            819 ;	genEndFunction
+   030B C9            [10]  820 	ret
+                            821 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   030C                     822 ___numCases:
+   030C 01 00               823 	.dw #0x0001
+   030E                     824 ___str_1:
+   030E 62 75 67 2D 33 35   825 	.ascii "bug-3547.c"
+        34 37 2E 63
+   0318 00                  826 	.db 0x00
+                            827 	.area _CODE (BANK=_CSEG)
+                            828 	.area _INITIALIZER
+                            829 	.area _CABS (ABS)

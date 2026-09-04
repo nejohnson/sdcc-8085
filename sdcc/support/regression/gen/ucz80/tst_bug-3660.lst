@@ -1,0 +1,161 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_3660
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _EnemyRender
+                             12 	.globl ___prints
+                             13 	.globl ___numCases
+                             14 	.globl ___runSuite
+                             15 	.globl ___getSuiteName
+                             16 ;--------------------------------------------------------
+                             17 ; special function registers
+                             18 ;--------------------------------------------------------
+                             19 ;--------------------------------------------------------
+                             20 ; ram data
+                             21 ;--------------------------------------------------------
+                             22 	.area _DATA (BANK=_DSEG)
+                             23 ;--------------------------------------------------------
+                             24 ; ram data
+                             25 ;--------------------------------------------------------
+                             26 	.area _INITIALIZED
+                             27 ;--------------------------------------------------------
+                             28 ; absolute ram data
+                             29 ;--------------------------------------------------------
+                             30 	.area _DABS (ABS)
+                             31 	.area _DABS (ABS)
+                             32 ;--------------------------------------------------------
+                             33 ; global & static initialisations
+                             34 ;--------------------------------------------------------
+                             35 	.area _HOME
+                             36 	.area _GSINIT
+                             37 	.area _GSFINAL
+                             38 	.area _GSINIT
+                             39 ;--------------------------------------------------------
+                             40 ; Home
+                             41 ;--------------------------------------------------------
+                             42 	.area _HOME (BANK=_CSEG)
+                             43 	.area _HOME (BANK=_CSEG)
+                             44 ;--------------------------------------------------------
+                             45 ; code
+                             46 ;--------------------------------------------------------
+                             47 	.area _CODE (BANK=_CSEG)
+                             48 ;cases/./../tests/bug-3660.c:18: void EnemyRender( Enemy *enemy ) {
+                             49 ;	genLabel
+                             50 ;	genFunction
+                             51 ;	---------------------------------
+                             52 ; Function EnemyRender
+                             53 ; ---------------------------------
+                             54 ;	Register assignment is optimal.
+                             55 ; Stack space usage: 0 bytes.
+   0000                      56 _EnemyRender::
+                             57 ;cases/./../tests/bug-3660.c:24: uint8_t frameDirection = direction ? 1 : 0;
+                             58 ;	genLabel
+                             59 ; common peephole 159 removed unused label 00101$.
+                             60 ;cases/./../tests/bug-3660.c:25: }
+                             61 ;	genEndFunction
+   0000 C9            [10]   62 	ret
+                             63 ;	Total EnemyRender function size at codegen: 1 bytes.
+                             64 ;cases/./../tests/bug-3660.c:28: testBug( void )
+                             65 ;	genLabel
+                             66 ;	genFunction
+                             67 ;	---------------------------------
+                             68 ; Function testBug
+                             69 ; ---------------------------------
+                             70 ;	Register assignment is optimal.
+                             71 ; Stack space usage: 2 bytes.
+   0001                      72 _testBug::
+                             73 ;	adjustStack by -2
+   0001 F5            [11]   74 	push	af
+                             75 ;cases/./../tests/bug-3660.c:31: e.facing = 0;
+                             76 ;	skipping iCode since result will be rematerialized
+                             77 ;	genPointerSet
+                             78 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             79 ;cases/./../tests/bug-3660.c:32: e.frame = 0;
+                             80 ;	skipping iCode since result will be rematerialized
+                             81 ;	genPointerSet
+                             82 ;	genMove_o size 1 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             83 ; common peephole 157b merged offset into storage instruction.
+                             84 ; common peephole 65 used hl instead of iy.
+                             85 ; common peephole 130a removed unnecessary +0 from constant
+   0002 21 00 00      [10]   86 	ld	hl, #0
+   0005 39            [11]   87 	add	hl, sp
+   0006 36 00         [10]   88 	ld	(hl), #0x00
+   0008 23            [ 6]   89 	inc	hl
+   0009 36 00         [10]   90 	ld	(hl), #0x00
+                             91 ;cases/./../tests/bug-3660.c:33: EnemyRender( &e );
+                             92 ;	genLabel
+                             93 ; common peephole 159 removed unused label 00101$.
+                             94 ;cases/./../tests/bug-3660.c:34: }
+                             95 ;	genEndFunction
+                             96 ;	adjustStack by 2
+   000B F1            [10]   97 	pop	af
+   000C C9            [10]   98 	ret
+                             99 ;	Total testBug function size at codegen: 2 bytes.
+                            100 ;cases/tst_bug-3660.c:4: __runSuite(void)
+                            101 ;	genLabel
+                            102 ;	genFunction
+                            103 ;	---------------------------------
+                            104 ; Function __runSuite
+                            105 ; ---------------------------------
+                            106 ;	Register assignment is optimal.
+                            107 ; Stack space usage: 0 bytes.
+   000D                     108 ___runSuite::
+                            109 ;cases/tst_bug-3660.c:6: __prints("Running testBug\n");
+                            110 ;	skipping iCode since result will be rematerialized
+                            111 ;	skipping iCode since result will be rematerialized
+                            112 ;	genSend
+                            113 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000D 21r16s00      [10]  114 	ld	hl, #___str_0
+                            115 ;	genCall
+   0010 CDr00s00      [17]  116 	call	___prints
+                            117 ;cases/tst_bug-3660.c:7: testBug();
+                            118 ;	genCall
+                            119 ;	genLabel
+                            120 ; common peephole 159 removed unused label 00101$.
+                            121 ;cases/tst_bug-3660.c:8: }
+                            122 ;	genEndFunction
+   0013 C3r01s00      [10]  123 	jp	_testBug
+                            124 ; common peephole 152 removed unused ret.
+                            125 ;	Total __runSuite function size at codegen: 1 bytes.
+   0016                     126 ___str_0:
+   0016 52 75 6E 6E 69 6E   127 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   0025 0A                  128 	.db 0x0a
+   0026 00                  129 	.db 0x00
+                            130 ;cases/tst_bug-3660.c:13: __getSuiteName(void)
+                            131 ;	genLabel
+                            132 ;	genFunction
+                            133 ;	---------------------------------
+                            134 ; Function __getSuiteName
+                            135 ; ---------------------------------
+                            136 ;	Register assignment is optimal.
+                            137 ; Stack space usage: 0 bytes.
+   0027                     138 ___getSuiteName::
+                            139 ;cases/tst_bug-3660.c:15: return "bug-3660.c";
+                            140 ;	skipping iCode since result will be rematerialized
+                            141 ;	skipping iCode since result will be rematerialized
+                            142 ;	genRet
+                            143 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0027 11r2Ds00      [10]  144 	ld	de, #___str_1
+                            145 ;	genLabel
+                            146 ; common peephole 159 removed unused label 00101$.
+                            147 ;cases/tst_bug-3660.c:16: }
+                            148 ;	genEndFunction
+   002A C9            [10]  149 	ret
+                            150 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   002B                     151 ___numCases:
+   002B 01 00               152 	.dw #0x0001
+   002D                     153 ___str_1:
+   002D 62 75 67 2D 33 36   154 	.ascii "bug-3660.c"
+        36 30 2E 63
+   0037 00                  155 	.db 0x00
+                            156 	.area _CODE (BANK=_CSEG)
+                            157 	.area _INITIALIZER
+                            158 	.area _CABS (ABS)

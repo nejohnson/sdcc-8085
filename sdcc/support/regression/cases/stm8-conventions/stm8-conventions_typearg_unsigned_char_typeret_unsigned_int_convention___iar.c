@@ -1,0 +1,63 @@
+/*
+   stm8-conventions.c. Test support for calling conventions of other STM8-compilers.
+   typearg: unsigned char, unsigned int
+   typeret: unsigned char, unsigned int
+   convention: , __raisonance, __iar, __cosmic
+ */
+
+#include <testfwk.h>
+
+#ifdef __SDCC_stm8
+unsigned int f(unsigned char i) __iar
+{
+	return ++i;
+}
+
+unsigned int g(unsigned char i, unsigned int j) __iar
+{
+	return i + j;
+}
+
+unsigned int h(unsigned char i, unsigned int j, unsigned long long k) __iar
+{
+	return i + j + k;
+}
+
+unsigned int f_wrap_sdcc(unsigned char i)
+{
+	return f(i);
+}
+
+unsigned int f_wrap___iar(unsigned char i) __iar
+{
+	return f(i);
+}
+#endif
+
+void
+testCallingConvention(void)
+{
+#ifdef __SDCC_stm8
+  ASSERT(f(23) == (unsigned int)24);
+  ASSERT(g(23, 1001u) == (unsigned int)1024ul);
+  ASSERT(h(23, 1001u, 10000000000ul) == (unsigned int)10000001024ull);
+  ASSERT(f_wrap_sdcc(23) == (unsigned int)24);
+  ASSERT(f_wrap___iar(23) == (unsigned int)24);
+#endif
+}
+
+
+void
+__runSuite(void)
+{
+  __prints("Running testCallingConvention\n");
+  testCallingConvention();
+}
+
+const int __numCases = 1;
+
+__code const char *
+__getSuiteName(void)
+{
+  return "stm8-conventions_typearg_unsigned_char_typeret_unsigned_int_convention___iar";
+}

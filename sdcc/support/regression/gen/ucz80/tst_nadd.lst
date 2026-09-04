@@ -1,0 +1,315 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_nadd
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testNadd
+                             11 	.globl _g
+                             12 	.globl _f
+                             13 	.globl ___prints
+                             14 	.globl ___fail
+                             15 	.globl _c
+                             16 	.globl _b
+                             17 	.globl _a
+                             18 	.globl ___numCases
+                             19 	.globl ___runSuite
+                             20 	.globl ___getSuiteName
+                             21 ;--------------------------------------------------------
+                             22 ; special function registers
+                             23 ;--------------------------------------------------------
+                             24 ;--------------------------------------------------------
+                             25 ; ram data
+                             26 ;--------------------------------------------------------
+                             27 	.area _DATA (BANK=_DSEG)
+   0000                      28 _a::
+   0000                      29 	.ds 1
+   0001                      30 _b::
+   0001                      31 	.ds 1
+   0002                      32 _c::
+   0002                      33 	.ds 1
+                             34 ;--------------------------------------------------------
+                             35 ; ram data
+                             36 ;--------------------------------------------------------
+                             37 	.area _INITIALIZED
+                             38 ;--------------------------------------------------------
+                             39 ; absolute ram data
+                             40 ;--------------------------------------------------------
+                             41 	.area _DABS (ABS)
+                             42 	.area _DABS (ABS)
+                             43 ;--------------------------------------------------------
+                             44 ; global & static initialisations
+                             45 ;--------------------------------------------------------
+                             46 	.area _HOME
+                             47 	.area _GSINIT
+                             48 	.area _GSFINAL
+                             49 	.area _GSINIT
+                             50 ;--------------------------------------------------------
+                             51 ; Home
+                             52 ;--------------------------------------------------------
+                             53 	.area _HOME (BANK=_CSEG)
+                             54 	.area _HOME (BANK=_CSEG)
+                             55 ;--------------------------------------------------------
+                             56 ; code
+                             57 ;--------------------------------------------------------
+                             58 	.area _CODE (BANK=_CSEG)
+                             59 ;cases/./../tests/nadd.c:8: void f(void)
+                             60 ;	genLabel
+                             61 ;	genFunction
+                             62 ;	---------------------------------
+                             63 ; Function f
+                             64 ; ---------------------------------
+                             65 ;	Register assignment is optimal.
+                             66 ; Stack space usage: 0 bytes.
+   0000                      67 _f::
+                             68 ;cases/./../tests/nadd.c:10: c = b - (a & 0x5f);
+                             69 ;	genCast
+                             70 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0000 3Ar00s00      [13]   71 	ld	a, (_a)
+                             72 ;	genAnd
+   0003 E6 5F         [ 7]   73 	and	a, #0x5f
+                             74 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0005 4F            [ 4]   75 	ld	c, a
+                             76 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             77 ;	genCast
+                             78 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0006 3Ar01s00      [13]   79 	ld	a, (_b)
+                             80 ;	genMinus
+   0009 91            [ 4]   81 	sub	a, c
+   000A 32r02s00      [13]   82 	ld	(#_c), a
+                             83 ; common peephole 19 loaded (#_c) from a directly instead of using hl.
+                             84 ;	genLabel
+                             85 ; common peephole 159 removed unused label 00101$.
+                             86 ;cases/./../tests/nadd.c:11: }
+                             87 ;	genEndFunction
+   000D C9            [10]   88 	ret
+                             89 ;	Total f function size at codegen: 1 bytes.
+                             90 ;cases/./../tests/nadd.c:13: void g(void)
+                             91 ;	genLabel
+                             92 ;	genFunction
+                             93 ;	---------------------------------
+                             94 ; Function g
+                             95 ; ---------------------------------
+                             96 ;	Register assignment is optimal.
+                             97 ; Stack space usage: 0 bytes.
+   000E                      98 _g::
+                             99 ;cases/./../tests/nadd.c:15: c = (a & 0x5f) - c;
+                            100 ;	genCast
+                            101 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000E 3Ar00s00      [13]  102 	ld	a, (_a)
+                            103 ;	genAnd
+   0011 E6 5F         [ 7]  104 	and	a, #0x5f
+                            105 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0013 4F            [ 4]  106 	ld	c, a
+                            107 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            108 ;	genCast
+                            109 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0014 3Ar02s00      [13]  110 	ld	a, (_c)
+   0017 47            [ 4]  111 	ld	b, a
+                            112 ;	genMinus
+   0018 79            [ 4]  113 	ld	a, c
+   0019 90            [ 4]  114 	sub	a, b
+   001A 32r02s00      [13]  115 	ld	(#_c), a
+                            116 ; common peephole 19 loaded (#_c) from a directly instead of using hl.
+                            117 ;	genLabel
+                            118 ; common peephole 159 removed unused label 00101$.
+                            119 ;cases/./../tests/nadd.c:16: }
+                            120 ;	genEndFunction
+   001D C9            [10]  121 	ret
+                            122 ;	Total g function size at codegen: 1 bytes.
+                            123 ;cases/./../tests/nadd.c:18: void testNadd(void)
+                            124 ;	genLabel
+                            125 ;	genFunction
+                            126 ;	---------------------------------
+                            127 ; Function testNadd
+                            128 ; ---------------------------------
+                            129 ;	Register assignment might be sub-optimal.
+                            130 ; Stack space usage: 0 bytes.
+   001E                     131 _testNadd::
+                            132 ;cases/./../tests/nadd.c:20: a = 1;
+                            133 ;	genAssign
+                            134 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001E 21r00s00      [10]  135 	ld	hl, #_a
+   0021 36 01         [10]  136 	ld	(hl), #0x01
+                            137 ;cases/./../tests/nadd.c:21: b = 24;
+                            138 ;	genAssign
+                            139 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0023 21r01s00      [10]  140 	ld	hl, #_b
+   0026 36 18         [10]  141 	ld	(hl), #0x18
+                            142 ;cases/./../tests/nadd.c:22: f();
+                            143 ;	genCall
+   0028 CDr00s00      [17]  144 	call	_f
+                            145 ;cases/./../tests/nadd.c:23: ASSERT(c == 23);
+                            146 ;	genPlus
+                            147 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002B 2Ar00s00      [16]  148 	ld	hl, (___numTests)
+   002E 23            [ 6]  149 	inc	hl
+                            150 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002F 22r00s00      [16]  151 	ld	(___numTests), hl
+                            152 ;	genCmpEq
+                            153 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0032 3Ar02s00      [13]  154 	ld	a, (_c)
+   0035 D6 17         [ 7]  155 	sub	a, #0x17
+                            156 ; common peephole 163 changed absolute to relative conditional jump.
+   0037 28 11         [12]  157 	jr	z, 00104$
+                            158 ; common peephole 81 removed jp by using inverse jump logic
+                            159 ; common peephole 159 removed unused label 00123$.
+                            160 ;	skipping generated iCode
+                            161 ;	skipping iCode since result will be rematerialized
+                            162 ;	skipping iCode since result will be rematerialized
+                            163 ;	skipping iCode since result will be rematerialized
+                            164 ;	skipping iCode since result will be rematerialized
+                            165 ;	skipping iCode since result will be rematerialized
+                            166 ;	skipping iCode since result will be rematerialized
+                            167 ;	genIpush
+                            168 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0039 21 17 00      [10]  169 	ld	hl, #0x0017
+   003C E5            [11]  170 	push	hl
+                            171 ;	genIpush
+                            172 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   003D 21r89s00      [10]  173 	ld	hl, #___str_2
+   0040 E5            [11]  174 	push	hl
+                            175 ;	genSend
+                            176 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0041 11r81s00      [10]  177 	ld	de, #___str_1
+                            178 ;	genSend
+                            179 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0044 21r70s00      [10]  180 	ld	hl, #___str_0
+                            181 ;	genCall
+   0047 CDr00s00      [17]  182 	call	___fail
+                            183 ;	genLabel
+   004A                     184 00104$:
+                            185 ;cases/./../tests/nadd.c:25: a = 24;
+                            186 ;	genAssign
+                            187 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   004A 21r00s00      [10]  188 	ld	hl, #_a
+   004D 36 18         [10]  189 	ld	(hl), #0x18
+                            190 ;cases/./../tests/nadd.c:26: g();
+                            191 ;	genCall
+   004F CDr0Es00      [17]  192 	call	_g
+                            193 ;cases/./../tests/nadd.c:27: ASSERT(c == 1);
+                            194 ;	genPlus
+                            195 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0052 2Ar00s00      [16]  196 	ld	hl, (___numTests)
+   0055 23            [ 6]  197 	inc	hl
+                            198 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0056 22r00s00      [16]  199 	ld	(___numTests), hl
+                            200 ;	genCmpEq
+                            201 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0059 3Ar02s00      [13]  202 	ld	a, (_c)
+   005C 3D            [ 4]  203 	dec	a
+   005D C8            [11]  204 	ret	z
+                            205 ; common peephole 161 replaced jump by return.
+                            206 ; common peephole 81 removed jp by using inverse jump logic
+                            207 ; common peephole 159 removed unused label 00124$.
+                            208 ;	skipping generated iCode
+                            209 ;	skipping iCode since result will be rematerialized
+                            210 ;	skipping iCode since result will be rematerialized
+                            211 ;	skipping iCode since result will be rematerialized
+                            212 ;	skipping iCode since result will be rematerialized
+                            213 ;	skipping iCode since result will be rematerialized
+                            214 ;	skipping iCode since result will be rematerialized
+                            215 ;	genIpush
+                            216 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   005E 21 1B 00      [10]  217 	ld	hl, #0x001b
+   0061 E5            [11]  218 	push	hl
+                            219 ;	genIpush
+                            220 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0062 21r89s00      [10]  221 	ld	hl, #___str_2
+   0065 E5            [11]  222 	push	hl
+                            223 ;	genSend
+                            224 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0066 11rA1s00      [10]  225 	ld	de, #___str_3
+                            226 ;	genSend
+                            227 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0069 21r70s00      [10]  228 	ld	hl, #___str_0
+                            229 ;	genCall
+   006C CDr00s00      [17]  230 	call	___fail
+                            231 ;	genLabel
+                            232 ; common peephole 159 removed unused label 00101$.
+                            233 ;cases/./../tests/nadd.c:28: }
+                            234 ;	genEndFunction
+   006F C9            [10]  235 	ret
+                            236 ;	Total testNadd function size at codegen: 1 bytes.
+   0070                     237 ___str_0:
+   0070 41 73 73 65 72 74   238 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   0080 00                  239 	.db 0x00
+   0081                     240 ___str_1:
+   0081 63 20 3D 3D 20 32   241 	.ascii "c == 23"
+        33
+   0088 00                  242 	.db 0x00
+   0089                     243 ___str_2:
+   0089 63 61 73 65 73 2F   244 	.ascii "cases/./../tests/nadd.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 6E
+        61 64 64 2E 63
+   00A0 00                  245 	.db 0x00
+   00A1                     246 ___str_3:
+   00A1 63 20 3D 3D 20 31   247 	.ascii "c == 1"
+   00A7 00                  248 	.db 0x00
+                            249 ;cases/tst_nadd.c:4: __runSuite(void)
+                            250 ;	genLabel
+                            251 ;	genFunction
+                            252 ;	---------------------------------
+                            253 ; Function __runSuite
+                            254 ; ---------------------------------
+                            255 ;	Register assignment is optimal.
+                            256 ; Stack space usage: 0 bytes.
+   00A8                     257 ___runSuite::
+                            258 ;cases/tst_nadd.c:6: __prints("Running testNadd\n");
+                            259 ;	skipping iCode since result will be rematerialized
+                            260 ;	skipping iCode since result will be rematerialized
+                            261 ;	genSend
+                            262 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A8 21rB1s00      [10]  263 	ld	hl, #___str_4
+                            264 ;	genCall
+   00AB CDr00s00      [17]  265 	call	___prints
+                            266 ;cases/tst_nadd.c:7: testNadd();
+                            267 ;	genCall
+                            268 ;	genLabel
+                            269 ; common peephole 159 removed unused label 00101$.
+                            270 ;cases/tst_nadd.c:8: }
+                            271 ;	genEndFunction
+   00AE C3r1Es00      [10]  272 	jp	_testNadd
+                            273 ; common peephole 152 removed unused ret.
+                            274 ;	Total __runSuite function size at codegen: 1 bytes.
+   00B1                     275 ___str_4:
+   00B1 52 75 6E 6E 69 6E   276 	.ascii "Running testNadd"
+        67 20 74 65 73 74
+        4E 61 64 64
+   00C1 0A                  277 	.db 0x0a
+   00C2 00                  278 	.db 0x00
+                            279 ;cases/tst_nadd.c:13: __getSuiteName(void)
+                            280 ;	genLabel
+                            281 ;	genFunction
+                            282 ;	---------------------------------
+                            283 ; Function __getSuiteName
+                            284 ; ---------------------------------
+                            285 ;	Register assignment is optimal.
+                            286 ; Stack space usage: 0 bytes.
+   00C3                     287 ___getSuiteName::
+                            288 ;cases/tst_nadd.c:15: return "nadd.c";
+                            289 ;	skipping iCode since result will be rematerialized
+                            290 ;	skipping iCode since result will be rematerialized
+                            291 ;	genRet
+                            292 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00C3 11rC9s00      [10]  293 	ld	de, #___str_5
+                            294 ;	genLabel
+                            295 ; common peephole 159 removed unused label 00101$.
+                            296 ;cases/tst_nadd.c:16: }
+                            297 ;	genEndFunction
+   00C6 C9            [10]  298 	ret
+                            299 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   00C7                     300 ___numCases:
+   00C7 01 00               301 	.dw #0x0001
+   00C9                     302 ___str_5:
+   00C9 6E 61 64 64 2E 63   303 	.ascii "nadd.c"
+   00CF 00                  304 	.db 0x00
+                            305 	.area _CODE (BANK=_CSEG)
+                            306 	.area _INITIALIZER
+                            307 	.area _CABS (ABS)

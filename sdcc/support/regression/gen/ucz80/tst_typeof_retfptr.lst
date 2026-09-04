@@ -1,0 +1,483 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_typeof_retfptr
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testTypeofFptr
+                             11 	.globl _h1
+                             12 	.globl _h0
+                             13 	.globl _h
+                             14 	.globl _g
+                             15 	.globl _f
+                             16 	.globl ___prints
+                             17 	.globl ___fail
+                             18 	.globl ___numCases
+                             19 	.globl ___runSuite
+                             20 	.globl ___getSuiteName
+                             21 ;--------------------------------------------------------
+                             22 ; special function registers
+                             23 ;--------------------------------------------------------
+                             24 ;--------------------------------------------------------
+                             25 ; ram data
+                             26 ;--------------------------------------------------------
+                             27 	.area _DATA (BANK=_DSEG)
+                             28 ;--------------------------------------------------------
+                             29 ; ram data
+                             30 ;--------------------------------------------------------
+                             31 	.area _INITIALIZED
+                             32 ;--------------------------------------------------------
+                             33 ; absolute ram data
+                             34 ;--------------------------------------------------------
+                             35 	.area _DABS (ABS)
+                             36 	.area _DABS (ABS)
+                             37 ;--------------------------------------------------------
+                             38 ; global & static initialisations
+                             39 ;--------------------------------------------------------
+                             40 	.area _HOME
+                             41 	.area _GSINIT
+                             42 	.area _GSFINAL
+                             43 	.area _GSINIT
+                             44 ;--------------------------------------------------------
+                             45 ; Home
+                             46 ;--------------------------------------------------------
+                             47 	.area _HOME (BANK=_CSEG)
+                             48 	.area _HOME (BANK=_CSEG)
+                             49 ;--------------------------------------------------------
+                             50 ; code
+                             51 ;--------------------------------------------------------
+                             52 	.area _CODE (BANK=_CSEG)
+                             53 ;cases/./../tests/typeof_retfptr.c:13: int f(int i, int j)
+                             54 ;	genLabel
+                             55 ;	genFunction
+                             56 ;	---------------------------------
+                             57 ; Function f
+                             58 ; ---------------------------------
+                             59 ;	Register assignment might be sub-optimal.
+                             60 ; Stack space usage: 0 bytes.
+   0000                      61 _f::
+                             62 ;	genReceive
+                             63 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                             64 ;	genReceive
+                             65 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                             66 ;cases/./../tests/typeof_retfptr.c:15: return i + j;
+                             67 ;	genPlus
+   0000 19            [11]   68 	add	hl, de
+                             69 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0001 EB            [ 4]   70 	ex	de, hl
+                             71 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             72 ;	genRet
+                             73 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             74 ;	genLabel
+                             75 ; common peephole 159 removed unused label 00101$.
+                             76 ;cases/./../tests/typeof_retfptr.c:16: }
+                             77 ;	genEndFunction
+   0002 C9            [10]   78 	ret
+                             79 ;	Total f function size at codegen: 1 bytes.
+                             80 ;cases/./../tests/typeof_retfptr.c:18: typeof (int (*)(int, int)) g(void)
+                             81 ;	genLabel
+                             82 ;	genFunction
+                             83 ;	---------------------------------
+                             84 ; Function g
+                             85 ; ---------------------------------
+                             86 ;	Register assignment is optimal.
+                             87 ; Stack space usage: 0 bytes.
+   0003                      88 _g::
+                             89 ;cases/./../tests/typeof_retfptr.c:20: return &f; // Why do we get a warning here? Bug 3805.
+                             90 ;	genRet
+                             91 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0003 11r00s00      [10]   92 	ld	de, #_f
+                             93 ;	genLabel
+                             94 ; common peephole 159 removed unused label 00101$.
+                             95 ;cases/./../tests/typeof_retfptr.c:21: }
+                             96 ;	genEndFunction
+   0006 C9            [10]   97 	ret
+                             98 ;	Total g function size at codegen: 1 bytes.
+                             99 ;cases/./../tests/typeof_retfptr.c:23: int h(typeof (int (*)(int, int)) p, int i, int j)
+                            100 ;	genLabel
+                            101 ;	genFunction
+                            102 ;	---------------------------------
+                            103 ; Function h
+                            104 ; ---------------------------------
+                            105 ;	Register assignment might be sub-optimal.
+                            106 ; Stack space usage: 0 bytes.
+   0007                     107 _h::
+                            108 ;	genReceive
+                            109 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0007 4D            [ 4]  110 	ld	c, l
+   0008 44            [ 4]  111 	ld	b, h
+                            112 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            113 ;	genReceive
+                            114 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0009 EB            [ 4]  115 	ex	de, hl
+                            116 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            117 ;cases/./../tests/typeof_retfptr.c:25: return (*p)(i, j);
+                            118 ;	genSend
+                            119 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   000A FD 21 02 00   [14]  120 	ld	iy, #2
+   000E FD 39         [15]  121 	add	iy, sp
+   0010 FD 5E 00      [19]  122 	ld	e, 0 (iy)
+   0013 FD 56 01      [19]  123 	ld	d, 1 (iy)
+                            124 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                            125 ;	genSend
+                            126 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            127 ;	genCall
+                            128 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0016 C5            [11]  129 	push	bc
+   0017 FD E1         [14]  130 	pop	iy
+                            131 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0019 CDr00s00      [17]  132 	call	___sdcc_call_iy
+                            133 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            134 ;	genRet
+                            135 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            136 ;	genLabel
+                            137 ; common peephole 159 removed unused label 00101$.
+                            138 ;cases/./../tests/typeof_retfptr.c:26: }
+                            139 ;	genEndFunction
+   001C E1            [10]  140 	pop	hl
+                            141 ;	adjustStack by 2
+   001D F1            [10]  142 	pop	af
+   001E E9            [ 4]  143 	jp	(hl)
+                            144 ;	Total h function size at codegen: 3 bytes.
+                            145 ;cases/./../tests/typeof_retfptr.c:28: int h0(int i, int j)
+                            146 ;	genLabel
+                            147 ;	genFunction
+                            148 ;	---------------------------------
+                            149 ; Function h0
+                            150 ; ---------------------------------
+                            151 ;	Register assignment is optimal.
+                            152 ; Stack space usage: 0 bytes.
+   001F                     153 _h0::
+                            154 ;	genReceive
+                            155 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            156 ;	genReceive
+                            157 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                            158 ;cases/./../tests/typeof_retfptr.c:30: return h(&f, i, j);
+                            159 ;	genIpush
+                            160 ;	genSend
+                            161 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            162 ; common peephole 26b moved push after de/hl swap.
+   001F EB            [ 4]  163 	ex	de, hl
+   0020 E5            [11]  164 	push	hl
+                            165 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            166 ;	genSend
+                            167 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0021 21r00s00      [10]  168 	ld	hl, #_f
+                            169 ;	genCall
+   0024 CDr07s00      [17]  170 	call	_h
+                            171 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            172 ;	genRet
+                            173 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            174 ;	genLabel
+                            175 ; common peephole 159 removed unused label 00101$.
+                            176 ;cases/./../tests/typeof_retfptr.c:31: }
+                            177 ;	genEndFunction
+   0027 C9            [10]  178 	ret
+                            179 ;	Total h0 function size at codegen: 1 bytes.
+                            180 ;cases/./../tests/typeof_retfptr.c:33: int h1(int i, int j)
+                            181 ;	genLabel
+                            182 ;	genFunction
+                            183 ;	---------------------------------
+                            184 ; Function h1
+                            185 ; ---------------------------------
+                            186 ;	Register assignment might be sub-optimal.
+                            187 ; Stack space usage: 0 bytes.
+   0028                     188 _h1::
+                            189 ;	genReceive
+                            190 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            191 ;	genReceive
+                            192 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                            193 ;cases/./../tests/typeof_retfptr.c:35: return (*g())(i, j);
+                            194 ;	genCall
+   0028 E5            [11]  195 	push	hl
+   0029 D5            [11]  196 	push	de
+   002A CDr03s00      [17]  197 	call	_g
+                            198 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002D 4B            [ 4]  199 	ld	c, e
+   002E 42            [ 4]  200 	ld	b, d
+                            201 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002F D1            [10]  202 	pop	de
+   0030 E1            [10]  203 	pop	hl
+                            204 ;	genSend
+                            205 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                            206 ;	genSend
+                            207 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            208 ;	genCall
+                            209 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0031 C5            [11]  210 	push	bc
+   0032 FD E1         [14]  211 	pop	iy
+                            212 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+                            213 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            214 ;	genRet
+                            215 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            216 ;	genLabel
+                            217 ; common peephole 159 removed unused label 00101$.
+                            218 ;cases/./../tests/typeof_retfptr.c:36: }
+                            219 ;	genEndFunction
+   0034 FD E9         [ 8]  220 	jp	(iy)
+                            221 ; common peephole 152 removed unused ret.
+                            222 ;	Total h1 function size at codegen: 1 bytes.
+                            223 ;cases/./../tests/typeof_retfptr.c:41: testTypeofFptr(void)
+                            224 ;	genLabel
+                            225 ;	genFunction
+                            226 ;	---------------------------------
+                            227 ; Function testTypeofFptr
+                            228 ; ---------------------------------
+                            229 ;	Register assignment might be sub-optimal.
+                            230 ; Stack space usage: 0 bytes.
+   0036                     231 _testTypeofFptr::
+                            232 ;cases/./../tests/typeof_retfptr.c:44: ASSERT (f(23, 42) == 23 + 42);
+                            233 ;	genPlus
+                            234 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0036 2Ar00s00      [16]  235 	ld	hl, (___numTests)
+   0039 23            [ 6]  236 	inc	hl
+                            237 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   003A 22r00s00      [16]  238 	ld	(___numTests), hl
+                            239 ;	genSend
+                            240 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   003D 11 2A 00      [10]  241 	ld	de, #0x002a
+                            242 ;	genSend
+                            243 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0040 21 17 00      [10]  244 	ld	hl, #0x0017
+                            245 ;	genCall
+   0043 CDr00s00      [17]  246 	call	_f
+                            247 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            248 ;	genCmpEq
+                            249 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0046 7B            [ 4]  250 	ld	a, e
+                            251 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0047 D6 41         [ 7]  252 	sub	a, #0x41
+   0049 B2            [ 4]  253 	or	a, d
+                            254 ; common peephole 163 changed absolute to relative conditional jump.
+   004A 28 11         [12]  255 	jr	z, 00104$
+                            256 ; common peephole 81 removed jp by using inverse jump logic
+                            257 ; common peephole 159 removed unused label 00133$.
+                            258 ;	skipping generated iCode
+                            259 ;	skipping iCode since result will be rematerialized
+                            260 ;	skipping iCode since result will be rematerialized
+                            261 ;	skipping iCode since result will be rematerialized
+                            262 ;	skipping iCode since result will be rematerialized
+                            263 ;	skipping iCode since result will be rematerialized
+                            264 ;	skipping iCode since result will be rematerialized
+                            265 ;	genIpush
+                            266 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   004C 21 2C 00      [10]  267 	ld	hl, #0x002c
+   004F E5            [11]  268 	push	hl
+                            269 ;	genIpush
+                            270 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0050 21rD1s00      [10]  271 	ld	hl, #___str_2
+   0053 E5            [11]  272 	push	hl
+                            273 ;	genSend
+                            274 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0054 11rBCs00      [10]  275 	ld	de, #___str_1
+                            276 ;	genSend
+                            277 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0057 21rABs00      [10]  278 	ld	hl, #___str_0
+                            279 ;	genCall
+   005A CDr00s00      [17]  280 	call	___fail
+                            281 ;	genLabel
+   005D                     282 00104$:
+                            283 ;cases/./../tests/typeof_retfptr.c:45: ASSERT (h0(23, 42) == 23 + 42);
+                            284 ;	genPlus
+                            285 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   005D 2Ar00s00      [16]  286 	ld	hl, (___numTests)
+   0060 23            [ 6]  287 	inc	hl
+                            288 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0061 22r00s00      [16]  289 	ld	(___numTests), hl
+                            290 ;	genSend
+                            291 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0064 11 2A 00      [10]  292 	ld	de, #0x002a
+                            293 ;	genSend
+                            294 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0067 21 17 00      [10]  295 	ld	hl, #0x0017
+                            296 ;	genCall
+   006A CDr1Fs00      [17]  297 	call	_h0
+                            298 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            299 ;	genCmpEq
+                            300 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   006D 7B            [ 4]  301 	ld	a, e
+                            302 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   006E D6 41         [ 7]  303 	sub	a, #0x41
+   0070 B2            [ 4]  304 	or	a, d
+                            305 ; common peephole 163 changed absolute to relative conditional jump.
+   0071 28 11         [12]  306 	jr	z, 00106$
+                            307 ; common peephole 81 removed jp by using inverse jump logic
+                            308 ; common peephole 159 removed unused label 00134$.
+                            309 ;	skipping generated iCode
+                            310 ;	skipping iCode since result will be rematerialized
+                            311 ;	skipping iCode since result will be rematerialized
+                            312 ;	skipping iCode since result will be rematerialized
+                            313 ;	skipping iCode since result will be rematerialized
+                            314 ;	skipping iCode since result will be rematerialized
+                            315 ;	skipping iCode since result will be rematerialized
+                            316 ;	genIpush
+                            317 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0073 21 2D 00      [10]  318 	ld	hl, #0x002d
+   0076 E5            [11]  319 	push	hl
+                            320 ;	genIpush
+                            321 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0077 21rD1s00      [10]  322 	ld	hl, #___str_2
+   007A E5            [11]  323 	push	hl
+                            324 ;	genSend
+                            325 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   007B 11rF3s00      [10]  326 	ld	de, #___str_3
+                            327 ;	genSend
+                            328 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   007E 21rABs00      [10]  329 	ld	hl, #___str_0
+                            330 ;	genCall
+   0081 CDr00s00      [17]  331 	call	___fail
+                            332 ;	genLabel
+   0084                     333 00106$:
+                            334 ;cases/./../tests/typeof_retfptr.c:46: ASSERT (h1(23, 42) == 23 + 42);
+                            335 ;	genPlus
+                            336 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0084 2Ar00s00      [16]  337 	ld	hl, (___numTests)
+   0087 23            [ 6]  338 	inc	hl
+                            339 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0088 22r00s00      [16]  340 	ld	(___numTests), hl
+                            341 ;	genSend
+                            342 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   008B 11 2A 00      [10]  343 	ld	de, #0x002a
+                            344 ;	genSend
+                            345 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   008E 21 17 00      [10]  346 	ld	hl, #0x0017
+                            347 ;	genCall
+   0091 CDr28s00      [17]  348 	call	_h1
+                            349 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            350 ;	genCmpEq
+                            351 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0094 7B            [ 4]  352 	ld	a, e
+                            353 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0095 D6 41         [ 7]  354 	sub	a, #0x41
+   0097 B2            [ 4]  355 	or	a, d
+   0098 C8            [11]  356 	ret	z
+                            357 ; common peephole 161 replaced jump by return.
+                            358 ; common peephole 81 removed jp by using inverse jump logic
+                            359 ; common peephole 159 removed unused label 00135$.
+                            360 ;	skipping generated iCode
+                            361 ;	skipping iCode since result will be rematerialized
+                            362 ;	skipping iCode since result will be rematerialized
+                            363 ;	skipping iCode since result will be rematerialized
+                            364 ;	skipping iCode since result will be rematerialized
+                            365 ;	skipping iCode since result will be rematerialized
+                            366 ;	skipping iCode since result will be rematerialized
+                            367 ;	genIpush
+                            368 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0099 21 2E 00      [10]  369 	ld	hl, #0x002e
+   009C E5            [11]  370 	push	hl
+                            371 ;	genIpush
+                            372 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   009D 21rD1s00      [10]  373 	ld	hl, #___str_2
+   00A0 E5            [11]  374 	push	hl
+                            375 ;	genSend
+                            376 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A1 11r09s01      [10]  377 	ld	de, #___str_4
+                            378 ;	genSend
+                            379 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00A4 21rABs00      [10]  380 	ld	hl, #___str_0
+                            381 ;	genCall
+   00A7 CDr00s00      [17]  382 	call	___fail
+                            383 ;	genLabel
+                            384 ; common peephole 159 removed unused label 00101$.
+                            385 ;cases/./../tests/typeof_retfptr.c:48: }
+                            386 ;	genEndFunction
+   00AA C9            [10]  387 	ret
+                            388 ;	Total testTypeofFptr function size at codegen: 1 bytes.
+   00AB                     389 ___str_0:
+   00AB 41 73 73 65 72 74   390 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   00BB 00                  391 	.db 0x00
+   00BC                     392 ___str_1:
+   00BC 66 28 32 33 2C 20   393 	.ascii "f(23, 42) == 23 + 42"
+        34 32 29 20 3D 3D
+        20 32 33 20 2B 20
+        34 32
+   00D0 00                  394 	.db 0x00
+   00D1                     395 ___str_2:
+   00D1 63 61 73 65 73 2F   396 	.ascii "cases/./../tests/typeof_retfptr.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 74
+        79 70 65 6F 66 5F
+        72 65 74 66 70 74
+        72 2E 63
+   00F2 00                  397 	.db 0x00
+   00F3                     398 ___str_3:
+   00F3 68 30 28 32 33 2C   399 	.ascii "h0(23, 42) == 23 + 42"
+        20 34 32 29 20 3D
+        3D 20 32 33 20 2B
+        20 34 32
+   0108 00                  400 	.db 0x00
+   0109                     401 ___str_4:
+   0109 68 31 28 32 33 2C   402 	.ascii "h1(23, 42) == 23 + 42"
+        20 34 32 29 20 3D
+        3D 20 32 33 20 2B
+        20 34 32
+   011E 00                  403 	.db 0x00
+                            404 ;cases/tst_typeof_retfptr.c:4: __runSuite(void)
+                            405 ;	genLabel
+                            406 ;	genFunction
+                            407 ;	---------------------------------
+                            408 ; Function __runSuite
+                            409 ; ---------------------------------
+                            410 ;	Register assignment is optimal.
+                            411 ; Stack space usage: 0 bytes.
+   011F                     412 ___runSuite::
+                            413 ;cases/tst_typeof_retfptr.c:6: __prints("Running testTypeofFptr\n");
+                            414 ;	skipping iCode since result will be rematerialized
+                            415 ;	skipping iCode since result will be rematerialized
+                            416 ;	genSend
+                            417 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   011F 21r28s01      [10]  418 	ld	hl, #___str_5
+                            419 ;	genCall
+   0122 CDr00s00      [17]  420 	call	___prints
+                            421 ;cases/tst_typeof_retfptr.c:7: testTypeofFptr();
+                            422 ;	genCall
+                            423 ;	genLabel
+                            424 ; common peephole 159 removed unused label 00101$.
+                            425 ;cases/tst_typeof_retfptr.c:8: }
+                            426 ;	genEndFunction
+   0125 C3r36s00      [10]  427 	jp	_testTypeofFptr
+                            428 ; common peephole 152 removed unused ret.
+                            429 ;	Total __runSuite function size at codegen: 1 bytes.
+   0128                     430 ___str_5:
+   0128 52 75 6E 6E 69 6E   431 	.ascii "Running testTypeofFptr"
+        67 20 74 65 73 74
+        54 79 70 65 6F 66
+        46 70 74 72
+   013E 0A                  432 	.db 0x0a
+   013F 00                  433 	.db 0x00
+                            434 ;cases/tst_typeof_retfptr.c:13: __getSuiteName(void)
+                            435 ;	genLabel
+                            436 ;	genFunction
+                            437 ;	---------------------------------
+                            438 ; Function __getSuiteName
+                            439 ; ---------------------------------
+                            440 ;	Register assignment is optimal.
+                            441 ; Stack space usage: 0 bytes.
+   0140                     442 ___getSuiteName::
+                            443 ;cases/tst_typeof_retfptr.c:15: return "typeof_retfptr.c";
+                            444 ;	skipping iCode since result will be rematerialized
+                            445 ;	skipping iCode since result will be rematerialized
+                            446 ;	genRet
+                            447 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0140 11r46s01      [10]  448 	ld	de, #___str_6
+                            449 ;	genLabel
+                            450 ; common peephole 159 removed unused label 00101$.
+                            451 ;cases/tst_typeof_retfptr.c:16: }
+                            452 ;	genEndFunction
+   0143 C9            [10]  453 	ret
+                            454 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0144                     455 ___numCases:
+   0144 01 00               456 	.dw #0x0001
+   0146                     457 ___str_6:
+   0146 74 79 70 65 6F 66   458 	.ascii "typeof_retfptr.c"
+        5F 72 65 74 66 70
+        74 72 2E 63
+   0156 00                  459 	.db 0x00
+                            460 	.area _CODE (BANK=_CSEG)
+                            461 	.area _INITIALIZER
+                            462 	.area _CABS (ABS)

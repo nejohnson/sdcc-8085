@@ -1,0 +1,660 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug1723128
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _NotZero
+                             12 	.globl _VerifyCRC
+                             13 	.globl ___prints
+                             14 	.globl ___fail
+                             15 	.globl _AutoCal_CFG
+                             16 	.globl _crc
+                             17 	.globl ___numCases
+                             18 	.globl ___runSuite
+                             19 	.globl ___getSuiteName
+                             20 ;--------------------------------------------------------
+                             21 ; special function registers
+                             22 ;--------------------------------------------------------
+                             23 ;--------------------------------------------------------
+                             24 ; ram data
+                             25 ;--------------------------------------------------------
+                             26 	.area _DATA (BANK=_DSEG)
+   0000                      27 _crc::
+   0000                      28 	.ds 1
+   0001                      29 _rx_buffer:
+   0001                      30 	.ds 8
+   0009                      31 _rx_index:
+   0009                      32 	.ds 1
+                             33 ;--------------------------------------------------------
+                             34 ; ram data
+                             35 ;--------------------------------------------------------
+                             36 	.area _INITIALIZED
+   0000                      37 _crc_table:
+   0000                      38 	.ds 256
+                             39 ;--------------------------------------------------------
+                             40 ; absolute ram data
+                             41 ;--------------------------------------------------------
+                             42 	.area _DABS (ABS)
+   8000                      43 	.org 0x8000
+   8000                      44 _AutoCal_CFG::
+   8000                      45 	.ds 10
+                             46 	.area _DABS (ABS)
+                             47 ;--------------------------------------------------------
+                             48 ; global & static initialisations
+                             49 ;--------------------------------------------------------
+                             50 	.area _HOME
+                             51 	.area _GSINIT
+                             52 	.area _GSFINAL
+                             53 	.area _GSINIT
+                             54 ;cases/./../tests/bug1723128.c:35: __code AUTOCAL_CFG __at (0x8000) AutoCal_CFG = {0};
+                             55 ;	genAddrOf
+   0000 21r00s80      [10]   56 	ld	hl, #_AutoCal_CFG+0
+                             57 ;	genPointerSet
+   0003 36 00         [10]   58 	ld	(hl), #0x00
+                             59 ;--------------------------------------------------------
+                             60 ; Home
+                             61 ;--------------------------------------------------------
+                             62 	.area _HOME (BANK=_CSEG)
+                             63 	.area _HOME (BANK=_CSEG)
+                             64 ;--------------------------------------------------------
+                             65 ; code
+                             66 ;--------------------------------------------------------
+                             67 	.area _CODE (BANK=_CSEG)
+                             68 ;cases/./../tests/bug1723128.c:85: VerifyCRC (void)
+                             69 ;	genLabel
+                             70 ;	genFunction
+                             71 ;	---------------------------------
+                             72 ; Function VerifyCRC
+                             73 ; ---------------------------------
+                             74 ;	Register assignment might be sub-optimal.
+                             75 ; Stack space usage: 0 bytes.
+   0000                      76 _VerifyCRC::
+                             77 ;cases/./../tests/bug1723128.c:89: crc = 0 ;
+                             78 ;	genAssign
+                             79 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0000 AF            [ 4]   80 	xor	a, a
+   0001 32r00s00      [13]   81 	ld	(#_crc), a
+                             82 ; common peephole 19 loaded (#_crc) from a directly instead of using hl.
+                             83 ;cases/./../tests/bug1723128.c:91: for (i = 0; i < (rx_index - 1); i++)
+                             84 ;	skipping iCode since result will be rematerialized
+                             85 ;	skipping iCode since result will be rematerialized
+                             86 ;	genAssign
+                             87 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0004 0E 00         [ 7]   88 	ld	c, #0x00
+                             89 ;	genLabel
+   0006                      90 00103$:
+                             91 ;	genCast
+                             92 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0006 3Ar09s00      [13]   93 	ld	a, (_rx_index)
+   0009 5F            [ 4]   94 	ld	e, a
+                             95 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   000A 16 00         [ 7]   96 	ld	d, #0x00
+                             97 ;	genMinus
+   000C 1B            [ 6]   98 	dec	de
+                             99 ;	genCast
+                            100 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            101 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            102 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 0 f_dead 1
+                            103 ;	genCmpLt
+   000D 79            [ 4]  104 	ld	a, c
+                            105 ; common peephole 10 loaded a from c directly instead of going through l.
+   000E 06 00         [ 7]  106 	ld	b, #0x00
+   0010 93            [ 4]  107 	sub	a, e
+   0011 78            [ 4]  108 	ld	a, b
+   0012 9A            [ 4]  109 	sbc	a, d
+   0013 E2r18s00      [10]  110 	jp	po, 00124$
+   0016 EE 80         [ 7]  111 	xor	a, #0x80
+   0018                     112 00124$:
+   0018 F2r34s00      [10]  113 	jp	p, 00101$
+                            114 ;	skipping generated iCode
+                            115 ;cases/./../tests/bug1723128.c:92: crc = crc_table[rx_buffer[i] ^ crc];
+                            116 ;	genPlus
+                            117 ;	genMove_o size 2 result type 2 source type 7 a_dead 0 hl_dead 1 de_dead 1 iy_dead 0 f_dead 1
+   001B 21r01s00      [10]  118 	ld	hl, #_rx_buffer
+   001E 06 00         [ 7]  119 	ld	b, #0x00
+   0020 09            [11]  120 	add	hl, bc
+                            121 ;	genPointerGet
+   0021 7E            [ 7]  122 	ld	a, (hl)
+                            123 ;	genXor
+                            124 ; common peephole 54 used hl instead of iy.
+                            125 ; common peephole 130a removed unnecessary +0 from constant
+   0022 21r00s00      [10]  126 	ld	hl, #_crc
+   0025 AE            [ 7]  127 	xor	a, (hl)
+                            128 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            129 ;	genPlus
+                            130 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0026 6F            [ 4]  131 	ld	l, a
+                            132 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0027 26 00         [ 7]  133 	ld	h, #0x00
+                            134 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0029 11r00s00      [10]  135 	ld	de, #_crc_table
+   002C 19            [11]  136 	add	hl, de
+                            137 ;	genPointerGet
+   002D 7E            [ 7]  138 	ld	a, (hl)
+                            139 ;	genMove_o size 1 result type 11 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002E 32r00s00      [13]  140 	ld	(#_crc), a
+                            141 ; common peephole 19 loaded (#_crc) from a directly instead of using hl.
+                            142 ;cases/./../tests/bug1723128.c:91: for (i = 0; i < (rx_index - 1); i++)
+                            143 ;	genPlus
+   0031 0C            [ 4]  144 	inc	c
+                            145 ;	genGoto
+                            146 ; common peephole 162 changed absolute to relative unconditional jump.
+   0032 18 D2         [12]  147 	jr	00103$
+                            148 ;	genLabel
+   0034                     149 00101$:
+                            150 ;cases/./../tests/bug1723128.c:93: return (crc == rx_buffer[rx_index-1]) ;
+                            151 ;	genCast
+                            152 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0034 3Ar09s00      [13]  153 	ld	a, (_rx_index)
+                            154 ;	genMinus
+                            155 ; common peephole 155c turned add into dec.
+   0037 3D            [ 4]  156 	dec	a
+                            157 ;	genCast
+                            158 ;	genMove_o size 0 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            159 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0038 4F            [ 4]  160 	ld	c, a
+   0039 07            [ 4]  161 	rlca
+   003A 9F            [ 4]  162 	sbc	a, a
+   003B 47            [ 4]  163 	ld	b, a
+                            164 ;	genPlus
+                            165 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   003C 21r01s00      [10]  166 	ld	hl, #_rx_buffer
+   003F 09            [11]  167 	add	hl, bc
+                            168 ;	genPointerGet
+                            169 ;	genCmpEq
+                            170 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0040 3Ar00s00      [13]  171 	ld	a, (_crc)
+                            172 ; common peephole 115a used (hl) in sub instead of going through c.
+   0043 96            [ 7]  173 	sub	a, (hl)
+   0044 3E 01         [ 7]  174 	ld	a, #0x01
+   0046 C8            [11]  175 	ret	z
+                            176 ; common peephole 161 replaced jump by return.
+                            177 ; common peephole 169xnz used double assignment in case of nz condition.
+                            178 ; common peephole 159 removed unused label 00125$.
+   0047 AF            [ 4]  179 	xor	a, a
+                            180 ; common peephole 159 removed unused label 00126$.
+                            181 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            182 ;	genRet
+                            183 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            184 ;	genLabel
+                            185 ; common peephole 159 removed unused label 00105$.
+                            186 ;cases/./../tests/bug1723128.c:94: }
+                            187 ;	genEndFunction
+   0048 C9            [10]  188 	ret
+                            189 ;	Total VerifyCRC function size at codegen: 1 bytes.
+                            190 ;cases/./../tests/bug1723128.c:97: NotZero (unsigned int t)
+                            191 ;	genLabel
+                            192 ;	genFunction
+                            193 ;	---------------------------------
+                            194 ; Function NotZero
+                            195 ; ---------------------------------
+                            196 ;	Register assignment might be sub-optimal.
+                            197 ; Stack space usage: 0 bytes.
+   0049                     198 _NotZero::
+                            199 ;	genReceive
+                            200 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0049 7D            [ 4]  201 	ld	a, l
+                            202 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            203 ;cases/./../tests/bug1723128.c:99: return (t != 0);
+                            204 ;	genNot
+   004A B4            [ 4]  205 	or	a, h
+   004B D6 01         [ 7]  206 	sub	a, #0x01
+   004D 3E 00         [ 7]  207 	ld	a, #0x00
+   004F 17            [ 4]  208 	rla
+                            209 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+                            210 ;	genNot
+   0050 EE 01         [ 7]  211 	xor	a, #0x01
+                            212 ;	genRet
+                            213 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            214 ;	genLabel
+                            215 ; common peephole 159 removed unused label 00101$.
+                            216 ;cases/./../tests/bug1723128.c:100: }
+                            217 ;	genEndFunction
+   0052 C9            [10]  218 	ret
+                            219 ;	Total NotZero function size at codegen: 1 bytes.
+                            220 ;cases/./../tests/bug1723128.c:106: testBug (void)
+                            221 ;	genLabel
+                            222 ;	genFunction
+                            223 ;	---------------------------------
+                            224 ; Function testBug
+                            225 ; ---------------------------------
+                            226 ;	Register assignment might be sub-optimal.
+                            227 ; Stack space usage: 0 bytes.
+   0053                     228 _testBug::
+                            229 ;cases/./../tests/bug1723128.c:110: rx_index = 1;
+                            230 ;	genAssign
+                            231 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0053 21r09s00      [10]  232 	ld	hl, #_rx_index
+   0056 36 01         [10]  233 	ld	(hl), #0x01
+                            234 ;cases/./../tests/bug1723128.c:111: ASSERT (VerifyCRC ());
+                            235 ;	genPlus
+                            236 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0058 2Ar00s00      [16]  237 	ld	hl, (___numTests)
+   005B 23            [ 6]  238 	inc	hl
+                            239 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   005C 22r00s00      [16]  240 	ld	(___numTests), hl
+                            241 ;	genCall
+   005F CDr00s00      [17]  242 	call	_VerifyCRC
+                            243 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            244 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            245 ;	genIfx
+   0062 CB 47         [ 8]  246 	bit	0,a
+                            247 ; common peephole 149 tested bit 0 of a directly instead of going through c.
+                            248 ; common peephole 163 changed absolute to relative conditional jump.
+   0064 20 11         [12]  249 	jr	nz, 00104$
+                            250 ;	skipping iCode since result will be rematerialized
+                            251 ;	skipping iCode since result will be rematerialized
+                            252 ;	skipping iCode since result will be rematerialized
+                            253 ;	skipping iCode since result will be rematerialized
+                            254 ;	skipping iCode since result will be rematerialized
+                            255 ;	skipping iCode since result will be rematerialized
+                            256 ;	genIpush
+                            257 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0066 21 6F 00      [10]  258 	ld	hl, #0x006f
+   0069 E5            [11]  259 	push	hl
+                            260 ;	genIpush
+                            261 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   006A 21rB7s00      [10]  262 	ld	hl, #___str_2
+   006D E5            [11]  263 	push	hl
+                            264 ;	genSend
+                            265 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   006E 11rAAs00      [10]  266 	ld	de, #___str_1
+                            267 ;	genSend
+                            268 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0071 21r99s00      [10]  269 	ld	hl, #___str_0
+                            270 ;	genCall
+   0074 CDr00s00      [17]  271 	call	___fail
+                            272 ;	genLabel
+   0077                     273 00104$:
+                            274 ;cases/./../tests/bug1723128.c:112: ASSERT (NotZero (300));
+                            275 ;	genPlus
+                            276 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0077 2Ar00s00      [16]  277 	ld	hl, (___numTests)
+   007A 23            [ 6]  278 	inc	hl
+                            279 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   007B 22r00s00      [16]  280 	ld	(___numTests), hl
+                            281 ;	genSend
+                            282 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   007E 21 2C 01      [10]  283 	ld	hl, #0x012c
+                            284 ;	genCall
+   0081 CDr49s00      [17]  285 	call	_NotZero
+                            286 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            287 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            288 ;	genIfx
+   0084 CB 47         [ 8]  289 	bit	0,a
+                            290 ; common peephole 149 tested bit 0 of a directly instead of going through c.
+   0086 C0            [11]  291 	ret	nz
+                            292 ; common peephole 161 replaced jump by return.
+                            293 ;	skipping iCode since result will be rematerialized
+                            294 ;	skipping iCode since result will be rematerialized
+                            295 ;	skipping iCode since result will be rematerialized
+                            296 ;	skipping iCode since result will be rematerialized
+                            297 ;	skipping iCode since result will be rematerialized
+                            298 ;	skipping iCode since result will be rematerialized
+                            299 ;	genIpush
+                            300 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0087 21 70 00      [10]  301 	ld	hl, #0x0070
+   008A E5            [11]  302 	push	hl
+                            303 ;	genIpush
+                            304 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   008B 21rB7s00      [10]  305 	ld	hl, #___str_2
+   008E E5            [11]  306 	push	hl
+                            307 ;	genSend
+                            308 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   008F 11rD5s00      [10]  309 	ld	de, #___str_3
+                            310 ;	genSend
+                            311 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0092 21r99s00      [10]  312 	ld	hl, #___str_0
+                            313 ;	genCall
+   0095 CDr00s00      [17]  314 	call	___fail
+                            315 ;	genLabel
+                            316 ; common peephole 159 removed unused label 00101$.
+                            317 ;cases/./../tests/bug1723128.c:115: }
+                            318 ;	genEndFunction
+   0098 C9            [10]  319 	ret
+                            320 ;	Total testBug function size at codegen: 1 bytes.
+   0099                     321 ___str_0:
+   0099 41 73 73 65 72 74   322 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   00A9 00                  323 	.db 0x00
+   00AA                     324 ___str_1:
+   00AA 56 65 72 69 66 79   325 	.ascii "VerifyCRC ()"
+        43 52 43 20 28 29
+   00B6 00                  326 	.db 0x00
+   00B7                     327 ___str_2:
+   00B7 63 61 73 65 73 2F   328 	.ascii "cases/./../tests/bug1723128.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 62
+        75 67 31 37 32 33
+        31 32 38 2E 63
+   00D4 00                  329 	.db 0x00
+   00D5                     330 ___str_3:
+   00D5 4E 6F 74 5A 65 72   331 	.ascii "NotZero (300)"
+        6F 20 28 33 30 30
+        29
+   00E2 00                  332 	.db 0x00
+                            333 ;cases/tst_bug1723128.c:4: __runSuite(void)
+                            334 ;	genLabel
+                            335 ;	genFunction
+                            336 ;	---------------------------------
+                            337 ; Function __runSuite
+                            338 ; ---------------------------------
+                            339 ;	Register assignment is optimal.
+                            340 ; Stack space usage: 0 bytes.
+   00E3                     341 ___runSuite::
+                            342 ;cases/tst_bug1723128.c:6: __prints("Running testBug\n");
+                            343 ;	skipping iCode since result will be rematerialized
+                            344 ;	skipping iCode since result will be rematerialized
+                            345 ;	genSend
+                            346 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E3 21rECs00      [10]  347 	ld	hl, #___str_4
+                            348 ;	genCall
+   00E6 CDr00s00      [17]  349 	call	___prints
+                            350 ;cases/tst_bug1723128.c:7: testBug();
+                            351 ;	genCall
+                            352 ;	genLabel
+                            353 ; common peephole 159 removed unused label 00101$.
+                            354 ;cases/tst_bug1723128.c:8: }
+                            355 ;	genEndFunction
+   00E9 C3r53s00      [10]  356 	jp	_testBug
+                            357 ; common peephole 152 removed unused ret.
+                            358 ;	Total __runSuite function size at codegen: 1 bytes.
+   00EC                     359 ___str_4:
+   00EC 52 75 6E 6E 69 6E   360 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   00FB 0A                  361 	.db 0x0a
+   00FC 00                  362 	.db 0x00
+                            363 ;cases/tst_bug1723128.c:13: __getSuiteName(void)
+                            364 ;	genLabel
+                            365 ;	genFunction
+                            366 ;	---------------------------------
+                            367 ; Function __getSuiteName
+                            368 ; ---------------------------------
+                            369 ;	Register assignment is optimal.
+                            370 ; Stack space usage: 0 bytes.
+   00FD                     371 ___getSuiteName::
+                            372 ;cases/tst_bug1723128.c:15: return "bug1723128.c";
+                            373 ;	skipping iCode since result will be rematerialized
+                            374 ;	skipping iCode since result will be rematerialized
+                            375 ;	genRet
+                            376 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00FD 11r03s01      [10]  377 	ld	de, #___str_5
+                            378 ;	genLabel
+                            379 ; common peephole 159 removed unused label 00101$.
+                            380 ;cases/tst_bug1723128.c:16: }
+                            381 ;	genEndFunction
+   0100 C9            [10]  382 	ret
+                            383 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0101                     384 ___numCases:
+   0101 01 00               385 	.dw #0x0001
+   0103                     386 ___str_5:
+   0103 62 75 67 31 37 32   387 	.ascii "bug1723128.c"
+        33 31 32 38 2E 63
+   010F 00                  388 	.db 0x00
+                            389 	.area _CODE (BANK=_CSEG)
+                            390 	.area _INITIALIZER
+   0000                     391 __xinit__crc_table:
+   0000 00                  392 	.db #0x00	; 0
+   0001 2F                  393 	.db #0x2f	; 47
+   0002 5E                  394 	.db #0x5e	; 94
+   0003 71                  395 	.db #0x71	; 113	'q'
+   0004 BC                  396 	.db #0xbc	; 188
+   0005 93                  397 	.db #0x93	; 147
+   0006 E2                  398 	.db #0xe2	; 226
+   0007 CD                  399 	.db #0xcd	; 205
+   0008 57                  400 	.db #0x57	; 87	'W'
+   0009 78                  401 	.db #0x78	; 120	'x'
+   000A 09                  402 	.db #0x09	; 9
+   000B 26                  403 	.db #0x26	; 38
+   000C EB                  404 	.db #0xeb	; 235
+   000D C4                  405 	.db #0xc4	; 196
+   000E B5                  406 	.db #0xb5	; 181
+   000F 9A                  407 	.db #0x9a	; 154
+   0010 AE                  408 	.db #0xae	; 174
+   0011 81                  409 	.db #0x81	; 129
+   0012 F0                  410 	.db #0xf0	; 240
+   0013 DF                  411 	.db #0xdf	; 223
+   0014 12                  412 	.db #0x12	; 18
+   0015 3D                  413 	.db #0x3d	; 61
+   0016 4C                  414 	.db #0x4c	; 76	'L'
+   0017 63                  415 	.db #0x63	; 99	'c'
+   0018 F9                  416 	.db #0xf9	; 249
+   0019 D6                  417 	.db #0xd6	; 214
+   001A A7                  418 	.db #0xa7	; 167
+   001B 88                  419 	.db #0x88	; 136
+   001C 45                  420 	.db #0x45	; 69	'E'
+   001D 6A                  421 	.db #0x6a	; 106	'j'
+   001E 1B                  422 	.db #0x1b	; 27
+   001F 34                  423 	.db #0x34	; 52	'4'
+   0020 73                  424 	.db #0x73	; 115	's'
+   0021 5C                  425 	.db #0x5c	; 92
+   0022 2D                  426 	.db #0x2d	; 45
+   0023 02                  427 	.db #0x02	; 2
+   0024 CF                  428 	.db #0xcf	; 207
+   0025 E0                  429 	.db #0xe0	; 224
+   0026 91                  430 	.db #0x91	; 145
+   0027 BE                  431 	.db #0xbe	; 190
+   0028 24                  432 	.db #0x24	; 36
+   0029 0B                  433 	.db #0x0b	; 11
+   002A 7A                  434 	.db #0x7a	; 122	'z'
+   002B 55                  435 	.db #0x55	; 85	'U'
+   002C 98                  436 	.db #0x98	; 152
+   002D B7                  437 	.db #0xb7	; 183
+   002E C6                  438 	.db #0xc6	; 198
+   002F E9                  439 	.db #0xe9	; 233
+   0030 DD                  440 	.db #0xdd	; 221
+   0031 F2                  441 	.db #0xf2	; 242
+   0032 83                  442 	.db #0x83	; 131
+   0033 AC                  443 	.db #0xac	; 172
+   0034 61                  444 	.db #0x61	; 97	'a'
+   0035 4E                  445 	.db #0x4e	; 78	'N'
+   0036 3F                  446 	.db #0x3f	; 63
+   0037 10                  447 	.db #0x10	; 16
+   0038 8A                  448 	.db #0x8a	; 138
+   0039 A5                  449 	.db #0xa5	; 165
+   003A D4                  450 	.db #0xd4	; 212
+   003B FB                  451 	.db #0xfb	; 251
+   003C 36                  452 	.db #0x36	; 54	'6'
+   003D 19                  453 	.db #0x19	; 25
+   003E 68                  454 	.db #0x68	; 104	'h'
+   003F 47                  455 	.db #0x47	; 71	'G'
+   0040 E6                  456 	.db #0xe6	; 230
+   0041 C9                  457 	.db #0xc9	; 201
+   0042 B8                  458 	.db #0xb8	; 184
+   0043 97                  459 	.db #0x97	; 151
+   0044 5A                  460 	.db #0x5a	; 90	'Z'
+   0045 75                  461 	.db #0x75	; 117	'u'
+   0046 04                  462 	.db #0x04	; 4
+   0047 2B                  463 	.db #0x2b	; 43
+   0048 B1                  464 	.db #0xb1	; 177
+   0049 9E                  465 	.db #0x9e	; 158
+   004A EF                  466 	.db #0xef	; 239
+   004B C0                  467 	.db #0xc0	; 192
+   004C 0D                  468 	.db #0x0d	; 13
+   004D 22                  469 	.db #0x22	; 34
+   004E 53                  470 	.db #0x53	; 83	'S'
+   004F 7C                  471 	.db #0x7c	; 124
+   0050 48                  472 	.db #0x48	; 72	'H'
+   0051 67                  473 	.db #0x67	; 103	'g'
+   0052 16                  474 	.db #0x16	; 22
+   0053 39                  475 	.db #0x39	; 57	'9'
+   0054 F4                  476 	.db #0xf4	; 244
+   0055 DB                  477 	.db #0xdb	; 219
+   0056 AA                  478 	.db #0xaa	; 170
+   0057 85                  479 	.db #0x85	; 133
+   0058 1F                  480 	.db #0x1f	; 31
+   0059 30                  481 	.db #0x30	; 48	'0'
+   005A 41                  482 	.db #0x41	; 65	'A'
+   005B 6E                  483 	.db #0x6e	; 110	'n'
+   005C A3                  484 	.db #0xa3	; 163
+   005D 8C                  485 	.db #0x8c	; 140
+   005E FD                  486 	.db #0xfd	; 253
+   005F D2                  487 	.db #0xd2	; 210
+   0060 95                  488 	.db #0x95	; 149
+   0061 BA                  489 	.db #0xba	; 186
+   0062 CB                  490 	.db #0xcb	; 203
+   0063 E4                  491 	.db #0xe4	; 228
+   0064 29                  492 	.db #0x29	; 41
+   0065 06                  493 	.db #0x06	; 6
+   0066 77                  494 	.db #0x77	; 119	'w'
+   0067 58                  495 	.db #0x58	; 88	'X'
+   0068 C2                  496 	.db #0xc2	; 194
+   0069 ED                  497 	.db #0xed	; 237
+   006A 9C                  498 	.db #0x9c	; 156
+   006B B3                  499 	.db #0xb3	; 179
+   006C 7E                  500 	.db #0x7e	; 126
+   006D 51                  501 	.db #0x51	; 81	'Q'
+   006E 20                  502 	.db #0x20	; 32
+   006F 0F                  503 	.db #0x0f	; 15
+   0070 3B                  504 	.db #0x3b	; 59
+   0071 14                  505 	.db #0x14	; 20
+   0072 65                  506 	.db #0x65	; 101	'e'
+   0073 4A                  507 	.db #0x4a	; 74	'J'
+   0074 87                  508 	.db #0x87	; 135
+   0075 A8                  509 	.db #0xa8	; 168
+   0076 D9                  510 	.db #0xd9	; 217
+   0077 F6                  511 	.db #0xf6	; 246
+   0078 6C                  512 	.db #0x6c	; 108	'l'
+   0079 43                  513 	.db #0x43	; 67	'C'
+   007A 32                  514 	.db #0x32	; 50	'2'
+   007B 1D                  515 	.db #0x1d	; 29
+   007C D0                  516 	.db #0xd0	; 208
+   007D FF                  517 	.db #0xff	; 255
+   007E 8E                  518 	.db #0x8e	; 142
+   007F A1                  519 	.db #0xa1	; 161
+   0080 E3                  520 	.db #0xe3	; 227
+   0081 CC                  521 	.db #0xcc	; 204
+   0082 BD                  522 	.db #0xbd	; 189
+   0083 92                  523 	.db #0x92	; 146
+   0084 5F                  524 	.db #0x5f	; 95
+   0085 70                  525 	.db #0x70	; 112	'p'
+   0086 01                  526 	.db #0x01	; 1
+   0087 2E                  527 	.db #0x2e	; 46
+   0088 B4                  528 	.db #0xb4	; 180
+   0089 9B                  529 	.db #0x9b	; 155
+   008A EA                  530 	.db #0xea	; 234
+   008B C5                  531 	.db #0xc5	; 197
+   008C 08                  532 	.db #0x08	; 8
+   008D 27                  533 	.db #0x27	; 39
+   008E 56                  534 	.db #0x56	; 86	'V'
+   008F 79                  535 	.db #0x79	; 121	'y'
+   0090 4D                  536 	.db #0x4d	; 77	'M'
+   0091 62                  537 	.db #0x62	; 98	'b'
+   0092 13                  538 	.db #0x13	; 19
+   0093 3C                  539 	.db #0x3c	; 60
+   0094 F1                  540 	.db #0xf1	; 241
+   0095 DE                  541 	.db #0xde	; 222
+   0096 AF                  542 	.db #0xaf	; 175
+   0097 80                  543 	.db #0x80	; 128
+   0098 1A                  544 	.db #0x1a	; 26
+   0099 35                  545 	.db #0x35	; 53	'5'
+   009A 44                  546 	.db #0x44	; 68	'D'
+   009B 6B                  547 	.db #0x6b	; 107	'k'
+   009C A6                  548 	.db #0xa6	; 166
+   009D 89                  549 	.db #0x89	; 137
+   009E F8                  550 	.db #0xf8	; 248
+   009F D7                  551 	.db #0xd7	; 215
+   00A0 90                  552 	.db #0x90	; 144
+   00A1 BF                  553 	.db #0xbf	; 191
+   00A2 CE                  554 	.db #0xce	; 206
+   00A3 E1                  555 	.db #0xe1	; 225
+   00A4 2C                  556 	.db #0x2c	; 44
+   00A5 03                  557 	.db #0x03	; 3
+   00A6 72                  558 	.db #0x72	; 114	'r'
+   00A7 5D                  559 	.db #0x5d	; 93
+   00A8 C7                  560 	.db #0xc7	; 199
+   00A9 E8                  561 	.db #0xe8	; 232
+   00AA 99                  562 	.db #0x99	; 153
+   00AB B6                  563 	.db #0xb6	; 182
+   00AC 7B                  564 	.db #0x7b	; 123
+   00AD 54                  565 	.db #0x54	; 84	'T'
+   00AE 25                  566 	.db #0x25	; 37
+   00AF 0A                  567 	.db #0x0a	; 10
+   00B0 3E                  568 	.db #0x3e	; 62
+   00B1 11                  569 	.db #0x11	; 17
+   00B2 60                  570 	.db #0x60	; 96
+   00B3 4F                  571 	.db #0x4f	; 79	'O'
+   00B4 82                  572 	.db #0x82	; 130
+   00B5 AD                  573 	.db #0xad	; 173
+   00B6 DC                  574 	.db #0xdc	; 220
+   00B7 F3                  575 	.db #0xf3	; 243
+   00B8 69                  576 	.db #0x69	; 105	'i'
+   00B9 46                  577 	.db #0x46	; 70	'F'
+   00BA 37                  578 	.db #0x37	; 55	'7'
+   00BB 18                  579 	.db #0x18	; 24
+   00BC D5                  580 	.db #0xd5	; 213
+   00BD FA                  581 	.db #0xfa	; 250
+   00BE 8B                  582 	.db #0x8b	; 139
+   00BF A4                  583 	.db #0xa4	; 164
+   00C0 05                  584 	.db #0x05	; 5
+   00C1 2A                  585 	.db #0x2a	; 42
+   00C2 5B                  586 	.db #0x5b	; 91
+   00C3 74                  587 	.db #0x74	; 116	't'
+   00C4 B9                  588 	.db #0xb9	; 185
+   00C5 96                  589 	.db #0x96	; 150
+   00C6 E7                  590 	.db #0xe7	; 231
+   00C7 C8                  591 	.db #0xc8	; 200
+   00C8 52                  592 	.db #0x52	; 82	'R'
+   00C9 7D                  593 	.db #0x7d	; 125
+   00CA 0C                  594 	.db #0x0c	; 12
+   00CB 23                  595 	.db #0x23	; 35
+   00CC EE                  596 	.db #0xee	; 238
+   00CD C1                  597 	.db #0xc1	; 193
+   00CE B0                  598 	.db #0xb0	; 176
+   00CF 9F                  599 	.db #0x9f	; 159
+   00D0 AB                  600 	.db #0xab	; 171
+   00D1 84                  601 	.db #0x84	; 132
+   00D2 F5                  602 	.db #0xf5	; 245
+   00D3 DA                  603 	.db #0xda	; 218
+   00D4 17                  604 	.db #0x17	; 23
+   00D5 38                  605 	.db #0x38	; 56	'8'
+   00D6 49                  606 	.db #0x49	; 73	'I'
+   00D7 66                  607 	.db #0x66	; 102	'f'
+   00D8 FC                  608 	.db #0xfc	; 252
+   00D9 D3                  609 	.db #0xd3	; 211
+   00DA A2                  610 	.db #0xa2	; 162
+   00DB 8D                  611 	.db #0x8d	; 141
+   00DC 40                  612 	.db #0x40	; 64
+   00DD 6F                  613 	.db #0x6f	; 111	'o'
+   00DE 1E                  614 	.db #0x1e	; 30
+   00DF 31                  615 	.db #0x31	; 49	'1'
+   00E0 76                  616 	.db #0x76	; 118	'v'
+   00E1 59                  617 	.db #0x59	; 89	'Y'
+   00E2 28                  618 	.db #0x28	; 40
+   00E3 07                  619 	.db #0x07	; 7
+   00E4 CA                  620 	.db #0xca	; 202
+   00E5 E5                  621 	.db #0xe5	; 229
+   00E6 94                  622 	.db #0x94	; 148
+   00E7 BB                  623 	.db #0xbb	; 187
+   00E8 21                  624 	.db #0x21	; 33
+   00E9 0E                  625 	.db #0x0e	; 14
+   00EA 7F                  626 	.db #0x7f	; 127
+   00EB 50                  627 	.db #0x50	; 80	'P'
+   00EC 9D                  628 	.db #0x9d	; 157
+   00ED B2                  629 	.db #0xb2	; 178
+   00EE C3                  630 	.db #0xc3	; 195
+   00EF EC                  631 	.db #0xec	; 236
+   00F0 D8                  632 	.db #0xd8	; 216
+   00F1 F7                  633 	.db #0xf7	; 247
+   00F2 86                  634 	.db #0x86	; 134
+   00F3 A9                  635 	.db #0xa9	; 169
+   00F4 64                  636 	.db #0x64	; 100	'd'
+   00F5 4B                  637 	.db #0x4b	; 75	'K'
+   00F6 3A                  638 	.db #0x3a	; 58
+   00F7 15                  639 	.db #0x15	; 21
+   00F8 8F                  640 	.db #0x8f	; 143
+   00F9 A0                  641 	.db #0xa0	; 160
+   00FA D1                  642 	.db #0xd1	; 209
+   00FB FE                  643 	.db #0xfe	; 254
+   00FC 33                  644 	.db #0x33	; 51	'3'
+   00FD 1C                  645 	.db #0x1c	; 28
+   00FE 6D                  646 	.db #0x6d	; 109	'm'
+   00FF 42                  647 	.db #0x42	; 66	'B'
+                            648 	.area _CABS (ABS)

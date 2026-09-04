@@ -1,0 +1,398 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_gcc_torture_execute_pr85582_1
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testTortureExecute
+                             11 	.globl ___prints
+                             12 	.globl _c
+                             13 	.globl _d
+                             14 	.globl _e
+                             15 	.globl _b
+                             16 	.globl _a
+                             17 	.globl ___numCases
+                             18 	.globl ___runSuite
+                             19 	.globl ___getSuiteName
+                             20 ;--------------------------------------------------------
+                             21 ; special function registers
+                             22 ;--------------------------------------------------------
+                             23 ;--------------------------------------------------------
+                             24 ; ram data
+                             25 ;--------------------------------------------------------
+                             26 	.area _DATA (BANK=_DSEG)
+   0000                      27 _a::
+   0000                      28 	.ds 2
+   0002                      29 _b::
+   0002                      30 	.ds 2
+   0004                      31 _e::
+   0004                      32 	.ds 2
+                             33 ;--------------------------------------------------------
+                             34 ; ram data
+                             35 ;--------------------------------------------------------
+                             36 	.area _INITIALIZED
+   0000                      37 _d::
+   0000                      38 	.ds 2
+   0002                      39 _c::
+   0002                      40 	.ds 8
+                             41 ;--------------------------------------------------------
+                             42 ; absolute ram data
+                             43 ;--------------------------------------------------------
+                             44 	.area _DABS (ABS)
+                             45 	.area _DABS (ABS)
+                             46 ;--------------------------------------------------------
+                             47 ; global & static initialisations
+                             48 ;--------------------------------------------------------
+                             49 	.area _HOME
+                             50 	.area _GSINIT
+                             51 	.area _GSFINAL
+                             52 	.area _GSINIT
+                             53 ;--------------------------------------------------------
+                             54 ; Home
+                             55 ;--------------------------------------------------------
+                             56 	.area _HOME (BANK=_CSEG)
+                             57 	.area _HOME (BANK=_CSEG)
+                             58 ;--------------------------------------------------------
+                             59 ; code
+                             60 ;--------------------------------------------------------
+                             61 	.area _CODE (BANK=_CSEG)
+                             62 ;cases/./../tests/gcc-torture-execute-pr85582-1.c:13: testTortureExecute (void)
+                             63 ;	genLabel
+                             64 ;	genFunction
+                             65 ;	---------------------------------
+                             66 ; Function testTortureExecute
+                             67 ; ---------------------------------
+                             68 ;	Register assignment is optimal.
+                             69 ; Stack space usage: 16 bytes.
+   0000                      70 _testTortureExecute::
+                             71 ;	adjustStack by -16
+   0000 21 F0 FF      [10]   72 	ld	hl, #-16
+   0003 39            [11]   73 	add	hl, sp
+   0004 F9            [ 6]   74 	ld	sp, hl
+                             75 ;cases/./../tests/gcc-torture-execute-pr85582-1.c:17: L1:
+                             76 ;	genLabel
+   0005                      77 00101$:
+                             78 ;cases/./../tests/gcc-torture-execute-pr85582-1.c:18: e = d;
+                             79 ;	genAssign
+                             80 ;fetchPairLong
+   0005 2Ar00s00      [16]   81 	ld	hl, (_d)
+                             82 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0008 22r04s00      [16]   83 	ld	(_e), hl
+                             84 ;cases/./../tests/gcc-torture-execute-pr85582-1.c:19: if (a)
+                             85 ;	genIfx
+   000B 3Ar01s00      [13]   86 	ld	a, (_a+1)
+                             87 ; common peephole 54 used hl instead of iy.
+                             88 ; common peephole 130a removed unnecessary +0 from constant
+   000E 21r00s00      [10]   89 	ld	hl, #_a
+   0011 B6            [ 7]   90 	or	a, (hl)
+                             91 ; common peephole 163 changed absolute to relative conditional jump.
+   0012 20 F1         [12]   92 	jr	nz, 00101$
+                             93 ;cases/./../tests/gcc-torture-execute-pr85582-1.c:22: int i = c >> ~(~e | ~g);
+                             94 ;	genCast
+                             95 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0014 3Ar04s00      [13]   96 	ld	a, (_e)
+                             97 ;	genXor
+   0017 2F            [ 4]   98 	cpl
+                             99 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            100 ;	genOr
+   0018 F6 FA         [ 7]  101 	or	a, #0xfa
+                            102 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            103 ;	genXor
+   001A 2F            [ 4]  104 	cpl
+                            105 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001B 47            [ 4]  106 	ld	b, a
+                            107 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            108 ;	genRightShift
+                            109 ;	genMove_o size 8 result type 12 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001C 3Ar02s00      [13]  110 	ld	a, (_c+0)
+   001F FD 21 08 00   [14]  111 	ld	iy, #8
+   0023 FD 39         [15]  112 	add	iy, sp
+   0025 FD 77 00      [19]  113 	ld	0 (iy), a
+   0028 3Ar03s00      [13]  114 	ld	a, (_c+1)
+   002B FD 77 01      [19]  115 	ld	1 (iy), a
+   002E 3Ar04s00      [13]  116 	ld	a, (_c+2)
+   0031 FD 77 02      [19]  117 	ld	2 (iy), a
+   0034 3Ar05s00      [13]  118 	ld	a, (_c+3)
+   0037 FD 77 03      [19]  119 	ld	3 (iy), a
+   003A 3Ar06s00      [13]  120 	ld	a, (_c+4)
+   003D FD 77 04      [19]  121 	ld	4 (iy), a
+   0040 3Ar07s00      [13]  122 	ld	a, (_c+5)
+   0043 FD 77 05      [19]  123 	ld	5 (iy), a
+   0046 3Ar08s00      [13]  124 	ld	a, (_c+6)
+   0049 FD 77 06      [19]  125 	ld	6 (iy), a
+   004C 3Ar09s00      [13]  126 	ld	a, (_c+7)
+   004F FD 77 07      [19]  127 	ld	7 (iy), a
+   0052 04            [ 4]  128 	inc	b
+                            129 ; common peephole 162 changed absolute to relative unconditional jump.
+   0053 18 20         [12]  130 	jr	00142$
+   0055                     131 00141$:
+   0055 FD CB 07 2E   [23]  132 	sra	7 (iy)
+   0059 FD CB 06 1E   [23]  133 	rr	6 (iy)
+   005D FD CB 05 1E   [23]  134 	rr	5 (iy)
+   0061 FD CB 04 1E   [23]  135 	rr	4 (iy)
+   0065 FD CB 03 1E   [23]  136 	rr	3 (iy)
+   0069 FD CB 02 1E   [23]  137 	rr	2 (iy)
+   006D FD CB 01 1E   [23]  138 	rr	1 (iy)
+   0071 FD CB 00 1E   [23]  139 	rr	0 (iy)
+   0075                     140 00142$:
+   0075 10 DE         [13]  141 	djnz	00141$
+                            142 ;	genMove_o size 8 result type 12 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            143 ;	genCast
+                            144 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0077 FD 4E 00      [19]  145 	ld	c, 0 (iy)
+   007A FD 46 01      [19]  146 	ld	b, 1 (iy)
+                            147 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            148 ;cases/./../tests/gcc-torture-execute-pr85582-1.c:23: L2:
+                            149 ;	genLabel
+   007D                     150 00104$:
+                            151 ;cases/./../tests/gcc-torture-execute-pr85582-1.c:24: c = (b % c) * i;
+                            152 ;	genCast
+                            153 ;	genMove_o size 1 result type 12 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   007D 3Ar02s00      [13]  154 	ld	a, (_b+0)
+   0080 FD 21 08 00   [14]  155 	ld	iy, #8
+   0084 FD 39         [15]  156 	add	iy, sp
+   0086 FD 77 00      [19]  157 	ld	0 (iy), a
+                            158 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0089 3Ar03s00      [13]  159 	ld	a, (_b + 1)
+   008C FD 77 01      [19]  160 	ld	1 (iy), a
+   008F 07            [ 4]  161 	rlca
+   0090 9F            [ 4]  162 	sbc	a, a
+   0091 FD 77 02      [19]  163 	ld	2 (iy), a
+   0094 FD 77 03      [19]  164 	ld	3 (iy), a
+   0097 FD 77 04      [19]  165 	ld	4 (iy), a
+   009A FD 77 05      [19]  166 	ld	5 (iy), a
+   009D FD 77 06      [19]  167 	ld	6 (iy), a
+   00A0 FD 77 07      [19]  168 	ld	7 (iy), a
+                            169 ;	genIpush
+   00A3 C5            [11]  170 	push	bc
+                            171 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A4 2Ar08s00      [16]  172 	ld	hl, (_c + 6)
+   00A7 E5            [11]  173 	push	hl
+                            174 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A8 2Ar06s00      [16]  175 	ld	hl, (_c + 4)
+   00AB E5            [11]  176 	push	hl
+                            177 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00AC 2Ar04s00      [16]  178 	ld	hl, (_c + 2)
+   00AF E5            [11]  179 	push	hl
+                            180 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B0 2Ar02s00      [16]  181 	ld	hl, (_c)
+   00B3 E5            [11]  182 	push	hl
+                            183 ;	genIpush
+                            184 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B4 FD 6E 06      [19]  185 	ld	l, 6 (iy)
+                            186 ; common peephole 14 loaded 6 (iy) into l directly instead of going through a.
+   00B7 FD 66 07      [19]  187 	ld	h, 7 (iy)
+                            188 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00BA E5            [11]  189 	push	hl
+                            190 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00BB FD 6E 04      [19]  191 	ld	l, 4 (iy)
+                            192 ; common peephole 14 loaded 4 (iy) into l directly instead of going through a.
+   00BE FD 66 05      [19]  193 	ld	h, 5 (iy)
+                            194 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00C1 E5            [11]  195 	push	hl
+                            196 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00C2 FD 6E 02      [19]  197 	ld	l, 2 (iy)
+                            198 ; common peephole 14 loaded 2 (iy) into l directly instead of going through a.
+   00C5 FD 66 03      [19]  199 	ld	h, 3 (iy)
+                            200 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00C8 E5            [11]  201 	push	hl
+                            202 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00C9 FD 6E 00      [19]  203 	ld	l, 0 (iy)
+                            204 ; common peephole 14 loaded 0 (iy) into l directly instead of going through a.
+   00CC FD 66 01      [19]  205 	ld	h, 1 (iy)
+                            206 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00CF E5            [11]  207 	push	hl
+                            208 ;	genCall
+   00D0 21 12 00      [10]  209 	ld	hl, #0x0012
+   00D3 39            [11]  210 	add	hl, sp
+   00D4 E5            [11]  211 	push	hl
+   00D5 CDr00s00      [17]  212 	call	__modslonglong
+                            213 ;	adjustStack by 18
+   00D8 21 12 00      [10]  214 	ld	hl, #18
+   00DB 39            [11]  215 	add	hl, sp
+   00DC F9            [ 6]  216 	ld	sp, hl
+   00DD C1            [10]  217 	pop	bc
+                            218 ;	genCast
+                            219 ;	genMove_o size 1 result type 12 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00DE FD 21 08 00   [14]  220 	ld	iy, #8
+   00E2 FD 39         [15]  221 	add	iy, sp
+   00E4 FD 71 00      [19]  222 	ld	0 (iy), c
+                            223 ;	genMove_o size 0 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            224 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E7 78            [ 4]  225 	ld	a, b
+                            226 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E8 FD 77 01      [19]  227 	ld	1 (iy), a
+   00EB 07            [ 4]  228 	rlca
+   00EC 9F            [ 4]  229 	sbc	a, a
+   00ED FD 77 02      [19]  230 	ld	2 (iy), a
+   00F0 FD 77 03      [19]  231 	ld	3 (iy), a
+   00F3 FD 77 04      [19]  232 	ld	4 (iy), a
+   00F6 FD 77 05      [19]  233 	ld	5 (iy), a
+   00F9 FD 77 06      [19]  234 	ld	6 (iy), a
+   00FC FD 77 07      [19]  235 	ld	7 (iy), a
+                            236 ;	genIpush
+   00FF C5            [11]  237 	push	bc
+                            238 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0100 FD 6E 06      [19]  239 	ld	l, 6 (iy)
+                            240 ; common peephole 14 loaded 6 (iy) into l directly instead of going through a.
+   0103 FD 66 07      [19]  241 	ld	h, 7 (iy)
+                            242 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0106 E5            [11]  243 	push	hl
+                            244 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0107 FD 6E 04      [19]  245 	ld	l, 4 (iy)
+                            246 ; common peephole 14 loaded 4 (iy) into l directly instead of going through a.
+   010A FD 66 05      [19]  247 	ld	h, 5 (iy)
+                            248 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   010D E5            [11]  249 	push	hl
+                            250 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   010E FD 6E 02      [19]  251 	ld	l, 2 (iy)
+                            252 ; common peephole 14 loaded 2 (iy) into l directly instead of going through a.
+   0111 FD 66 03      [19]  253 	ld	h, 3 (iy)
+                            254 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0114 E5            [11]  255 	push	hl
+                            256 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0115 FD 6E 00      [19]  257 	ld	l, 0 (iy)
+                            258 ; common peephole 14 loaded 0 (iy) into l directly instead of going through a.
+   0118 FD 66 01      [19]  259 	ld	h, 1 (iy)
+                            260 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   011B E5            [11]  261 	push	hl
+                            262 ;	genIpush
+                            263 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   011C FD 21 0A 00   [14]  264 	ld	iy, #10
+   0120 FD 39         [15]  265 	add	iy, sp
+   0122 FD 6E 06      [19]  266 	ld	l, 6 (iy)
+                            267 ; common peephole 14 loaded 6 (iy) into l directly instead of going through a.
+   0125 FD 66 07      [19]  268 	ld	h, 7 (iy)
+                            269 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0128 E5            [11]  270 	push	hl
+                            271 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0129 FD 6E 04      [19]  272 	ld	l, 4 (iy)
+                            273 ; common peephole 14 loaded 4 (iy) into l directly instead of going through a.
+   012C FD 66 05      [19]  274 	ld	h, 5 (iy)
+                            275 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   012F E5            [11]  276 	push	hl
+                            277 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0130 FD 6E 02      [19]  278 	ld	l, 2 (iy)
+                            279 ; common peephole 14 loaded 2 (iy) into l directly instead of going through a.
+   0133 FD 66 03      [19]  280 	ld	h, 3 (iy)
+                            281 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0136 E5            [11]  282 	push	hl
+                            283 ;	genMove_o size 2 result type 2 source type 12 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0137 FD 6E 00      [19]  284 	ld	l, 0 (iy)
+                            285 ; common peephole 14 loaded 0 (iy) into l directly instead of going through a.
+   013A FD 66 01      [19]  286 	ld	h, 1 (iy)
+                            287 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   013D E5            [11]  288 	push	hl
+                            289 ;	genCall
+   013E 21 1A 00      [10]  290 	ld	hl, #0x001a
+   0141 39            [11]  291 	add	hl, sp
+   0142 E5            [11]  292 	push	hl
+   0143 CDr00s00      [17]  293 	call	__mullonglong
+                            294 ;	adjustStack by 18
+   0146 21 12 00      [10]  295 	ld	hl, #18
+   0149 39            [11]  296 	add	hl, sp
+   014A F9            [ 6]  297 	ld	sp, hl
+                            298 ;	genAssign
+                            299 ; common peephole 50a eliminated dead pop/push bc pair.
+   014B 11r02s00      [10]  300 	ld	de, #_c
+   014E 21 0A 00      [10]  301 	ld	hl, #10
+   0151 39            [11]  302 	add	hl, sp
+   0152 01 08 00      [10]  303 	ld	bc, #8
+   0155 ED B0         [21]  304 	ldir
+   0157 C1            [10]  305 	pop	bc
+                            306 ;cases/./../tests/gcc-torture-execute-pr85582-1.c:25: if (!e)
+                            307 ;	genIfx
+   0158 3Ar05s00      [13]  308 	ld	a, (_e+1)
+                            309 ; common peephole 54 used hl instead of iy.
+                            310 ; common peephole 130a removed unnecessary +0 from constant
+   015B 21r04s00      [10]  311 	ld	hl, #_e
+   015E B6            [ 7]  312 	or	a, (hl)
+   015F CAr7Ds00      [10]  313 	jp	z, 00104$
+                            314 ;cases/./../tests/gcc-torture-execute-pr85582-1.c:27: return;
+                            315 ;	genRet
+                            316 ;	genLabel
+                            317 ; common peephole 159 removed unused label 00107$.
+                            318 ;cases/./../tests/gcc-torture-execute-pr85582-1.c:29: }
+                            319 ;	genEndFunction
+                            320 ;	adjustStack by 16
+   0162 21 10 00      [10]  321 	ld	hl, #16
+   0165 39            [11]  322 	add	hl, sp
+   0166 F9            [ 6]  323 	ld	sp, hl
+   0167 C9            [10]  324 	ret
+                            325 ;	Total testTortureExecute function size at codegen: 15 bytes.
+                            326 ;cases/tst_gcc-torture-execute-pr85582-1.c:4: __runSuite(void)
+                            327 ;	genLabel
+                            328 ;	genFunction
+                            329 ;	---------------------------------
+                            330 ; Function __runSuite
+                            331 ; ---------------------------------
+                            332 ;	Register assignment is optimal.
+                            333 ; Stack space usage: 0 bytes.
+   0168                     334 ___runSuite::
+                            335 ;cases/tst_gcc-torture-execute-pr85582-1.c:6: __prints("Running testTortureExecute\n");
+                            336 ;	skipping iCode since result will be rematerialized
+                            337 ;	skipping iCode since result will be rematerialized
+                            338 ;	genSend
+                            339 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0168 21r71s01      [10]  340 	ld	hl, #___str_0
+                            341 ;	genCall
+   016B CDr00s00      [17]  342 	call	___prints
+                            343 ;cases/tst_gcc-torture-execute-pr85582-1.c:7: testTortureExecute();
+                            344 ;	genCall
+                            345 ;	genLabel
+                            346 ; common peephole 159 removed unused label 00101$.
+                            347 ;cases/tst_gcc-torture-execute-pr85582-1.c:8: }
+                            348 ;	genEndFunction
+   016E C3r00s00      [10]  349 	jp	_testTortureExecute
+                            350 ; common peephole 152 removed unused ret.
+                            351 ;	Total __runSuite function size at codegen: 1 bytes.
+   0171                     352 ___str_0:
+   0171 52 75 6E 6E 69 6E   353 	.ascii "Running testTortureExecute"
+        67 20 74 65 73 74
+        54 6F 72 74 75 72
+        65 45 78 65 63 75
+        74 65
+   018B 0A                  354 	.db 0x0a
+   018C 00                  355 	.db 0x00
+                            356 ;cases/tst_gcc-torture-execute-pr85582-1.c:13: __getSuiteName(void)
+                            357 ;	genLabel
+                            358 ;	genFunction
+                            359 ;	---------------------------------
+                            360 ; Function __getSuiteName
+                            361 ; ---------------------------------
+                            362 ;	Register assignment is optimal.
+                            363 ; Stack space usage: 0 bytes.
+   018D                     364 ___getSuiteName::
+                            365 ;cases/tst_gcc-torture-execute-pr85582-1.c:15: return "gcc-torture-execute-pr85582-1.c";
+                            366 ;	skipping iCode since result will be rematerialized
+                            367 ;	skipping iCode since result will be rematerialized
+                            368 ;	genRet
+                            369 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   018D 11r93s01      [10]  370 	ld	de, #___str_1
+                            371 ;	genLabel
+                            372 ; common peephole 159 removed unused label 00101$.
+                            373 ;cases/tst_gcc-torture-execute-pr85582-1.c:16: }
+                            374 ;	genEndFunction
+   0190 C9            [10]  375 	ret
+                            376 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0191                     377 ___numCases:
+   0191 01 00               378 	.dw #0x0001
+   0193                     379 ___str_1:
+   0193 67 63 63 2D 74 6F   380 	.ascii "gcc-torture-execute-pr85582-1.c"
+        72 74 75 72 65 2D
+        65 78 65 63 75 74
+        65 2D 70 72 38 35
+        35 38 32 2D 31 2E
+        63
+   01B2 00                  381 	.db 0x00
+                            382 	.area _CODE (BANK=_CSEG)
+                            383 	.area _INITIALIZER
+   0000                     384 __xinit__d:
+   0000 02 00               385 	.dw #0x0002
+   0002                     386 __xinit__c:
+   0002 01 00 00 00 00 00   387 	.byte #0x01, #0x00, #0x00, #0x00, #0x00, #0x00, #0x00, #0x00
+        00 00
+                            388 	.area _CABS (ABS)

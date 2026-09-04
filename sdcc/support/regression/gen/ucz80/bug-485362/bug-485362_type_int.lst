@@ -1,0 +1,171 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module bug_485362_type_int
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testDivBySelf
+                             11 	.globl _spoil
+                             12 	.globl ___prints
+                             13 	.globl ___numCases
+                             14 	.globl ___runSuite
+                             15 	.globl ___getSuiteName
+                             16 ;--------------------------------------------------------
+                             17 ; special function registers
+                             18 ;--------------------------------------------------------
+                             19 ;--------------------------------------------------------
+                             20 ; ram data
+                             21 ;--------------------------------------------------------
+                             22 	.area _DATA (BANK=_DSEG)
+                             23 ;--------------------------------------------------------
+                             24 ; ram data
+                             25 ;--------------------------------------------------------
+                             26 	.area _INITIALIZED
+                             27 ;--------------------------------------------------------
+                             28 ; absolute ram data
+                             29 ;--------------------------------------------------------
+                             30 	.area _DABS (ABS)
+                             31 	.area _DABS (ABS)
+                             32 ;--------------------------------------------------------
+                             33 ; global & static initialisations
+                             34 ;--------------------------------------------------------
+                             35 	.area _HOME
+                             36 	.area _GSINIT
+                             37 	.area _GSFINAL
+                             38 	.area _GSINIT
+                             39 ;--------------------------------------------------------
+                             40 ; Home
+                             41 ;--------------------------------------------------------
+                             42 	.area _HOME (BANK=_CSEG)
+                             43 	.area _HOME (BANK=_CSEG)
+                             44 ;--------------------------------------------------------
+                             45 ; code
+                             46 ;--------------------------------------------------------
+                             47 	.area _CODE (BANK=_CSEG)
+                             48 ;cases/bug-485362/bug-485362_type_int.c:7: spoil(int f)
+                             49 ;	genLabel
+                             50 ;	genFunction
+                             51 ;	---------------------------------
+                             52 ; Function spoil
+                             53 ; ---------------------------------
+                             54 ;	Register assignment is optimal.
+                             55 ; Stack space usage: 0 bytes.
+   0000                      56 _spoil::
+                             57 ;cases/bug-485362/bug-485362_type_int.c:9: UNUSED(f);
+                             58 ;	genLabel
+                             59 ; common peephole 159 removed unused label 00101$.
+                             60 ;cases/bug-485362/bug-485362_type_int.c:10: }
+                             61 ;	genEndFunction
+   0000 C9            [10]   62 	ret
+                             63 ;	Total spoil function size at codegen: 1 bytes.
+                             64 ;cases/bug-485362/bug-485362_type_int.c:13: testDivBySelf(void)
+                             65 ;	genLabel
+                             66 ;	genFunction
+                             67 ;	---------------------------------
+                             68 ; Function testDivBySelf
+                             69 ; ---------------------------------
+                             70 ;	Register assignment is optimal.
+                             71 ; Stack space usage: 4 bytes.
+   0001                      72 _testDivBySelf::
+                             73 ;	adjustStack by -4
+   0001 F5            [11]   74 	push	af
+   0002 F5            [11]   75 	push	af
+                             76 ;cases/bug-485362/bug-485362_type_int.c:17: left = 17;
+                             77 ;	genAssign
+                             78 ;fetchPairLong
+   0003 21 11 00      [10]   79 	ld	hl, #0x0011
+                             80 ;	genMove_o size 2 result type 12 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0006 E3            [19]   81 	ex	(sp), hl
+                             82 ;	genMove_o size 0 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             83 ;cases/bug-485362/bug-485362_type_int.c:18: result = left/left;
+                             84 ;	genAssign
+                             85 ;	genMove_o size 2 result type 12 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             86 ; common peephole 65 used hl instead of iy.
+                             87 ; common peephole 130a removed unnecessary +0 from constant
+   0007 21 02 00      [10]   88 	ld	hl, #2
+   000A 39            [11]   89 	add	hl, sp
+   000B 36 01         [10]   90 	ld	(hl), #0x01
+   000D 23            [ 6]   91 	inc	hl
+   000E 36 00         [10]   92 	ld	(hl), #0
+                             93 ; peephole 178 direct load zero constant to memory addressed by index register
+                             94 ;cases/bug-485362/bug-485362_type_int.c:20: spoil(result);
+                             95 ;	genDummyRead
+                             96 ; common peephole 7 removed dead load from 0 (iy) into a.
+                             97 ; common peephole 7 removed dead load from 1 (iy) into a.
+                             98 ;	genLabel
+                             99 ; common peephole 159 removed unused label 00101$.
+                            100 ;cases/bug-485362/bug-485362_type_int.c:21: }
+                            101 ;	genEndFunction
+                            102 ;	adjustStack by 4
+   0010 F1            [10]  103 	pop	af
+   0011 F1            [10]  104 	pop	af
+   0012 C9            [10]  105 	ret
+                            106 ;	Total testDivBySelf function size at codegen: 3 bytes.
+                            107 ;cases/bug-485362/bug-485362_type_int.c:24: __runSuite(void)
+                            108 ;	genLabel
+                            109 ;	genFunction
+                            110 ;	---------------------------------
+                            111 ; Function __runSuite
+                            112 ; ---------------------------------
+                            113 ;	Register assignment is optimal.
+                            114 ; Stack space usage: 0 bytes.
+   0013                     115 ___runSuite::
+                            116 ;cases/bug-485362/bug-485362_type_int.c:26: __prints("Running testDivBySelf\n");
+                            117 ;	skipping iCode since result will be rematerialized
+                            118 ;	skipping iCode since result will be rematerialized
+                            119 ;	genSend
+                            120 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0013 21r1Cs00      [10]  121 	ld	hl, #___str_0
+                            122 ;	genCall
+   0016 CDr00s00      [17]  123 	call	___prints
+                            124 ;cases/bug-485362/bug-485362_type_int.c:27: testDivBySelf();
+                            125 ;	genCall
+                            126 ;	genLabel
+                            127 ; common peephole 159 removed unused label 00101$.
+                            128 ;cases/bug-485362/bug-485362_type_int.c:28: }
+                            129 ;	genEndFunction
+   0019 C3r01s00      [10]  130 	jp	_testDivBySelf
+                            131 ; common peephole 152 removed unused ret.
+                            132 ;	Total __runSuite function size at codegen: 1 bytes.
+   001C                     133 ___str_0:
+   001C 52 75 6E 6E 69 6E   134 	.ascii "Running testDivBySelf"
+        67 20 74 65 73 74
+        44 69 76 42 79 53
+        65 6C 66
+   0031 0A                  135 	.db 0x0a
+   0032 00                  136 	.db 0x00
+                            137 ;cases/bug-485362/bug-485362_type_int.c:33: __getSuiteName(void)
+                            138 ;	genLabel
+                            139 ;	genFunction
+                            140 ;	---------------------------------
+                            141 ; Function __getSuiteName
+                            142 ; ---------------------------------
+                            143 ;	Register assignment is optimal.
+                            144 ; Stack space usage: 0 bytes.
+   0033                     145 ___getSuiteName::
+                            146 ;cases/bug-485362/bug-485362_type_int.c:35: return "bug-485362_type_int";
+                            147 ;	skipping iCode since result will be rematerialized
+                            148 ;	skipping iCode since result will be rematerialized
+                            149 ;	genRet
+                            150 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0033 11r39s00      [10]  151 	ld	de, #___str_1
+                            152 ;	genLabel
+                            153 ; common peephole 159 removed unused label 00101$.
+                            154 ;cases/bug-485362/bug-485362_type_int.c:36: }
+                            155 ;	genEndFunction
+   0036 C9            [10]  156 	ret
+                            157 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0037                     158 ___numCases:
+   0037 01 00               159 	.dw #0x0001
+   0039                     160 ___str_1:
+   0039 62 75 67 2D 34 38   161 	.ascii "bug-485362_type_int"
+        35 33 36 32 5F 74
+        79 70 65 5F 69 6E
+        74
+   004C 00                  162 	.db 0x00
+                            163 	.area _CODE (BANK=_CSEG)
+                            164 	.area _INITIALIZER
+                            165 	.area _CABS (ABS)

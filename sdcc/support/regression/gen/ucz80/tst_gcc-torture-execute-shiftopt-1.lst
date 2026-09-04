@@ -1,0 +1,474 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_gcc_torture_execute_shiftopt_1
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testTortureExecute
+                             11 	.globl _stest
+                             12 	.globl _utest
+                             13 	.globl ___prints
+                             14 	.globl ___fail
+                             15 	.globl ___numCases
+                             16 	.globl _link_error
+                             17 	.globl ___runSuite
+                             18 	.globl ___getSuiteName
+                             19 ;--------------------------------------------------------
+                             20 ; special function registers
+                             21 ;--------------------------------------------------------
+                             22 ;--------------------------------------------------------
+                             23 ; ram data
+                             24 ;--------------------------------------------------------
+                             25 	.area _DATA (BANK=_DSEG)
+                             26 ;--------------------------------------------------------
+                             27 ; ram data
+                             28 ;--------------------------------------------------------
+                             29 	.area _INITIALIZED
+                             30 ;--------------------------------------------------------
+                             31 ; absolute ram data
+                             32 ;--------------------------------------------------------
+                             33 	.area _DABS (ABS)
+                             34 	.area _DABS (ABS)
+                             35 ;--------------------------------------------------------
+                             36 ; global & static initialisations
+                             37 ;--------------------------------------------------------
+                             38 	.area _HOME
+                             39 	.area _GSINIT
+                             40 	.area _GSFINAL
+                             41 	.area _GSINIT
+                             42 ;--------------------------------------------------------
+                             43 ; Home
+                             44 ;--------------------------------------------------------
+                             45 	.area _HOME (BANK=_CSEG)
+                             46 	.area _HOME (BANK=_CSEG)
+                             47 ;--------------------------------------------------------
+                             48 ; code
+                             49 ;--------------------------------------------------------
+                             50 	.area _CODE (BANK=_CSEG)
+                             51 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:20: utest (unsigned int x)
+                             52 ;	genLabel
+                             53 ;	genFunction
+                             54 ;	---------------------------------
+                             55 ; Function utest
+                             56 ; ---------------------------------
+                             57 ;	Register assignment is optimal.
+                             58 ; Stack space usage: 0 bytes.
+   0000                      59 _utest::
+                             60 ;	genReceive
+                             61 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             62 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             63 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:22: if (x >> 0 != x)
+                             64 ;	genRightShift
+                             65 ;fetchPairLong
+                             66 ; common peephole 32b removed de/hl swap.
+   0000 5D            [ 4]   67 	ld	e, l
+   0001 54            [ 4]   68 	ld	d, h
+                             69 ;	genCmpEq
+                             70 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0002 AF            [ 4]   71 	xor	a, a
+   0003 ED 52         [15]   72 	sbc	hl, de
+                             73 ; common peephole 163 changed absolute to relative conditional jump.
+   0005 28 05         [12]   74 	jr	z, 00102$
+                             75 ; common peephole 81 removed jp by using inverse jump logic
+                             76 ; common peephole 159 removed unused label 00158$.
+                             77 ;	skipping generated iCode
+                             78 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:23: link_error ();
+                             79 ;	genCall
+   0007 D5            [11]   80 	push	de
+   0008 CDrA5s00      [17]   81 	call	_link_error
+   000B D1            [10]   82 	pop	de
+                             83 ;	genLabel
+   000C                      84 00102$:
+                             85 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:25: if (x << 0 != x)
+                             86 ;	genLeftShift
+                             87 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   000C 6B            [ 4]   88 	ld	l, e
+   000D 62            [ 4]   89 	ld	h, d
+                             90 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                             91 ;	genCmpEq
+                             92 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   000E AF            [ 4]   93 	xor	a, a
+   000F ED 52         [15]   94 	sbc	hl, de
+                             95 ; common peephole 163 changed absolute to relative conditional jump.
+   0011 28 05         [12]   96 	jr	z, 00104$
+                             97 ; common peephole 81 removed jp by using inverse jump logic
+                             98 ; common peephole 159 removed unused label 00159$.
+                             99 ;	skipping generated iCode
+                            100 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:26: link_error ();
+                            101 ;	genCall
+   0013 D5            [11]  102 	push	de
+   0014 CDrA5s00      [17]  103 	call	_link_error
+   0017 D1            [10]  104 	pop	de
+                            105 ;	genLabel
+   0018                     106 00104$:
+                            107 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:28: if (0 << x != 0)
+                            108 ;	genLeftShift
+   0018 43            [ 4]  109 	ld	b, e
+                            110 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0019 AF            [ 4]  111 	xor	a, a
+   001A 4F            [ 4]  112 	ld	c, a
+                            113 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   001B 04            [ 4]  114 	inc	b
+                            115 ; common peephole 162 changed absolute to relative unconditional jump.
+   001C 18 03         [12]  116 	jr	00161$
+   001E                     117 00160$:
+   001E 87            [ 4]  118 	add	a, a
+   001F CB 11         [ 8]  119 	rl	c
+   0021                     120 00161$:
+   0021 10 FB         [13]  121 	djnz	00160$
+                            122 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            123 ;	genIfx
+   0023 B1            [ 4]  124 	or	a, c
+                            125 ; common peephole 163 changed absolute to relative conditional jump.
+   0024 28 05         [12]  126 	jr	z, 00108$
+                            127 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:29: link_error ();
+                            128 ;	genCall
+   0026 D5            [11]  129 	push	de
+   0027 CDrA5s00      [17]  130 	call	_link_error
+   002A D1            [10]  131 	pop	de
+                            132 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:32: link_error ();
+                            133 ;	genLabel
+   002B                     134 00108$:
+                            135 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:34: if (-1 >> x != -1)
+                            136 ;	genRightShift
+   002B 43            [ 4]  137 	ld	b, e
+                            138 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   002C 0E FF         [ 7]  139 	ld	c, #0xff
+   002E 04            [ 4]  140 	inc	b
+                            141 ; common peephole 162 changed absolute to relative unconditional jump.
+   002F 18 02         [12]  142 	jr	00163$
+   0031                     143 00162$:
+   0031 CB 29         [ 8]  144 	sra	c
+   0033                     145 00163$:
+   0033 10 FC         [13]  146 	djnz	00162$
+                            147 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            148 ;	genCmpEq
+   0035 0C            [ 4]  149 	inc	c
+                            150 ; common peephole 163 changed absolute to relative conditional jump.
+   0036 28 05         [12]  151 	jr	z, 00110$
+                            152 ; common peephole 81 removed jp by using inverse jump logic
+                            153 ; common peephole 159 removed unused label 00164$.
+                            154 ;	skipping generated iCode
+                            155 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:35: link_error ();
+                            156 ;	genCall
+   0038 D5            [11]  157 	push	de
+   0039 CDrA5s00      [17]  158 	call	_link_error
+   003C D1            [10]  159 	pop	de
+                            160 ;	genLabel
+   003D                     161 00110$:
+                            162 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:37: if (~0 >> x != ~0)
+                            163 ;	genRightShift
+   003D 43            [ 4]  164 	ld	b, e
+                            165 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   003E 11 FF FF      [10]  166 	ld	de, #0xffff
+   0041 04            [ 4]  167 	inc	b
+                            168 ; common peephole 162 changed absolute to relative unconditional jump.
+   0042 18 04         [12]  169 	jr	00166$
+   0044                     170 00165$:
+   0044 CB 2A         [ 8]  171 	sra	d
+   0046 CB 1B         [ 8]  172 	rr	e
+   0048                     173 00166$:
+   0048 10 FA         [13]  174 	djnz	00165$
+                            175 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            176 ;	genCmpEq
+   004A 7B            [ 4]  177 	ld	a, e
+   004B A2            [ 4]  178 	and	a, d
+   004C 3C            [ 4]  179 	inc	a
+                            180 ; common peephole 81 removed jp by using inverse jump logic
+                            181 ; common peephole 159 removed unused label 00167$.
+                            182 ;	skipping generated iCode
+                            183 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:38: link_error ();
+                            184 ;	genCall
+                            185 ;	genLabel
+   004D C2rA5s00      [10]  186 	jp	nz, _link_error
+                            187 ; common peephole 82 removed jp by using inverse jump logic
+                            188 ; common peephole 159 removed unused label 00113$.
+                            189 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:39: }
+                            190 ;	genEndFunction
+   0050 C9            [10]  191 	ret
+                            192 ;	Total utest function size at codegen: 1 bytes.
+                            193 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:42: stest (int x)
+                            194 ;	genLabel
+                            195 ;	genFunction
+                            196 ;	---------------------------------
+                            197 ; Function stest
+                            198 ; ---------------------------------
+                            199 ;	Register assignment is optimal.
+                            200 ; Stack space usage: 0 bytes.
+   0051                     201 _stest::
+                            202 ;	genReceive
+                            203 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            204 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            205 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:44: if (x >> 0 != x)
+                            206 ;	genRightShift
+                            207 ;fetchPairLong
+                            208 ; common peephole 32b removed de/hl swap.
+   0051 5D            [ 4]  209 	ld	e, l
+   0052 54            [ 4]  210 	ld	d, h
+                            211 ;	genCmpEq
+                            212 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0053 AF            [ 4]  213 	xor	a, a
+   0054 ED 52         [15]  214 	sbc	hl, de
+                            215 ; common peephole 163 changed absolute to relative conditional jump.
+   0056 28 05         [12]  216 	jr	z, 00102$
+                            217 ; common peephole 81 removed jp by using inverse jump logic
+                            218 ; common peephole 159 removed unused label 00143$.
+                            219 ;	skipping generated iCode
+                            220 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:45: link_error ();
+                            221 ;	genCall
+   0058 D5            [11]  222 	push	de
+   0059 CDrA5s00      [17]  223 	call	_link_error
+   005C D1            [10]  224 	pop	de
+                            225 ;	genLabel
+   005D                     226 00102$:
+                            227 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:47: if (x << 0 != x)
+                            228 ;	genLeftShift
+                            229 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   005D 6B            [ 4]  230 	ld	l, e
+   005E 62            [ 4]  231 	ld	h, d
+                            232 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            233 ;	genCmpEq
+                            234 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   005F AF            [ 4]  235 	xor	a, a
+   0060 ED 52         [15]  236 	sbc	hl, de
+                            237 ; common peephole 163 changed absolute to relative conditional jump.
+   0062 28 05         [12]  238 	jr	z, 00104$
+                            239 ; common peephole 81 removed jp by using inverse jump logic
+                            240 ; common peephole 159 removed unused label 00144$.
+                            241 ;	skipping generated iCode
+                            242 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:48: link_error ();
+                            243 ;	genCall
+   0064 D5            [11]  244 	push	de
+   0065 CDrA5s00      [17]  245 	call	_link_error
+   0068 D1            [10]  246 	pop	de
+                            247 ;	genLabel
+   0069                     248 00104$:
+                            249 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:50: if (0 << x != 0)
+                            250 ;	genLeftShift
+   0069 43            [ 4]  251 	ld	b, e
+                            252 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   006A AF            [ 4]  253 	xor	a, a
+   006B 4F            [ 4]  254 	ld	c, a
+                            255 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   006C 04            [ 4]  256 	inc	b
+                            257 ; common peephole 162 changed absolute to relative unconditional jump.
+   006D 18 03         [12]  258 	jr	00146$
+   006F                     259 00145$:
+   006F 87            [ 4]  260 	add	a, a
+   0070 CB 11         [ 8]  261 	rl	c
+   0072                     262 00146$:
+   0072 10 FB         [13]  263 	djnz	00145$
+                            264 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            265 ;	genIfx
+   0074 B1            [ 4]  266 	or	a, c
+                            267 ; common peephole 163 changed absolute to relative conditional jump.
+   0075 28 05         [12]  268 	jr	z, 00106$
+                            269 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:51: link_error ();
+                            270 ;	genCall
+   0077 D5            [11]  271 	push	de
+   0078 CDrA5s00      [17]  272 	call	_link_error
+   007B D1            [10]  273 	pop	de
+                            274 ;	genLabel
+   007C                     275 00106$:
+                            276 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:53: if (0 >> x != 0)
+                            277 ;	genRightShift
+   007C 43            [ 4]  278 	ld	b, e
+                            279 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   007D AF            [ 4]  280 	xor	a, a
+   007E 5F            [ 4]  281 	ld	e, a
+   007F 04            [ 4]  282 	inc	b
+                            283 ; common peephole 162 changed absolute to relative unconditional jump.
+   0080 18 04         [12]  284 	jr	00148$
+   0082                     285 00147$:
+   0082 CB 2B         [ 8]  286 	sra	e
+   0084 CB 1F         [ 8]  287 	rr	a
+   0086                     288 00148$:
+   0086 10 FA         [13]  289 	djnz	00147$
+                            290 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            291 ;	genIfx
+   0088 B3            [ 4]  292 	or	a, e
+                            293 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:54: link_error ();
+                            294 ;	genCall
+                            295 ;	genLabel
+   0089 C2rA5s00      [10]  296 	jp	nz, _link_error
+                            297 ; common peephole 82 removed jp by using inverse jump logic
+                            298 ; common peephole 159 removed unused label 00109$.
+                            299 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:55: }
+                            300 ;	genEndFunction
+   008C C9            [10]  301 	ret
+                            302 ;	Total stest function size at codegen: 1 bytes.
+                            303 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:58: testTortureExecute (void)
+                            304 ;	genLabel
+                            305 ;	genFunction
+                            306 ;	---------------------------------
+                            307 ; Function testTortureExecute
+                            308 ; ---------------------------------
+                            309 ;	Register assignment is optimal.
+                            310 ; Stack space usage: 0 bytes.
+   008D                     311 _testTortureExecute::
+                            312 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:60: utest(9);
+                            313 ;	genSend
+                            314 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   008D 21 09 00      [10]  315 	ld	hl, #0x0009
+                            316 ;	genCall
+   0090 CDr00s00      [17]  317 	call	_utest
+                            318 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:61: utest(0);
+                            319 ;	genSend
+                            320 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0093 21 00 00      [10]  321 	ld	hl, #0x0000
+                            322 ;	genCall
+   0096 CDr00s00      [17]  323 	call	_utest
+                            324 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:63: stest(9);
+                            325 ;	genSend
+                            326 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0099 21 09 00      [10]  327 	ld	hl, #0x0009
+                            328 ;	genCall
+   009C CDr51s00      [17]  329 	call	_stest
+                            330 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:64: stest(0);
+                            331 ;	genSend
+                            332 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   009F 21 00 00      [10]  333 	ld	hl, #0x0000
+                            334 ;	genCall
+                            335 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:66: return;
+                            336 ;	genRet
+                            337 ;	genLabel
+                            338 ; common peephole 159 removed unused label 00101$.
+                            339 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:67: }
+                            340 ;	genEndFunction
+   00A2 C3r51s00      [10]  341 	jp	_stest
+                            342 ; common peephole 152 removed unused ret.
+                            343 ;	Total testTortureExecute function size at codegen: 1 bytes.
+                            344 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:70: link_error ()
+                            345 ;	genLabel
+                            346 ;	genFunction
+                            347 ;	---------------------------------
+                            348 ; Function link_error
+                            349 ; ---------------------------------
+                            350 ;	Register assignment might be sub-optimal.
+                            351 ; Stack space usage: 0 bytes.
+   00A5                     352 _link_error::
+                            353 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:72: ASSERT (0);
+                            354 ;	genPlus
+                            355 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A5 2Ar00s00      [16]  356 	ld	hl, (___numTests)
+   00A8 23            [ 6]  357 	inc	hl
+                            358 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A9 22r00s00      [16]  359 	ld	(___numTests), hl
+                            360 ;	skipping iCode since result will be rematerialized
+                            361 ;	skipping iCode since result will be rematerialized
+                            362 ;	skipping iCode since result will be rematerialized
+                            363 ;	skipping iCode since result will be rematerialized
+                            364 ;	skipping iCode since result will be rematerialized
+                            365 ;	skipping iCode since result will be rematerialized
+                            366 ;	genIpush
+                            367 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00AC 21 48 00      [10]  368 	ld	hl, #0x0048
+   00AF E5            [11]  369 	push	hl
+                            370 ;	genIpush
+                            371 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B0 21rD1s00      [10]  372 	ld	hl, #__str_2
+   00B3 E5            [11]  373 	push	hl
+                            374 ;	genSend
+                            375 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B4 11rCFs00      [10]  376 	ld	de, #__str_1
+                            377 ;	genSend
+                            378 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00B7 21rBEs00      [10]  379 	ld	hl, #__str_0
+                            380 ;	genCall
+   00BA CDr00s00      [17]  381 	call	___fail
+                            382 ;	genLabel
+                            383 ; common peephole 159 removed unused label 00101$.
+                            384 ;cases/./../tests/gcc-torture-execute-shiftopt-1.c:73: }
+                            385 ;	genEndFunction
+   00BD C9            [10]  386 	ret
+                            387 ;	Total link_error function size at codegen: 1 bytes.
+   00BE                     388 __str_0:
+   00BE 41 73 73 65 72 74   389 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   00CE 00                  390 	.db 0x00
+   00CF                     391 __str_1:
+   00CF 30                  392 	.ascii "0"
+   00D0 00                  393 	.db 0x00
+   00D1                     394 __str_2:
+   00D1 63 61 73 65 73 2F   395 	.ascii "cases/./../tests/gcc-torture-execute-shiftopt-1.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 67
+        63 63 2D 74 6F 72
+        74 75 72 65 2D 65
+        78 65 63 75 74 65
+        2D 73 68 69 66 74
+        6F 70 74 2D 31 2E
+        63
+   0102 00                  396 	.db 0x00
+                            397 ;cases/tst_gcc-torture-execute-shiftopt-1.c:4: __runSuite(void)
+                            398 ;	genLabel
+                            399 ;	genFunction
+                            400 ;	---------------------------------
+                            401 ; Function __runSuite
+                            402 ; ---------------------------------
+                            403 ;	Register assignment is optimal.
+                            404 ; Stack space usage: 0 bytes.
+   0103                     405 ___runSuite::
+                            406 ;cases/tst_gcc-torture-execute-shiftopt-1.c:6: __prints("Running testTortureExecute\n");
+                            407 ;	skipping iCode since result will be rematerialized
+                            408 ;	skipping iCode since result will be rematerialized
+                            409 ;	genSend
+                            410 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0103 21r0Cs01      [10]  411 	ld	hl, #___str_3
+                            412 ;	genCall
+   0106 CDr00s00      [17]  413 	call	___prints
+                            414 ;cases/tst_gcc-torture-execute-shiftopt-1.c:7: testTortureExecute();
+                            415 ;	genCall
+                            416 ;	genLabel
+                            417 ; common peephole 159 removed unused label 00101$.
+                            418 ;cases/tst_gcc-torture-execute-shiftopt-1.c:8: }
+                            419 ;	genEndFunction
+   0109 C3r8Ds00      [10]  420 	jp	_testTortureExecute
+                            421 ; common peephole 152 removed unused ret.
+                            422 ;	Total __runSuite function size at codegen: 1 bytes.
+   010C                     423 ___str_3:
+   010C 52 75 6E 6E 69 6E   424 	.ascii "Running testTortureExecute"
+        67 20 74 65 73 74
+        54 6F 72 74 75 72
+        65 45 78 65 63 75
+        74 65
+   0126 0A                  425 	.db 0x0a
+   0127 00                  426 	.db 0x00
+                            427 ;cases/tst_gcc-torture-execute-shiftopt-1.c:13: __getSuiteName(void)
+                            428 ;	genLabel
+                            429 ;	genFunction
+                            430 ;	---------------------------------
+                            431 ; Function __getSuiteName
+                            432 ; ---------------------------------
+                            433 ;	Register assignment is optimal.
+                            434 ; Stack space usage: 0 bytes.
+   0128                     435 ___getSuiteName::
+                            436 ;cases/tst_gcc-torture-execute-shiftopt-1.c:15: return "gcc-torture-execute-shiftopt-1.c";
+                            437 ;	skipping iCode since result will be rematerialized
+                            438 ;	skipping iCode since result will be rematerialized
+                            439 ;	genRet
+                            440 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0128 11r2Es01      [10]  441 	ld	de, #___str_4
+                            442 ;	genLabel
+                            443 ; common peephole 159 removed unused label 00101$.
+                            444 ;cases/tst_gcc-torture-execute-shiftopt-1.c:16: }
+                            445 ;	genEndFunction
+   012B C9            [10]  446 	ret
+                            447 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   012C                     448 ___numCases:
+   012C 01 00               449 	.dw #0x0001
+   012E                     450 ___str_4:
+   012E 67 63 63 2D 74 6F   451 	.ascii "gcc-torture-execute-shiftopt-1.c"
+        72 74 75 72 65 2D
+        65 78 65 63 75 74
+        65 2D 73 68 69 66
+        74 6F 70 74 2D 31
+        2E 63
+   014E 00                  452 	.db 0x00
+                            453 	.area _CODE (BANK=_CSEG)
+                            454 	.area _INITIALIZER
+                            455 	.area _CABS (ABS)

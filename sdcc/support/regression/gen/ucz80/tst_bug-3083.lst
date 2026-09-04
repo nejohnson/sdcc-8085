@@ -1,0 +1,167 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_3083
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _f
+                             12 	.globl ___prints
+                             13 	.globl _val
+                             14 	.globl _my_struct
+                             15 	.globl __integs
+                             16 	.globl ___numCases
+                             17 	.globl ___runSuite
+                             18 	.globl ___getSuiteName
+                             19 ;--------------------------------------------------------
+                             20 ; special function registers
+                             21 ;--------------------------------------------------------
+                             22 ;--------------------------------------------------------
+                             23 ; ram data
+                             24 ;--------------------------------------------------------
+                             25 	.area _DATA (BANK=_DSEG)
+   0000                      26 __integs::
+   0000                      27 	.ds 1
+   0001                      28 _my_struct::
+   0001                      29 	.ds 1
+                             30 ;--------------------------------------------------------
+                             31 ; ram data
+                             32 ;--------------------------------------------------------
+                             33 	.area _INITIALIZED
+   0000                      34 _val::
+   0000                      35 	.ds 1
+                             36 ;--------------------------------------------------------
+                             37 ; absolute ram data
+                             38 ;--------------------------------------------------------
+                             39 	.area _DABS (ABS)
+                             40 	.area _DABS (ABS)
+                             41 ;--------------------------------------------------------
+                             42 ; global & static initialisations
+                             43 ;--------------------------------------------------------
+                             44 	.area _HOME
+                             45 	.area _GSINIT
+                             46 	.area _GSFINAL
+                             47 	.area _GSINIT
+                             48 ;--------------------------------------------------------
+                             49 ; Home
+                             50 ;--------------------------------------------------------
+                             51 	.area _HOME (BANK=_CSEG)
+                             52 	.area _HOME (BANK=_CSEG)
+                             53 ;--------------------------------------------------------
+                             54 ; code
+                             55 ;--------------------------------------------------------
+                             56 	.area _CODE (BANK=_CSEG)
+                             57 ;cases/./../tests/bug-3083.c:23: void f(void)
+                             58 ;	genLabel
+                             59 ;	genFunction
+                             60 ;	---------------------------------
+                             61 ; Function f
+                             62 ; ---------------------------------
+                             63 ;	Register assignment is optimal.
+                             64 ; Stack space usage: 0 bytes.
+   0000                      65 _f::
+                             66 ;cases/./../tests/bug-3083.c:25: INTEGS |= val; // works
+                             67 ;	genOr
+   0000 3Ar00s00      [13]   68 	ld	a, (__integs+0)
+                             69 ; common peephole 54 used hl instead of iy.
+                             70 ; common peephole 130a removed unnecessary +0 from constant
+   0003 21r00s00      [10]   71 	ld	hl, #_val
+   0006 B6            [ 7]   72 	or	a, (hl)
+                             73 ;	genMove_o size 1 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0007 32r00s00      [13]   74 	ld	(__integs+0), a
+                             75 ;cases/./../tests/bug-3083.c:26: INTEGS |= my_struct.val; // error
+                             76 ;	genAddrOf
+   000A 21r01s00      [10]   77 	ld	hl, #_my_struct+0
+                             78 ;	genPointerGet
+   000D 4E            [ 7]   79 	ld	c, (hl)
+                             80 ;	genOr
+   000E 3Ar00s00      [13]   81 	ld	a, (__integs+0)
+   0011 B1            [ 4]   82 	or	a, c
+                             83 ;	genMove_o size 1 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0012 32r00s00      [13]   84 	ld	(__integs+0), a
+                             85 ;	genLabel
+                             86 ; common peephole 159 removed unused label 00101$.
+                             87 ;cases/./../tests/bug-3083.c:27: }
+                             88 ;	genEndFunction
+   0015 C9            [10]   89 	ret
+                             90 ;	Total f function size at codegen: 1 bytes.
+                             91 ;cases/./../tests/bug-3083.c:30: testBug(void)
+                             92 ;	genLabel
+                             93 ;	genFunction
+                             94 ;	---------------------------------
+                             95 ; Function testBug
+                             96 ; ---------------------------------
+                             97 ;	Register assignment is optimal.
+                             98 ; Stack space usage: 0 bytes.
+   0016                      99 _testBug::
+                            100 ;cases/./../tests/bug-3083.c:32: }
+                            101 ;	genLabel
+                            102 ; common peephole 159 removed unused label 00101$.
+                            103 ;	genEndFunction
+   0016 C9            [10]  104 	ret
+                            105 ;	Total testBug function size at codegen: 1 bytes.
+                            106 ;cases/tst_bug-3083.c:4: __runSuite(void)
+                            107 ;	genLabel
+                            108 ;	genFunction
+                            109 ;	---------------------------------
+                            110 ; Function __runSuite
+                            111 ; ---------------------------------
+                            112 ;	Register assignment is optimal.
+                            113 ; Stack space usage: 0 bytes.
+   0017                     114 ___runSuite::
+                            115 ;cases/tst_bug-3083.c:6: __prints("Running testBug\n");
+                            116 ;	skipping iCode since result will be rematerialized
+                            117 ;	skipping iCode since result will be rematerialized
+                            118 ;	genSend
+                            119 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0017 21r1Ds00      [10]  120 	ld	hl, #___str_0
+                            121 ;	genCall
+                            122 ;cases/tst_bug-3083.c:7: testBug();
+                            123 ;	genLabel
+                            124 ; common peephole 159 removed unused label 00101$.
+                            125 ;cases/tst_bug-3083.c:8: }
+                            126 ;	genEndFunction
+   001A C3r00s00      [10]  127 	jp	___prints
+                            128 ; common peephole 152 removed unused ret.
+                            129 ;	Total __runSuite function size at codegen: 1 bytes.
+   001D                     130 ___str_0:
+   001D 52 75 6E 6E 69 6E   131 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   002C 0A                  132 	.db 0x0a
+   002D 00                  133 	.db 0x00
+                            134 ;cases/tst_bug-3083.c:13: __getSuiteName(void)
+                            135 ;	genLabel
+                            136 ;	genFunction
+                            137 ;	---------------------------------
+                            138 ; Function __getSuiteName
+                            139 ; ---------------------------------
+                            140 ;	Register assignment is optimal.
+                            141 ; Stack space usage: 0 bytes.
+   002E                     142 ___getSuiteName::
+                            143 ;cases/tst_bug-3083.c:15: return "bug-3083.c";
+                            144 ;	skipping iCode since result will be rematerialized
+                            145 ;	skipping iCode since result will be rematerialized
+                            146 ;	genRet
+                            147 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002E 11r34s00      [10]  148 	ld	de, #___str_1
+                            149 ;	genLabel
+                            150 ; common peephole 159 removed unused label 00101$.
+                            151 ;cases/tst_bug-3083.c:16: }
+                            152 ;	genEndFunction
+   0031 C9            [10]  153 	ret
+                            154 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0032                     155 ___numCases:
+   0032 01 00               156 	.dw #0x0001
+   0034                     157 ___str_1:
+   0034 62 75 67 2D 33 30   158 	.ascii "bug-3083.c"
+        38 33 2E 63
+   003E 00                  159 	.db 0x00
+                            160 	.area _CODE (BANK=_CSEG)
+                            161 	.area _INITIALIZER
+   0000                     162 __xinit__val:
+   0000 7B                  163 	.db #0x7b	; 123
+                            164 	.area _CABS (ABS)

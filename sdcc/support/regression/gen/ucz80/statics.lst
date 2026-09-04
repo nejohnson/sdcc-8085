@@ -1,0 +1,355 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module statics
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _get_indexed
+                             11 	.globl _get_float_1
+                             12 	.globl _get_long_1
+                             13 ;--------------------------------------------------------
+                             14 ; special function registers
+                             15 ;--------------------------------------------------------
+                             16 ;--------------------------------------------------------
+                             17 ; ram data
+                             18 ;--------------------------------------------------------
+                             19 	.area _DATA (BANK=_DSEG)
+                             20 ;--------------------------------------------------------
+                             21 ; ram data
+                             22 ;--------------------------------------------------------
+                             23 	.area _INITIALIZED
+   0000                      24 _long_1:
+   0000                      25 	.ds 4
+   0004                      26 _float_1:
+   0004                      27 	.ds 4
+                             28 ;--------------------------------------------------------
+                             29 ; absolute ram data
+                             30 ;--------------------------------------------------------
+                             31 	.area _DABS (ABS)
+                             32 	.area _DABS (ABS)
+                             33 ;--------------------------------------------------------
+                             34 ; global & static initialisations
+                             35 ;--------------------------------------------------------
+                             36 	.area _HOME
+                             37 	.area _GSINIT
+                             38 	.area _GSFINAL
+                             39 	.area _GSINIT
+                             40 ;--------------------------------------------------------
+                             41 ; Home
+                             42 ;--------------------------------------------------------
+                             43 	.area _HOME (BANK=_CSEG)
+                             44 	.area _HOME (BANK=_CSEG)
+                             45 ;--------------------------------------------------------
+                             46 ; code
+                             47 ;--------------------------------------------------------
+                             48 	.area _CODE (BANK=_CSEG)
+                             49 ;fwk/lib/statics.c:5: static long s_get_long_1(void)
+                             50 ;	genLabel
+                             51 ;	genFunction
+                             52 ;	---------------------------------
+                             53 ; Function s_get_long_1
+                             54 ; ---------------------------------
+                             55 ;	Register assignment might be sub-optimal.
+                             56 ; Stack space usage: 8 bytes.
+   0000                      57 _s_get_long_1:
+   0000 DD E5         [15]   58 	push	ix
+   0002 DD 21 00 00   [14]   59 	ld	ix,	#0
+   0006 DD 39         [15]   60 	add	ix, sp
+                             61 ;	adjustStack by -8
+   0008 21 F8 FF      [10]   62 	ld	hl, #-8
+   000B 39            [11]   63 	add	hl, sp
+                             64 ;fwk/lib/statics.c:7: long alfa = long_1;
+                             65 ;	genAssign
+   000C F9            [ 6]   66 	ld	sp, hl
+                             67 ; common peephole 9c reused value still in hl.
+   000D EB            [ 4]   68 	ex	de, hl
+   000E 21r00s00      [10]   69 	ld	hl, #_long_1
+   0011 01 04 00      [10]   70 	ld	bc, #4
+   0014 ED B0         [21]   71 	ldir
+                             72 ;fwk/lib/statics.c:8: long beta = long_1 + alfa;
+                             73 ;	genPlus
+   0016 DD 7E F8      [19]   74 	ld	a, -8 (ix)
+                             75 ;	Shift into pair
+   0019 21r00s00      [10]   76 	ld	hl, #_long_1
+   001C 86            [ 7]   77 	add	a, (hl)
+   001D 5F            [ 4]   78 	ld	e, a
+   001E DD 7E F9      [19]   79 	ld	a, -7 (ix)
+   0021 23            [ 6]   80 	inc	hl
+   0022 8E            [ 7]   81 	adc	a, (hl)
+   0023 57            [ 4]   82 	ld	d, a
+   0024 DD 7E FA      [19]   83 	ld	a, -6 (ix)
+   0027 23            [ 6]   84 	inc	hl
+   0028 8E            [ 7]   85 	adc	a, (hl)
+   0029 4F            [ 4]   86 	ld	c, a
+   002A DD 7E FB      [19]   87 	ld	a, -5 (ix)
+   002D 23            [ 6]   88 	inc	hl
+   002E 8E            [ 7]   89 	adc	a, (hl)
+   002F 47            [ 4]   90 	ld	b, a
+                             91 ;fwk/lib/statics.c:9: long gamma = long_1 + beta;
+                             92 ;	genPlus
+   0030 7B            [ 4]   93 	ld	a, e
+                             94 ;	Shift into pair
+   0031 21r00s00      [10]   95 	ld	hl, #_long_1
+   0034 86            [ 7]   96 	add	a, (hl)
+   0035 DD 77 FC      [19]   97 	ld	-4 (ix), a
+                             98 ; common peephole 96b move inc hl before ld a, d
+   0038 23            [ 6]   99 	inc	hl
+   0039 7A            [ 4]  100 	ld	a, d
+   003A 8E            [ 7]  101 	adc	a, (hl)
+   003B DD 77 FD      [19]  102 	ld	-3 (ix), a
+                            103 ; common peephole 96b move inc hl before ld a, c
+   003E 23            [ 6]  104 	inc	hl
+   003F 79            [ 4]  105 	ld	a, c
+   0040 8E            [ 7]  106 	adc	a, (hl)
+   0041 DD 77 FE      [19]  107 	ld	-2 (ix), a
+                            108 ; common peephole 96b move inc hl before ld a, b
+   0044 23            [ 6]  109 	inc	hl
+   0045 78            [ 4]  110 	ld	a, b
+   0046 8E            [ 7]  111 	adc	a, (hl)
+   0047 DD 77 FF      [19]  112 	ld	-1 (ix), a
+                            113 ;fwk/lib/statics.c:10: return alfa + beta + gamma;
+                            114 ;	genPlus
+   004A DD 7E F8      [19]  115 	ld	a, -8 (ix)
+   004D 83            [ 4]  116 	add	a, e
+   004E 5F            [ 4]  117 	ld	e, a
+   004F DD 7E F9      [19]  118 	ld	a, -7 (ix)
+   0052 8A            [ 4]  119 	adc	a, d
+   0053 57            [ 4]  120 	ld	d, a
+   0054 DD 7E FA      [19]  121 	ld	a, -6 (ix)
+   0057 89            [ 4]  122 	adc	a, c
+   0058 4F            [ 4]  123 	ld	c, a
+   0059 DD 7E FB      [19]  124 	ld	a, -5 (ix)
+   005C 88            [ 4]  125 	adc	a, b
+   005D 47            [ 4]  126 	ld	b, a
+                            127 ;	genPlus
+   005E 7B            [ 4]  128 	ld	a, e
+   005F DD 86 FC      [19]  129 	add	a, -4 (ix)
+   0062 5F            [ 4]  130 	ld	e, a
+   0063 7A            [ 4]  131 	ld	a, d
+   0064 DD 8E FD      [19]  132 	adc	a, -3 (ix)
+   0067 57            [ 4]  133 	ld	d, a
+   0068 79            [ 4]  134 	ld	a, c
+   0069 DD 8E FE      [19]  135 	adc	a, -2 (ix)
+   006C 6F            [ 4]  136 	ld	l, a
+   006D 78            [ 4]  137 	ld	a, b
+   006E DD 8E FF      [19]  138 	adc	a, -1 (ix)
+   0071 67            [ 4]  139 	ld	h, a
+                            140 ;	genRet
+                            141 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            142 ;	genLabel
+                            143 ; common peephole 159 removed unused label 00101$.
+                            144 ;fwk/lib/statics.c:11: }
+                            145 ;	genEndFunction
+   0072 DD F9         [10]  146 	ld	sp, ix
+   0074 DD E1         [14]  147 	pop	ix
+   0076 C9            [10]  148 	ret
+                            149 ;	Total s_get_long_1 function size at codegen: 14 bytes.
+                            150 ;fwk/lib/statics.c:13: long get_long_1(void)
+                            151 ;	genLabel
+                            152 ;	genFunction
+                            153 ;	---------------------------------
+                            154 ; Function get_long_1
+                            155 ; ---------------------------------
+                            156 ;	Register assignment is optimal.
+                            157 ; Stack space usage: 0 bytes.
+   0077                     158 _get_long_1::
+                            159 ;fwk/lib/statics.c:15: return s_get_long_1();
+                            160 ;	genCall
+                            161 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            162 ;	genRet
+                            163 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            164 ;	genLabel
+                            165 ; common peephole 159 removed unused label 00101$.
+                            166 ;fwk/lib/statics.c:16: }
+                            167 ;	genEndFunction
+   0077 C3r00s00      [10]  168 	jp	_s_get_long_1
+                            169 ; common peephole 152 removed unused ret.
+                            170 ;	Total get_long_1 function size at codegen: 1 bytes.
+                            171 ;fwk/lib/statics.c:20: static float s_get_float_1(void)
+                            172 ;	genLabel
+                            173 ;	genFunction
+                            174 ;	---------------------------------
+                            175 ; Function s_get_float_1
+                            176 ; ---------------------------------
+                            177 ;	Register assignment might be sub-optimal.
+                            178 ; Stack space usage: 4 bytes.
+   007A                     179 _s_get_float_1:
+   007A DD E5         [15]  180 	push	ix
+   007C DD 21 00 00   [14]  181 	ld	ix,	#0
+   0080 DD 39         [15]  182 	add	ix, sp
+                            183 ;	adjustStack by -4
+   0082 F5            [11]  184 	push	af
+   0083 F5            [11]  185 	push	af
+                            186 ;fwk/lib/statics.c:22: float alfa = float_1;
+                            187 ;	genAssign
+                            188 ;	genMove_o size 4 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0084 ED 4Br04s00   [20]  189 	ld	bc, (_float_1)
+   0088 2Ar06s00      [16]  190 	ld	hl, (_float_1 + 2)
+                            191 ;fwk/lib/statics.c:23: float beta = float_1 + alfa;
+                            192 ;	genIpush
+   008B E5            [11]  193 	push	hl
+   008C C5            [11]  194 	push	bc
+   008D E5            [11]  195 	push	hl
+   008E C5            [11]  196 	push	bc
+                            197 ;	genSend
+                            198 ;	genMove_o size 4 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   008F ED 5Br04s00   [20]  199 	ld	de, (_float_1)
+   0093 2Ar06s00      [16]  200 	ld	hl, (_float_1 + 2)
+                            201 ;fwk/lib/statics.c:24: float gamma = float_1 + beta;
+                            202 ;	genCall
+   0096 CDr00s00      [17]  203 	call	___fsadd
+                            204 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0099 E5            [11]  205 	push	hl
+   009A FD E1         [14]  206 	pop	iy
+                            207 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            208 ;	genIpush
+                            209 ; common peephole 50a eliminated dead pop/push hl pair.
+                            210 ; common peephole 50a eliminated dead pop/push bc pair.
+   009C D5            [11]  211 	push	de
+   009D FD E5         [15]  212 	push	iy
+   009F FD E5         [15]  213 	push	iy
+   00A1 D5            [11]  214 	push	de
+                            215 ;	genSend
+                            216 ;	genMove_o size 4 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   00A2 ED 5Br04s00   [20]  217 	ld	de, (_float_1)
+   00A6 2Ar06s00      [16]  218 	ld	hl, (_float_1 + 2)
+                            219 ;fwk/lib/statics.c:25: return alfa + beta + gamma;
+                            220 ;	genCall
+   00A9 CDr00s00      [17]  221 	call	___fsadd
+                            222 ;	genMove_o size 4 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00AC DD 73 FC      [19]  223 	ld	-4 (ix), e
+   00AF DD 72 FD      [19]  224 	ld	-3 (ix), d
+   00B2 DD 75 FE      [19]  225 	ld	-2 (ix), l
+   00B5 DD 74 FF      [19]  226 	ld	-1 (ix), h
+                            227 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B8 FD E1         [14]  228 	pop	iy
+   00BA D1            [10]  229 	pop	de
+   00BB C1            [10]  230 	pop	bc
+   00BC E1            [10]  231 	pop	hl
+                            232 ;	genIpush
+   00BD FD E5         [15]  233 	push	iy
+   00BF D5            [11]  234 	push	de
+                            235 ;	genSend
+                            236 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00C0 59            [ 4]  237 	ld	e, c
+   00C1 50            [ 4]  238 	ld	d, b
+                            239 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            240 ;	genCall
+   00C2 CDr00s00      [17]  241 	call	___fsadd
+                            242 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            243 ;	genIpush
+                            244 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   00C5 DD 4E FE      [19]  245 	ld	c, -2 (ix)
+   00C8 DD 46 FF      [19]  246 	ld	b, -1 (ix)
+                            247 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   00CB C5            [11]  248 	push	bc
+                            249 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   00CC DD 4E FC      [19]  250 	ld	c, -4 (ix)
+   00CF DD 46 FD      [19]  251 	ld	b, -3 (ix)
+                            252 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   00D2 C5            [11]  253 	push	bc
+                            254 ;	genSend
+                            255 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            256 ;	genCall
+   00D3 CDr00s00      [17]  257 	call	___fsadd
+                            258 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            259 ;	genRet
+                            260 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            261 ;	genLabel
+                            262 ; common peephole 159 removed unused label 00101$.
+                            263 ;fwk/lib/statics.c:26: }
+                            264 ;	genEndFunction
+   00D6 DD F9         [10]  265 	ld	sp, ix
+   00D8 DD E1         [14]  266 	pop	ix
+   00DA C9            [10]  267 	ret
+                            268 ;	Total s_get_float_1 function size at codegen: 5 bytes.
+                            269 ;fwk/lib/statics.c:28: float get_float_1(void)
+                            270 ;	genLabel
+                            271 ;	genFunction
+                            272 ;	---------------------------------
+                            273 ; Function get_float_1
+                            274 ; ---------------------------------
+                            275 ;	Register assignment is optimal.
+                            276 ; Stack space usage: 0 bytes.
+   00DB                     277 _get_float_1::
+                            278 ;fwk/lib/statics.c:30: return s_get_float_1();
+                            279 ;	genCall
+                            280 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            281 ;	genRet
+                            282 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            283 ;	genLabel
+                            284 ; common peephole 159 removed unused label 00101$.
+                            285 ;fwk/lib/statics.c:31: }
+                            286 ;	genEndFunction
+   00DB C3r7As00      [10]  287 	jp	_s_get_float_1
+                            288 ; common peephole 152 removed unused ret.
+                            289 ;	Total get_float_1 function size at codegen: 1 bytes.
+                            290 ;fwk/lib/statics.c:34: static char s_get_indexed(char index, char *msg)
+                            291 ;	genLabel
+                            292 ;	genFunction
+                            293 ;	---------------------------------
+                            294 ; Function s_get_indexed
+                            295 ; ---------------------------------
+                            296 ;	Register assignment might be sub-optimal.
+                            297 ; Stack space usage: 0 bytes.
+   00DE                     298 _s_get_indexed:
+                            299 ;	genReceive
+                            300 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            301 ;	genReceive
+                            302 ;	genMove_o size 2 result type 2 source type 2 a_dead 0 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            303 ;fwk/lib/statics.c:36: return msg[index];
+                            304 ;	genPlus
+                            305 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00DE 6F            [ 4]  306 	ld	l, a
+                            307 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   00DF 26 00         [ 7]  308 	ld	h, #0x00
+   00E1 19            [11]  309 	add	hl, de
+                            310 ;	genPointerGet
+   00E2 7E            [ 7]  311 	ld	a, (hl)
+                            312 ;	genRet
+                            313 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            314 ;	genLabel
+                            315 ; common peephole 159 removed unused label 00101$.
+                            316 ;fwk/lib/statics.c:37: }
+                            317 ;	genEndFunction
+   00E3 C9            [10]  318 	ret
+                            319 ;	Total s_get_indexed function size at codegen: 1 bytes.
+                            320 ;fwk/lib/statics.c:39: char get_indexed(char index, char *msg)
+                            321 ;	genLabel
+                            322 ;	genFunction
+                            323 ;	---------------------------------
+                            324 ; Function get_indexed
+                            325 ; ---------------------------------
+                            326 ;	Register assignment is optimal.
+                            327 ; Stack space usage: 0 bytes.
+   00E4                     328 _get_indexed::
+                            329 ;	genReceive
+                            330 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            331 ;	genReceive
+                            332 ;	genMove_o size 2 result type 2 source type 2 a_dead 0 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            333 ;fwk/lib/statics.c:41: return s_get_indexed(index, msg);
+                            334 ;	genSend
+                            335 ;	genMove_o size 2 result type 2 source type 2 a_dead 0 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            336 ;	genSend
+                            337 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            338 ;	genCall
+                            339 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            340 ;	genRet
+                            341 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            342 ;	genLabel
+                            343 ; common peephole 159 removed unused label 00101$.
+                            344 ;fwk/lib/statics.c:42: }
+                            345 ;	genEndFunction
+   00E4 C3rDEs00      [10]  346 	jp	_s_get_indexed
+                            347 ; common peephole 152 removed unused ret.
+                            348 ;	Total get_indexed function size at codegen: 1 bytes.
+                            349 	.area _CODE (BANK=_CSEG)
+                            350 	.area _INITIALIZER
+   0000                     351 __xinit__long_1:
+   0000 01 00 00 00         352 	.byte #0x01, #0x00, #0x00, #0x00	;  1
+   0004                     353 __xinit__float_1:
+   0004 00 00 80 3F         354 	.byte #0x00, #0x00, #0x80, #0x3f	;  1.000000e+00
+                            355 	.area _CABS (ABS)

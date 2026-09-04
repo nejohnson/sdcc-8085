@@ -1,0 +1,889 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module reentrant_type_float
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testReent
+                             11 	.globl _fib
+                             12 	.globl _div2n
+                             13 	.globl _fact
+                             14 	.globl _sum
+                             15 	.globl ___prints
+                             16 	.globl ___fail
+                             17 	.globl ___numCases
+                             18 	.globl ___runSuite
+                             19 	.globl ___getSuiteName
+                             20 ;--------------------------------------------------------
+                             21 ; special function registers
+                             22 ;--------------------------------------------------------
+                             23 ;--------------------------------------------------------
+                             24 ; ram data
+                             25 ;--------------------------------------------------------
+                             26 	.area _DATA (BANK=_DSEG)
+                             27 ;--------------------------------------------------------
+                             28 ; ram data
+                             29 ;--------------------------------------------------------
+                             30 	.area _INITIALIZED
+                             31 ;--------------------------------------------------------
+                             32 ; absolute ram data
+                             33 ;--------------------------------------------------------
+                             34 	.area _DABS (ABS)
+                             35 	.area _DABS (ABS)
+                             36 ;--------------------------------------------------------
+                             37 ; global & static initialisations
+                             38 ;--------------------------------------------------------
+                             39 	.area _HOME
+                             40 	.area _GSINIT
+                             41 	.area _GSFINAL
+                             42 	.area _GSINIT
+                             43 ;--------------------------------------------------------
+                             44 ; Home
+                             45 ;--------------------------------------------------------
+                             46 	.area _HOME (BANK=_CSEG)
+                             47 	.area _HOME (BANK=_CSEG)
+                             48 ;--------------------------------------------------------
+                             49 ; code
+                             50 ;--------------------------------------------------------
+                             51 	.area _CODE (BANK=_CSEG)
+                             52 ;cases/reentrant/reentrant_type_float.c:12: float sum(float a) __reentrant
+                             53 ;	genLabel
+                             54 ;	genFunction
+                             55 ;	---------------------------------
+                             56 ; Function sum
+                             57 ; ---------------------------------
+                             58 ;	Register assignment might be sub-optimal.
+                             59 ; Stack space usage: 8 bytes.
+   0000                      60 _sum::
+   0000 DD E5         [15]   61 	push	ix
+   0002 DD 21 00 00   [14]   62 	ld	ix,	#0
+   0006 DD 39         [15]   63 	add	ix, sp
+                             64 ;	adjustStack by -8
+   0008 FD 21 F8 FF   [14]   65 	ld	iy, #-8
+   000C FD 39         [15]   66 	add	iy, sp
+   000E FD F9         [10]   67 	ld	sp, iy
+                             68 ;	genReceive
+                             69 ;	genMove_o size 4 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0010 DD 73 FC      [19]   70 	ld	-4 (ix), e
+   0013 DD 72 FD      [19]   71 	ld	-3 (ix), d
+                             72 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             73 ;cases/reentrant/reentrant_type_float.c:14: if(a>1) return a+sum(a-1);
+                             74 ;	genIpush
+                             75 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0016 DD 75 FE      [19]   76 	ld	-2 (ix), l
+   0019 DD 74 FF      [19]   77 	ld	-1 (ix), h
+                             78 ; common peephole 11 loaded lh from lh directly instead of going through -2 (ix) -1 (ix).
+                             79 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             80 ; common peephole 29 pushed hl directly instead of going through hl.
+   001C E5            [11]   81 	push	hl
+                             82 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001D DD 6E FC      [19]   83 	ld	l, -4 (ix)
+   0020 DD 66 FD      [19]   84 	ld	h, -3 (ix)
+                             85 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0023 E5            [11]   86 	push	hl
+                             87 ;	genSend
+                             88 ;	genMove_o size 4 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0024 11 00 00      [10]   89 	ld	de, #0x0000
+   0027 21 80 3F      [10]   90 	ld	hl, #0x3f80
+                             91 ;	genCall
+   002A CDr00s00      [17]   92 	call	___fslt
+                             93 ;	genMove_o size 1 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             94 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             95 ;	genIfx
+                             96 ; common peephole 33 loaded a from a instead of going through -5 (ix).
+   002D DD 77 FB      [19]   97 	ld	-5 (ix), a
+                             98 ; common peephole 0a removed redundant load from a into a.
+   0030 B7            [ 4]   99 	or	a, a
+                            100 ; common peephole 163 changed absolute to relative conditional jump.
+   0031 28 55         [12]  101 	jr	z, 00102$
+                            102 ;	genIpush
+                            103 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0033 21 80 3F      [10]  104 	ld	hl, #0x3f80
+   0036 E5            [11]  105 	push	hl
+                            106 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0037 21 00 00      [10]  107 	ld	hl, #0x0000
+   003A E5            [11]  108 	push	hl
+                            109 ;	genSend
+                            110 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   003B DD 5E FC      [19]  111 	ld	e, -4 (ix)
+   003E DD 56 FD      [19]  112 	ld	d, -3 (ix)
+   0041 DD 6E FE      [19]  113 	ld	l, -2 (ix)
+   0044 DD 66 FF      [19]  114 	ld	h, -1 (ix)
+                            115 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            116 ;	genCall
+   0047 CDr00s00      [17]  117 	call	___fssub
+                            118 ;	genMove_o size 4 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   004A 33            [ 6]  119 	inc	sp
+   004B 33            [ 6]  120 	inc	sp
+   004C D5            [11]  121 	push	de
+   004D DD 75 FA      [19]  122 	ld	-6 (ix), l
+   0050 DD 74 FB      [19]  123 	ld	-5 (ix), h
+                            124 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            125 ;	genSend
+                            126 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0053 D1            [10]  127 	pop	de
+   0054 E1            [10]  128 	pop	hl
+   0055 E5            [11]  129 	push	hl
+   0056 D5            [11]  130 	push	de
+                            131 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            132 ;	genCall
+   0057 CDr00s00      [17]  133 	call	_sum
+                            134 ;	genMove_o size 4 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   005A 33            [ 6]  135 	inc	sp
+   005B 33            [ 6]  136 	inc	sp
+   005C D5            [11]  137 	push	de
+   005D DD 75 FA      [19]  138 	ld	-6 (ix), l
+   0060 DD 74 FB      [19]  139 	ld	-5 (ix), h
+                            140 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            141 ;	genIpush
+                            142 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0063 D1            [10]  143 	pop	de
+   0064 E1            [10]  144 	pop	hl
+                            145 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            146 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            147 ; common peephole 156 used ex to load hl into de.
+                            148 ; common peephole 26b moved push after de/hl swap.
+                            149 ; common peephole 26c moved push after de/hl swap.
+   0065 EB            [ 4]  150 	ex	de, hl
+   0066 D5            [11]  151 	push	de
+                            152 ; common peephole 52a replaced push/pop pair by loads.
+                            153 ; common peephole 50b eliminated dead push/pop pair.
+   0067 E5            [11]  154 	push	hl
+   0068 D5            [11]  155 	push	de
+                            156 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0069 E5            [11]  157 	push	hl
+                            158 ;	genSend
+                            159 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   006A DD 5E FC      [19]  160 	ld	e, -4 (ix)
+   006D DD 56 FD      [19]  161 	ld	d, -3 (ix)
+   0070 DD 6E FE      [19]  162 	ld	l, -2 (ix)
+   0073 DD 66 FF      [19]  163 	ld	h, -1 (ix)
+                            164 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            165 ;	genCall
+   0076 CDr00s00      [17]  166 	call	___fsadd
+                            167 ;	genMove_o size 4 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0079 33            [ 6]  168 	inc	sp
+   007A 33            [ 6]  169 	inc	sp
+   007B D5            [11]  170 	push	de
+   007C DD 75 FA      [19]  171 	ld	-6 (ix), l
+   007F DD 74 FB      [19]  172 	ld	-5 (ix), h
+                            173 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            174 ;	genRet
+                            175 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0082 D1            [10]  176 	pop	de
+   0083 E1            [10]  177 	pop	hl
+   0084 E5            [11]  178 	push	hl
+   0085 D5            [11]  179 	push	de
+                            180 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            181 ; common peephole 162 changed absolute to relative unconditional jump.
+   0086 18 06         [12]  182 	jr	00103$
+                            183 ;	genLabel
+   0088                     184 00102$:
+                            185 ;cases/reentrant/reentrant_type_float.c:15: return 1;
+                            186 ;	genRet
+                            187 ;	genMove_o size 4 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0088 11 00 00      [10]  188 	ld	de, #0x0000
+   008B 21 80 3F      [10]  189 	ld	hl, #0x3f80
+                            190 ;	genLabel
+   008E                     191 00103$:
+                            192 ;cases/reentrant/reentrant_type_float.c:16: }
+                            193 ;	genEndFunction
+   008E DD F9         [10]  194 	ld	sp, ix
+   0090 DD E1         [14]  195 	pop	ix
+   0092 C9            [10]  196 	ret
+                            197 ;	Total sum function size at codegen: 5 bytes.
+                            198 ;cases/reentrant/reentrant_type_float.c:18: float fact(float a) __reentrant
+                            199 ;	genLabel
+                            200 ;	genFunction
+                            201 ;	---------------------------------
+                            202 ; Function fact
+                            203 ; ---------------------------------
+                            204 ;	Register assignment might be sub-optimal.
+                            205 ; Stack space usage: 8 bytes.
+   0093                     206 _fact::
+   0093 DD E5         [15]  207 	push	ix
+   0095 DD 21 00 00   [14]  208 	ld	ix,	#0
+   0099 DD 39         [15]  209 	add	ix, sp
+                            210 ;	adjustStack by -8
+   009B FD 21 F8 FF   [14]  211 	ld	iy, #-8
+   009F FD 39         [15]  212 	add	iy, sp
+   00A1 FD F9         [10]  213 	ld	sp, iy
+                            214 ;	genReceive
+                            215 ;	genMove_o size 4 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A3 DD 73 FC      [19]  216 	ld	-4 (ix), e
+   00A6 DD 72 FD      [19]  217 	ld	-3 (ix), d
+                            218 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            219 ;cases/reentrant/reentrant_type_float.c:20: if(a>1) return a*fact(a-1);
+                            220 ;	genIpush
+                            221 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A9 DD 75 FE      [19]  222 	ld	-2 (ix), l
+   00AC DD 74 FF      [19]  223 	ld	-1 (ix), h
+                            224 ; common peephole 11 loaded lh from lh directly instead of going through -2 (ix) -1 (ix).
+                            225 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            226 ; common peephole 29 pushed hl directly instead of going through hl.
+   00AF E5            [11]  227 	push	hl
+                            228 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B0 DD 6E FC      [19]  229 	ld	l, -4 (ix)
+   00B3 DD 66 FD      [19]  230 	ld	h, -3 (ix)
+                            231 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B6 E5            [11]  232 	push	hl
+                            233 ;	genSend
+                            234 ;	genMove_o size 4 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B7 11 00 00      [10]  235 	ld	de, #0x0000
+   00BA 21 80 3F      [10]  236 	ld	hl, #0x3f80
+                            237 ;	genCall
+   00BD CDr00s00      [17]  238 	call	___fslt
+                            239 ;	genMove_o size 1 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            240 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            241 ;	genIfx
+                            242 ; common peephole 33 loaded a from a instead of going through -5 (ix).
+   00C0 DD 77 FB      [19]  243 	ld	-5 (ix), a
+                            244 ; common peephole 0a removed redundant load from a into a.
+   00C3 B7            [ 4]  245 	or	a, a
+                            246 ; common peephole 163 changed absolute to relative conditional jump.
+   00C4 28 55         [12]  247 	jr	z, 00102$
+                            248 ;	genIpush
+                            249 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00C6 21 80 3F      [10]  250 	ld	hl, #0x3f80
+   00C9 E5            [11]  251 	push	hl
+                            252 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00CA 21 00 00      [10]  253 	ld	hl, #0x0000
+   00CD E5            [11]  254 	push	hl
+                            255 ;	genSend
+                            256 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00CE DD 5E FC      [19]  257 	ld	e, -4 (ix)
+   00D1 DD 56 FD      [19]  258 	ld	d, -3 (ix)
+   00D4 DD 6E FE      [19]  259 	ld	l, -2 (ix)
+   00D7 DD 66 FF      [19]  260 	ld	h, -1 (ix)
+                            261 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            262 ;	genCall
+   00DA CDr00s00      [17]  263 	call	___fssub
+                            264 ;	genMove_o size 4 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00DD 33            [ 6]  265 	inc	sp
+   00DE 33            [ 6]  266 	inc	sp
+   00DF D5            [11]  267 	push	de
+   00E0 DD 75 FA      [19]  268 	ld	-6 (ix), l
+   00E3 DD 74 FB      [19]  269 	ld	-5 (ix), h
+                            270 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            271 ;	genSend
+                            272 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E6 D1            [10]  273 	pop	de
+   00E7 E1            [10]  274 	pop	hl
+   00E8 E5            [11]  275 	push	hl
+   00E9 D5            [11]  276 	push	de
+                            277 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            278 ;	genCall
+   00EA CDr93s00      [17]  279 	call	_fact
+                            280 ;	genMove_o size 4 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00ED 33            [ 6]  281 	inc	sp
+   00EE 33            [ 6]  282 	inc	sp
+   00EF D5            [11]  283 	push	de
+   00F0 DD 75 FA      [19]  284 	ld	-6 (ix), l
+   00F3 DD 74 FB      [19]  285 	ld	-5 (ix), h
+                            286 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            287 ;	genIpush
+                            288 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00F6 D1            [10]  289 	pop	de
+   00F7 E1            [10]  290 	pop	hl
+                            291 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            292 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            293 ; common peephole 156 used ex to load hl into de.
+                            294 ; common peephole 26b moved push after de/hl swap.
+                            295 ; common peephole 26c moved push after de/hl swap.
+   00F8 EB            [ 4]  296 	ex	de, hl
+   00F9 D5            [11]  297 	push	de
+                            298 ; common peephole 52a replaced push/pop pair by loads.
+                            299 ; common peephole 50b eliminated dead push/pop pair.
+   00FA E5            [11]  300 	push	hl
+   00FB D5            [11]  301 	push	de
+                            302 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00FC E5            [11]  303 	push	hl
+                            304 ;	genSend
+                            305 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00FD DD 5E FC      [19]  306 	ld	e, -4 (ix)
+   0100 DD 56 FD      [19]  307 	ld	d, -3 (ix)
+   0103 DD 6E FE      [19]  308 	ld	l, -2 (ix)
+   0106 DD 66 FF      [19]  309 	ld	h, -1 (ix)
+                            310 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            311 ;	genCall
+   0109 CDr00s00      [17]  312 	call	___fsmul
+                            313 ;	genMove_o size 4 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   010C 33            [ 6]  314 	inc	sp
+   010D 33            [ 6]  315 	inc	sp
+   010E D5            [11]  316 	push	de
+   010F DD 75 FA      [19]  317 	ld	-6 (ix), l
+   0112 DD 74 FB      [19]  318 	ld	-5 (ix), h
+                            319 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            320 ;	genRet
+                            321 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0115 D1            [10]  322 	pop	de
+   0116 E1            [10]  323 	pop	hl
+   0117 E5            [11]  324 	push	hl
+   0118 D5            [11]  325 	push	de
+                            326 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            327 ; common peephole 162 changed absolute to relative unconditional jump.
+   0119 18 06         [12]  328 	jr	00103$
+                            329 ;	genLabel
+   011B                     330 00102$:
+                            331 ;cases/reentrant/reentrant_type_float.c:21: return 1;
+                            332 ;	genRet
+                            333 ;	genMove_o size 4 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   011B 11 00 00      [10]  334 	ld	de, #0x0000
+   011E 21 80 3F      [10]  335 	ld	hl, #0x3f80
+                            336 ;	genLabel
+   0121                     337 00103$:
+                            338 ;cases/reentrant/reentrant_type_float.c:22: }
+                            339 ;	genEndFunction
+   0121 DD F9         [10]  340 	ld	sp, ix
+   0123 DD E1         [14]  341 	pop	ix
+   0125 C9            [10]  342 	ret
+                            343 ;	Total fact function size at codegen: 5 bytes.
+                            344 ;cases/reentrant/reentrant_type_float.c:24: float div2n(float a, int n) __reentrant
+                            345 ;	genLabel
+                            346 ;	genFunction
+                            347 ;	---------------------------------
+                            348 ; Function div2n
+                            349 ; ---------------------------------
+                            350 ;	Register assignment might be sub-optimal.
+                            351 ; Stack space usage: 0 bytes.
+   0126                     352 _div2n::
+   0126 DD E5         [15]  353 	push	ix
+   0128 DD 21 00 00   [14]  354 	ld	ix,	#0
+   012C DD 39         [15]  355 	add	ix, sp
+                            356 ;	genReceive
+                            357 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   012E 4D            [ 4]  358 	ld	c, l
+   012F 44            [ 4]  359 	ld	b, h
+                            360 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            361 ;cases/reentrant/reentrant_type_float.c:26: if(n>0) return div2n(a/2,n-1);
+                            362 ;	genCmpGt
+   0130 AF            [ 4]  363 	xor	a, a
+   0131 DD BE 04      [19]  364 	cp	a, 4 (ix)
+   0134 DD 9E 05      [19]  365 	sbc	a, 5 (ix)
+   0137 E2r3Cs01      [10]  366 	jp	po, 00113$
+   013A EE 80         [ 7]  367 	xor	a, #0x80
+   013C                     368 00113$:
+   013C F2r5Es01      [10]  369 	jp	p, 00102$
+                            370 ;	skipping generated iCode
+                            371 ;	genMinus
+                            372 ;fetchPairLong
+   013F E5            [11]  373 	push	hl
+                            374 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 0 de_dead 0 iy_dead 0 f_dead 0
+   0140 DD 6E 04      [19]  375 	ld	l, 4 (ix)
+   0143 DD 66 05      [19]  376 	ld	h, 5 (ix)
+                            377 ;	genMove_o size 0 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+   0146 E5            [11]  378 	push	hl
+   0147 FD E1         [14]  379 	pop	iy
+   0149 E1            [10]  380 	pop	hl
+   014A FD 2B         [10]  381 	dec	iy
+                            382 ;	genIpush
+   014C FD E5         [15]  383 	push	iy
+                            384 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 0
+   014E 21 00 40      [10]  385 	ld	hl, #0x4000
+   0151 E5            [11]  386 	push	hl
+                            387 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 0
+   0152 65            [ 4]  388 	ld	h, l
+   0153 E5            [11]  389 	push	hl
+                            390 ;	genSend
+                            391 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0154 69            [ 4]  392 	ld	l, c
+   0155 60            [ 4]  393 	ld	h, b
+                            394 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            395 ;	genCall
+   0156 CDr00s00      [17]  396 	call	___fsdiv
+                            397 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            398 ;	genIpush
+                            399 ; common peephole 50a eliminated dead pop/push iy pair.
+                            400 ;	genSend
+                            401 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            402 ;	genCall
+   0159 CDr26s01      [17]  403 	call	_div2n
+                            404 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            405 ;	genRet
+                            406 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            407 ; common peephole 162 changed absolute to relative unconditional jump.
+   015C 18 02         [12]  408 	jr	00103$
+                            409 ;	genLabel
+   015E                     410 00102$:
+                            411 ;cases/reentrant/reentrant_type_float.c:27: return a;
+                            412 ;	genRet
+                            413 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   015E 69            [ 4]  414 	ld	l, c
+   015F 60            [ 4]  415 	ld	h, b
+                            416 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            417 ;	genLabel
+   0160                     418 00103$:
+                            419 ;cases/reentrant/reentrant_type_float.c:28: }
+                            420 ;	genEndFunction
+   0160 DD E1         [14]  421 	pop	ix
+   0162 FD E1         [14]  422 	pop	iy
+                            423 ;	adjustStack by 2
+   0164 F1            [10]  424 	pop	af
+   0165 FD E9         [ 8]  425 	jp	(iy)
+                            426 ;	Total div2n function size at codegen: 7 bytes.
+                            427 ;cases/reentrant/reentrant_type_float.c:30: float fib(float a) __reentrant
+                            428 ;	genLabel
+                            429 ;	genFunction
+                            430 ;	---------------------------------
+                            431 ; Function fib
+                            432 ; ---------------------------------
+                            433 ;	Register assignment might be sub-optimal.
+                            434 ; Stack space usage: 4 bytes.
+   0167                     435 _fib::
+   0167 DD E5         [15]  436 	push	ix
+   0169 DD 21 00 00   [14]  437 	ld	ix,	#0
+   016D DD 39         [15]  438 	add	ix, sp
+                            439 ;	adjustStack by -4
+   016F F5            [11]  440 	push	af
+   0170 F5            [11]  441 	push	af
+                            442 ;	genReceive
+                            443 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0171 4D            [ 4]  444 	ld	c, l
+   0172 44            [ 4]  445 	ld	b, h
+                            446 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            447 ;cases/reentrant/reentrant_type_float.c:32: if(a>1) return fib(a-1)+fib(a-2);
+                            448 ;	genIpush
+   0173 C5            [11]  449 	push	bc
+   0174 D5            [11]  450 	push	de
+   0175 C5            [11]  451 	push	bc
+   0176 D5            [11]  452 	push	de
+                            453 ;	genSend
+                            454 ;	genMove_o size 4 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0177 11 00 00      [10]  455 	ld	de, #0x0000
+   017A 21 80 3F      [10]  456 	ld	hl, #0x3f80
+                            457 ;	genCall
+   017D CDr00s00      [17]  458 	call	___fslt
+                            459 ;	genMove_o size 1 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0180 DD 77 FF      [19]  460 	ld	-1 (ix), a
+                            461 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0183 D1            [10]  462 	pop	de
+   0184 C1            [10]  463 	pop	bc
+                            464 ;	genIfx
+   0185 DD 7E FF      [19]  465 	ld	a, -1 (ix)
+   0188 B7            [ 4]  466 	or	a, a
+                            467 ; common peephole 163 changed absolute to relative conditional jump.
+   0189 28 41         [12]  468 	jr	z, 00102$
+                            469 ;	genIpush
+   018B C5            [11]  470 	push	bc
+   018C D5            [11]  471 	push	de
+                            472 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   018D 21 80 3F      [10]  473 	ld	hl, #0x3f80
+   0190 E5            [11]  474 	push	hl
+                            475 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0191 21 00 00      [10]  476 	ld	hl, #0x0000
+   0194 E5            [11]  477 	push	hl
+                            478 ;	genSend
+                            479 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0195 69            [ 4]  480 	ld	l, c
+   0196 60            [ 4]  481 	ld	h, b
+                            482 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            483 ;	genCall
+   0197 CDr00s00      [17]  484 	call	___fssub
+                            485 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            486 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            487 ;	genSend
+                            488 ; common peephole 50a eliminated dead pop/push bc pair.
+                            489 ; common peephole 50a eliminated dead pop/push de pair.
+                            490 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            491 ; common peephole 50a eliminated dead pop/push iy pair.
+                            492 ; common peephole 50b eliminated dead push/pop pair.
+                            493 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            494 ;	genCall
+   019A CDr67s01      [17]  495 	call	_fib
+                            496 ;	genMove_o size 4 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   019D DD 73 FC      [19]  497 	ld	-4 (ix), e
+   01A0 DD 72 FD      [19]  498 	ld	-3 (ix), d
+   01A3 DD 75 FE      [19]  499 	ld	-2 (ix), l
+   01A6 DD 74 FF      [19]  500 	ld	-1 (ix), h
+                            501 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01A9 D1            [10]  502 	pop	de
+   01AA C1            [10]  503 	pop	bc
+                            504 ;	genIpush
+                            505 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01AB 21 00 40      [10]  506 	ld	hl, #0x4000
+   01AE E5            [11]  507 	push	hl
+                            508 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01AF 65            [ 4]  509 	ld	h, l
+   01B0 E5            [11]  510 	push	hl
+                            511 ;	genSend
+                            512 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01B1 69            [ 4]  513 	ld	l, c
+   01B2 60            [ 4]  514 	ld	h, b
+                            515 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            516 ;	genCall
+   01B3 CDr00s00      [17]  517 	call	___fssub
+                            518 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            519 ;	genSend
+                            520 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            521 ;	genCall
+   01B6 CDr67s01      [17]  522 	call	_fib
+                            523 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            524 ;	genIpush
+   01B9 E5            [11]  525 	push	hl
+   01BA D5            [11]  526 	push	de
+                            527 ;	genSend
+                            528 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01BB DD 5E FC      [19]  529 	ld	e, -4 (ix)
+   01BE DD 56 FD      [19]  530 	ld	d, -3 (ix)
+   01C1 DD 6E FE      [19]  531 	ld	l, -2 (ix)
+   01C4 DD 66 FF      [19]  532 	ld	h, -1 (ix)
+                            533 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            534 ;	genCall
+   01C7 CDr00s00      [17]  535 	call	___fsadd
+                            536 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            537 ;	genRet
+                            538 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            539 ; common peephole 162 changed absolute to relative unconditional jump.
+   01CA 18 02         [12]  540 	jr	00103$
+                            541 ;	genLabel
+   01CC                     542 00102$:
+                            543 ;cases/reentrant/reentrant_type_float.c:33: return a;
+                            544 ;	genRet
+                            545 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01CC 69            [ 4]  546 	ld	l, c
+   01CD 60            [ 4]  547 	ld	h, b
+                            548 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            549 ;	genLabel
+   01CE                     550 00103$:
+                            551 ;cases/reentrant/reentrant_type_float.c:34: }
+                            552 ;	genEndFunction
+   01CE DD F9         [10]  553 	ld	sp, ix
+   01D0 DD E1         [14]  554 	pop	ix
+   01D2 C9            [10]  555 	ret
+                            556 ;	Total fib function size at codegen: 5 bytes.
+                            557 ;cases/reentrant/reentrant_type_float.c:40: testReent(void)
+                            558 ;	genLabel
+                            559 ;	genFunction
+                            560 ;	---------------------------------
+                            561 ; Function testReent
+                            562 ; ---------------------------------
+                            563 ;	Register assignment might be sub-optimal.
+                            564 ; Stack space usage: 0 bytes.
+   01D3                     565 _testReent::
+                            566 ;cases/reentrant/reentrant_type_float.c:44: ASSERT(sum(9) == 45);
+                            567 ;	genPlus
+                            568 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01D3 2Ar00s00      [16]  569 	ld	hl, (___numTests)
+   01D6 23            [ 6]  570 	inc	hl
+                            571 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01D7 22r00s00      [16]  572 	ld	(___numTests), hl
+                            573 ;	genSend
+                            574 ;	genMove_o size 4 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01DA 11 00 00      [10]  575 	ld	de, #0x0000
+   01DD 21 10 41      [10]  576 	ld	hl, #0x4110
+                            577 ;	genCall
+   01E0 CDr00s00      [17]  578 	call	_sum
+                            579 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            580 ;	genIpush
+                            581 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   01E3 01 34 42      [10]  582 	ld	bc, #0x4234
+   01E6 C5            [11]  583 	push	bc
+                            584 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   01E7 01 00 00      [10]  585 	ld	bc, #0x0000
+   01EA C5            [11]  586 	push	bc
+                            587 ;	genSend
+                            588 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            589 ;	genCall
+   01EB CDr00s00      [17]  590 	call	___fseq
+                            591 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            592 ;	genIfx
+   01EE B7            [ 4]  593 	or	a, a
+                            594 ; common peephole 163 changed absolute to relative conditional jump.
+   01EF 20 11         [12]  595 	jr	nz, 00104$
+                            596 ;	skipping iCode since result will be rematerialized
+                            597 ;	skipping iCode since result will be rematerialized
+                            598 ;	skipping iCode since result will be rematerialized
+                            599 ;	genCast
+                            600 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01F1 11rA4s02      [10]  601 	ld	de, #___str_1
+                            602 ;	skipping iCode since result will be rematerialized
+                            603 ;	skipping iCode since result will be rematerialized
+                            604 ;	genIpush
+                            605 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01F4 21 2C 00      [10]  606 	ld	hl, #0x002c
+   01F7 E5            [11]  607 	push	hl
+                            608 ;	genIpush
+                            609 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01F8 21rB1s02      [10]  610 	ld	hl, #___str_2
+   01FB E5            [11]  611 	push	hl
+                            612 ;	genSend
+                            613 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            614 ;	genSend
+                            615 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01FC 21r93s02      [10]  616 	ld	hl, #___str_0
+                            617 ;	genCall
+   01FF CDr00s00      [17]  618 	call	___fail
+                            619 ;	genLabel
+   0202                     620 00104$:
+                            621 ;cases/reentrant/reentrant_type_float.c:45: ASSERT(fact(5) == 120);
+                            622 ;	genPlus
+                            623 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0202 2Ar00s00      [16]  624 	ld	hl, (___numTests)
+   0205 23            [ 6]  625 	inc	hl
+                            626 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0206 22r00s00      [16]  627 	ld	(___numTests), hl
+                            628 ;	genSend
+                            629 ;	genMove_o size 4 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0209 11 00 00      [10]  630 	ld	de, #0x0000
+   020C 21 A0 40      [10]  631 	ld	hl, #0x40a0
+                            632 ;	genCall
+   020F CDr93s00      [17]  633 	call	_fact
+                            634 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            635 ;	genIpush
+                            636 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0212 01 F0 42      [10]  637 	ld	bc, #0x42f0
+   0215 C5            [11]  638 	push	bc
+                            639 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0216 01 00 00      [10]  640 	ld	bc, #0x0000
+   0219 C5            [11]  641 	push	bc
+                            642 ;	genSend
+                            643 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            644 ;	genCall
+   021A CDr00s00      [17]  645 	call	___fseq
+                            646 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            647 ;	genIfx
+   021D B7            [ 4]  648 	or	a, a
+                            649 ; common peephole 163 changed absolute to relative conditional jump.
+   021E 20 11         [12]  650 	jr	nz, 00106$
+                            651 ;	skipping iCode since result will be rematerialized
+                            652 ;	skipping iCode since result will be rematerialized
+                            653 ;	skipping iCode since result will be rematerialized
+                            654 ;	genCast
+                            655 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0220 11rD8s02      [10]  656 	ld	de, #___str_3
+                            657 ;	skipping iCode since result will be rematerialized
+                            658 ;	skipping iCode since result will be rematerialized
+                            659 ;	genIpush
+                            660 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0223 21 2D 00      [10]  661 	ld	hl, #0x002d
+   0226 E5            [11]  662 	push	hl
+                            663 ;	genIpush
+                            664 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0227 21rB1s02      [10]  665 	ld	hl, #___str_2
+   022A E5            [11]  666 	push	hl
+                            667 ;	genSend
+                            668 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            669 ;	genSend
+                            670 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   022B 21r93s02      [10]  671 	ld	hl, #___str_0
+                            672 ;	genCall
+   022E CDr00s00      [17]  673 	call	___fail
+                            674 ;	genLabel
+   0231                     675 00106$:
+                            676 ;cases/reentrant/reentrant_type_float.c:46: ASSERT(div2n(128, 7) == 1);
+                            677 ;	genPlus
+                            678 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0231 2Ar00s00      [16]  679 	ld	hl, (___numTests)
+   0234 23            [ 6]  680 	inc	hl
+                            681 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0235 22r00s00      [16]  682 	ld	(___numTests), hl
+                            683 ;	genIpush
+                            684 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0238 21 07 00      [10]  685 	ld	hl, #0x0007
+   023B E5            [11]  686 	push	hl
+                            687 ;	genSend
+                            688 ;	genMove_o size 4 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   023C 11 00 00      [10]  689 	ld	de, #0x0000
+   023F 21 00 43      [10]  690 	ld	hl, #0x4300
+                            691 ;	genCall
+   0242 CDr26s01      [17]  692 	call	_div2n
+                            693 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            694 ;	genIpush
+                            695 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0245 01 80 3F      [10]  696 	ld	bc, #0x3f80
+   0248 C5            [11]  697 	push	bc
+                            698 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0249 01 00 00      [10]  699 	ld	bc, #0x0000
+   024C C5            [11]  700 	push	bc
+                            701 ;	genSend
+                            702 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            703 ;	genCall
+   024D CDr00s00      [17]  704 	call	___fseq
+                            705 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            706 ;	genIfx
+   0250 B7            [ 4]  707 	or	a, a
+                            708 ; common peephole 163 changed absolute to relative conditional jump.
+   0251 20 11         [12]  709 	jr	nz, 00108$
+                            710 ;	skipping iCode since result will be rematerialized
+                            711 ;	skipping iCode since result will be rematerialized
+                            712 ;	skipping iCode since result will be rematerialized
+                            713 ;	genCast
+                            714 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0253 11rE7s02      [10]  715 	ld	de, #___str_4
+                            716 ;	skipping iCode since result will be rematerialized
+                            717 ;	skipping iCode since result will be rematerialized
+                            718 ;	genIpush
+                            719 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0256 21 2E 00      [10]  720 	ld	hl, #0x002e
+   0259 E5            [11]  721 	push	hl
+                            722 ;	genIpush
+                            723 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   025A 21rB1s02      [10]  724 	ld	hl, #___str_2
+   025D E5            [11]  725 	push	hl
+                            726 ;	genSend
+                            727 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            728 ;	genSend
+                            729 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   025E 21r93s02      [10]  730 	ld	hl, #___str_0
+                            731 ;	genCall
+   0261 CDr00s00      [17]  732 	call	___fail
+                            733 ;	genLabel
+   0264                     734 00108$:
+                            735 ;cases/reentrant/reentrant_type_float.c:47: ASSERT(fib(7) == 13);
+                            736 ;	genPlus
+                            737 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0264 2Ar00s00      [16]  738 	ld	hl, (___numTests)
+   0267 23            [ 6]  739 	inc	hl
+                            740 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0268 22r00s00      [16]  741 	ld	(___numTests), hl
+                            742 ;	genSend
+                            743 ;	genMove_o size 4 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   026B 11 00 00      [10]  744 	ld	de, #0x0000
+   026E 21 E0 40      [10]  745 	ld	hl, #0x40e0
+                            746 ;	genCall
+   0271 CDr67s01      [17]  747 	call	_fib
+                            748 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            749 ;	genIpush
+                            750 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0274 01 50 41      [10]  751 	ld	bc, #0x4150
+   0277 C5            [11]  752 	push	bc
+                            753 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0278 01 00 00      [10]  754 	ld	bc, #0x0000
+   027B C5            [11]  755 	push	bc
+                            756 ;	genSend
+                            757 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            758 ;	genCall
+   027C CDr00s00      [17]  759 	call	___fseq
+                            760 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            761 ;	genIfx
+   027F B7            [ 4]  762 	or	a, a
+   0280 C0            [11]  763 	ret	nz
+                            764 ; common peephole 161 replaced jump by return.
+                            765 ;	skipping iCode since result will be rematerialized
+                            766 ;	skipping iCode since result will be rematerialized
+                            767 ;	skipping iCode since result will be rematerialized
+                            768 ;	genCast
+                            769 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0281 11rFAs02      [10]  770 	ld	de, #___str_5
+                            771 ;	skipping iCode since result will be rematerialized
+                            772 ;	skipping iCode since result will be rematerialized
+                            773 ;	genIpush
+                            774 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0284 21 2F 00      [10]  775 	ld	hl, #0x002f
+   0287 E5            [11]  776 	push	hl
+                            777 ;	genIpush
+                            778 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0288 21rB1s02      [10]  779 	ld	hl, #___str_2
+   028B E5            [11]  780 	push	hl
+                            781 ;	genSend
+                            782 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            783 ;	genSend
+                            784 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   028C 21r93s02      [10]  785 	ld	hl, #___str_0
+                            786 ;	genCall
+   028F CDr00s00      [17]  787 	call	___fail
+                            788 ;	genLabel
+                            789 ; common peephole 159 removed unused label 00101$.
+                            790 ;cases/reentrant/reentrant_type_float.c:50: }
+                            791 ;	genEndFunction
+   0292 C9            [10]  792 	ret
+                            793 ;	Total testReent function size at codegen: 1 bytes.
+   0293                     794 ___str_0:
+   0293 41 73 73 65 72 74   795 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   02A3 00                  796 	.db 0x00
+   02A4                     797 ___str_1:
+   02A4 73 75 6D 28 39 29   798 	.ascii "sum(9) == 45"
+        20 3D 3D 20 34 35
+   02B0 00                  799 	.db 0x00
+   02B1                     800 ___str_2:
+   02B1 63 61 73 65 73 2F   801 	.ascii "cases/reentrant/reentrant_type_float.c"
+        72 65 65 6E 74 72
+        61 6E 74 2F 72 65
+        65 6E 74 72 61 6E
+        74 5F 74 79 70 65
+        5F 66 6C 6F 61 74
+        2E 63
+   02D7 00                  802 	.db 0x00
+   02D8                     803 ___str_3:
+   02D8 66 61 63 74 28 35   804 	.ascii "fact(5) == 120"
+        29 20 3D 3D 20 31
+        32 30
+   02E6 00                  805 	.db 0x00
+   02E7                     806 ___str_4:
+   02E7 64 69 76 32 6E 28   807 	.ascii "div2n(128, 7) == 1"
+        31 32 38 2C 20 37
+        29 20 3D 3D 20 31
+   02F9 00                  808 	.db 0x00
+   02FA                     809 ___str_5:
+   02FA 66 69 62 28 37 29   810 	.ascii "fib(7) == 13"
+        20 3D 3D 20 31 33
+   0306 00                  811 	.db 0x00
+                            812 ;cases/reentrant/reentrant_type_float.c:54: __runSuite(void)
+                            813 ;	genLabel
+                            814 ;	genFunction
+                            815 ;	---------------------------------
+                            816 ; Function __runSuite
+                            817 ; ---------------------------------
+                            818 ;	Register assignment is optimal.
+                            819 ; Stack space usage: 0 bytes.
+   0307                     820 ___runSuite::
+                            821 ;cases/reentrant/reentrant_type_float.c:56: __prints("Running testReent\n");
+                            822 ;	skipping iCode since result will be rematerialized
+                            823 ;	skipping iCode since result will be rematerialized
+                            824 ;	genSend
+                            825 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0307 21r10s03      [10]  826 	ld	hl, #___str_6
+                            827 ;	genCall
+   030A CDr00s00      [17]  828 	call	___prints
+                            829 ;cases/reentrant/reentrant_type_float.c:57: testReent();
+                            830 ;	genCall
+                            831 ;	genLabel
+                            832 ; common peephole 159 removed unused label 00101$.
+                            833 ;cases/reentrant/reentrant_type_float.c:58: }
+                            834 ;	genEndFunction
+   030D C3rD3s01      [10]  835 	jp	_testReent
+                            836 ; common peephole 152 removed unused ret.
+                            837 ;	Total __runSuite function size at codegen: 1 bytes.
+   0310                     838 ___str_6:
+   0310 52 75 6E 6E 69 6E   839 	.ascii "Running testReent"
+        67 20 74 65 73 74
+        52 65 65 6E 74
+   0321 0A                  840 	.db 0x0a
+   0322 00                  841 	.db 0x00
+                            842 ;cases/reentrant/reentrant_type_float.c:63: __getSuiteName(void)
+                            843 ;	genLabel
+                            844 ;	genFunction
+                            845 ;	---------------------------------
+                            846 ; Function __getSuiteName
+                            847 ; ---------------------------------
+                            848 ;	Register assignment is optimal.
+                            849 ; Stack space usage: 0 bytes.
+   0323                     850 ___getSuiteName::
+                            851 ;cases/reentrant/reentrant_type_float.c:65: return "reentrant_type_float";
+                            852 ;	skipping iCode since result will be rematerialized
+                            853 ;	skipping iCode since result will be rematerialized
+                            854 ;	genRet
+                            855 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0323 11r29s03      [10]  856 	ld	de, #___str_7
+                            857 ;	genLabel
+                            858 ; common peephole 159 removed unused label 00101$.
+                            859 ;cases/reentrant/reentrant_type_float.c:66: }
+                            860 ;	genEndFunction
+   0326 C9            [10]  861 	ret
+                            862 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0327                     863 ___numCases:
+   0327 01 00               864 	.dw #0x0001
+   0329                     865 ___str_7:
+   0329 72 65 65 6E 74 72   866 	.ascii "reentrant_type_float"
+        61 6E 74 5F 74 79
+        70 65 5F 66 6C 6F
+        61 74
+   033D 00                  867 	.db 0x00
+                            868 	.area _CODE (BANK=_CSEG)
+                            869 	.area _INITIALIZER
+                            870 	.area _CABS (ABS)

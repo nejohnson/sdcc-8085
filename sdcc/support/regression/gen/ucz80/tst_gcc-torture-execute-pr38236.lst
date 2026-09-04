@@ -1,0 +1,299 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_gcc_torture_execute_pr38236
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testTortureExecute
+                             11 	.globl _foo
+                             12 	.globl ___prints
+                             13 	.globl ___fail
+                             14 	.globl ___numCases
+                             15 	.globl ___runSuite
+                             16 	.globl ___getSuiteName
+                             17 ;--------------------------------------------------------
+                             18 ; special function registers
+                             19 ;--------------------------------------------------------
+                             20 ;--------------------------------------------------------
+                             21 ; ram data
+                             22 ;--------------------------------------------------------
+                             23 	.area _DATA (BANK=_DSEG)
+                             24 ;--------------------------------------------------------
+                             25 ; ram data
+                             26 ;--------------------------------------------------------
+                             27 	.area _INITIALIZED
+                             28 ;--------------------------------------------------------
+                             29 ; absolute ram data
+                             30 ;--------------------------------------------------------
+                             31 	.area _DABS (ABS)
+                             32 	.area _DABS (ABS)
+                             33 ;--------------------------------------------------------
+                             34 ; global & static initialisations
+                             35 ;--------------------------------------------------------
+                             36 	.area _HOME
+                             37 	.area _GSINIT
+                             38 	.area _GSFINAL
+                             39 	.area _GSINIT
+                             40 ;--------------------------------------------------------
+                             41 ; Home
+                             42 ;--------------------------------------------------------
+                             43 	.area _HOME (BANK=_CSEG)
+                             44 	.area _HOME (BANK=_CSEG)
+                             45 ;--------------------------------------------------------
+                             46 ; code
+                             47 ;--------------------------------------------------------
+                             48 	.area _CODE (BANK=_CSEG)
+                             49 ;cases/./../tests/gcc-torture-execute-pr38236.c:14: foo (struct X *p, int *q, int a, int b)
+                             50 ;	genLabel
+                             51 ;	genFunction
+                             52 ;	---------------------------------
+                             53 ; Function foo
+                             54 ; ---------------------------------
+                             55 ;	Register assignment might be sub-optimal.
+                             56 ; Stack space usage: 4 bytes.
+   0000                      57 _foo::
+   0000 DD E5         [15]   58 	push	ix
+   0002 DD 21 00 00   [14]   59 	ld	ix,	#0
+   0006 DD 39         [15]   60 	add	ix, sp
+                             61 ;	adjustStack by -4
+   0008 F5            [11]   62 	push	af
+   0009 F5            [11]   63 	push	af
+                             64 ;	genReceive
+                             65 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000A EB            [ 4]   66 	ex	de, hl
+                             67 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             68 ;cases/./../tests/gcc-torture-execute-pr38236.c:17: if (a)
+                             69 ;	genIfx
+   000B DD 7E 05      [19]   70 	ld	a, 5 (ix)
+   000E DD B6 04      [19]   71 	or	a, 4 (ix)
+                             72 ; common peephole 163 changed absolute to relative conditional jump.
+   0011 28 05         [12]   73 	jr	z, 00102$
+                             74 ;cases/./../tests/gcc-torture-execute-pr38236.c:18: p = &x;
+                             75 ;	skipping iCode since result will be rematerialized
+                             76 ;	genCast
+                             77 ;	genMove_o size 2 result type 2 source type 8 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0013 21 00 00      [10]   78 	ld	hl, #0
+   0016 39            [11]   79 	add	hl, sp
+   0017 EB            [ 4]   80 	ex	de, hl
+                             81 ;	genLabel
+   0018                      82 00102$:
+                             83 ;cases/./../tests/gcc-torture-execute-pr38236.c:19: if (b)
+                             84 ;	genIfx
+   0018 DD 7E 07      [19]   85 	ld	a, 7 (ix)
+   001B DD B6 06      [19]   86 	or	a, 6 (ix)
+                             87 ; common peephole 163 changed absolute to relative conditional jump.
+   001E 28 06         [12]   88 	jr	z, 00104$
+                             89 ;cases/./../tests/gcc-torture-execute-pr38236.c:20: q = &x.i;
+                             90 ;	genAddrOf
+   0020 21 00 00      [10]   91 	ld	hl, #0
+   0023 39            [11]   92 	add	hl, sp
+                             93 ;	genCast
+                             94 ;	(locations are the same)
+                             95 ;	genGoto
+                             96 ; common peephole 162 changed absolute to relative unconditional jump.
+   0024 18 04         [12]   97 	jr	00105$
+                             98 ;	genLabel
+   0026                      99 00104$:
+                            100 ;cases/./../tests/gcc-torture-execute-pr38236.c:22: q = &y.i;
+                            101 ;	skipping iCode since result will be rematerialized
+                            102 ;	genCast
+                            103 ;	genMove_o size 2 result type 2 source type 8 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0026 21 02 00      [10]  104 	ld	hl, #2
+   0029 39            [11]  105 	add	hl, sp
+                            106 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            107 ;	genLabel
+   002A                     108 00105$:
+                            109 ;cases/./../tests/gcc-torture-execute-pr38236.c:23: *q = 1;
+                            110 ;	genPointerSet
+                            111 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   002A 36 01         [10]  112 	ld	(hl), #0x01
+   002C 23            [ 6]  113 	inc	hl
+   002D 36 00         [10]  114 	ld	(hl), #0x00
+                            115 ;cases/./../tests/gcc-torture-execute-pr38236.c:24: return p->i; 
+                            116 ;	genPointerGet
+                            117 ;fetchPairLong
+                            118 ; common peephole 157 used ex to load de into hl.
+   002F EB            [ 4]  119 	ex	de, hl
+                            120 ;	_moveFrom_tpair_()
+   0030 5E            [ 7]  121 	ld	e, (hl)
+   0031 23            [ 6]  122 	inc	hl
+                            123 ;	_moveFrom_tpair_()
+   0032 56            [ 7]  124 	ld	d, (hl)
+                            125 ;	genRet
+                            126 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            127 ;	genLabel
+                            128 ; common peephole 159 removed unused label 00106$.
+                            129 ;cases/./../tests/gcc-torture-execute-pr38236.c:25: }
+                            130 ;	genEndFunction
+   0033 DD F9         [10]  131 	ld	sp, ix
+   0035 DD E1         [14]  132 	pop	ix
+   0037 E1            [10]  133 	pop	hl
+                            134 ;	adjustStack by 4
+   0038 F1            [10]  135 	pop	af
+   0039 F1            [10]  136 	pop	af
+   003A E9            [ 4]  137 	jp	(hl)
+                            138 ;	Total foo function size at codegen: 8 bytes.
+                            139 ;cases/./../tests/gcc-torture-execute-pr38236.c:28: testTortureExecute (void)
+                            140 ;	genLabel
+                            141 ;	genFunction
+                            142 ;	---------------------------------
+                            143 ; Function testTortureExecute
+                            144 ; ---------------------------------
+                            145 ;	Register assignment might be sub-optimal.
+                            146 ; Stack space usage: 0 bytes.
+   003B                     147 _testTortureExecute::
+                            148 ;cases/./../tests/gcc-torture-execute-pr38236.c:30: if (foo((void *)0, (void *)0, 1, 1) != 1)
+                            149 ;	genIpush
+                            150 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   003B 21 01 00      [10]  151 	ld	hl, #0x0001
+   003E E5            [11]  152 	push	hl
+                            153 ;	genIpush
+                            154 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   003F E5            [11]  155 	push	hl
+                            156 ;	genSend
+                            157 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0040 11 00 00      [10]  158 	ld	de, #0x0000
+                            159 ;	genSend
+                            160 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0043 6C            [ 4]  161 	ld	l, h
+                            162 ;	genCall
+   0044 CDr00s00      [17]  163 	call	_foo
+                            164 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            165 ;	genCmpEq
+                            166 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0047 7B            [ 4]  167 	ld	a, e
+                            168 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0048 3D            [ 4]  169 	dec	a
+   0049 B2            [ 4]  170 	or	a, d
+   004A C8            [11]  171 	ret	z
+                            172 ; common peephole 161 replaced jump by return.
+                            173 ; common peephole 81 removed jp by using inverse jump logic
+                            174 ; common peephole 159 removed unused label 00113$.
+                            175 ;	skipping generated iCode
+                            176 ;cases/./../tests/gcc-torture-execute-pr38236.c:31: ASSERT (0);
+                            177 ;	genPlus
+                            178 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   004B 2Ar00s00      [16]  179 	ld	hl, (___numTests)
+   004E 23            [ 6]  180 	inc	hl
+                            181 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   004F 22r00s00      [16]  182 	ld	(___numTests), hl
+                            183 ;	skipping iCode since result will be rematerialized
+                            184 ;	skipping iCode since result will be rematerialized
+                            185 ;	skipping iCode since result will be rematerialized
+                            186 ;	skipping iCode since result will be rematerialized
+                            187 ;	skipping iCode since result will be rematerialized
+                            188 ;	skipping iCode since result will be rematerialized
+                            189 ;	genIpush
+                            190 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0052 21 1F 00      [10]  191 	ld	hl, #0x001f
+   0055 E5            [11]  192 	push	hl
+                            193 ;	genIpush
+                            194 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0056 21r77s00      [10]  195 	ld	hl, #__str_2
+   0059 E5            [11]  196 	push	hl
+                            197 ;	genSend
+                            198 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   005A 11r75s00      [10]  199 	ld	de, #__str_1
+                            200 ;	genSend
+                            201 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   005D 21r64s00      [10]  202 	ld	hl, #__str_0
+                            203 ;	genCall
+   0060 CDr00s00      [17]  204 	call	___fail
+                            205 ;	genLabel
+                            206 ; common peephole 159 removed unused label 00102$.
+                            207 ;cases/./../tests/gcc-torture-execute-pr38236.c:32: return;
+                            208 ;	genRet
+                            209 ;	genLabel
+                            210 ; common peephole 159 removed unused label 00103$.
+                            211 ;cases/./../tests/gcc-torture-execute-pr38236.c:33: }
+                            212 ;	genEndFunction
+   0063 C9            [10]  213 	ret
+                            214 ;	Total testTortureExecute function size at codegen: 1 bytes.
+   0064                     215 __str_0:
+   0064 41 73 73 65 72 74   216 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   0074 00                  217 	.db 0x00
+   0075                     218 __str_1:
+   0075 30                  219 	.ascii "0"
+   0076 00                  220 	.db 0x00
+   0077                     221 __str_2:
+   0077 63 61 73 65 73 2F   222 	.ascii "cases/./../tests/gcc-torture-execute-pr38236.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 67
+        63 63 2D 74 6F 72
+        74 75 72 65 2D 65
+        78 65 63 75 74 65
+        2D 70 72 33 38 32
+        33 36 2E 63
+   00A5 00                  223 	.db 0x00
+                            224 ;cases/tst_gcc-torture-execute-pr38236.c:4: __runSuite(void)
+                            225 ;	genLabel
+                            226 ;	genFunction
+                            227 ;	---------------------------------
+                            228 ; Function __runSuite
+                            229 ; ---------------------------------
+                            230 ;	Register assignment is optimal.
+                            231 ; Stack space usage: 0 bytes.
+   00A6                     232 ___runSuite::
+                            233 ;cases/tst_gcc-torture-execute-pr38236.c:6: __prints("Running testTortureExecute\n");
+                            234 ;	skipping iCode since result will be rematerialized
+                            235 ;	skipping iCode since result will be rematerialized
+                            236 ;	genSend
+                            237 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A6 21rAFs00      [10]  238 	ld	hl, #___str_3
+                            239 ;	genCall
+   00A9 CDr00s00      [17]  240 	call	___prints
+                            241 ;cases/tst_gcc-torture-execute-pr38236.c:7: testTortureExecute();
+                            242 ;	genCall
+                            243 ;	genLabel
+                            244 ; common peephole 159 removed unused label 00101$.
+                            245 ;cases/tst_gcc-torture-execute-pr38236.c:8: }
+                            246 ;	genEndFunction
+   00AC C3r3Bs00      [10]  247 	jp	_testTortureExecute
+                            248 ; common peephole 152 removed unused ret.
+                            249 ;	Total __runSuite function size at codegen: 1 bytes.
+   00AF                     250 ___str_3:
+   00AF 52 75 6E 6E 69 6E   251 	.ascii "Running testTortureExecute"
+        67 20 74 65 73 74
+        54 6F 72 74 75 72
+        65 45 78 65 63 75
+        74 65
+   00C9 0A                  252 	.db 0x0a
+   00CA 00                  253 	.db 0x00
+                            254 ;cases/tst_gcc-torture-execute-pr38236.c:13: __getSuiteName(void)
+                            255 ;	genLabel
+                            256 ;	genFunction
+                            257 ;	---------------------------------
+                            258 ; Function __getSuiteName
+                            259 ; ---------------------------------
+                            260 ;	Register assignment is optimal.
+                            261 ; Stack space usage: 0 bytes.
+   00CB                     262 ___getSuiteName::
+                            263 ;cases/tst_gcc-torture-execute-pr38236.c:15: return "gcc-torture-execute-pr38236.c";
+                            264 ;	skipping iCode since result will be rematerialized
+                            265 ;	skipping iCode since result will be rematerialized
+                            266 ;	genRet
+                            267 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00CB 11rD1s00      [10]  268 	ld	de, #___str_4
+                            269 ;	genLabel
+                            270 ; common peephole 159 removed unused label 00101$.
+                            271 ;cases/tst_gcc-torture-execute-pr38236.c:16: }
+                            272 ;	genEndFunction
+   00CE C9            [10]  273 	ret
+                            274 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   00CF                     275 ___numCases:
+   00CF 01 00               276 	.dw #0x0001
+   00D1                     277 ___str_4:
+   00D1 67 63 63 2D 74 6F   278 	.ascii "gcc-torture-execute-pr38236.c"
+        72 74 75 72 65 2D
+        65 78 65 63 75 74
+        65 2D 70 72 33 38
+        32 33 36 2E 63
+   00EE 00                  279 	.db 0x00
+                            280 	.area _CODE (BANK=_CSEG)
+                            281 	.area _INITIALIZER
+                            282 	.area _CABS (ABS)

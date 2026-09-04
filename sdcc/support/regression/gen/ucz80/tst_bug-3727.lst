@@ -1,0 +1,232 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_3727
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _SatUpdate
+                             12 	.globl _fake
+                             13 	.globl ___prints
+                             14 	.globl _bad
+                             15 	.globl _n1
+                             16 	.globl ___numCases
+                             17 	.globl _VDP_Poke_16K
+                             18 	.globl ___runSuite
+                             19 	.globl ___getSuiteName
+                             20 ;--------------------------------------------------------
+                             21 ; special function registers
+                             22 ;--------------------------------------------------------
+                             23 ;--------------------------------------------------------
+                             24 ; ram data
+                             25 ;--------------------------------------------------------
+                             26 	.area _DATA (BANK=_DSEG)
+   0000                      27 _n1::
+   0000                      28 	.ds 1
+                             29 ;--------------------------------------------------------
+                             30 ; ram data
+                             31 ;--------------------------------------------------------
+                             32 	.area _INITIALIZED
+   0000                      33 _bad::
+   0000                      34 	.ds 2
+                             35 ;--------------------------------------------------------
+                             36 ; absolute ram data
+                             37 ;--------------------------------------------------------
+                             38 	.area _DABS (ABS)
+                             39 	.area _DABS (ABS)
+                             40 ;--------------------------------------------------------
+                             41 ; global & static initialisations
+                             42 ;--------------------------------------------------------
+                             43 	.area _HOME
+                             44 	.area _GSINIT
+                             45 	.area _GSFINAL
+                             46 	.area _GSINIT
+                             47 ;--------------------------------------------------------
+                             48 ; Home
+                             49 ;--------------------------------------------------------
+                             50 	.area _HOME (BANK=_CSEG)
+                             51 	.area _HOME (BANK=_CSEG)
+                             52 ;--------------------------------------------------------
+                             53 ; code
+                             54 ;--------------------------------------------------------
+                             55 	.area _CODE (BANK=_CSEG)
+                             56 ;cases/./../tests/bug-3727.c:15: void fake (void)
+                             57 ;	genLabel
+                             58 ;	genFunction
+                             59 ;	---------------------------------
+                             60 ; Function fake
+                             61 ; ---------------------------------
+                             62 ;	Register assignment is optimal.
+                             63 ; Stack space usage: 0 bytes.
+   0000                      64 _fake::
+                             65 ;cases/./../tests/bug-3727.c:17: n1 = 32;
+                             66 ;	genAssign
+                             67 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0000 21r00s00      [10]   68 	ld	hl, #_n1
+   0003 36 20         [10]   69 	ld	(hl), #0x20
+                             70 ;	genLabel
+                             71 ; common peephole 159 removed unused label 00101$.
+                             72 ;cases/./../tests/bug-3727.c:18: }
+                             73 ;	genEndFunction
+   0005 C9            [10]   74 	ret
+                             75 ;	Total fake function size at codegen: 1 bytes.
+                             76 ;cases/./../tests/bug-3727.c:20: void SatUpdate(void)
+                             77 ;	genLabel
+                             78 ;	genFunction
+                             79 ;	---------------------------------
+                             80 ; Function SatUpdate
+                             81 ; ---------------------------------
+                             82 ;	Register assignment is optimal.
+                             83 ; Stack space usage: 0 bytes.
+   0006                      84 _SatUpdate::
+                             85 ;cases/./../tests/bug-3727.c:22: n1=0;
+                             86 ;	genAssign
+                             87 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0006 AF            [ 4]   88 	xor	a, a
+   0007 32r00s00      [13]   89 	ld	(#_n1), a
+                             90 ; common peephole 19 loaded (#_n1) from a directly instead of using hl.
+                             91 ;cases/./../tests/bug-3727.c:24: if ( bad )
+                             92 ;	genIfx
+   000A 3Ar01s00      [13]   93 	ld	a, (_bad+1)
+                             94 ; common peephole 54 used hl instead of iy.
+                             95 ; common peephole 130a removed unnecessary +0 from constant
+   000D 21r00s00      [10]   96 	ld	hl, #_bad
+   0010 B6            [ 7]   97 	or	a, (hl)
+                             98 ; common peephole 163 changed absolute to relative conditional jump.
+   0011 28 0C         [12]   99 	jr	z, 00103$
+                            100 ;cases/./../tests/bug-3727.c:26: for (u8 j=0; j<1; j++)
+                            101 ;	genAssign
+                            102 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0013 AF            [ 4]  103 	xor	a, a
+                            104 ;	genLabel
+   0014                     105 00105$:
+                            106 ;	genCmpLt
+   0014 D6 01         [ 7]  107 	sub	a, #0x01
+                            108 ; common peephole 163 changed absolute to relative conditional jump.
+   0016 30 07         [12]  109 	jr	nc, 00103$
+                            110 ;	skipping generated iCode
+                            111 ;cases/./../tests/bug-3727.c:28: fake();
+                            112 ;	genCall
+   0018 CDr00s00      [17]  113 	call	_fake
+                            114 ;cases/./../tests/bug-3727.c:26: for (u8 j=0; j<1; j++)
+                            115 ;	genAssign
+                            116 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001B 3E 01         [ 7]  117 	ld	a, #0x01
+                            118 ;	genGoto
+                            119 ; common peephole 162 changed absolute to relative unconditional jump.
+   001D 18 F5         [12]  120 	jr	00105$
+                            121 ;	genLabel
+   001F                     122 00103$:
+                            123 ;cases/./../tests/bug-3727.c:31: VDP_Poke_16K( 2*n1 );
+                            124 ;	genSend
+                            125 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001F AF            [ 4]  126 	xor	a, a
+                            127 ;	genCall
+                            128 ;	genLabel
+                            129 ; common peephole 159 removed unused label 00107$.
+                            130 ;cases/./../tests/bug-3727.c:32: }
+                            131 ;	genEndFunction
+   0020 C3r26s00      [10]  132 	jp	_VDP_Poke_16K
+                            133 ; common peephole 152 removed unused ret.
+                            134 ;	Total SatUpdate function size at codegen: 1 bytes.
+                            135 ;cases/./../tests/bug-3727.c:34: void testBug(void)
+                            136 ;	genLabel
+                            137 ;	genFunction
+                            138 ;	---------------------------------
+                            139 ; Function testBug
+                            140 ; ---------------------------------
+                            141 ;	Register assignment is optimal.
+                            142 ; Stack space usage: 0 bytes.
+   0023                     143 _testBug::
+                            144 ;cases/./../tests/bug-3727.c:36: SatUpdate();
+                            145 ;	genCall
+                            146 ;	genLabel
+                            147 ; common peephole 159 removed unused label 00101$.
+                            148 ;cases/./../tests/bug-3727.c:37: }
+                            149 ;	genEndFunction
+   0023 C3r06s00      [10]  150 	jp	_SatUpdate
+                            151 ; common peephole 152 removed unused ret.
+                            152 ;	Total testBug function size at codegen: 1 bytes.
+                            153 ;cases/./../tests/bug-3727.c:40: void VDP_Poke_16K( u8 dest )
+                            154 ;	genLabel
+                            155 ;	genFunction
+                            156 ;	---------------------------------
+                            157 ; Function VDP_Poke_16K
+                            158 ; ---------------------------------
+                            159 ;	Register assignment is optimal.
+                            160 ; Stack space usage: 0 bytes.
+   0026                     161 _VDP_Poke_16K::
+                            162 ;cases/./../tests/bug-3727.c:45: (void)dest;
+                            163 ;	genLabel
+                            164 ; common peephole 159 removed unused label 00101$.
+                            165 ;cases/./../tests/bug-3727.c:47: }
+                            166 ;	genEndFunction
+   0026 C9            [10]  167 	ret
+                            168 ;	Total VDP_Poke_16K function size at codegen: 1 bytes.
+                            169 ;cases/tst_bug-3727.c:4: __runSuite(void)
+                            170 ;	genLabel
+                            171 ;	genFunction
+                            172 ;	---------------------------------
+                            173 ; Function __runSuite
+                            174 ; ---------------------------------
+                            175 ;	Register assignment is optimal.
+                            176 ; Stack space usage: 0 bytes.
+   0027                     177 ___runSuite::
+                            178 ;cases/tst_bug-3727.c:6: __prints("Running testBug\n");
+                            179 ;	skipping iCode since result will be rematerialized
+                            180 ;	skipping iCode since result will be rematerialized
+                            181 ;	genSend
+                            182 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0027 21r30s00      [10]  183 	ld	hl, #___str_0
+                            184 ;	genCall
+   002A CDr00s00      [17]  185 	call	___prints
+                            186 ;cases/tst_bug-3727.c:7: testBug();
+                            187 ;	genCall
+                            188 ;	genLabel
+                            189 ; common peephole 159 removed unused label 00101$.
+                            190 ;cases/tst_bug-3727.c:8: }
+                            191 ;	genEndFunction
+   002D C3r23s00      [10]  192 	jp	_testBug
+                            193 ; common peephole 152 removed unused ret.
+                            194 ;	Total __runSuite function size at codegen: 1 bytes.
+   0030                     195 ___str_0:
+   0030 52 75 6E 6E 69 6E   196 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   003F 0A                  197 	.db 0x0a
+   0040 00                  198 	.db 0x00
+                            199 ;cases/tst_bug-3727.c:13: __getSuiteName(void)
+                            200 ;	genLabel
+                            201 ;	genFunction
+                            202 ;	---------------------------------
+                            203 ; Function __getSuiteName
+                            204 ; ---------------------------------
+                            205 ;	Register assignment is optimal.
+                            206 ; Stack space usage: 0 bytes.
+   0041                     207 ___getSuiteName::
+                            208 ;cases/tst_bug-3727.c:15: return "bug-3727.c";
+                            209 ;	skipping iCode since result will be rematerialized
+                            210 ;	skipping iCode since result will be rematerialized
+                            211 ;	genRet
+                            212 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0041 11r47s00      [10]  213 	ld	de, #___str_1
+                            214 ;	genLabel
+                            215 ; common peephole 159 removed unused label 00101$.
+                            216 ;cases/tst_bug-3727.c:16: }
+                            217 ;	genEndFunction
+   0044 C9            [10]  218 	ret
+                            219 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0045                     220 ___numCases:
+   0045 01 00               221 	.dw #0x0001
+   0047                     222 ___str_1:
+   0047 62 75 67 2D 33 37   223 	.ascii "bug-3727.c"
+        32 37 2E 63
+   0051 00                  224 	.db 0x00
+                            225 	.area _CODE (BANK=_CSEG)
+                            226 	.area _INITIALIZER
+   0000                     227 __xinit__bad:
+   0000 01 00               228 	.dw #0x0001
+                            229 	.area _CABS (ABS)

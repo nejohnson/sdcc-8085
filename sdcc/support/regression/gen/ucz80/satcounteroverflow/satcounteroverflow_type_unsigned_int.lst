@@ -1,0 +1,453 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module satcounteroverflow_type_unsigned_int
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testSat
+                             11 	.globl _satdec
+                             12 	.globl _satinc
+                             13 	.globl ___prints
+                             14 	.globl ___fail
+                             15 	.globl _cnt
+                             16 	.globl ___numCases
+                             17 	.globl ___runSuite
+                             18 	.globl ___getSuiteName
+                             19 ;--------------------------------------------------------
+                             20 ; special function registers
+                             21 ;--------------------------------------------------------
+                             22 ;--------------------------------------------------------
+                             23 ; ram data
+                             24 ;--------------------------------------------------------
+                             25 	.area _DATA (BANK=_DSEG)
+   0000                      26 _cnt::
+   0000                      27 	.ds 2
+                             28 ;--------------------------------------------------------
+                             29 ; ram data
+                             30 ;--------------------------------------------------------
+                             31 	.area _INITIALIZED
+                             32 ;--------------------------------------------------------
+                             33 ; absolute ram data
+                             34 ;--------------------------------------------------------
+                             35 	.area _DABS (ABS)
+                             36 	.area _DABS (ABS)
+                             37 ;--------------------------------------------------------
+                             38 ; global & static initialisations
+                             39 ;--------------------------------------------------------
+                             40 	.area _HOME
+                             41 	.area _GSINIT
+                             42 	.area _GSFINAL
+                             43 	.area _GSINIT
+                             44 ;--------------------------------------------------------
+                             45 ; Home
+                             46 ;--------------------------------------------------------
+                             47 	.area _HOME (BANK=_CSEG)
+                             48 	.area _HOME (BANK=_CSEG)
+                             49 ;--------------------------------------------------------
+                             50 ; code
+                             51 ;--------------------------------------------------------
+                             52 	.area _CODE (BANK=_CSEG)
+                             53 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:10: void satinc(void)
+                             54 ;	genLabel
+                             55 ;	genFunction
+                             56 ;	---------------------------------
+                             57 ; Function satinc
+                             58 ; ---------------------------------
+                             59 ;	Register assignment is optimal.
+                             60 ; Stack space usage: 0 bytes.
+   0000                      61 _satinc::
+                             62 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:12: cnt++;
+                             63 ;	genPlus
+                             64 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0000 2Ar00s00      [16]   65 	ld	hl, (_cnt)
+   0003 23            [ 6]   66 	inc	hl
+                             67 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0004 22r00s00      [16]   68 	ld	(_cnt), hl
+                             69 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:13: if (!cnt)
+                             70 ;	genIfx
+   0007 3Ar01s00      [13]   71 	ld	a, (_cnt+1)
+                             72 ; common peephole 54 used hl instead of iy.
+                             73 ; common peephole 130a removed unnecessary +0 from constant
+   000A 21r00s00      [10]   74 	ld	hl, #_cnt
+   000D B6            [ 7]   75 	or	a, (hl)
+   000E C0            [11]   76 	ret	nz
+                             77 ; common peephole 161 replaced jump by return.
+                             78 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:14: cnt--;
+                             79 ;	genMinus
+                             80 ;	Shift into pair
+   000F 21r00s00      [10]   81 	ld	hl, #_cnt
+                             82 ; common peephole 123 optimize ld a, 0x00
+   0012 AF            [ 4]   83 	xor	a, a
+   0013 C6 FF         [ 7]   84 	add	a, #0xff
+   0015 77            [ 7]   85 	ld	(hl), a
+                             86 ; common peephole 96b move inc hl before adc a, #0xff
+                             87 ; common peephole 96b move inc hl before ld a, #0x00
+   0016 23            [ 6]   88 	inc	hl
+   0017 3E 00         [ 7]   89 	ld	a, #0x00
+   0019 CE FF         [ 7]   90 	adc	a, #0xff
+   001B 77            [ 7]   91 	ld	(hl), a
+                             92 ;	genLabel
+                             93 ; common peephole 159 removed unused label 00103$.
+                             94 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:15: }
+                             95 ;	genEndFunction
+   001C C9            [10]   96 	ret
+                             97 ;	Total satinc function size at codegen: 1 bytes.
+                             98 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:17: void satdec(void)
+                             99 ;	genLabel
+                            100 ;	genFunction
+                            101 ;	---------------------------------
+                            102 ; Function satdec
+                            103 ; ---------------------------------
+                            104 ;	Register assignment is optimal.
+                            105 ; Stack space usage: 0 bytes.
+   001D                     106 _satdec::
+                            107 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:19: cnt--;
+                            108 ;	genMinus
+                            109 ;fetchPairLong
+   001D 2Ar00s00      [16]  110 	ld	hl, (_cnt)
+   0020 2B            [ 6]  111 	dec	hl
+   0021 22r00s00      [16]  112 	ld	(_cnt), hl
+                            113 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:20: if (cnt == (unsigned int)-1)
+                            114 ;	genCmpEq
+                            115 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0024 3Ar00s00      [13]  116 	ld	a, (_cnt)
+   0027 3C            [ 4]  117 	inc	a
+   0028 C0            [11]  118 	ret	nz
+                            119 ; common peephole 161 replaced jump by return.
+                            120 ; common peephole 84 jumped to 00103$ directly instead of via 00113$.
+                            121 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0029 3Ar01s00      [13]  122 	ld	a, (_cnt + 1)
+   002C 3C            [ 4]  123 	inc	a
+                            124 ; common peephole 81 removed jp by using inverse jump logic
+                            125 ; common peephole 159 removed unused label 00113$.
+   002D C0            [11]  126 	ret	nz
+                            127 ; common peephole 161 replaced jump by return.
+                            128 ; common peephole 82 removed jp by using inverse jump logic
+                            129 ; common peephole 159 removed unused label 00114$.
+                            130 ;	skipping generated iCode
+                            131 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:21: cnt++;
+                            132 ;	genPlus
+                            133 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002E 2Ar00s00      [16]  134 	ld	hl, (_cnt)
+   0031 23            [ 6]  135 	inc	hl
+                            136 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0032 22r00s00      [16]  137 	ld	(_cnt), hl
+                            138 ;	genLabel
+                            139 ; common peephole 159 removed unused label 00103$.
+                            140 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:22: }
+                            141 ;	genEndFunction
+   0035 C9            [10]  142 	ret
+                            143 ;	Total satdec function size at codegen: 1 bytes.
+                            144 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:24: void testSat(void)
+                            145 ;	genLabel
+                            146 ;	genFunction
+                            147 ;	---------------------------------
+                            148 ; Function testSat
+                            149 ; ---------------------------------
+                            150 ;	Register assignment might be sub-optimal.
+                            151 ; Stack space usage: 0 bytes.
+   0036                     152 _testSat::
+                            153 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:26: cnt = 0;
+                            154 ;	genAssign
+                            155 ;fetchPairLong
+   0036 21 00 00      [10]  156 	ld	hl, #0x0000
+                            157 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0039 22r00s00      [16]  158 	ld	(_cnt), hl
+                            159 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:27: satinc ();
+                            160 ;	genCall
+   003C CDr00s00      [17]  161 	call	_satinc
+                            162 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:28: ASSERT (cnt == 1);
+                            163 ;	genPlus
+                            164 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   003F 2Ar00s00      [16]  165 	ld	hl, (___numTests)
+   0042 23            [ 6]  166 	inc	hl
+                            167 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0043 22r00s00      [16]  168 	ld	(___numTests), hl
+                            169 ;	genCmpEq
+                            170 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0046 3Ar00s00      [13]  171 	ld	a, (_cnt)
+   0049 3D            [ 4]  172 	dec	a
+                            173 ; common peephole 54 used hl instead of iy.
+   004A 21r01s00      [10]  174 	ld	hl, #_cnt + 1
+   004D B6            [ 7]  175 	or	a, (hl)
+                            176 ; common peephole 163 changed absolute to relative conditional jump.
+   004E 28 11         [12]  177 	jr	z, 00104$
+                            178 ; common peephole 81 removed jp by using inverse jump logic
+                            179 ; common peephole 159 removed unused label 00143$.
+                            180 ;	skipping generated iCode
+                            181 ;	skipping iCode since result will be rematerialized
+                            182 ;	skipping iCode since result will be rematerialized
+                            183 ;	skipping iCode since result will be rematerialized
+                            184 ;	skipping iCode since result will be rematerialized
+                            185 ;	skipping iCode since result will be rematerialized
+                            186 ;	skipping iCode since result will be rematerialized
+                            187 ;	genIpush
+                            188 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0050 21 1C 00      [10]  189 	ld	hl, #0x001c
+   0053 E5            [11]  190 	push	hl
+                            191 ;	genIpush
+                            192 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0054 21rF6s00      [10]  193 	ld	hl, #___str_2
+   0057 E5            [11]  194 	push	hl
+                            195 ;	genSend
+                            196 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0058 11rEDs00      [10]  197 	ld	de, #___str_1
+                            198 ;	genSend
+                            199 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   005B 21rDCs00      [10]  200 	ld	hl, #___str_0
+                            201 ;	genCall
+   005E CDr00s00      [17]  202 	call	___fail
+                            203 ;	genLabel
+   0061                     204 00104$:
+                            205 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:29: satdec ();
+                            206 ;	genCall
+   0061 CDr1Ds00      [17]  207 	call	_satdec
+                            208 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:30: satdec ();
+                            209 ;	genCall
+   0064 CDr1Ds00      [17]  210 	call	_satdec
+                            211 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:31: ASSERT (cnt == 0);
+                            212 ;	genPlus
+                            213 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0067 2Ar00s00      [16]  214 	ld	hl, (___numTests)
+   006A 23            [ 6]  215 	inc	hl
+                            216 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   006B 22r00s00      [16]  217 	ld	(___numTests), hl
+                            218 ;	genIfx
+   006E 3Ar01s00      [13]  219 	ld	a, (_cnt+1)
+                            220 ; common peephole 54 used hl instead of iy.
+                            221 ; common peephole 130a removed unnecessary +0 from constant
+   0071 21r00s00      [10]  222 	ld	hl, #_cnt
+   0074 B6            [ 7]  223 	or	a, (hl)
+                            224 ; common peephole 163 changed absolute to relative conditional jump.
+   0075 28 11         [12]  225 	jr	z, 00106$
+                            226 ;	skipping iCode since result will be rematerialized
+                            227 ;	skipping iCode since result will be rematerialized
+                            228 ;	skipping iCode since result will be rematerialized
+                            229 ;	skipping iCode since result will be rematerialized
+                            230 ;	skipping iCode since result will be rematerialized
+                            231 ;	skipping iCode since result will be rematerialized
+                            232 ;	genIpush
+                            233 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0077 21 1F 00      [10]  234 	ld	hl, #0x001f
+   007A E5            [11]  235 	push	hl
+                            236 ;	genIpush
+                            237 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   007B 21rF6s00      [10]  238 	ld	hl, #___str_2
+   007E E5            [11]  239 	push	hl
+                            240 ;	genSend
+                            241 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   007F 11r36s01      [10]  242 	ld	de, #___str_3
+                            243 ;	genSend
+                            244 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0082 21rDCs00      [10]  245 	ld	hl, #___str_0
+                            246 ;	genCall
+   0085 CDr00s00      [17]  247 	call	___fail
+                            248 ;	genLabel
+   0088                     249 00106$:
+                            250 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:33: cnt = -2;
+                            251 ;	genAssign
+                            252 ;fetchPairLong
+   0088 21 FE FF      [10]  253 	ld	hl, #0xfffe
+                            254 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   008B 22r00s00      [16]  255 	ld	(_cnt), hl
+                            256 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:34: satinc ();
+                            257 ;	genCall
+   008E CDr00s00      [17]  258 	call	_satinc
+                            259 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:35: ASSERT (cnt == (unsigned int)-1);
+                            260 ;	genPlus
+                            261 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0091 2Ar00s00      [16]  262 	ld	hl, (___numTests)
+   0094 23            [ 6]  263 	inc	hl
+                            264 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0095 22r00s00      [16]  265 	ld	(___numTests), hl
+                            266 ;	genCmpEq
+                            267 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0098 3Ar00s00      [13]  268 	ld	a, (_cnt)
+   009B 3C            [ 4]  269 	inc	a
+                            270 ; common peephole 163 changed absolute to relative conditional jump.
+   009C 20 06         [12]  271 	jr	nz, 00144$
+                            272 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   009E 3Ar01s00      [13]  273 	ld	a, (_cnt + 1)
+   00A1 3C            [ 4]  274 	inc	a
+                            275 ; common peephole 163 changed absolute to relative conditional jump.
+   00A2 28 11         [12]  276 	jr	z, 00108$
+                            277 ; common peephole 81 removed jp by using inverse jump logic
+   00A4                     278 00144$:
+                            279 ;	skipping generated iCode
+                            280 ;	skipping iCode since result will be rematerialized
+                            281 ;	skipping iCode since result will be rematerialized
+                            282 ;	skipping iCode since result will be rematerialized
+                            283 ;	skipping iCode since result will be rematerialized
+                            284 ;	skipping iCode since result will be rematerialized
+                            285 ;	skipping iCode since result will be rematerialized
+                            286 ;	genIpush
+                            287 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A4 21 23 00      [10]  288 	ld	hl, #0x0023
+   00A7 E5            [11]  289 	push	hl
+                            290 ;	genIpush
+                            291 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A8 21rF6s00      [10]  292 	ld	hl, #___str_2
+   00AB E5            [11]  293 	push	hl
+                            294 ;	genSend
+                            295 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00AC 11r3Fs01      [10]  296 	ld	de, #___str_4
+                            297 ;	genSend
+                            298 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00AF 21rDCs00      [10]  299 	ld	hl, #___str_0
+                            300 ;	genCall
+   00B2 CDr00s00      [17]  301 	call	___fail
+                            302 ;	genLabel
+   00B5                     303 00108$:
+                            304 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:36: satinc ();
+                            305 ;	genCall
+   00B5 CDr00s00      [17]  306 	call	_satinc
+                            307 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:37: ASSERT (cnt == (unsigned int)-1);
+                            308 ;	genPlus
+                            309 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B8 2Ar00s00      [16]  310 	ld	hl, (___numTests)
+   00BB 23            [ 6]  311 	inc	hl
+                            312 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00BC 22r00s00      [16]  313 	ld	(___numTests), hl
+                            314 ;	genCmpEq
+                            315 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   00BF 3Ar00s00      [13]  316 	ld	a, (_cnt)
+   00C2 3C            [ 4]  317 	inc	a
+                            318 ; common peephole 163 changed absolute to relative conditional jump.
+   00C3 20 05         [12]  319 	jr	nz, 00145$
+                            320 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   00C5 3Ar01s00      [13]  321 	ld	a, (_cnt + 1)
+   00C8 3C            [ 4]  322 	inc	a
+   00C9 C8            [11]  323 	ret	z
+                            324 ; common peephole 161 replaced jump by return.
+                            325 ; common peephole 81 removed jp by using inverse jump logic
+   00CA                     326 00145$:
+                            327 ;	skipping generated iCode
+                            328 ;	skipping iCode since result will be rematerialized
+                            329 ;	skipping iCode since result will be rematerialized
+                            330 ;	skipping iCode since result will be rematerialized
+                            331 ;	skipping iCode since result will be rematerialized
+                            332 ;	skipping iCode since result will be rematerialized
+                            333 ;	skipping iCode since result will be rematerialized
+                            334 ;	genIpush
+                            335 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00CA 21 25 00      [10]  336 	ld	hl, #0x0025
+   00CD E5            [11]  337 	push	hl
+                            338 ;	genIpush
+                            339 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00CE 21rF6s00      [10]  340 	ld	hl, #___str_2
+   00D1 E5            [11]  341 	push	hl
+                            342 ;	genSend
+                            343 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00D2 11r3Fs01      [10]  344 	ld	de, #___str_4
+                            345 ;	genSend
+                            346 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00D5 21rDCs00      [10]  347 	ld	hl, #___str_0
+                            348 ;	genCall
+   00D8 CDr00s00      [17]  349 	call	___fail
+                            350 ;	genLabel
+                            351 ; common peephole 159 removed unused label 00101$.
+                            352 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:38: }
+                            353 ;	genEndFunction
+   00DB C9            [10]  354 	ret
+                            355 ;	Total testSat function size at codegen: 1 bytes.
+   00DC                     356 ___str_0:
+   00DC 41 73 73 65 72 74   357 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   00EC 00                  358 	.db 0x00
+   00ED                     359 ___str_1:
+   00ED 63 6E 74 20 3D 3D   360 	.ascii "cnt == 1"
+        20 31
+   00F5 00                  361 	.db 0x00
+   00F6                     362 ___str_2:
+   00F6 63 61 73 65 73 2F   363 	.ascii "cases/satcounteroverflow/satcounteroverflow_type_unsigned_in"
+        73 61 74 63 6F 75
+        6E 74 65 72 6F 76
+        65 72 66 6C 6F 77
+        2F 73 61 74 63 6F
+        75 6E 74 65 72 6F
+        76 65 72 66 6C 6F
+        77 5F 74 79 70 65
+        5F 75 6E 73 69 67
+        6E 65 64 5F 69 6E
+   0132 74 2E 63            364 	.ascii "t.c"
+   0135 00                  365 	.db 0x00
+   0136                     366 ___str_3:
+   0136 63 6E 74 20 3D 3D   367 	.ascii "cnt == 0"
+        20 30
+   013E 00                  368 	.db 0x00
+   013F                     369 ___str_4:
+   013F 63 6E 74 20 3D 3D   370 	.ascii "cnt == (unsigned int)-1"
+        20 28 75 6E 73 69
+        67 6E 65 64 20 69
+        6E 74 29 2D 31
+   0156 00                  371 	.db 0x00
+                            372 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:42: __runSuite(void)
+                            373 ;	genLabel
+                            374 ;	genFunction
+                            375 ;	---------------------------------
+                            376 ; Function __runSuite
+                            377 ; ---------------------------------
+                            378 ;	Register assignment is optimal.
+                            379 ; Stack space usage: 0 bytes.
+   0157                     380 ___runSuite::
+                            381 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:44: __prints("Running testSat\n");
+                            382 ;	skipping iCode since result will be rematerialized
+                            383 ;	skipping iCode since result will be rematerialized
+                            384 ;	genSend
+                            385 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0157 21r60s01      [10]  386 	ld	hl, #___str_5
+                            387 ;	genCall
+   015A CDr00s00      [17]  388 	call	___prints
+                            389 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:45: testSat();
+                            390 ;	genCall
+                            391 ;	genLabel
+                            392 ; common peephole 159 removed unused label 00101$.
+                            393 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:46: }
+                            394 ;	genEndFunction
+   015D C3r36s00      [10]  395 	jp	_testSat
+                            396 ; common peephole 152 removed unused ret.
+                            397 ;	Total __runSuite function size at codegen: 1 bytes.
+   0160                     398 ___str_5:
+   0160 52 75 6E 6E 69 6E   399 	.ascii "Running testSat"
+        67 20 74 65 73 74
+        53 61 74
+   016F 0A                  400 	.db 0x0a
+   0170 00                  401 	.db 0x00
+                            402 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:51: __getSuiteName(void)
+                            403 ;	genLabel
+                            404 ;	genFunction
+                            405 ;	---------------------------------
+                            406 ; Function __getSuiteName
+                            407 ; ---------------------------------
+                            408 ;	Register assignment is optimal.
+                            409 ; Stack space usage: 0 bytes.
+   0171                     410 ___getSuiteName::
+                            411 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:53: return "satcounteroverflow_type_unsigned_int";
+                            412 ;	skipping iCode since result will be rematerialized
+                            413 ;	skipping iCode since result will be rematerialized
+                            414 ;	genRet
+                            415 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0171 11r77s01      [10]  416 	ld	de, #___str_6
+                            417 ;	genLabel
+                            418 ; common peephole 159 removed unused label 00101$.
+                            419 ;cases/satcounteroverflow/satcounteroverflow_type_unsigned_int.c:54: }
+                            420 ;	genEndFunction
+   0174 C9            [10]  421 	ret
+                            422 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0175                     423 ___numCases:
+   0175 01 00               424 	.dw #0x0001
+   0177                     425 ___str_6:
+   0177 73 61 74 63 6F 75   426 	.ascii "satcounteroverflow_type_unsigned_int"
+        6E 74 65 72 6F 76
+        65 72 66 6C 6F 77
+        5F 74 79 70 65 5F
+        75 6E 73 69 67 6E
+        65 64 5F 69 6E 74
+   019B 00                  427 	.db 0x00
+                            428 	.area _CODE (BANK=_CSEG)
+                            429 	.area _INITIALIZER
+                            430 	.area _CABS (ABS)

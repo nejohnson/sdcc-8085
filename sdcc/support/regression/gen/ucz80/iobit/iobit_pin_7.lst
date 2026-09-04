@@ -1,0 +1,279 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module iobit_pin_7
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _bar0
+                             12 	.globl _bar1
+                             13 	.globl _foo_b
+                             14 	.globl _foo_a
+                             15 	.globl ___prints
+                             16 	.globl ___numCases
+                             17 	.globl ___runSuite
+                             18 	.globl ___getSuiteName
+                             19 ;--------------------------------------------------------
+                             20 ; special function registers
+                             21 ;--------------------------------------------------------
+                     0010    22 _PORT	=	0x0010
+                             23 ;--------------------------------------------------------
+                             24 ; ram data
+                             25 ;--------------------------------------------------------
+                             26 	.area _DATA (BANK=_DSEG)
+   0000                      27 _foo_a_cnt_10000_13:
+   0000                      28 	.ds 1
+   0001                      29 _foo_b_cnt_10000_15:
+   0001                      30 	.ds 1
+                             31 ;--------------------------------------------------------
+                             32 ; ram data
+                             33 ;--------------------------------------------------------
+                             34 	.area _INITIALIZED
+                             35 ;--------------------------------------------------------
+                             36 ; absolute ram data
+                             37 ;--------------------------------------------------------
+                             38 	.area _DABS (ABS)
+                             39 	.area _DABS (ABS)
+                             40 ;--------------------------------------------------------
+                             41 ; global & static initialisations
+                             42 ;--------------------------------------------------------
+                             43 	.area _HOME
+                             44 	.area _GSINIT
+                             45 	.area _GSFINAL
+                             46 	.area _GSINIT
+                             47 ;--------------------------------------------------------
+                             48 ; Home
+                             49 ;--------------------------------------------------------
+                             50 	.area _HOME (BANK=_CSEG)
+                             51 	.area _HOME (BANK=_CSEG)
+                             52 ;--------------------------------------------------------
+                             53 ; code
+                             54 ;--------------------------------------------------------
+                             55 	.area _CODE (BANK=_CSEG)
+                             56 ;cases/iobit/iobit_pin_7.c:19: void foo_a(void) {
+                             57 ;	genLabel
+                             58 ;	genFunction
+                             59 ;	---------------------------------
+                             60 ; Function foo_a
+                             61 ; ---------------------------------
+                             62 ;	Register assignment is optimal.
+                             63 ; Stack space usage: 0 bytes.
+   0000                      64 _foo_a::
+                             65 ;cases/iobit/iobit_pin_7.c:21: PORT = (cnt++ & 5) ? (PORT | (1<<PIN)) : (PORT & ~(1<<PIN));
+                             66 ;	genAssign
+                             67 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0000 3Ar00s00      [13]   68 	ld	a, (_foo_a_cnt_10000_13)
+   0003 4F            [ 4]   69 	ld	c, a
+                             70 ;	genPlus
+   0004 21r00s00      [10]   71 	ld	hl, #_foo_a_cnt_10000_13
+   0007 34            [11]   72 	inc	(hl)
+                             73 ;	genAnd
+   0008 79            [ 4]   74 	ld	a, c
+   0009 E6 05         [ 7]   75 	and	a, #0x05
+                             76 ; common peephole 163 changed absolute to relative conditional jump.
+   000B 28 06         [12]   77 	jr	z, 00103$
+                             78 ; common peephole 81 removed jp by using inverse jump logic
+                             79 ; common peephole 159 removed unused label 00113$.
+                             80 ;	skipping generated iCode
+                             81 ;	genOr
+                             82 ;	genMove_o size 1 result type 2 source type 5 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000D DB 10         [11]   83 	in	a, (_PORT)
+   000F CB FF         [ 8]   84 	set	7, a
+                             85 ;	genGoto
+                             86 ; common peephole 162 changed absolute to relative unconditional jump.
+   0011 18 04         [12]   87 	jr	00104$
+                             88 ;	genLabel
+   0013                      89 00103$:
+                             90 ;	genAnd
+   0013 DB 10         [11]   91 	in	a, (_PORT)
+   0015 E6 7F         [ 7]   92 	and	a, #0x7f
+                             93 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             94 ;	genLabel
+   0017                      95 00104$:
+                             96 ;	genAssign
+   0017 D3 10         [11]   97 	out	(_PORT), a
+                             98 ;	genLabel
+                             99 ; common peephole 159 removed unused label 00101$.
+                            100 ;cases/iobit/iobit_pin_7.c:22: }
+                            101 ;	genEndFunction
+   0019 C9            [10]  102 	ret
+                            103 ;	Total foo_a function size at codegen: 4 bytes.
+                            104 ;cases/iobit/iobit_pin_7.c:24: void foo_b(void) {
+                            105 ;	genLabel
+                            106 ;	genFunction
+                            107 ;	---------------------------------
+                            108 ; Function foo_b
+                            109 ; ---------------------------------
+                            110 ;	Register assignment is optimal.
+                            111 ; Stack space usage: 0 bytes.
+   001A                     112 _foo_b::
+                            113 ;cases/iobit/iobit_pin_7.c:26: PORT = (cnt & (1<<5)) ? (PORT | (1<<PIN)) : (PORT & ~(1<<PIN));
+                            114 ;	genAnd
+                            115 ; common peephole 61 used hl instead of iy.
+                            116 ; common peephole 130a removed unnecessary +0 from constant
+   001A 21r01s00      [10]  117 	ld	hl, #_foo_b_cnt_10000_15
+   001D CB 6E         [12]  118 	bit	5, (hl)
+                            119 ; common peephole 163 changed absolute to relative conditional jump.
+   001F 28 06         [12]  120 	jr	z, 00103$
+                            121 ; common peephole 81 removed jp by using inverse jump logic
+                            122 ; common peephole 159 removed unused label 00113$.
+                            123 ;	skipping generated iCode
+                            124 ;	genOr
+                            125 ;	genMove_o size 1 result type 2 source type 5 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0021 DB 10         [11]  126 	in	a, (_PORT)
+   0023 CB FF         [ 8]  127 	set	7, a
+                            128 ;	genGoto
+                            129 ; common peephole 162 changed absolute to relative unconditional jump.
+   0025 18 04         [12]  130 	jr	00104$
+                            131 ;	genLabel
+   0027                     132 00103$:
+                            133 ;	genAnd
+   0027 DB 10         [11]  134 	in	a, (_PORT)
+   0029 E6 7F         [ 7]  135 	and	a, #0x7f
+                            136 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            137 ;	genLabel
+   002B                     138 00104$:
+                            139 ;	genAssign
+   002B D3 10         [11]  140 	out	(_PORT), a
+                            141 ;cases/iobit/iobit_pin_7.c:27: cnt++;
+                            142 ;	genPlus
+   002D 21r01s00      [10]  143 	ld	hl, #_foo_b_cnt_10000_15
+   0030 34            [11]  144 	inc	(hl)
+                            145 ;	genLabel
+                            146 ; common peephole 159 removed unused label 00101$.
+                            147 ;cases/iobit/iobit_pin_7.c:28: }
+                            148 ;	genEndFunction
+   0031 C9            [10]  149 	ret
+                            150 ;	Total foo_b function size at codegen: 4 bytes.
+                            151 ;cases/iobit/iobit_pin_7.c:30: void bar1(void) {
+                            152 ;	genLabel
+                            153 ;	genFunction
+                            154 ;	---------------------------------
+                            155 ; Function bar1
+                            156 ; ---------------------------------
+                            157 ;	Register assignment is optimal.
+                            158 ; Stack space usage: 0 bytes.
+   0032                     159 _bar1::
+                            160 ;cases/iobit/iobit_pin_7.c:31: if (PORT & (1 << PIN))
+                            161 ;	genAnd
+   0032 DB 10         [11]  162 	in	a, (_PORT)
+   0034 07            [ 4]  163 	rlca
+                            164 ; common peephole 80 removed jp by using inverse jump logic
+                            165 ; common peephole 159 removed unused label 00113$.
+                            166 ;	skipping generated iCode
+                            167 ;cases/iobit/iobit_pin_7.c:32: foo_a();
+                            168 ;	genCall
+                            169 ;	genLabel
+   0035 DAr00s00      [10]  170 	jp	c, _foo_a
+                            171 ; common peephole 79 removed jp by using inverse jump logic
+                            172 ; common peephole 159 removed unused label 00103$.
+                            173 ;cases/iobit/iobit_pin_7.c:33: }
+                            174 ;	genEndFunction
+   0038 C9            [10]  175 	ret
+                            176 ;	Total bar1 function size at codegen: 4 bytes.
+                            177 ;cases/iobit/iobit_pin_7.c:35: void bar0(void) {
+                            178 ;	genLabel
+                            179 ;	genFunction
+                            180 ;	---------------------------------
+                            181 ; Function bar0
+                            182 ; ---------------------------------
+                            183 ;	Register assignment is optimal.
+                            184 ; Stack space usage: 0 bytes.
+   0039                     185 _bar0::
+                            186 ;cases/iobit/iobit_pin_7.c:36: if (!(PORT & (1 << PIN)))
+                            187 ;	genAnd
+   0039 DB 10         [11]  188 	in	a, (_PORT)
+   003B 07            [ 4]  189 	rlca
+   003C D2r00s00      [10]  190 	jp	nc, _foo_a
+                            191 ; common peephole 84 jumped to _foo_a directly instead of via 00114$.
+                            192 ; common peephole 80 removed jp by using inverse jump logic
+                            193 ; common peephole 159 removed unused label 00113$.
+                            194 ;	skipping generated iCode
+                            195 ;cases/iobit/iobit_pin_7.c:37: foo_a();
+                            196 ;	genCall
+                            197 ; common peephole 87b removed unreachable jump to _foo_a
+                            198 ;	genLabel
+                            199 ; common peephole 85a eliminated jump.
+                            200 ; common peephole 159 removed unused label 00103$.
+                            201 ;cases/iobit/iobit_pin_7.c:38: }
+                            202 ;	genEndFunction
+   003F C9            [10]  203 	ret
+                            204 ;	Total bar0 function size at codegen: 4 bytes.
+                            205 ;cases/iobit/iobit_pin_7.c:41: testBug (void)
+                            206 ;	genLabel
+                            207 ;	genFunction
+                            208 ;	---------------------------------
+                            209 ; Function testBug
+                            210 ; ---------------------------------
+                            211 ;	Register assignment is optimal.
+                            212 ; Stack space usage: 0 bytes.
+   0040                     213 _testBug::
+                            214 ;cases/iobit/iobit_pin_7.c:43: }
+                            215 ;	genLabel
+                            216 ; common peephole 159 removed unused label 00101$.
+                            217 ;	genEndFunction
+   0040 C9            [10]  218 	ret
+                            219 ;	Total testBug function size at codegen: 4 bytes.
+                            220 ;cases/iobit/iobit_pin_7.c:47: __runSuite(void)
+                            221 ;	genLabel
+                            222 ;	genFunction
+                            223 ;	---------------------------------
+                            224 ; Function __runSuite
+                            225 ; ---------------------------------
+                            226 ;	Register assignment is optimal.
+                            227 ; Stack space usage: 0 bytes.
+   0041                     228 ___runSuite::
+                            229 ;cases/iobit/iobit_pin_7.c:49: __prints("Running testBug\n");
+                            230 ;	skipping iCode since result will be rematerialized
+                            231 ;	skipping iCode since result will be rematerialized
+                            232 ;	genSend
+                            233 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0041 21r47s00      [10]  234 	ld	hl, #___str_0
+                            235 ;	genCall
+                            236 ;cases/iobit/iobit_pin_7.c:50: testBug();
+                            237 ;	genLabel
+                            238 ; common peephole 159 removed unused label 00101$.
+                            239 ;cases/iobit/iobit_pin_7.c:51: }
+                            240 ;	genEndFunction
+   0044 C3r00s00      [10]  241 	jp	___prints
+                            242 ; common peephole 152 removed unused ret.
+                            243 ;	Total __runSuite function size at codegen: 1 bytes.
+   0047                     244 ___str_0:
+   0047 52 75 6E 6E 69 6E   245 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   0056 0A                  246 	.db 0x0a
+   0057 00                  247 	.db 0x00
+                            248 ;cases/iobit/iobit_pin_7.c:56: __getSuiteName(void)
+                            249 ;	genLabel
+                            250 ;	genFunction
+                            251 ;	---------------------------------
+                            252 ; Function __getSuiteName
+                            253 ; ---------------------------------
+                            254 ;	Register assignment is optimal.
+                            255 ; Stack space usage: 0 bytes.
+   0058                     256 ___getSuiteName::
+                            257 ;cases/iobit/iobit_pin_7.c:58: return "iobit_pin_7";
+                            258 ;	skipping iCode since result will be rematerialized
+                            259 ;	skipping iCode since result will be rematerialized
+                            260 ;	genRet
+                            261 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0058 11r5Es00      [10]  262 	ld	de, #___str_1
+                            263 ;	genLabel
+                            264 ; common peephole 159 removed unused label 00101$.
+                            265 ;cases/iobit/iobit_pin_7.c:59: }
+                            266 ;	genEndFunction
+   005B C9            [10]  267 	ret
+                            268 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   005C                     269 ___numCases:
+   005C 01 00               270 	.dw #0x0001
+   005E                     271 ___str_1:
+   005E 69 6F 62 69 74 5F   272 	.ascii "iobit_pin_7"
+        70 69 6E 5F 37
+   0069 00                  273 	.db 0x00
+                            274 	.area _CODE (BANK=_CSEG)
+                            275 	.area _INITIALIZER
+                            276 	.area _CABS (ABS)

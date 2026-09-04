@@ -1,0 +1,647 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_2208
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _SDCCBUG_DealCardsTo
+                             12 	.globl ___prints
+                             13 	.globl ___fail
+                             14 	.globl _SDCCBUG_skill
+                             15 	.globl _SDCCBUG_hand
+                             16 	.globl _SDCCBUG_handN
+                             17 	.globl _SDCCBUG_packN
+                             18 	.globl _SDCCBUG_pack
+                             19 	.globl ___numCases
+                             20 	.globl ___runSuite
+                             21 	.globl ___getSuiteName
+                             22 ;--------------------------------------------------------
+                             23 ; special function registers
+                             24 ;--------------------------------------------------------
+                             25 ;--------------------------------------------------------
+                             26 ; ram data
+                             27 ;--------------------------------------------------------
+                             28 	.area _DATA (BANK=_DSEG)
+   0000                      29 _SDCCBUG_pack::
+   0000                      30 	.ds 74
+   004A                      31 _SDCCBUG_packN::
+   004A                      32 	.ds 1
+   004B                      33 _SDCCBUG_handN::
+   004B                      34 	.ds 2
+   004D                      35 _SDCCBUG_hand::
+   004D                      36 	.ds 148
+                             37 ;--------------------------------------------------------
+                             38 ; ram data
+                             39 ;--------------------------------------------------------
+                             40 	.area _INITIALIZED
+   0000                      41 _SDCCBUG_skill::
+   0000                      42 	.ds 1
+                             43 ;--------------------------------------------------------
+                             44 ; absolute ram data
+                             45 ;--------------------------------------------------------
+                             46 	.area _DABS (ABS)
+                             47 	.area _DABS (ABS)
+                             48 ;--------------------------------------------------------
+                             49 ; global & static initialisations
+                             50 ;--------------------------------------------------------
+                             51 	.area _HOME
+                             52 	.area _GSINIT
+                             53 	.area _GSFINAL
+                             54 	.area _GSINIT
+                             55 ;--------------------------------------------------------
+                             56 ; Home
+                             57 ;--------------------------------------------------------
+                             58 	.area _HOME (BANK=_CSEG)
+                             59 	.area _HOME (BANK=_CSEG)
+                             60 ;--------------------------------------------------------
+                             61 ; code
+                             62 ;--------------------------------------------------------
+                             63 	.area _CODE (BANK=_CSEG)
+                             64 ;cases/./../tests/bug-2208.c:22: void SDCCBUG_DealCardsTo (unsigned char player)
+                             65 ;	genLabel
+                             66 ;	genFunction
+                             67 ;	---------------------------------
+                             68 ; Function SDCCBUG_DealCardsTo
+                             69 ; ---------------------------------
+                             70 ;	Register assignment might be sub-optimal.
+                             71 ; Stack space usage: 7 bytes.
+   0000                      72 _SDCCBUG_DealCardsTo::
+   0000 DD E5         [15]   73 	push	ix
+   0002 DD 21 00 00   [14]   74 	ld	ix,	#0
+   0006 DD 39         [15]   75 	add	ix, sp
+                             76 ;	adjustStack by -7
+   0008 21 F9 FF      [10]   77 	ld	hl, #-7
+   000B 39            [11]   78 	add	hl, sp
+   000C F9            [ 6]   79 	ld	sp, hl
+                             80 ;	genReceive
+                             81 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             82 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             83 ;cases/./../tests/bug-2208.c:26: if ((int)SDCCBUG_handN[player] >= 6 || (int)SDCCBUG_packN == 0) {
+                             84 ;	skipping iCode since result will be rematerialized
+                             85 ;	genPlus
+   000D 5F            [ 4]   86 	ld	e, a
+                             87 ; common peephole 98 removed redundant load from e into a.
+   000E C6r4B         [ 7]   88 	add	a, #<(_SDCCBUG_handN)
+   0010 4F            [ 4]   89 	ld	c, a
+   0011 3E 00         [ 7]   90 	ld	a, #0x00
+   0013 CEs00         [ 7]   91 	adc	a, #>(_SDCCBUG_handN)
+   0015 47            [ 4]   92 	ld	b, a
+                             93 ;	genPointerGet
+   0016 0A            [ 7]   94 	ld	a, (bc)
+                             95 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                             96 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                             97 ;	genCast
+                             98 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0017 57            [ 4]   99 	ld	d, a
+                            100 ; common peephole 98 removed redundant load from d into a.
+                            101 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            102 ;	genCmpLt
+   0018 D6 06         [ 7]  103 	sub	a, #0x06
+   001A D2rFCs00      [10]  104 	jp	nc, 00113$
+                            105 ; common peephole 84 jumped to 00113$ directly instead of via 00101$.
+                            106 ;	skipping generated iCode
+                            107 ;	genIfx
+   001D 3Ar4As00      [13]  108 	ld	a, (_SDCCBUG_packN+0)
+   0020 B7            [ 4]  109 	or	a, a
+                            110 ;	genLabel
+                            111 ; common peephole 159 removed unused label 00101$.
+                            112 ;cases/./../tests/bug-2208.c:27: return;
+                            113 ;	genRet
+                            114 ;	genLabel
+   0021 CArFCs00      [10]  115 	jp	z, 00113$
+                            116 ; common peephole 81 removed jp by using inverse jump logic
+                            117 ; common peephole 159 removed unused label 00102$.
+                            118 ;cases/./../tests/bug-2208.c:29: i = (int)SDCCBUG_handN[player] + 1;
+                            119 ;	genCast
+                            120 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0024 7A            [ 4]  121 	ld	a, d
+                            122 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            123 ;	genPlus
+   0025 3C            [ 4]  124 	inc	a
+   0026 DD 77 FB      [19]  125 	ld	-5 (ix), a
+                            126 ;cases/./../tests/bug-2208.c:30: while ((int)i <= 6) {
+                            127 ;	skipping iCode since result will be rematerialized
+                            128 ;	skipping iCode since result will be rematerialized
+                            129 ;	genMult
+                            130 ;fetchPairLong
+   0029 16 00         [ 7]  131 	ld	d, #0x00
+   002B 6B            [ 4]  132 	ld	l, e
+   002C 62            [ 4]  133 	ld	h, d
+   002D 29            [11]  134 	add	hl, hl
+   002E 29            [11]  135 	add	hl, hl
+   002F 29            [11]  136 	add	hl, hl
+   0030 19            [11]  137 	add	hl, de
+   0031 29            [11]  138 	add	hl, hl
+   0032 29            [11]  139 	add	hl, hl
+   0033 19            [11]  140 	add	hl, de
+   0034 29            [11]  141 	add	hl, hl
+                            142 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0035 EB            [ 4]  143 	ex	de, hl
+                            144 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            145 ;	genPlus
+                            146 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0036 21r4Ds00      [10]  147 	ld	hl, #_SDCCBUG_hand
+   0039 19            [11]  148 	add	hl, de
+                            149 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   003A EB            [ 4]  150 	ex	de, hl
+                            151 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            152 ;	genLabel
+   003B                     153 00110$:
+                            154 ;	genCast
+                            155 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   003B DD 7E FB      [19]  156 	ld	a, -5 (ix)
+                            157 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            158 ;	genCmpGt
+   003E FE 07         [ 7]  159 	cp	a, #0x07
+   0040 D2rFCs00      [10]  160 	jp	nc, 00113$
+                            161 ;	skipping generated iCode
+                            162 ;cases/./../tests/bug-2208.c:31: if (SDCCBUG_skill == 4) {
+                            163 ;	genCmpEq
+                            164 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0043 3Ar00s00      [13]  165 	ld	a, (_SDCCBUG_skill)
+   0046 D6 04         [ 7]  166 	sub	a, #0x04
+                            167 ; common peephole 81 removed jp by using inverse jump logic
+                            168 ; common peephole 159 removed unused label 00163$.
+                            169 ; common peephole 163 changed absolute to relative conditional jump.
+   0048 20 49         [12]  170 	jr	nz, 00107$
+                            171 ; common peephole 82 removed jp by using inverse jump logic
+                            172 ; common peephole 159 removed unused label 00164$.
+                            173 ;	skipping generated iCode
+                            174 ;cases/./../tests/bug-2208.c:32: j = (int)SDCCBUG_packN - 3;
+                            175 ;	genCast
+                            176 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   004A 3Ar4As00      [13]  177 	ld	a, (_SDCCBUG_packN)
+                            178 ;	genMinus
+   004D C6 FD         [ 7]  179 	add	a, #0xfd
+   004F DD 77 FC      [19]  180 	ld	-4 (ix), a
+                            181 ;cases/./../tests/bug-2208.c:33: if (SDCCBUG_pack[SDCCBUG_packN].rank > SDCCBUG_pack[j].rank) {
+                            182 ;	genCast
+                            183 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0052 3Ar4As00      [13]  184 	ld	a, (_SDCCBUG_packN)
+                            185 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0055 2E 00         [ 7]  186 	ld	l, #0x00
+                            187 ;	genLeftShift
+                            188 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0057 87            [ 4]  189 	add	a, a
+   0058 CB 15         [ 8]  190 	rl	l
+                            191 ;	genPlus
+   005A C6r00         [ 7]  192 	add	a, #<(_SDCCBUG_pack)
+   005C DD 77 FD      [19]  193 	ld	-3 (ix), a
+   005F 7D            [ 4]  194 	ld	a, l
+   0060 CEs00         [ 7]  195 	adc	a, #>(_SDCCBUG_pack)
+   0062 DD 77 FE      [19]  196 	ld	-2 (ix), a
+                            197 ;	genAssign
+                            198 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0065 DD 6E FD      [19]  199 	ld	l, -3 (ix)
+   0068 DD 66 FE      [19]  200 	ld	h, -2 (ix)
+                            201 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            202 ;	genPointerGet
+                            203 ;fetchPairLong
+   006B 23            [ 6]  204 	inc	hl
+                            205 ;	_moveFrom_tpair_()
+   006C 7E            [ 7]  206 	ld	a, (hl)
+   006D DD 77 FF      [19]  207 	ld	-1 (ix), a
+                            208 ;	genCast
+                            209 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0070 DD 6E FC      [19]  210 	ld	l, -4 (ix)
+                            211 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+                            212 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 0 f_dead 1
+   0073 26 00         [ 7]  213 	ld	h, #0x00
+                            214 ;	genLeftShift
+   0075 29            [11]  215 	add	hl, hl
+                            216 ;fetchPairLong
+                            217 ;	genPlus
+   0076 D5            [11]  218 	push	de
+                            219 ;fetchPairLong
+   0077 11r00s00      [10]  220 	ld	de, #_SDCCBUG_pack
+   007A 19            [11]  221 	add	hl, de
+                            222 ;	genPointerGet
+                            223 ;fetchPairLong
+                            224 ; common peephole 96d move inc hl before pop de
+   007B 23            [ 6]  225 	inc	hl
+   007C D1            [10]  226 	pop	de
+                            227 ;	_moveFrom_tpair_()
+                            228 ;	genCmpGt
+                            229 ; common peephole 9 loaded a from (hl) directly instead of going through l.
+   007D 7E            [ 7]  230 	ld	a, (hl)
+   007E DD 96 FF      [19]  231 	sub	a, -1 (ix)
+   0081 E2r86s00      [10]  232 	jp	po, 00166$
+   0084 EE 80         [ 7]  233 	xor	a, #0x80
+   0086                     234 00166$:
+   0086 F2r93s00      [10]  235 	jp	p, 00107$
+                            236 ;	skipping generated iCode
+                            237 ;cases/./../tests/bug-2208.c:34: tmp.suit = SDCCBUG_pack[SDCCBUG_packN].suit;
+                            238 ;	skipping iCode since result will be rematerialized
+                            239 ;	genPointerGet
+                            240 ;fetchPairLong
+   0089 DD 6E FD      [19]  241 	ld	l, -3 (ix)
+   008C DD 66 FE      [19]  242 	ld	h, -2 (ix)
+                            243 ;	_moveFrom_tpair_()
+   008F 7E            [ 7]  244 	ld	a, (hl)
+                            245 ;	genPointerSet
+                            246 ;	genMove_o size 1 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0090 DD 77 F9      [19]  247 	ld	-7 (ix), a
+                            248 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            249 ;	genLabel
+   0093                     250 00107$:
+                            251 ;cases/./../tests/bug-2208.c:38: SDCCBUG_hand[player][i].suit = SDCCBUG_pack[SDCCBUG_packN].suit;
+                            252 ;	genLeftShift
+   0093 DD 7E FB      [19]  253 	ld	a, -5 (ix)
+   0096 87            [ 4]  254 	add	a, a
+                            255 ;	genPlus
+   0097 83            [ 4]  256 	add	a, e
+   0098 DD 77 FC      [19]  257 	ld	-4 (ix), a
+   009B 3E 00         [ 7]  258 	ld	a, #0x00
+   009D 8A            [ 4]  259 	adc	a, d
+   009E DD 77 FD      [19]  260 	ld	-3 (ix), a
+                            261 ;	genCast
+                            262 ;	genMove_o size 2 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00A1 DD 7E FC      [19]  263 	ld	a, -4 (ix)
+   00A4 DD 77 FE      [19]  264 	ld	-2 (ix), a
+   00A7 DD 7E FD      [19]  265 	ld	a, -3 (ix)
+   00AA DD 77 FF      [19]  266 	ld	-1 (ix), a
+                            267 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            268 ;	genCast
+                            269 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00AD 3Ar4As00      [13]  270 	ld	a, (_SDCCBUG_packN)
+                            271 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   00B0 26 00         [ 7]  272 	ld	h, #0x00
+                            273 ;	genLeftShift
+                            274 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00B2 6F            [ 4]  275 	ld	l, a
+                            276 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00B3 29            [11]  277 	add	hl, hl
+                            278 ;	genPlus
+   00B4 D5            [11]  279 	push	de
+                            280 ;fetchPairLong
+   00B5 11r00s00      [10]  281 	ld	de, #_SDCCBUG_pack
+   00B8 19            [11]  282 	add	hl, de
+   00B9 D1            [10]  283 	pop	de
+                            284 ;	genPointerGet
+   00BA 7E            [ 7]  285 	ld	a, (hl)
+                            286 ;	genPointerSet
+                            287 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00BB DD 6E FE      [19]  288 	ld	l, -2 (ix)
+   00BE DD 66 FF      [19]  289 	ld	h, -1 (ix)
+                            290 ;	genMove_o size 0 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00C1 77            [ 7]  291 	ld	(hl), a
+                            292 ;cases/./../tests/bug-2208.c:39: SDCCBUG_hand[player][i].rank = SDCCBUG_pack[SDCCBUG_packN].rank;
+                            293 ;	genPlus
+                            294 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+   00C2 DD 6E FC      [19]  295 	ld	l, -4 (ix)
+   00C5 DD 66 FD      [19]  296 	ld	h, -3 (ix)
+                            297 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+   00C8 23            [ 6]  298 	inc	hl
+                            299 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+   00C9 DD 75 FE      [19]  300 	ld	-2 (ix), l
+   00CC DD 74 FF      [19]  301 	ld	-1 (ix), h
+                            302 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            303 ;	genCast
+                            304 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00CF 3Ar4As00      [13]  305 	ld	a, (_SDCCBUG_packN)
+                            306 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   00D2 26 00         [ 7]  307 	ld	h, #0x00
+                            308 ;	genLeftShift
+                            309 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00D4 6F            [ 4]  310 	ld	l, a
+                            311 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00D5 29            [11]  312 	add	hl, hl
+                            313 ;	genPlus
+   00D6 D5            [11]  314 	push	de
+                            315 ;fetchPairLong
+   00D7 11r00s00      [10]  316 	ld	de, #_SDCCBUG_pack
+   00DA 19            [11]  317 	add	hl, de
+                            318 ;	genPointerGet
+                            319 ;fetchPairLong
+                            320 ; common peephole 96d move inc hl before pop de
+   00DB 23            [ 6]  321 	inc	hl
+   00DC D1            [10]  322 	pop	de
+                            323 ;	_moveFrom_tpair_()
+   00DD 7E            [ 7]  324 	ld	a, (hl)
+                            325 ;	genPointerSet
+                            326 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00DE DD 6E FE      [19]  327 	ld	l, -2 (ix)
+   00E1 DD 66 FF      [19]  328 	ld	h, -1 (ix)
+                            329 ;	genMove_o size 0 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00E4 77            [ 7]  330 	ld	(hl), a
+                            331 ;cases/./../tests/bug-2208.c:40: SDCCBUG_handN[player] = i;
+                            332 ;	genPointerSet
+                            333 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   00E5 DD 7E FB      [19]  334 	ld	a, -5 (ix)
+                            335 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   00E8 02            [ 7]  336 	ld	(bc), a
+                            337 ;cases/./../tests/bug-2208.c:41: SDCCBUG_packN -= 1;
+                            338 ;	genCast
+                            339 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00E9 3Ar4As00      [13]  340 	ld	a, (_SDCCBUG_packN)
+                            341 ;	genMinus
+                            342 ; common peephole 155c turned add into dec.
+   00EC 3D            [ 4]  343 	dec	a
+   00ED 32r4As00      [13]  344 	ld	(#_SDCCBUG_packN), a
+                            345 ; common peephole 19 loaded (#_SDCCBUG_packN) from a directly instead of using hl.
+                            346 ;cases/./../tests/bug-2208.c:43: if ((int)SDCCBUG_packN == 0) {
+                            347 ;	genIfx
+   00F0 3Ar4As00      [13]  348 	ld	a, (_SDCCBUG_packN+0)
+   00F3 B7            [ 4]  349 	or	a, a
+                            350 ;cases/./../tests/bug-2208.c:44: return;
+                            351 ;	genRet
+                            352 ;	genLabel
+                            353 ; common peephole 163 changed absolute to relative conditional jump.
+   00F4 28 06         [12]  354 	jr	z, 00113$
+                            355 ; common peephole 81 removed jp by using inverse jump logic
+                            356 ; common peephole 159 removed unused label 00109$.
+                            357 ;cases/./../tests/bug-2208.c:46: i += 1;
+                            358 ;	genCast
+                            359 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            360 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            361 ;	genPlus
+   00F6 DD 34 FB      [23]  362 	inc	-5 (ix)
+                            363 ; common peephole 7 removed dead load from -5 (ix) into a.
+                            364 ; common peephole 116 incremented in -5 (ix) instead of going through a.
+                            365 ;	genGoto
+   00F9 C3r3Bs00      [10]  366 	jp	00110$
+                            367 ;	genLabel
+   00FC                     368 00113$:
+                            369 ;cases/./../tests/bug-2208.c:48: }
+                            370 ;	genEndFunction
+   00FC DD F9         [10]  371 	ld	sp, ix
+   00FE DD E1         [14]  372 	pop	ix
+   0100 C9            [10]  373 	ret
+                            374 ;	Total SDCCBUG_DealCardsTo function size at codegen: 5 bytes.
+                            375 ;cases/./../tests/bug-2208.c:51: void testBug(void)
+                            376 ;	genLabel
+                            377 ;	genFunction
+                            378 ;	---------------------------------
+                            379 ; Function testBug
+                            380 ; ---------------------------------
+                            381 ;	Register assignment might be sub-optimal.
+                            382 ; Stack space usage: 0 bytes.
+   0101                     383 _testBug::
+                            384 ;cases/./../tests/bug-2208.c:54: SDCCBUG_packN = 1;
+                            385 ;	genAssign
+                            386 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0101 21r4As00      [10]  387 	ld	hl, #_SDCCBUG_packN
+   0104 36 01         [10]  388 	ld	(hl), #0x01
+                            389 ;cases/./../tests/bug-2208.c:55: SDCCBUG_skill = 1;
+                            390 ;	genAssign
+                            391 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0106 21r00s00      [10]  392 	ld	hl, #_SDCCBUG_skill
+   0109 36 01         [10]  393 	ld	(hl), #0x01
+                            394 ;cases/./../tests/bug-2208.c:56: SDCCBUG_pack[SDCCBUG_packN].suit = 23;
+                            395 ;	skipping iCode since result will be rematerialized
+                            396 ;	genPlus
+   010B 21r02s00      [10]  397 	ld	hl, #_SDCCBUG_pack + 2
+                            398 ;	genPointerSet
+   010E 36 17         [10]  399 	ld	(hl), #0x17
+                            400 ;cases/./../tests/bug-2208.c:57: SDCCBUG_pack[SDCCBUG_packN].rank = 42;
+                            401 ;	genCast
+                            402 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0110 3Ar4As00      [13]  403 	ld	a, (_SDCCBUG_packN)
+                            404 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0113 26 00         [ 7]  405 	ld	h, #0x00
+                            406 ;	genLeftShift
+                            407 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0115 6F            [ 4]  408 	ld	l, a
+                            409 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0116 29            [11]  410 	add	hl, hl
+                            411 ;	genPlus
+                            412 ;	genMove_o size 2 result type 2 source type 7 a_dead 0 hl_dead 0 de_dead 0 iy_dead 0 f_dead 1
+   0117 11r00s00      [10]  413 	ld	de, #_SDCCBUG_pack
+   011A 19            [11]  414 	add	hl, de
+                            415 ;	genPlus
+   011B 23            [ 6]  416 	inc	hl
+                            417 ;	genPointerSet
+   011C 36 2A         [10]  418 	ld	(hl), #0x2a
+                            419 ;cases/./../tests/bug-2208.c:58: SDCCBUG_handN[0] = 0;
+                            420 ;	genAddrOf
+   011E 21r4Bs00      [10]  421 	ld	hl, #_SDCCBUG_handN+0
+                            422 ;	genPointerSet
+   0121 36 00         [10]  423 	ld	(hl), #0x00
+                            424 ;cases/./../tests/bug-2208.c:60: SDCCBUG_DealCardsTo (0);
+                            425 ;	genSend
+                            426 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0123 AF            [ 4]  427 	xor	a, a
+                            428 ;	genCall
+   0124 CDr00s00      [17]  429 	call	_SDCCBUG_DealCardsTo
+                            430 ;cases/./../tests/bug-2208.c:62: ASSERT(SDCCBUG_hand[0][1].suit == 23);
+                            431 ;	genPlus
+                            432 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0127 2Ar00s00      [16]  433 	ld	hl, (___numTests)
+   012A 23            [ 6]  434 	inc	hl
+                            435 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   012B 22r00s00      [16]  436 	ld	(___numTests), hl
+                            437 ;	skipping iCode since result will be rematerialized
+                            438 ;	skipping iCode since result will be rematerialized
+                            439 ;	genPointerGet
+   012E 3Ar4Fs00      [13]  440 	ld	a, (#_SDCCBUG_hand + 2)
+                            441 ;	genCmpEq
+   0131 FE 17         [ 7]  442 	cp	a, #0x17
+                            443 ; common peephole 163 changed absolute to relative conditional jump.
+   0133 28 11         [12]  444 	jr	z, 00104$
+                            445 ; common peephole 81 removed jp by using inverse jump logic
+                            446 ; common peephole 159 removed unused label 00133$.
+                            447 ;	skipping generated iCode
+                            448 ;	skipping iCode since result will be rematerialized
+                            449 ;	skipping iCode since result will be rematerialized
+                            450 ;	skipping iCode since result will be rematerialized
+                            451 ;	skipping iCode since result will be rematerialized
+                            452 ;	skipping iCode since result will be rematerialized
+                            453 ;	skipping iCode since result will be rematerialized
+                            454 ;	genIpush
+                            455 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0135 21 3E 00      [10]  456 	ld	hl, #0x003e
+   0138 E5            [11]  457 	push	hl
+                            458 ;	genIpush
+                            459 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0139 21rB2s01      [10]  460 	ld	hl, #___str_2
+   013C E5            [11]  461 	push	hl
+                            462 ;	genSend
+                            463 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   013D 11r94s01      [10]  464 	ld	de, #___str_1
+                            465 ;	genSend
+                            466 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0140 21r83s01      [10]  467 	ld	hl, #___str_0
+                            468 ;	genCall
+   0143 CDr00s00      [17]  469 	call	___fail
+                            470 ;	genLabel
+   0146                     471 00104$:
+                            472 ;cases/./../tests/bug-2208.c:63: ASSERT(SDCCBUG_hand[0][1].rank == 42);
+                            473 ;	genPlus
+                            474 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0146 2Ar00s00      [16]  475 	ld	hl, (___numTests)
+   0149 23            [ 6]  476 	inc	hl
+                            477 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   014A 22r00s00      [16]  478 	ld	(___numTests), hl
+                            479 ;	skipping iCode since result will be rematerialized
+                            480 ;	genPointerGet
+   014D 3Ar50s00      [13]  481 	ld	a, (#_SDCCBUG_hand + 3)
+                            482 ;	genCmpEq
+   0150 FE 2A         [ 7]  483 	cp	a, #0x2a
+                            484 ; common peephole 163 changed absolute to relative conditional jump.
+   0152 28 11         [12]  485 	jr	z, 00106$
+                            486 ; common peephole 81 removed jp by using inverse jump logic
+                            487 ; common peephole 159 removed unused label 00134$.
+                            488 ;	skipping generated iCode
+                            489 ;	skipping iCode since result will be rematerialized
+                            490 ;	skipping iCode since result will be rematerialized
+                            491 ;	skipping iCode since result will be rematerialized
+                            492 ;	skipping iCode since result will be rematerialized
+                            493 ;	skipping iCode since result will be rematerialized
+                            494 ;	skipping iCode since result will be rematerialized
+                            495 ;	genIpush
+                            496 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0154 21 3F 00      [10]  497 	ld	hl, #0x003f
+   0157 E5            [11]  498 	push	hl
+                            499 ;	genIpush
+                            500 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0158 21rB2s01      [10]  501 	ld	hl, #___str_2
+   015B E5            [11]  502 	push	hl
+                            503 ;	genSend
+                            504 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   015C 11rCEs01      [10]  505 	ld	de, #___str_3
+                            506 ;	genSend
+                            507 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   015F 21r83s01      [10]  508 	ld	hl, #___str_0
+                            509 ;	genCall
+   0162 CDr00s00      [17]  510 	call	___fail
+                            511 ;	genLabel
+   0165                     512 00106$:
+                            513 ;cases/./../tests/bug-2208.c:64: ASSERT(!SDCCBUG_packN);
+                            514 ;	genPlus
+                            515 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0165 2Ar00s00      [16]  516 	ld	hl, (___numTests)
+   0168 23            [ 6]  517 	inc	hl
+                            518 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0169 22r00s00      [16]  519 	ld	(___numTests), hl
+                            520 ;	genIfx
+   016C 3Ar4As00      [13]  521 	ld	a, (_SDCCBUG_packN+0)
+   016F B7            [ 4]  522 	or	a, a
+   0170 C8            [11]  523 	ret	z
+                            524 ; common peephole 161 replaced jump by return.
+                            525 ;	skipping iCode since result will be rematerialized
+                            526 ;	skipping iCode since result will be rematerialized
+                            527 ;	skipping iCode since result will be rematerialized
+                            528 ;	skipping iCode since result will be rematerialized
+                            529 ;	skipping iCode since result will be rematerialized
+                            530 ;	skipping iCode since result will be rematerialized
+                            531 ;	genIpush
+                            532 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0171 21 40 00      [10]  533 	ld	hl, #0x0040
+   0174 E5            [11]  534 	push	hl
+                            535 ;	genIpush
+                            536 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0175 21rB2s01      [10]  537 	ld	hl, #___str_2
+   0178 E5            [11]  538 	push	hl
+                            539 ;	genSend
+                            540 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0179 11rECs01      [10]  541 	ld	de, #___str_4
+                            542 ;	genSend
+                            543 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   017C 21r83s01      [10]  544 	ld	hl, #___str_0
+                            545 ;	genCall
+   017F CDr00s00      [17]  546 	call	___fail
+                            547 ;	genLabel
+                            548 ; common peephole 159 removed unused label 00101$.
+                            549 ;cases/./../tests/bug-2208.c:66: }
+                            550 ;	genEndFunction
+   0182 C9            [10]  551 	ret
+                            552 ;	Total testBug function size at codegen: 1 bytes.
+   0183                     553 ___str_0:
+   0183 41 73 73 65 72 74   554 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   0193 00                  555 	.db 0x00
+   0194                     556 ___str_1:
+   0194 53 44 43 43 42 55   557 	.ascii "SDCCBUG_hand[0][1].suit == 23"
+        47 5F 68 61 6E 64
+        5B 30 5D 5B 31 5D
+        2E 73 75 69 74 20
+        3D 3D 20 32 33
+   01B1 00                  558 	.db 0x00
+   01B2                     559 ___str_2:
+   01B2 63 61 73 65 73 2F   560 	.ascii "cases/./../tests/bug-2208.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 62
+        75 67 2D 32 32 30
+        38 2E 63
+   01CD 00                  561 	.db 0x00
+   01CE                     562 ___str_3:
+   01CE 53 44 43 43 42 55   563 	.ascii "SDCCBUG_hand[0][1].rank == 42"
+        47 5F 68 61 6E 64
+        5B 30 5D 5B 31 5D
+        2E 72 61 6E 6B 20
+        3D 3D 20 34 32
+   01EB 00                  564 	.db 0x00
+   01EC                     565 ___str_4:
+   01EC 21 53 44 43 43 42   566 	.ascii "!SDCCBUG_packN"
+        55 47 5F 70 61 63
+        6B 4E
+   01FA 00                  567 	.db 0x00
+                            568 ;cases/tst_bug-2208.c:4: __runSuite(void)
+                            569 ;	genLabel
+                            570 ;	genFunction
+                            571 ;	---------------------------------
+                            572 ; Function __runSuite
+                            573 ; ---------------------------------
+                            574 ;	Register assignment is optimal.
+                            575 ; Stack space usage: 0 bytes.
+   01FB                     576 ___runSuite::
+                            577 ;cases/tst_bug-2208.c:6: __prints("Running testBug\n");
+                            578 ;	skipping iCode since result will be rematerialized
+                            579 ;	skipping iCode since result will be rematerialized
+                            580 ;	genSend
+                            581 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01FB 21r04s02      [10]  582 	ld	hl, #___str_5
+                            583 ;	genCall
+   01FE CDr00s00      [17]  584 	call	___prints
+                            585 ;cases/tst_bug-2208.c:7: testBug();
+                            586 ;	genCall
+                            587 ;	genLabel
+                            588 ; common peephole 159 removed unused label 00101$.
+                            589 ;cases/tst_bug-2208.c:8: }
+                            590 ;	genEndFunction
+   0201 C3r01s01      [10]  591 	jp	_testBug
+                            592 ; common peephole 152 removed unused ret.
+                            593 ;	Total __runSuite function size at codegen: 1 bytes.
+   0204                     594 ___str_5:
+   0204 52 75 6E 6E 69 6E   595 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   0213 0A                  596 	.db 0x0a
+   0214 00                  597 	.db 0x00
+                            598 ;cases/tst_bug-2208.c:13: __getSuiteName(void)
+                            599 ;	genLabel
+                            600 ;	genFunction
+                            601 ;	---------------------------------
+                            602 ; Function __getSuiteName
+                            603 ; ---------------------------------
+                            604 ;	Register assignment is optimal.
+                            605 ; Stack space usage: 0 bytes.
+   0215                     606 ___getSuiteName::
+                            607 ;cases/tst_bug-2208.c:15: return "bug-2208.c";
+                            608 ;	skipping iCode since result will be rematerialized
+                            609 ;	skipping iCode since result will be rematerialized
+                            610 ;	genRet
+                            611 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0215 11r1Bs02      [10]  612 	ld	de, #___str_6
+                            613 ;	genLabel
+                            614 ; common peephole 159 removed unused label 00101$.
+                            615 ;cases/tst_bug-2208.c:16: }
+                            616 ;	genEndFunction
+   0218 C9            [10]  617 	ret
+                            618 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0219                     619 ___numCases:
+   0219 01 00               620 	.dw #0x0001
+   021B                     621 ___str_6:
+   021B 62 75 67 2D 32 32   622 	.ascii "bug-2208.c"
+        30 38 2E 63
+   0225 00                  623 	.db 0x00
+                            624 	.area _CODE (BANK=_CSEG)
+                            625 	.area _INITIALIZER
+   0000                     626 __xinit__SDCCBUG_skill:
+   0000 01                  627 	.db #0x01	;  1
+                            628 	.area _CABS (ABS)

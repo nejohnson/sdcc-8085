@@ -1,0 +1,919 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_3606
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl ___prints
+                             12 	.globl _player
+                             13 	.globl _k
+                             14 	.globl _j
+                             15 	.globl _i
+                             16 	.globl ___numCases
+                             17 	.globl ___runSuite
+                             18 	.globl ___getSuiteName
+                             19 ;--------------------------------------------------------
+                             20 ; special function registers
+                             21 ;--------------------------------------------------------
+                             22 ;--------------------------------------------------------
+                             23 ; ram data
+                             24 ;--------------------------------------------------------
+                             25 	.area _DATA (BANK=_DSEG)
+   0000                      26 _i::
+   0000                      27 	.ds 1
+   0001                      28 _j::
+   0001                      29 	.ds 1
+   0002                      30 _k::
+   0002                      31 	.ds 1
+   0003                      32 _playGrid:
+   0003                      33 	.ds 1024
+   0403                      34 _roomId:
+   0403                      35 	.ds 1
+   0404                      36 _gridW:
+   0404                      37 	.ds 1
+   0405                      38 _gridH:
+   0405                      39 	.ds 1
+   0406                      40 _redraw:
+   0406                      41 	.ds 1
+   0407                      42 _player::
+   0407                      43 	.ds 22
+   041D                      44 _func_2_playerTopMetatileIndex_10000_19:
+   041D                      45 	.ds 1
+                             46 ;--------------------------------------------------------
+                             47 ; ram data
+                             48 ;--------------------------------------------------------
+                             49 	.area _INITIALIZED
+   0000                      50 _camera_max_x:
+   0000                      51 	.ds 2
+   0002                      52 _camera_max_y:
+   0002                      53 	.ds 2
+   0004                      54 _walkableTileCount:
+   0004                      55 	.ds 1
+   0005                      56 _camera_x:
+   0005                      57 	.ds 2
+   0007                      58 _camera_y:
+   0007                      59 	.ds 2
+   0009                      60 _new_camera_x:
+   0009                      61 	.ds 2
+   000B                      62 _new_camera_y:
+   000B                      63 	.ds 2
+   000D                      64 _map_pos_x:
+   000D                      65 	.ds 1
+   000E                      66 _map_pos_y:
+   000E                      67 	.ds 1
+   000F                      68 _new_map_pos_x:
+   000F                      69 	.ds 1
+   0010                      70 _new_map_pos_y:
+   0010                      71 	.ds 1
+                             72 ;--------------------------------------------------------
+                             73 ; absolute ram data
+                             74 ;--------------------------------------------------------
+                             75 	.area _DABS (ABS)
+                             76 	.area _DABS (ABS)
+                             77 ;--------------------------------------------------------
+                             78 ; global & static initialisations
+                             79 ;--------------------------------------------------------
+                             80 	.area _HOME
+                             81 	.area _GSINIT
+                             82 	.area _GSFINAL
+                             83 	.area _GSINIT
+                             84 ;--------------------------------------------------------
+                             85 ; Home
+                             86 ;--------------------------------------------------------
+                             87 	.area _HOME (BANK=_CSEG)
+                             88 	.area _HOME (BANK=_CSEG)
+                             89 ;--------------------------------------------------------
+                             90 ; code
+                             91 ;--------------------------------------------------------
+                             92 	.area _CODE (BANK=_CSEG)
+                             93 ;cases/./../tests/bug-3606.c:81: testBug (void)
+                             94 ;	genLabel
+                             95 ;	genFunction
+                             96 ;	---------------------------------
+                             97 ; Function testBug
+                             98 ; ---------------------------------
+                             99 ;	Register assignment is optimal.
+                            100 ; Stack space usage: 0 bytes.
+   0000                     101 _testBug::
+                            102 ;cases/./../tests/bug-3606.c:83: player.ySpr = 16;
+                            103 ;	skipping iCode since result will be rematerialized
+                            104 ;	genPointerSet
+                            105 ;fetchPairLong
+   0000 21 10 00      [10]  106 	ld	hl, #0x0010
+   0003 22r0Bs04      [16]  107 	ld	((_player + 4)), hl
+                            108 ;cases/./../tests/bug-3606.c:84: func_1();
+                            109 ;	genCall
+                            110 ;	genLabel
+                            111 ; common peephole 159 removed unused label 00101$.
+                            112 ;cases/./../tests/bug-3606.c:85: }
+                            113 ;	genEndFunction
+   0006 C3r09s00      [10]  114 	jp	_func_1
+                            115 ; common peephole 152 removed unused ret.
+                            116 ;	Total testBug function size at codegen: 1 bytes.
+                            117 ;cases/./../tests/bug-3606.c:87: static void func_1(void)
+                            118 ;	genLabel
+                            119 ;	genFunction
+                            120 ;	---------------------------------
+                            121 ; Function func_1
+                            122 ; ---------------------------------
+                            123 ;	Register assignment might be sub-optimal.
+                            124 ; Stack space usage: 0 bytes.
+   0009                     125 _func_1:
+                            126 ;cases/./../tests/bug-3606.c:89: player.xVel = player.moveSpeed;
+                            127 ;	skipping iCode since result will be rematerialized
+                            128 ;	skipping iCode since result will be rematerialized
+                            129 ;	skipping iCode since result will be rematerialized
+                            130 ;	genPointerGet
+   0009 3Ar18s04      [13]  131 	ld	a, (#_player + 17)
+                            132 ;	genPointerSet
+                            133 ;	genMove_o size 2 result type 2 source type 7 a_dead 0 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000C 32r19s04      [13]  134 	ld	(#(_player + 18)), a
+                            135 ; common peephole 19 loaded (#(_player + 18)) from a directly instead of using hl.
+                            136 ;cases/./../tests/bug-3606.c:90: player.yVel = 0;
+                            137 ;	genPlus
+   000F 21r1As04      [10]  138 	ld	hl, #_player + 19
+                            139 ;	genPointerSet
+   0012 36 00         [10]  140 	ld	(hl), #0x00
+                            141 ;cases/./../tests/bug-3606.c:91: player.dir = DIR_RIGHT;
+                            142 ;	genPlus
+   0014 21r17s04      [10]  143 	ld	hl, #_player + 16
+                            144 ;	genPointerSet
+   0017 36 0C         [10]  145 	ld	(hl), #0x0c
+                            146 ;cases/./../tests/bug-3606.c:93: func_2();
+                            147 ;	genCall
+                            148 ;	genLabel
+                            149 ; common peephole 159 removed unused label 00101$.
+                            150 ;cases/./../tests/bug-3606.c:94: }
+                            151 ;	genEndFunction
+   0019 C3r1Cs00      [10]  152 	jp	_func_2
+                            153 ; common peephole 152 removed unused ret.
+                            154 ;	Total func_1 function size at codegen: 1 bytes.
+                            155 ;cases/./../tests/bug-3606.c:96: static void func_2(void)
+                            156 ;	genLabel
+                            157 ;	genFunction
+                            158 ;	---------------------------------
+                            159 ; Function func_2
+                            160 ; ---------------------------------
+                            161 ;	Register assignment might be sub-optimal.
+                            162 ; Stack space usage: 16 bytes.
+   001C                     163 _func_2:
+   001C DD E5         [15]  164 	push	ix
+   001E DD 21 00 00   [14]  165 	ld	ix,	#0
+   0022 DD 39         [15]  166 	add	ix, sp
+                            167 ;	adjustStack by -16
+   0024 21 F0 FF      [10]  168 	ld	hl, #-16
+   0027 39            [11]  169 	add	hl, sp
+   0028 F9            [ 6]  170 	ld	sp, hl
+                            171 ;cases/./../tests/bug-3606.c:99: int16_t x = player.xSpr + player.xVel;
+                            172 ;	skipping iCode since result will be rematerialized
+                            173 ;	skipping iCode since result will be rematerialized
+                            174 ;	genPointerGet
+   0029 ED 4Br09s04   [20]  175 	ld	bc, (#(_player + 2) + 0)
+                            176 ;	skipping iCode since result will be rematerialized
+                            177 ;	genPointerGet
+   002D 3Ar19s04      [13]  178 	ld	a, (#(_player + 18) + 0)
+                            179 ;	genCast
+                            180 ;	genMove_o size 0 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            181 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0030 6F            [ 4]  182 	ld	l, a
+   0031 07            [ 4]  183 	rlca
+   0032 9F            [ 4]  184 	sbc	a, a
+   0033 67            [ 4]  185 	ld	h, a
+                            186 ;	genCast
+                            187 ;	(locations are the same)
+                            188 ;	genCast
+                            189 ;	(locations are the same)
+                            190 ;	genPlus
+   0034 09            [11]  191 	add	hl, bc
+                            192 ;	genCast
+                            193 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0035 DD 75 F2      [19]  194 	ld	-14 (ix), l
+   0038 DD 74 F3      [19]  195 	ld	-13 (ix), h
+                            196 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            197 ;cases/./../tests/bug-3606.c:100: int16_t y = player.ySpr + player.yVel;
+                            198 ;	skipping iCode since result will be rematerialized
+                            199 ;	genPointerGet
+   003B ED 4Br0Bs04   [20]  200 	ld	bc, (#(_player + 4) + 0)
+                            201 ;	skipping iCode since result will be rematerialized
+                            202 ;	genPointerGet
+   003F 3Ar1As04      [13]  203 	ld	a, (#(_player + 19) + 0)
+                            204 ;	genCast
+                            205 ;	genMove_o size 0 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            206 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0042 6F            [ 4]  207 	ld	l, a
+   0043 07            [ 4]  208 	rlca
+   0044 9F            [ 4]  209 	sbc	a, a
+   0045 67            [ 4]  210 	ld	h, a
+                            211 ;	genCast
+                            212 ;	(locations are the same)
+                            213 ;	genCast
+                            214 ;	(locations are the same)
+                            215 ;	genPlus
+   0046 09            [11]  216 	add	hl, bc
+                            217 ;	genCast
+                            218 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0047 DD 75 F4      [19]  219 	ld	-12 (ix), l
+   004A DD 74 F5      [19]  220 	ld	-11 (ix), h
+                            221 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            222 ;cases/./../tests/bug-3606.c:109: playerTopMetatileIndex = (y) - 16U;
+                            223 ;	genCast
+                            224 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   004D DD 7E F4      [19]  225 	ld	a, -12 (ix)
+                            226 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            227 ;	genMinus
+   0050 C6 F0         [ 7]  228 	add	a, #0xf0
+                            229 ;	genAssign
+                            230 ;	genMove_o size 1 result type 11 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            231 ; common peephole 33 loaded a from a instead of going through -10 (ix).
+   0052 DD 77 F6      [19]  232 	ld	-10 (ix), a
+                            233 ; common peephole 0a removed redundant load from a into a.
+   0055 32r1Ds04      [13]  234 	ld	(#_func_2_playerTopMetatileIndex_10000_19), a
+                            235 ; common peephole 19 loaded (#_func_2_playerTopMetatileIndex_10000_19) from a directly instead of using hl.
+                            236 ;cases/./../tests/bug-3606.c:111: uint8_t playerBottomMetatileIndex = y;
+                            237 ;	genCast
+                            238 ;	genMove_o size 1 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0058 DD 7E F4      [19]  239 	ld	a, -12 (ix)
+   005B DD 77 F7      [19]  240 	ld	-9 (ix), a
+                            241 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            242 ;cases/./../tests/bug-3606.c:112: uint8_t playerLeftMetatileIndex = x;
+                            243 ;	genCast
+                            244 ;	genMove_o size 1 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   005E DD 7E F2      [19]  245 	ld	a, -14 (ix)
+                            246 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            247 ;	genAssign
+                            248 ;	genMove_o size 1 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            249 ; common peephole 33 loaded a from a instead of going through -8 (ix).
+   0061 DD 77 F8      [19]  250 	ld	-8 (ix), a
+                            251 ; common peephole 0a removed redundant load from a into a.
+   0064 DD 77 F9      [19]  252 	ld	-7 (ix), a
+                            253 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            254 ;cases/./../tests/bug-3606.c:113: uint8_t playerRightMetatileIndex = x;
+                            255 ;	genAssign
+                            256 ;	genMove_o size 1 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0067 DD 7E F8      [19]  257 	ld	a, -8 (ix)
+   006A DD 77 FA      [19]  258 	ld	-6 (ix), a
+                            259 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            260 ;cases/./../tests/bug-3606.c:115: uint8_t collided = TRUE;
+                            261 ;	genAssign
+                            262 ;	genMove_o size 1 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   006D DD 36 FB 01   [19]  263 	ld	-5 (ix), #0x01
+                            264 ;cases/./../tests/bug-3606.c:116: switch (player.dir)
+                            265 ;	skipping iCode since result will be rematerialized
+                            266 ;	genPointerGet
+                            267 ;	_moveFrom_tpair_()
+                            268 ; common peephole 18 loaded 0 into a directly instead of using hl.
+   0071 3Ar17s04      [13]  269 	ld	a, (#(_player + 16) + 0)
+   0074 DD 77 F1      [19]  270 	ld	-15 (ix), a
+                            271 ;cases/./../tests/bug-3606.c:119: if ((playGrid[playerTopMetatileIndex][playerLeftMetatileIndex] < walkableTileCount)
+                            272 ;	genCast
+                            273 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0077 3Ar1Ds04      [13]  274 	ld	a, (_func_2_playerTopMetatileIndex_10000_19)
+   007A 6F            [ 4]  275 	ld	l, a
+                            276 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   007B 26 00         [ 7]  277 	ld	h, #0x00
+                            278 ;	genLeftShift
+   007D 29            [11]  279 	add	hl, hl
+   007E 29            [11]  280 	add	hl, hl
+   007F 29            [11]  281 	add	hl, hl
+   0080 29            [11]  282 	add	hl, hl
+   0081 29            [11]  283 	add	hl, hl
+                            284 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0082 DD 75 FE      [19]  285 	ld	-2 (ix), l
+   0085 DD 74 FF      [19]  286 	ld	-1 (ix), h
+                            287 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            288 ;cases/./../tests/bug-3606.c:116: switch (player.dir)
+                            289 ;	genIfx
+   0088 DD 7E F1      [19]  290 	ld	a, -15 (ix)
+   008B B7            [ 4]  291 	or	a, a
+                            292 ; common peephole 163 changed absolute to relative conditional jump.
+   008C 28 2A         [12]  293 	jr	z, 00101$
+                            294 ;cases/./../tests/bug-3606.c:124: if ((playGrid[playerBottomMetatileIndex][playerLeftMetatileIndex] < walkableTileCount)
+                            295 ;	genCast
+                            296 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   008E DD 6E F7      [19]  297 	ld	l, -9 (ix)
+                            298 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                            299 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0091 26 00         [ 7]  300 	ld	h, #0x00
+                            301 ;	genLeftShift
+   0093 29            [11]  302 	add	hl, hl
+   0094 29            [11]  303 	add	hl, hl
+   0095 29            [11]  304 	add	hl, hl
+   0096 29            [11]  305 	add	hl, hl
+   0097 29            [11]  306 	add	hl, hl
+                            307 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0098 DD 75 FC      [19]  308 	ld	-4 (ix), l
+   009B DD 74 FD      [19]  309 	ld	-3 (ix), h
+                            310 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            311 ;cases/./../tests/bug-3606.c:116: switch (player.dir)
+                            312 ;	genCmpEq
+                            313 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   009E DD 7E F1      [19]  314 	ld	a, -15 (ix)
+                            315 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   00A1 D6 0C         [ 7]  316 	sub	a, #0x0c
+   00A3 CAr99s01      [10]  317 	jp	z, 00113$
+                            318 ; common peephole 81 removed jp by using inverse jump logic
+                            319 ; common peephole 159 removed unused label 00265$.
+                            320 ;	skipping generated iCode
+                            321 ;	genCmpEq
+                            322 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   00A6 DD 7E F1      [19]  323 	ld	a, -15 (ix)
+                            324 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   00A9 D6 18         [ 7]  325 	sub	a, #0x18
+                            326 ; common peephole 163 changed absolute to relative conditional jump.
+   00AB 28 3C         [12]  327 	jr	z, 00105$
+                            328 ; common peephole 81 removed jp by using inverse jump logic
+                            329 ; common peephole 159 removed unused label 00266$.
+                            330 ;	skipping generated iCode
+                            331 ;	genCmpEq
+                            332 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   00AD DD 7E F1      [19]  333 	ld	a, -15 (ix)
+                            334 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   00B0 D6 24         [ 7]  335 	sub	a, #0x24
+   00B2 CAr3Cs01      [10]  336 	jp	z, 00109$
+                            337 ; common peephole 81 removed jp by using inverse jump logic
+                            338 ; common peephole 159 removed unused label 00267$.
+                            339 ;	skipping generated iCode
+                            340 ;	genGoto
+   00B5 C3rF3s01      [10]  341 	jp	00117$
+                            342 ;cases/./../tests/bug-3606.c:118: case DIR_UP:
+                            343 ;	genLabel
+   00B8                     344 00101$:
+                            345 ;cases/./../tests/bug-3606.c:119: if ((playGrid[playerTopMetatileIndex][playerLeftMetatileIndex] < walkableTileCount)
+                            346 ;	skipping iCode since result will be rematerialized
+                            347 ;	genPlus
+   00B8 3Er03         [ 7]  348 	ld	a, #<(_playGrid)
+   00BA DD 86 FE      [19]  349 	add	a, -2 (ix)
+   00BD 4F            [ 4]  350 	ld	c, a
+   00BE 3Es00         [ 7]  351 	ld	a, #>(_playGrid)
+   00C0 DD 8E FF      [19]  352 	adc	a, -1 (ix)
+   00C3 47            [ 4]  353 	ld	b, a
+                            354 ;	genPlus
+                            355 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00C4 DD 6E F9      [19]  356 	ld	l, -7 (ix)
+                            357 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   00C7 26 00         [ 7]  358 	ld	h, #0x00
+   00C9 09            [11]  359 	add	hl, bc
+                            360 ;	genPointerGet
+                            361 ;	genCmpLt
+                            362 ; common peephole 9 loaded a from (hl) directly instead of going through e.
+   00CA 7E            [ 7]  363 	ld	a, (hl)
+   00CB FD 21r04s00   [14]  364 	ld	iy, #_walkableTileCount
+   00CF FD 96 00      [19]  365 	sub	a, 0 (iy)
+   00D2 D2rF3s01      [10]  366 	jp	nc, 00117$
+                            367 ;	skipping generated iCode
+                            368 ;cases/./../tests/bug-3606.c:120: && (playGrid[playerTopMetatileIndex][playerRightMetatileIndex] < walkableTileCount))
+                            369 ;	genPlus
+                            370 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00D5 DD 6E F8      [19]  371 	ld	l, -8 (ix)
+                            372 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   00D8 26 00         [ 7]  373 	ld	h, #0x00
+   00DA 09            [11]  374 	add	hl, bc
+                            375 ;	genPointerGet
+                            376 ;	genCmpLt
+                            377 ; common peephole 9 loaded a from (hl) directly instead of going through c.
+   00DB 7E            [ 7]  378 	ld	a, (hl)
+   00DC FD 96 00      [19]  379 	sub	a, 0 (iy)
+   00DF D2rF3s01      [10]  380 	jp	nc, 00117$
+                            381 ;	skipping generated iCode
+                            382 ;cases/./../tests/bug-3606.c:121: collided = FALSE;
+                            383 ;	genAssign
+                            384 ;	genMove_o size 1 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E2 DD 36 FB 00   [19]  385 	ld	-5 (ix), #0x00
+                            386 ;cases/./../tests/bug-3606.c:122: break;
+                            387 ;	genGoto
+   00E6 C3rF3s01      [10]  388 	jp	00117$
+                            389 ;cases/./../tests/bug-3606.c:123: case DIR_DOWN:
+                            390 ;	genLabel
+   00E9                     391 00105$:
+                            392 ;cases/./../tests/bug-3606.c:124: if ((playGrid[playerBottomMetatileIndex][playerLeftMetatileIndex] < walkableTileCount)
+                            393 ;	skipping iCode since result will be rematerialized
+                            394 ;	genPlus
+   00E9 3Er03         [ 7]  395 	ld	a, #<(_playGrid)
+   00EB DD 86 FC      [19]  396 	add	a, -4 (ix)
+   00EE DD 77 FE      [19]  397 	ld	-2 (ix), a
+   00F1 3Es00         [ 7]  398 	ld	a, #>(_playGrid)
+   00F3 DD 8E FD      [19]  399 	adc	a, -3 (ix)
+   00F6 DD 77 FF      [19]  400 	ld	-1 (ix), a
+                            401 ;	genPlus
+                            402 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   00F9 DD 5E F9      [19]  403 	ld	e, -7 (ix)
+                            404 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   00FC 16 00         [ 7]  405 	ld	d, #0x00
+                            406 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   00FE DD 6E FE      [19]  407 	ld	l, -2 (ix)
+   0101 DD 66 FF      [19]  408 	ld	h, -1 (ix)
+                            409 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0104 19            [11]  410 	add	hl, de
+                            411 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            412 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            413 ;	genPointerGet
+                            414 ;fetchPairLong
+   0105 DD 75 FC      [19]  415 	ld	-4 (ix), l
+   0108 DD 74 FD      [19]  416 	ld	-3 (ix), h
+                            417 ; common peephole 11 loaded lh from lh directly instead of going through -4 (ix) -3 (ix).
+                            418 ; common peephole 0a removed redundant load from l into l.
+                            419 ; common peephole 0a removed redundant load from h into h.
+                            420 ;	_moveFrom_tpair_()
+   010B 7E            [ 7]  421 	ld	a, (hl)
+                            422 ;	genCmpLt
+                            423 ; common peephole 33 loaded a from a instead of going through -3 (ix).
+   010C DD 77 FD      [19]  424 	ld	-3 (ix), a
+                            425 ; common peephole 0a removed redundant load from a into a.
+   010F FD 21r04s00   [14]  426 	ld	iy, #_walkableTileCount
+   0113 FD 96 00      [19]  427 	sub	a, 0 (iy)
+   0116 D2rF3s01      [10]  428 	jp	nc, 00117$
+                            429 ;	skipping generated iCode
+                            430 ;cases/./../tests/bug-3606.c:125: && (playGrid[playerBottomMetatileIndex][playerRightMetatileIndex] < walkableTileCount))
+                            431 ;	genPlus
+                            432 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0119 DD 5E F8      [19]  433 	ld	e, -8 (ix)
+                            434 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   011C 16 00         [ 7]  435 	ld	d, #0x00
+                            436 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   011E DD 6E FE      [19]  437 	ld	l, -2 (ix)
+   0121 DD 66 FF      [19]  438 	ld	h, -1 (ix)
+                            439 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0124 19            [11]  440 	add	hl, de
+                            441 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            442 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            443 ;	genPointerGet
+                            444 ;fetchPairLong
+   0125 DD 75 FC      [19]  445 	ld	-4 (ix), l
+   0128 DD 74 FD      [19]  446 	ld	-3 (ix), h
+                            447 ; common peephole 11 loaded lh from lh directly instead of going through -4 (ix) -3 (ix).
+                            448 ; common peephole 0a removed redundant load from l into l.
+                            449 ; common peephole 0a removed redundant load from h into h.
+                            450 ;	_moveFrom_tpair_()
+   012B 7E            [ 7]  451 	ld	a, (hl)
+                            452 ;	genCmpLt
+                            453 ; common peephole 33 loaded a from a instead of going through -1 (ix).
+   012C DD 77 FF      [19]  454 	ld	-1 (ix), a
+                            455 ; common peephole 0a removed redundant load from a into a.
+   012F FD 96 00      [19]  456 	sub	a, 0 (iy)
+   0132 D2rF3s01      [10]  457 	jp	nc, 00117$
+                            458 ;	skipping generated iCode
+                            459 ;cases/./../tests/bug-3606.c:126: collided = FALSE;
+                            460 ;	genAssign
+                            461 ;	genMove_o size 1 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0135 DD 36 FB 00   [19]  462 	ld	-5 (ix), #0x00
+                            463 ;cases/./../tests/bug-3606.c:127: break;
+                            464 ;	genGoto
+   0139 C3rF3s01      [10]  465 	jp	00117$
+                            466 ;cases/./../tests/bug-3606.c:128: case DIR_LEFT:
+                            467 ;	genLabel
+   013C                     468 00109$:
+                            469 ;cases/./../tests/bug-3606.c:129: if ((playGrid[playerTopMetatileIndex][playerLeftMetatileIndex] < walkableTileCount)
+                            470 ;	skipping iCode since result will be rematerialized
+                            471 ;	genPlus
+   013C 3Er03         [ 7]  472 	ld	a, #<(_playGrid)
+   013E DD 86 FE      [19]  473 	add	a, -2 (ix)
+   0141 DD 77 F0      [19]  474 	ld	-16 (ix), a
+   0144 3Es00         [ 7]  475 	ld	a, #>(_playGrid)
+   0146 DD 8E FF      [19]  476 	adc	a, -1 (ix)
+   0149 DD 77 F1      [19]  477 	ld	-15 (ix), a
+                            478 ;	genPlus
+                            479 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   014C DD 5E F9      [19]  480 	ld	e, -7 (ix)
+                            481 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   014F 16 00         [ 7]  482 	ld	d, #0x00
+                            483 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0151 E1            [10]  484 	pop	hl
+   0152 E5            [11]  485 	push	hl
+                            486 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0153 19            [11]  487 	add	hl, de
+                            488 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            489 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            490 ;	genPointerGet
+                            491 ;fetchPairLong
+   0154 DD 75 FE      [19]  492 	ld	-2 (ix), l
+   0157 DD 74 FF      [19]  493 	ld	-1 (ix), h
+                            494 ; common peephole 11 loaded lh from lh directly instead of going through -2 (ix) -1 (ix).
+                            495 ; common peephole 0a removed redundant load from l into l.
+                            496 ; common peephole 0a removed redundant load from h into h.
+                            497 ;	_moveFrom_tpair_()
+   015A 7E            [ 7]  498 	ld	a, (hl)
+                            499 ;	genCmpLt
+                            500 ; common peephole 33 loaded a from a instead of going through -1 (ix).
+   015B DD 77 FF      [19]  501 	ld	-1 (ix), a
+                            502 ; common peephole 0a removed redundant load from a into a.
+   015E FD 21r04s00   [14]  503 	ld	iy, #_walkableTileCount
+   0162 FD 96 00      [19]  504 	sub	a, 0 (iy)
+   0165 D2rF3s01      [10]  505 	jp	nc, 00117$
+                            506 ;	skipping generated iCode
+                            507 ;cases/./../tests/bug-3606.c:130: && (playGrid[playerBottomMetatileIndex][playerLeftMetatileIndex] < walkableTileCount))
+                            508 ;	genPlus
+   0168 3Er03         [ 7]  509 	ld	a, #<(_playGrid)
+   016A DD 86 FC      [19]  510 	add	a, -4 (ix)
+   016D DD 77 FE      [19]  511 	ld	-2 (ix), a
+   0170 3Es00         [ 7]  512 	ld	a, #>(_playGrid)
+   0172 DD 8E FD      [19]  513 	adc	a, -3 (ix)
+   0175 DD 77 FF      [19]  514 	ld	-1 (ix), a
+                            515 ;	genPlus
+                            516 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0178 DD 5E F9      [19]  517 	ld	e, -7 (ix)
+                            518 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   017B 16 00         [ 7]  519 	ld	d, #0x00
+                            520 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   017D DD 6E FE      [19]  521 	ld	l, -2 (ix)
+   0180 DD 66 FF      [19]  522 	ld	h, -1 (ix)
+                            523 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0183 19            [11]  524 	add	hl, de
+                            525 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            526 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            527 ;	genPointerGet
+                            528 ;fetchPairLong
+   0184 DD 75 FC      [19]  529 	ld	-4 (ix), l
+   0187 DD 74 FD      [19]  530 	ld	-3 (ix), h
+                            531 ; common peephole 11 loaded lh from lh directly instead of going through -4 (ix) -3 (ix).
+                            532 ; common peephole 0a removed redundant load from l into l.
+                            533 ; common peephole 0a removed redundant load from h into h.
+                            534 ;	_moveFrom_tpair_()
+   018A 7E            [ 7]  535 	ld	a, (hl)
+                            536 ;	genCmpLt
+                            537 ; common peephole 33 loaded a from a instead of going through -1 (ix).
+   018B DD 77 FF      [19]  538 	ld	-1 (ix), a
+                            539 ; common peephole 0a removed redundant load from a into a.
+   018E FD 96 00      [19]  540 	sub	a, 0 (iy)
+                            541 ; common peephole 163 changed absolute to relative conditional jump.
+   0191 30 60         [12]  542 	jr	nc, 00117$
+                            543 ;	skipping generated iCode
+                            544 ;cases/./../tests/bug-3606.c:131: collided = FALSE;
+                            545 ;	genAssign
+                            546 ;	genMove_o size 1 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0193 DD 36 FB 00   [19]  547 	ld	-5 (ix), #0x00
+                            548 ;cases/./../tests/bug-3606.c:132: break;
+                            549 ;	genGoto
+                            550 ; common peephole 162 changed absolute to relative unconditional jump.
+   0197 18 5A         [12]  551 	jr	00117$
+                            552 ;cases/./../tests/bug-3606.c:133: case DIR_RIGHT:
+                            553 ;	genLabel
+   0199                     554 00113$:
+                            555 ;cases/./../tests/bug-3606.c:134: if ((playGrid[playerTopMetatileIndex][playerRightMetatileIndex] < walkableTileCount)
+                            556 ;	skipping iCode since result will be rematerialized
+                            557 ;	genPlus
+   0199 3Er03         [ 7]  558 	ld	a, #<(_playGrid)
+   019B DD 86 FE      [19]  559 	add	a, -2 (ix)
+   019E DD 77 F0      [19]  560 	ld	-16 (ix), a
+   01A1 3Es00         [ 7]  561 	ld	a, #>(_playGrid)
+   01A3 DD 8E FF      [19]  562 	adc	a, -1 (ix)
+   01A6 DD 77 F1      [19]  563 	ld	-15 (ix), a
+                            564 ;	genPlus
+                            565 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   01A9 DD 5E F8      [19]  566 	ld	e, -8 (ix)
+                            567 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   01AC 16 00         [ 7]  568 	ld	d, #0x00
+                            569 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   01AE E1            [10]  570 	pop	hl
+   01AF E5            [11]  571 	push	hl
+                            572 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   01B0 19            [11]  573 	add	hl, de
+                            574 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            575 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            576 ;	genPointerGet
+                            577 ;fetchPairLong
+   01B1 DD 75 FE      [19]  578 	ld	-2 (ix), l
+   01B4 DD 74 FF      [19]  579 	ld	-1 (ix), h
+                            580 ; common peephole 11 loaded lh from lh directly instead of going through -2 (ix) -1 (ix).
+                            581 ; common peephole 0a removed redundant load from l into l.
+                            582 ; common peephole 0a removed redundant load from h into h.
+                            583 ;	_moveFrom_tpair_()
+   01B7 7E            [ 7]  584 	ld	a, (hl)
+                            585 ;	genCmpLt
+                            586 ; common peephole 33 loaded a from a instead of going through -1 (ix).
+   01B8 DD 77 FF      [19]  587 	ld	-1 (ix), a
+                            588 ; common peephole 0a removed redundant load from a into a.
+   01BB FD 21r04s00   [14]  589 	ld	iy, #_walkableTileCount
+   01BF FD 96 00      [19]  590 	sub	a, 0 (iy)
+                            591 ; common peephole 163 changed absolute to relative conditional jump.
+   01C2 30 2F         [12]  592 	jr	nc, 00117$
+                            593 ;	skipping generated iCode
+                            594 ;cases/./../tests/bug-3606.c:135: && (playGrid[playerBottomMetatileIndex][playerRightMetatileIndex] < walkableTileCount))
+                            595 ;	genPlus
+   01C4 3Er03         [ 7]  596 	ld	a, #<(_playGrid)
+   01C6 DD 86 FC      [19]  597 	add	a, -4 (ix)
+   01C9 DD 77 FE      [19]  598 	ld	-2 (ix), a
+   01CC 3Es00         [ 7]  599 	ld	a, #>(_playGrid)
+   01CE DD 8E FD      [19]  600 	adc	a, -3 (ix)
+   01D1 DD 77 FF      [19]  601 	ld	-1 (ix), a
+                            602 ;	genPlus
+                            603 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   01D4 DD 5E F8      [19]  604 	ld	e, -8 (ix)
+                            605 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   01D7 16 00         [ 7]  606 	ld	d, #0x00
+                            607 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   01D9 DD 6E FE      [19]  608 	ld	l, -2 (ix)
+   01DC DD 66 FF      [19]  609 	ld	h, -1 (ix)
+                            610 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   01DF 19            [11]  611 	add	hl, de
+                            612 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            613 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            614 ;	genPointerGet
+                            615 ;fetchPairLong
+   01E0 DD 75 FC      [19]  616 	ld	-4 (ix), l
+   01E3 DD 74 FD      [19]  617 	ld	-3 (ix), h
+                            618 ; common peephole 11 loaded lh from lh directly instead of going through -4 (ix) -3 (ix).
+                            619 ; common peephole 0a removed redundant load from l into l.
+                            620 ; common peephole 0a removed redundant load from h into h.
+                            621 ;	_moveFrom_tpair_()
+   01E6 7E            [ 7]  622 	ld	a, (hl)
+                            623 ;	genCmpLt
+                            624 ; common peephole 33 loaded a from a instead of going through -1 (ix).
+   01E7 DD 77 FF      [19]  625 	ld	-1 (ix), a
+                            626 ; common peephole 0a removed redundant load from a into a.
+   01EA FD 96 00      [19]  627 	sub	a, 0 (iy)
+                            628 ; common peephole 163 changed absolute to relative conditional jump.
+   01ED 30 04         [12]  629 	jr	nc, 00117$
+                            630 ;	skipping generated iCode
+                            631 ;cases/./../tests/bug-3606.c:136: collided = FALSE;
+                            632 ;	genAssign
+                            633 ;	genMove_o size 1 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01EF DD 36 FB 00   [19]  634 	ld	-5 (ix), #0x00
+                            635 ;cases/./../tests/bug-3606.c:138: }
+                            636 ;	genLabel
+   01F3                     637 00117$:
+                            638 ;cases/./../tests/bug-3606.c:141: i = (x) - 8U;
+                            639 ;	genCast
+                            640 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01F3 DD 7E F2      [19]  641 	ld	a, -14 (ix)
+                            642 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            643 ;	genMinus
+   01F6 C6 F8         [ 7]  644 	add	a, #0xf8
+   01F8 32r00s00      [13]  645 	ld	(#_i), a
+                            646 ; common peephole 19 loaded (#_i) from a directly instead of using hl.
+                            647 ;cases/./../tests/bug-3606.c:142: j = (y) - 16U;
+                            648 ;	genAssign
+                            649 ;	genMove_o size 1 result type 11 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01FB DD 7E F6      [19]  650 	ld	a, -10 (ix)
+   01FE 32r01s00      [13]  651 	ld	(#_j), a
+                            652 ; common peephole 19 loaded (#_j) from a directly instead of using hl.
+                            653 ;cases/./../tests/bug-3606.c:144: if (collided == FALSE)
+                            654 ;	genIfx
+   0201 DD 7E FB      [19]  655 	ld	a, -5 (ix)
+   0204 B7            [ 4]  656 	or	a, a
+                            657 ; common peephole 163 changed absolute to relative conditional jump.
+   0205 20 18         [12]  658 	jr	nz, 00125$
+                            659 ;cases/./../tests/bug-3606.c:146: player.xSpr = x;
+                            660 ;	genPointerSet
+                            661 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0207 21r09s04      [10]  662 	ld	hl, #(_player + 2)
+                            663 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   020A DD 7E F2      [19]  664 	ld	a, -14 (ix)
+                            665 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   020D 77            [ 7]  666 	ld	(hl), a
+   020E 23            [ 6]  667 	inc	hl
+                            668 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   020F DD 7E F3      [19]  669 	ld	a, -13 (ix)
+                            670 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0212 77            [ 7]  671 	ld	(hl), a
+                            672 ;cases/./../tests/bug-3606.c:147: player.ySpr = y;
+                            673 ;	genPointerSet
+                            674 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0213 23            [ 6]  675 	inc	hl
+                            676 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0214 DD 7E F4      [19]  677 	ld	a, -12 (ix)
+                            678 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0217 77            [ 7]  679 	ld	(hl), a
+   0218 23            [ 6]  680 	inc	hl
+                            681 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0219 DD 7E F5      [19]  682 	ld	a, -11 (ix)
+                            683 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   021C 77            [ 7]  684 	ld	(hl), a
+                            685 ;	genGoto
+                            686 ; common peephole 162 changed absolute to relative unconditional jump.
+   021D 18 67         [12]  687 	jr	00127$
+                            688 ;	genLabel
+   021F                     689 00125$:
+                            690 ;cases/./../tests/bug-3606.c:151: switch (player.dir)
+                            691 ;	genPointerGet
+                            692 ;	_moveFrom_tpair_()
+                            693 ; common peephole 18 loaded 0 into a directly instead of using hl.
+   021F 3Ar17s04      [13]  694 	ld	a, (#(_player + 16) + 0)
+                            695 ;	genIfx
+                            696 ; common peephole 33 loaded a from a instead of going through -1 (ix).
+   0222 DD 77 FF      [19]  697 	ld	-1 (ix), a
+                            698 ; common peephole 0a removed redundant load from a into a.
+   0225 B7            [ 4]  699 	or	a, a
+                            700 ; common peephole 163 changed absolute to relative conditional jump.
+   0226 28 17         [12]  701 	jr	z, 00118$
+                            702 ;	genCmpEq
+                            703 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0228 DD 7E FF      [19]  704 	ld	a, -1 (ix)
+                            705 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   022B D6 0C         [ 7]  706 	sub	a, #0x0c
+                            707 ; common peephole 163 changed absolute to relative conditional jump.
+   022D 28 47         [12]  708 	jr	z, 00121$
+                            709 ; common peephole 81 removed jp by using inverse jump logic
+                            710 ; common peephole 159 removed unused label 00268$.
+                            711 ;	skipping generated iCode
+                            712 ;	genCmpEq
+                            713 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   022F DD 7E FF      [19]  714 	ld	a, -1 (ix)
+                            715 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0232 D6 18         [ 7]  716 	sub	a, #0x18
+                            717 ; common peephole 163 changed absolute to relative conditional jump.
+   0234 28 1F         [12]  718 	jr	z, 00119$
+                            719 ; common peephole 81 removed jp by using inverse jump logic
+                            720 ; common peephole 159 removed unused label 00269$.
+                            721 ;	skipping generated iCode
+                            722 ;	genCmpEq
+                            723 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0236 DD 7E FF      [19]  724 	ld	a, -1 (ix)
+                            725 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0239 D6 24         [ 7]  726 	sub	a, #0x24
+                            727 ; common peephole 163 changed absolute to relative conditional jump.
+   023B 28 2E         [12]  728 	jr	z, 00120$
+                            729 ; common peephole 81 removed jp by using inverse jump logic
+                            730 ; common peephole 159 removed unused label 00270$.
+                            731 ;	skipping generated iCode
+                            732 ;	genGoto
+                            733 ; common peephole 162 changed absolute to relative unconditional jump.
+   023D 18 3F         [12]  734 	jr	00123$
+                            735 ;cases/./../tests/bug-3606.c:153: case DIR_UP:    player.ySpr = (playerTopMetatileIndex);   break;
+                            736 ;	genLabel
+   023F                     737 00118$:
+                            738 ;	genCast
+                            739 ;	genMove_o size 1 result type 6 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   023F 3Ar1Ds04      [13]  740 	ld	a, (_func_2_playerTopMetatileIndex_10000_19+0)
+   0242 DD 77 FE      [19]  741 	ld	-2 (ix), a
+                            742 ;	genMove_o size 1 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0245 DD 36 FF 00   [19]  743 	ld	-1 (ix), #0x00
+                            744 ;	genPointerSet
+                            745 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0249 21r0Bs04      [10]  746 	ld	hl, #(_player + 4)
+                            747 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   024C DD 7E FE      [19]  748 	ld	a, -2 (ix)
+                            749 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   024F 77            [ 7]  750 	ld	(hl), a
+   0250 23            [ 6]  751 	inc	hl
+                            752 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0251 AF            [ 4]  753 	xor	a, a
+                            754 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0252 77            [ 7]  755 	ld	(hl), a
+                            756 ;	genGoto
+                            757 ; common peephole 162 changed absolute to relative unconditional jump.
+   0253 18 29         [12]  758 	jr	00123$
+                            759 ;cases/./../tests/bug-3606.c:154: case DIR_DOWN:  player.ySpr = (playerBottomMetatileIndex);  break;
+                            760 ;	genLabel
+   0255                     761 00119$:
+                            762 ;	genCast
+                            763 ;	genMove_o size 1 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0255 DD 7E F7      [19]  764 	ld	a, -9 (ix)
+   0258 DD 77 FE      [19]  765 	ld	-2 (ix), a
+                            766 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            767 ;	genMove_o size 1 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   025B DD 36 FF 00   [19]  768 	ld	-1 (ix), #0x00
+                            769 ;	genPointerSet
+                            770 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   025F 21r0Bs04      [10]  771 	ld	hl, #(_player + 4)
+                            772 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0262 DD 7E FE      [19]  773 	ld	a, -2 (ix)
+                            774 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0265 77            [ 7]  775 	ld	(hl), a
+   0266 23            [ 6]  776 	inc	hl
+                            777 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0267 AF            [ 4]  778 	xor	a, a
+                            779 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0268 77            [ 7]  780 	ld	(hl), a
+                            781 ;	genGoto
+                            782 ; common peephole 162 changed absolute to relative unconditional jump.
+   0269 18 13         [12]  783 	jr	00123$
+                            784 ;cases/./../tests/bug-3606.c:155: case DIR_LEFT:  player.xSpr = (playerLeftMetatileIndex + 1U); break;
+                            785 ;	genLabel
+   026B                     786 00120$:
+                            787 ;	genAssign
+                            788 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   026B DD 6E F9      [19]  789 	ld	l, -7 (ix)
+                            790 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            791 ;	genCast
+                            792 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            793 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   026E 26 00         [ 7]  794 	ld	h, #0x00
+                            795 ;	genPlus
+   0270 23            [ 6]  796 	inc	hl
+                            797 ;	genCast
+                            798 ;	(locations are the same)
+                            799 ;	genPointerSet
+   0271 22r09s04      [16]  800 	ld	((_player + 2)), hl
+                            801 ;	genGoto
+                            802 ; common peephole 162 changed absolute to relative unconditional jump.
+   0274 18 08         [12]  803 	jr	00123$
+                            804 ;cases/./../tests/bug-3606.c:156: case DIR_RIGHT: player.xSpr = (playerRightMetatileIndex);     break;
+                            805 ;	genLabel
+   0276                     806 00121$:
+                            807 ;	genCast
+                            808 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0276 DD 6E FA      [19]  809 	ld	l, -6 (ix)
+                            810 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                            811 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0279 26 00         [ 7]  812 	ld	h, #0x00
+                            813 ;	genPointerSet
+   027B 22r09s04      [16]  814 	ld	((_player + 2)), hl
+                            815 ;cases/./../tests/bug-3606.c:158: }
+                            816 ;	genLabel
+   027E                     817 00123$:
+                            818 ;cases/./../tests/bug-3606.c:160: player.xVel = 0U;
+                            819 ;	genPointerSet
+                            820 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   027E 21r19s04      [10]  821 	ld	hl, #(_player + 18)
+   0281 36 00         [10]  822 	ld	(hl), #0x00
+                            823 ;cases/./../tests/bug-3606.c:161: player.yVel = 0U;
+                            824 ;	genPointerSet
+                            825 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0283 23            [ 6]  826 	inc	hl
+   0284 36 00         [10]  827 	ld	(hl), #0x00
+                            828 ;	genLabel
+   0286                     829 00127$:
+                            830 ;cases/./../tests/bug-3606.c:164: }
+                            831 ;	genEndFunction
+   0286 DD F9         [10]  832 	ld	sp, ix
+   0288 DD E1         [14]  833 	pop	ix
+   028A C9            [10]  834 	ret
+                            835 ;	Total func_2 function size at codegen: 11 bytes.
+                            836 ;cases/tst_bug-3606.c:4: __runSuite(void)
+                            837 ;	genLabel
+                            838 ;	genFunction
+                            839 ;	---------------------------------
+                            840 ; Function __runSuite
+                            841 ; ---------------------------------
+                            842 ;	Register assignment is optimal.
+                            843 ; Stack space usage: 0 bytes.
+   028B                     844 ___runSuite::
+                            845 ;cases/tst_bug-3606.c:6: __prints("Running testBug\n");
+                            846 ;	skipping iCode since result will be rematerialized
+                            847 ;	skipping iCode since result will be rematerialized
+                            848 ;	genSend
+                            849 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   028B 21r94s02      [10]  850 	ld	hl, #___str_0
+                            851 ;	genCall
+   028E CDr00s00      [17]  852 	call	___prints
+                            853 ;cases/tst_bug-3606.c:7: testBug();
+                            854 ;	genCall
+                            855 ;	genLabel
+                            856 ; common peephole 159 removed unused label 00101$.
+                            857 ;cases/tst_bug-3606.c:8: }
+                            858 ;	genEndFunction
+   0291 C3r00s00      [10]  859 	jp	_testBug
+                            860 ; common peephole 152 removed unused ret.
+                            861 ;	Total __runSuite function size at codegen: 1 bytes.
+   0294                     862 ___str_0:
+   0294 52 75 6E 6E 69 6E   863 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   02A3 0A                  864 	.db 0x0a
+   02A4 00                  865 	.db 0x00
+                            866 ;cases/tst_bug-3606.c:13: __getSuiteName(void)
+                            867 ;	genLabel
+                            868 ;	genFunction
+                            869 ;	---------------------------------
+                            870 ; Function __getSuiteName
+                            871 ; ---------------------------------
+                            872 ;	Register assignment is optimal.
+                            873 ; Stack space usage: 0 bytes.
+   02A5                     874 ___getSuiteName::
+                            875 ;cases/tst_bug-3606.c:15: return "bug-3606.c";
+                            876 ;	skipping iCode since result will be rematerialized
+                            877 ;	skipping iCode since result will be rematerialized
+                            878 ;	genRet
+                            879 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   02A5 11rABs02      [10]  880 	ld	de, #___str_1
+                            881 ;	genLabel
+                            882 ; common peephole 159 removed unused label 00101$.
+                            883 ;cases/tst_bug-3606.c:16: }
+                            884 ;	genEndFunction
+   02A8 C9            [10]  885 	ret
+                            886 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   02A9                     887 ___numCases:
+   02A9 01 00               888 	.dw #0x0001
+   02AB                     889 ___str_1:
+   02AB 62 75 67 2D 33 36   890 	.ascii "bug-3606.c"
+        30 36 2E 63
+   02B5 00                  891 	.db 0x00
+                            892 	.area _CODE (BANK=_CSEG)
+                            893 	.area _INITIALIZER
+   0000                     894 __xinit__camera_max_x:
+   0000 A0 00               895 	.dw #0x00a0
+   0002                     896 __xinit__camera_max_y:
+   0002 90 00               897 	.dw #0x0090
+   0004                     898 __xinit__walkableTileCount:
+   0004 06                  899 	.db #0x06	; 6
+   0005                     900 __xinit__camera_x:
+   0005 00 00               901 	.dw #0x0000
+   0007                     902 __xinit__camera_y:
+   0007 00 00               903 	.dw #0x0000
+   0009                     904 __xinit__new_camera_x:
+   0009 00 00               905 	.dw #0x0000
+   000B                     906 __xinit__new_camera_y:
+   000B 00 00               907 	.dw #0x0000
+   000D                     908 __xinit__map_pos_x:
+   000D 00                  909 	.db #0x00	; 0
+   000E                     910 __xinit__map_pos_y:
+   000E 00                  911 	.db #0x00	; 0
+   000F                     912 __xinit__new_map_pos_x:
+   000F 00                  913 	.db #0x00	; 0
+   0010                     914 __xinit__new_map_pos_y:
+   0010 00                  915 	.db #0x00	; 0
+                            916 	.area _CABS (ABS)

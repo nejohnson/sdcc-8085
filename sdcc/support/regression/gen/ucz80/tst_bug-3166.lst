@@ -1,0 +1,796 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_3166
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _match
+                             12 	.globl ___prints
+                             13 	.globl ___fail
+                             14 	.globl _rule_terminal
+                             15 	.globl _rule
+                             16 	.globl _rule_alts_lists
+                             17 	.globl _rule_seq_lists
+                             18 	.globl _bad_stack
+                             19 	.globl _good_pool
+                             20 	.globl ___numCases
+                             21 	.globl ___runSuite
+                             22 	.globl ___getSuiteName
+                             23 ;--------------------------------------------------------
+                             24 ; special function registers
+                             25 ;--------------------------------------------------------
+                             26 ;--------------------------------------------------------
+                             27 ; ram data
+                             28 ;--------------------------------------------------------
+                             29 	.area _DATA (BANK=_DSEG)
+   0000                      30 _good_pool::
+   0000                      31 	.ds 260
+   0104                      32 _bad_stack::
+   0104                      33 	.ds 102
+   016A                      34 _match_pos_10000_14:
+   016A                      35 	.ds 2
+   016C                      36 _match_bad_sp_10000_14:
+   016C                      37 	.ds 2
+   016E                      38 _match_good_alloc_10000_14:
+   016E                      39 	.ds 2
+   0170                      40 _match_good_10000_14:
+   0170                      41 	.ds 2
+   0172                      42 _match_rgood_10000_14:
+   0172                      43 	.ds 2
+   0174                      44 _match_alts_10000_14:
+   0174                      45 	.ds 2
+   0176                      46 _match_seq_10000_14:
+   0176                      47 	.ds 2
+   0178                      48 _match_rpos_10000_14:
+   0178                      49 	.ds 2
+   017A                      50 _match_ruleno_10000_14:
+   017A                      51 	.ds 2
+                             52 ;--------------------------------------------------------
+                             53 ; ram data
+                             54 ;--------------------------------------------------------
+                             55 	.area _INITIALIZED
+   0000                      56 _rule_seq_lists::
+   0000                      57 	.ds 18
+   0012                      58 _rule_alts_lists::
+   0012                      59 	.ds 10
+   001C                      60 _rule::
+   001C                      61 	.ds 8
+   0024                      62 _rule_terminal::
+   0024                      63 	.ds 4
+                             64 ;--------------------------------------------------------
+                             65 ; absolute ram data
+                             66 ;--------------------------------------------------------
+                             67 	.area _DABS (ABS)
+                             68 	.area _DABS (ABS)
+                             69 ;--------------------------------------------------------
+                             70 ; global & static initialisations
+                             71 ;--------------------------------------------------------
+                             72 	.area _HOME
+                             73 	.area _GSINIT
+                             74 	.area _GSFINAL
+                             75 	.area _GSINIT
+                             76 ;--------------------------------------------------------
+                             77 ; Home
+                             78 ;--------------------------------------------------------
+                             79 	.area _HOME (BANK=_CSEG)
+                             80 	.area _HOME (BANK=_CSEG)
+                             81 ;--------------------------------------------------------
+                             82 ; code
+                             83 ;--------------------------------------------------------
+                             84 	.area _CODE (BANK=_CSEG)
+                             85 ;cases/./../tests/bug-3166.c:43: int match(char* pos_arg)
+                             86 ;	genLabel
+                             87 ;	genFunction
+                             88 ;	---------------------------------
+                             89 ; Function match
+                             90 ; ---------------------------------
+                             91 ;	Register assignment might be sub-optimal.
+                             92 ; Stack space usage: 2 bytes.
+   0000                      93 _match::
+   0000 DD E5         [15]   94 	push	ix
+   0002 DD 21 00 00   [14]   95 	ld	ix,	#0
+   0006 DD 39         [15]   96 	add	ix, sp
+                             97 ;	adjustStack by -2
+   0008 F5            [11]   98 	push	af
+                             99 ;	genReceive
+                            100 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0009 22r6As01      [16]  101 	ld	(_match_pos_10000_14), hl
+                            102 ;cases/./../tests/bug-3166.c:65: bad_sp     = bad_stack;
+                            103 ;	skipping iCode since result will be rematerialized
+                            104 ;	skipping iCode since result will be rematerialized
+                            105 ;	genAssign
+                            106 ;	genMove_o size 2 result type 10 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            107 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   000C 21r04s01      [10]  108 	ld	hl, #_bad_stack
+                            109 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   000F 22r6Cs01      [16]  110 	ld	(_match_bad_sp_10000_14), hl
+                            111 ;cases/./../tests/bug-3166.c:66: good_alloc = good_pool;
+                            112 ;	skipping iCode since result will be rematerialized
+                            113 ;	genCast
+                            114 ;	genMove_o size 2 result type 10 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            115 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0012 21r00s00      [10]  116 	ld	hl, #_good_pool
+                            117 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0015 22r6Es01      [16]  118 	ld	(_match_good_alloc_10000_14), hl
+                            119 ;cases/./../tests/bug-3166.c:67: good       = NULL;
+                            120 ;	genAssign
+                            121 ;fetchPairLong
+   0018 21 00 00      [10]  122 	ld	hl, #0x0000
+                            123 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001B 22r70s01      [16]  124 	ld	(_match_good_10000_14), hl
+                            125 ;cases/./../tests/bug-3166.c:68: rgood      = NULL;
+                            126 ;	genAssign
+                            127 ;fetchPairLong
+                            128 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001E 22r72s01      [16]  129 	ld	(_match_rgood_10000_14), hl
+                            130 ;cases/./../tests/bug-3166.c:69: alts       = NULL;
+                            131 ;	genAssign
+                            132 ;fetchPairLong
+                            133 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0021 22r74s01      [16]  134 	ld	(_match_alts_10000_14), hl
+                            135 ;cases/./../tests/bug-3166.c:70: seq        = NULL;
+                            136 ;	genAssign
+                            137 ;fetchPairLong
+                            138 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0024 22r76s01      [16]  139 	ld	(_match_seq_10000_14), hl
+                            140 ;cases/./../tests/bug-3166.c:71: rpos       = NULL;
+                            141 ;	genAssign
+                            142 ;fetchPairLong
+                            143 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0027 22r78s01      [16]  144 	ld	(_match_rpos_10000_14), hl
+                            145 ;cases/./../tests/bug-3166.c:72: ruleno     = 0;
+                            146 ;	genAssign
+                            147 ;fetchPairLong
+                            148 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002A 22r7As01      [16]  149 	ld	(_match_ruleno_10000_14), hl
+                            150 ;cases/./../tests/bug-3166.c:74: while (1) {
+                            151 ;	skipping iCode since result will be rematerialized
+                            152 ;	skipping iCode since result will be rematerialized
+                            153 ;	genLabel
+   002D                     154 00119$:
+                            155 ;cases/./../tests/bug-3166.c:78: alts = rule[ruleno];
+                            156 ;	genLeftShift
+                            157 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002D 2Ar7As01      [16]  158 	ld	hl, (_match_ruleno_10000_14)
+   0030 29            [11]  159 	add	hl, hl
+                            160 ;	genPlus
+                            161 ;	genMove_o size 2 result type 2 source type 7 a_dead 0 hl_dead 0 de_dead 0 iy_dead 0 f_dead 1
+   0031 11r1Cs00      [10]  162 	ld	de, #_rule
+   0034 19            [11]  163 	add	hl, de
+                            164 ;	genPointerGet
+                            165 ;fetchPairLong
+                            166 ;	_moveFrom_tpair_()
+   0035 7E            [ 7]  167 	ld	a, (hl)
+                            168 ; common peephole 96b move inc hl before ld (_match_alts_10000_14+0), a
+   0036 23            [ 6]  169 	inc	hl
+   0037 32r74s01      [13]  170 	ld	(_match_alts_10000_14+0), a
+                            171 ;	_moveFrom_tpair_()
+   003A 7E            [ 7]  172 	ld	a, (hl)
+   003B 32r75s01      [13]  173 	ld	(_match_alts_10000_14+1), a
+                            174 ;cases/./../tests/bug-3166.c:81: rpos = pos;
+                            175 ;	genAssign
+                            176 ;fetchPairLong
+   003E 2Ar6As01      [16]  177 	ld	hl, (_match_pos_10000_14)
+                            178 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0041 E3            [19]  179 	ex	(sp), hl
+                            180 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            181 ;cases/./../tests/bug-3166.c:79: if (alts) {
+                            182 ;	genIfx
+   0042 3Ar75s01      [13]  183 	ld	a, (_match_alts_10000_14+1)
+                            184 ; common peephole 54 used hl instead of iy.
+                            185 ; common peephole 130a removed unnecessary +0 from constant
+   0045 21r74s01      [10]  186 	ld	hl, #_match_alts_10000_14
+   0048 B6            [ 7]  187 	or	a, (hl)
+                            188 ; common peephole 163 changed absolute to relative conditional jump.
+   0049 28 0E         [12]  189 	jr	z, 00102$
+                            190 ;cases/./../tests/bug-3166.c:80: rgood = good;
+                            191 ;	genAssign
+                            192 ;fetchPairLong
+   004B 2Ar70s01      [16]  193 	ld	hl, (_match_good_10000_14)
+                            194 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   004E 22r72s01      [16]  195 	ld	(_match_rgood_10000_14), hl
+                            196 ;cases/./../tests/bug-3166.c:81: rpos = pos;
+                            197 ;	genAssign
+                            198 ;fetchPairLong
+   0051 E1            [10]  199 	pop	hl
+   0052 E5            [11]  200 	push	hl
+                            201 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0053 22r78s01      [16]  202 	ld	(_match_rpos_10000_14), hl
+                            203 ;cases/./../tests/bug-3166.c:82: goto first_alt;
+                            204 ;	genGoto
+   0056 C3r33s01      [10]  205 	jp	00115$
+                            206 ;	genLabel
+   0059                     207 00102$:
+                            208 ;cases/./../tests/bug-3166.c:85: if (*pos != rule_terminal[ruleno])
+                            209 ;	genPointerGet
+                            210 ;fetchPairLong
+   0059 E1            [10]  211 	pop	hl
+   005A E5            [11]  212 	push	hl
+                            213 ;	_moveFrom_tpair_()
+   005B 4E            [ 7]  214 	ld	c, (hl)
+                            215 ;	genPlus
+                            216 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   005C 21r24s00      [10]  217 	ld	hl, #_rule_terminal
+                            218 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   005F ED 5Br7As01   [20]  219 	ld	de, (_match_ruleno_10000_14)
+   0063 19            [11]  220 	add	hl, de
+                            221 ;	genPointerGet
+   0064 7E            [ 7]  222 	ld	a, (hl)
+                            223 ;	genCmpEq
+                            224 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0065 91            [ 4]  225 	sub	a, c
+                            226 ; common peephole 81 removed jp by using inverse jump logic
+                            227 ; common peephole 159 removed unused label 00195$.
+   0066 C2rE8s00      [10]  228 	jp	nz, 00112$
+                            229 ; common peephole 82 removed jp by using inverse jump logic
+                            230 ; common peephole 159 removed unused label 00196$.
+                            231 ;	skipping generated iCode
+                            232 ;cases/./../tests/bug-3166.c:87: ++pos;
+                            233 ;	genPlus
+                            234 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0069 2Ar6As01      [16]  235 	ld	hl, (_match_pos_10000_14)
+   006C 23            [ 6]  236 	inc	hl
+                            237 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   006D 22r6As01      [16]  238 	ld	(_match_pos_10000_14), hl
+                            239 ;cases/./../tests/bug-3166.c:88: success:
+                            240 ;	genLabel
+   0070                     241 00105$:
+                            242 ;cases/./../tests/bug-3166.c:89: if (!good) {
+                            243 ;	genIfx
+   0070 3Ar71s01      [13]  244 	ld	a, (_match_good_10000_14+1)
+                            245 ; common peephole 54 used hl instead of iy.
+                            246 ; common peephole 130a removed unnecessary +0 from constant
+   0073 21r70s01      [10]  247 	ld	hl, #_match_good_10000_14
+   0076 B6            [ 7]  248 	or	a, (hl)
+                            249 ; common peephole 163 changed absolute to relative conditional jump.
+   0077 20 0D         [12]  250 	jr	nz, 00109$
+                            251 ;cases/./../tests/bug-3166.c:90: if (*pos != '\0')
+                            252 ;	genAssign
+                            253 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0079 2Ar6As01      [16]  254 	ld	hl, (_match_pos_10000_14)
+                            255 ;	genPointerGet
+   007C 7E            [ 7]  256 	ld	a, (hl)
+                            257 ;	genIfx
+   007D B7            [ 4]  258 	or	a, a
+                            259 ; common peephole 163 changed absolute to relative conditional jump.
+   007E 20 68         [12]  260 	jr	nz, 00112$
+                            261 ;cases/./../tests/bug-3166.c:92: return 1;
+                            262 ;	genRet
+                            263 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0080 11 01 00      [10]  264 	ld	de, #0x0001
+   0083 C3rB1s01      [10]  265 	jp	00121$
+                            266 ;	genLabel
+   0086                     267 00109$:
+                            268 ;cases/./../tests/bug-3166.c:94: seq = good->seq;
+                            269 ;	genPointerGet
+                            270 ;fetchPairLong
+   0086 2Ar70s01      [16]  271 	ld	hl, (_match_good_10000_14)
+                            272 ;	_moveFrom_tpair_()
+   0089 7E            [ 7]  273 	ld	a, (hl)
+                            274 ; common peephole 96b move inc hl before ld (_match_seq_10000_14+0), a
+   008A 23            [ 6]  275 	inc	hl
+   008B 32r76s01      [13]  276 	ld	(_match_seq_10000_14+0), a
+                            277 ;	_moveFrom_tpair_()
+   008E 7E            [ 7]  278 	ld	a, (hl)
+   008F 32r77s01      [13]  279 	ld	(_match_seq_10000_14+1), a
+                            280 ;cases/./../tests/bug-3166.c:95: good = good->prev;
+                            281 ;	genAssign
+                            282 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0092 2Ar70s01      [16]  283 	ld	hl, (_match_good_10000_14)
+                            284 ;	genPointerGet
+                            285 ;fetchPairLong
+   0095 23            [ 6]  286 	inc	hl
+   0096 23            [ 6]  287 	inc	hl
+                            288 ;	_moveFrom_tpair_()
+   0097 7E            [ 7]  289 	ld	a, (hl)
+                            290 ; common peephole 96b move inc hl before ld (_match_good_10000_14+0), a
+   0098 23            [ 6]  291 	inc	hl
+   0099 32r70s01      [13]  292 	ld	(_match_good_10000_14+0), a
+                            293 ;	_moveFrom_tpair_()
+   009C 7E            [ 7]  294 	ld	a, (hl)
+   009D 32r71s01      [13]  295 	ld	(_match_good_10000_14+1), a
+                            296 ;cases/./../tests/bug-3166.c:96: ruleno = *seq++;
+                            297 ;	genAssign
+                            298 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A0 2Ar76s01      [16]  299 	ld	hl, (_match_seq_10000_14)
+                            300 ;	genPointerGet
+                            301 ;fetchPairLong
+                            302 ;	_moveFrom_tpair_()
+   00A3 7E            [ 7]  303 	ld	a, (hl)
+                            304 ; common peephole 96b move inc hl before ld (_match_ruleno_10000_14+0), a
+   00A4 23            [ 6]  305 	inc	hl
+   00A5 32r7As01      [13]  306 	ld	(_match_ruleno_10000_14+0), a
+                            307 ;	_moveFrom_tpair_()
+   00A8 7E            [ 7]  308 	ld	a, (hl)
+   00A9 32r7Bs01      [13]  309 	ld	(_match_ruleno_10000_14+1), a
+                            310 ;	genPlus
+                            311 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00AC 2Ar76s01      [16]  312 	ld	hl, (_match_seq_10000_14)
+   00AF 23            [ 6]  313 	inc	hl
+   00B0 23            [ 6]  314 	inc	hl
+                            315 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            316 ;cases/./../tests/bug-3166.c:97: if (*seq >= 0) {
+                            317 ;	genAssign
+                            318 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            319 ; common peephole 9b reused value still in hl.
+   00B1 22r76s01      [16]  320 	ld	(_match_seq_10000_14), hl
+                            321 ;	genPointerGet
+                            322 ;fetchPairLong
+                            323 ;	_moveFrom_tpair_()
+                            324 ; common peephole 1 removed dead load from (hl) into c.
+   00B4 23            [ 6]  325 	inc	hl
+                            326 ;	_moveFrom_tpair_()
+                            327 ;	genCmpLt
+                            328 ; common peephole 73 tested bit 7 of (hl) directly instead of going through b.
+   00B5 CB 7E         [12]  329 	bit	7, (hl)
+   00B7 C2r2Ds00      [10]  330 	jp	nz, 00119$
+                            331 ;	skipping generated iCode
+                            332 ;cases/./../tests/bug-3166.c:98: struct good* ngood = good_alloc++;
+                            333 ;	genAssign
+                            334 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00BA ED 4Br6Es01   [20]  335 	ld	bc, (_match_good_alloc_10000_14)
+                            336 ;	genPlus
+                            337 ;	Shift into pair
+   00BE 21r6Es01      [10]  338 	ld	hl, #_match_good_alloc_10000_14
+   00C1 7E            [ 7]  339 	ld	a, (hl)
+   00C2 C6 04         [ 7]  340 	add	a, #0x04
+   00C4 77            [ 7]  341 	ld	(hl), a
+                            342 ; common peephole 163 changed absolute to relative conditional jump.
+   00C5 30 02         [12]  343 	jr	nc, 00197$
+   00C7 23            [ 6]  344 	inc	hl
+   00C8 34            [11]  345 	inc	(hl)
+   00C9                     346 00197$:
+                            347 ;cases/./../tests/bug-3166.c:99: ngood->seq = seq;
+                            348 ;	genPointerSet
+                            349 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00C9 69            [ 4]  350 	ld	l, c
+   00CA 60            [ 4]  351 	ld	h, b
+                            352 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            353 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   00CB 3Ar76s01      [13]  354 	ld	a, (_match_seq_10000_14)
+   00CE 77            [ 7]  355 	ld	(hl), a
+   00CF 23            [ 6]  356 	inc	hl
+                            357 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   00D0 3Ar77s01      [13]  358 	ld	a, (_match_seq_10000_14 + 1)
+   00D3 77            [ 7]  359 	ld	(hl), a
+                            360 ;cases/./../tests/bug-3166.c:100: ngood->prev = good;
+                            361 ;	genPlus
+                            362 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00D4 59            [ 4]  363 	ld	e, c
+   00D5 50            [ 4]  364 	ld	d, b
+                            365 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00D6 13            [ 6]  366 	inc	de
+   00D7 13            [ 6]  367 	inc	de
+                            368 ;	genPointerSet
+                            369 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            370 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00D8 3Ar70s01      [13]  371 	ld	a, (_match_good_10000_14)
+   00DB 12            [ 7]  372 	ld	(de), a
+   00DC 13            [ 6]  373 	inc	de
+                            374 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00DD 3Ar71s01      [13]  375 	ld	a, (_match_good_10000_14 + 1)
+   00E0 12            [ 7]  376 	ld	(de), a
+                            377 ;cases/./../tests/bug-3166.c:101: good = ngood;
+                            378 ;	genAssign
+                            379 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E1 ED 43r70s01   [20]  380 	ld	(_match_good_10000_14), bc
+                            381 ;cases/./../tests/bug-3166.c:103: continue;
+                            382 ;	genGoto
+   00E5 C3r2Ds00      [10]  383 	jp	00119$
+                            384 ;cases/./../tests/bug-3166.c:104: failure:
+                            385 ;	genLabel
+   00E8                     386 00112$:
+                            387 ;cases/./../tests/bug-3166.c:105: if (bad_sp == bad_stack) {
+                            388 ;	genCmpEq
+                            389 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E8 3Ar6Cs01      [13]  390 	ld	a, (_match_bad_sp_10000_14)
+   00EB D6r04         [ 7]  391 	sub	a, #<(_bad_stack)
+                            392 ; common peephole 163 changed absolute to relative conditional jump.
+   00ED 20 0D         [12]  393 	jr	nz, 00114$
+                            394 ; common peephole 84 jumped to 00114$ directly instead of via 00198$.
+                            395 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00EF 3Ar6Ds01      [13]  396 	ld	a, (_match_bad_sp_10000_14 + 1)
+   00F2 D6s01         [ 7]  397 	sub	a, #>(_bad_stack)
+                            398 ; common peephole 81 removed jp by using inverse jump logic
+                            399 ; common peephole 159 removed unused label 00198$.
+                            400 ; common peephole 163 changed absolute to relative conditional jump.
+   00F4 20 06         [12]  401 	jr	nz, 00114$
+                            402 ; common peephole 82 removed jp by using inverse jump logic
+                            403 ; common peephole 159 removed unused label 00199$.
+                            404 ;	skipping generated iCode
+                            405 ;cases/./../tests/bug-3166.c:106: return 0;       
+                            406 ;	genRet
+                            407 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00F6 11 00 00      [10]  408 	ld	de, #0x0000
+   00F9 C3rB1s01      [10]  409 	jp	00121$
+                            410 ;	genLabel
+   00FC                     411 00114$:
+                            412 ;cases/./../tests/bug-3166.c:108: --bad_sp;
+                            413 ;	genMinus
+                            414 ;	Shift into pair
+   00FC 21r6Cs01      [10]  415 	ld	hl, #_match_bad_sp_10000_14
+   00FF 7E            [ 7]  416 	ld	a, (hl)
+   0100 C6 FA         [ 7]  417 	add	a, #0xfa
+   0102 77            [ 7]  418 	ld	(hl), a
+   0103 23            [ 6]  419 	inc	hl
+   0104 7E            [ 7]  420 	ld	a, (hl)
+   0105 CE FF         [ 7]  421 	adc	a, #0xff
+   0107 77            [ 7]  422 	ld	(hl), a
+                            423 ;cases/./../tests/bug-3166.c:109: alts = bad_sp->alts;
+                            424 ;	genPointerGet
+                            425 ;fetchPairLong
+   0108 2Ar6Cs01      [16]  426 	ld	hl, (_match_bad_sp_10000_14)
+                            427 ;	_moveFrom_tpair_()
+   010B 7E            [ 7]  428 	ld	a, (hl)
+                            429 ; common peephole 96b move inc hl before ld (_match_alts_10000_14+0), a
+   010C 23            [ 6]  430 	inc	hl
+   010D 32r74s01      [13]  431 	ld	(_match_alts_10000_14+0), a
+                            432 ;	_moveFrom_tpair_()
+   0110 7E            [ 7]  433 	ld	a, (hl)
+   0111 32r75s01      [13]  434 	ld	(_match_alts_10000_14+1), a
+                            435 ;cases/./../tests/bug-3166.c:110: rgood = bad_sp->old_good;
+                            436 ;	genAssign
+                            437 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0114 ED 5Br6Cs01   [20]  438 	ld	de, (_match_bad_sp_10000_14)
+                            439 ;	genAssign
+                            440 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0118 4B            [ 4]  441 	ld	c, e
+   0119 42            [ 4]  442 	ld	b, d
+                            443 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            444 ;	genPointerGet
+   011A 21 04 00      [10]  445 	ld	hl, #4
+   011D 09            [11]  446 	add	hl, bc
+                            447 ;	_moveFrom_tpair_()
+   011E 7E            [ 7]  448 	ld	a, (hl)
+                            449 ; common peephole 96b move inc hl before ld (_match_rgood_10000_14+0), a
+   011F 23            [ 6]  450 	inc	hl
+   0120 32r72s01      [13]  451 	ld	(_match_rgood_10000_14+0), a
+                            452 ;	_moveFrom_tpair_()
+   0123 7E            [ 7]  453 	ld	a, (hl)
+   0124 32r73s01      [13]  454 	ld	(_match_rgood_10000_14+1), a
+                            455 ;cases/./../tests/bug-3166.c:111: rpos = bad_sp->old_pos;
+                            456 ;	genAssign
+                            457 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0127 EB            [ 4]  458 	ex	de, hl
+                            459 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            460 ;	genPointerGet
+                            461 ;fetchPairLong
+   0128 23            [ 6]  462 	inc	hl
+   0129 23            [ 6]  463 	inc	hl
+                            464 ;	_moveFrom_tpair_()
+   012A 7E            [ 7]  465 	ld	a, (hl)
+                            466 ; common peephole 96b move inc hl before ld (_match_rpos_10000_14+0), a
+   012B 23            [ 6]  467 	inc	hl
+   012C 32r78s01      [13]  468 	ld	(_match_rpos_10000_14+0), a
+                            469 ;	_moveFrom_tpair_()
+   012F 7E            [ 7]  470 	ld	a, (hl)
+   0130 32r79s01      [13]  471 	ld	(_match_rpos_10000_14+1), a
+                            472 ;cases/./../tests/bug-3166.c:112: first_alt:
+                            473 ;	genLabel
+   0133                     474 00115$:
+                            475 ;cases/./../tests/bug-3166.c:113: good = good_alloc++;
+                            476 ;	genAssign
+                            477 ;fetchPairLong
+   0133 2Ar6Es01      [16]  478 	ld	hl, (_match_good_alloc_10000_14)
+                            479 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0136 22r70s01      [16]  480 	ld	(_match_good_10000_14), hl
+                            481 ;	genPlus
+                            482 ;	Shift into pair
+   0139 21r6Es01      [10]  483 	ld	hl, #_match_good_alloc_10000_14
+   013C 7E            [ 7]  484 	ld	a, (hl)
+   013D C6 04         [ 7]  485 	add	a, #0x04
+   013F 77            [ 7]  486 	ld	(hl), a
+                            487 ; common peephole 163 changed absolute to relative conditional jump.
+   0140 30 02         [12]  488 	jr	nc, 00200$
+   0142 23            [ 6]  489 	inc	hl
+   0143 34            [11]  490 	inc	(hl)
+   0144                     491 00200$:
+                            492 ;cases/./../tests/bug-3166.c:114: good->seq = *alts++;
+                            493 ;	genCast
+                            494 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0144 ED 4Br70s01   [20]  495 	ld	bc, (_match_good_10000_14)
+                            496 ;	genAssign
+                            497 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0148 2Ar74s01      [16]  498 	ld	hl, (_match_alts_10000_14)
+                            499 ;	genPointerGet
+                            500 ;fetchPairLong
+                            501 ;	_moveFrom_tpair_()
+   014B 5E            [ 7]  502 	ld	e, (hl)
+   014C 23            [ 6]  503 	inc	hl
+                            504 ;	_moveFrom_tpair_()
+   014D 56            [ 7]  505 	ld	d, (hl)
+                            506 ;	genPlus
+                            507 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   014E 2Ar74s01      [16]  508 	ld	hl, (_match_alts_10000_14)
+   0151 23            [ 6]  509 	inc	hl
+   0152 23            [ 6]  510 	inc	hl
+                            511 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0153 22r74s01      [16]  512 	ld	(_match_alts_10000_14), hl
+                            513 ;	genPointerSet
+                            514 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            515 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0156 7B            [ 4]  516 	ld	a, e
+                            517 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0157 02            [ 7]  518 	ld	(bc), a
+   0158 03            [ 6]  519 	inc	bc
+                            520 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0159 7A            [ 4]  521 	ld	a, d
+                            522 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   015A 02            [ 7]  523 	ld	(bc), a
+                            524 ;cases/./../tests/bug-3166.c:115: good->prev = rgood;
+                            525 ;	genAssign
+                            526 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   015B 2Ar70s01      [16]  527 	ld	hl, (_match_good_10000_14)
+                            528 ;	genPlus
+   015E 23            [ 6]  529 	inc	hl
+   015F 23            [ 6]  530 	inc	hl
+                            531 ;	genPointerSet
+                            532 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            533 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0160 3Ar72s01      [13]  534 	ld	a, (_match_rgood_10000_14)
+   0163 77            [ 7]  535 	ld	(hl), a
+   0164 23            [ 6]  536 	inc	hl
+                            537 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0165 3Ar73s01      [13]  538 	ld	a, (_match_rgood_10000_14 + 1)
+   0168 77            [ 7]  539 	ld	(hl), a
+                            540 ;cases/./../tests/bug-3166.c:116: pos = rpos;
+                            541 ;	genAssign
+                            542 ;fetchPairLong
+   0169 2Ar78s01      [16]  543 	ld	hl, (_match_rpos_10000_14)
+                            544 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   016C 22r6As01      [16]  545 	ld	(_match_pos_10000_14), hl
+                            546 ;cases/./../tests/bug-3166.c:117: if (*alts) {
+                            547 ;	genAssign
+                            548 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   016F 2Ar74s01      [16]  549 	ld	hl, (_match_alts_10000_14)
+                            550 ;	genPointerGet
+                            551 ;fetchPairLong
+                            552 ;	_moveFrom_tpair_()
+                            553 ;	_moveFrom_tpair_()
+                            554 ;	genIfx
+                            555 ; common peephole 9 loaded a from (hl) directly instead of going through b.
+   0172 7E            [ 7]  556 	ld	a, (hl)
+   0173 23            [ 6]  557 	inc	hl
+                            558 ; common peephole 99a removed load by reordering or arguments.
+   0174 B6            [ 7]  559 	or	a, (hl)
+   0175 CAr70s00      [10]  560 	jp	z, 00105$
+                            561 ;cases/./../tests/bug-3166.c:118: bad_sp->alts = alts;
+                            562 ;	genCast
+                            563 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0178 2Ar6Cs01      [16]  564 	ld	hl, (_match_bad_sp_10000_14)
+                            565 ;	genPointerSet
+                            566 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            567 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   017B 3Ar74s01      [13]  568 	ld	a, (_match_alts_10000_14)
+   017E 77            [ 7]  569 	ld	(hl), a
+   017F 23            [ 6]  570 	inc	hl
+                            571 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0180 3Ar75s01      [13]  572 	ld	a, (_match_alts_10000_14 + 1)
+   0183 77            [ 7]  573 	ld	(hl), a
+                            574 ;cases/./../tests/bug-3166.c:119: bad_sp->old_good = rgood;
+                            575 ;	genAssign
+                            576 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0184 2Ar6Cs01      [16]  577 	ld	hl, (_match_bad_sp_10000_14)
+                            578 ;	genPlus
+                            579 ;fetchPairLong
+   0187 01 04 00      [10]  580 	ld	bc, #0x0004
+   018A 09            [11]  581 	add	hl, bc
+                            582 ;	genPointerSet
+                            583 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            584 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   018B 3Ar72s01      [13]  585 	ld	a, (_match_rgood_10000_14)
+   018E 77            [ 7]  586 	ld	(hl), a
+   018F 23            [ 6]  587 	inc	hl
+                            588 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0190 3Ar73s01      [13]  589 	ld	a, (_match_rgood_10000_14 + 1)
+   0193 77            [ 7]  590 	ld	(hl), a
+                            591 ;cases/./../tests/bug-3166.c:120: bad_sp->old_pos  = pos;
+                            592 ;	genAssign
+                            593 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0194 2Ar6Cs01      [16]  594 	ld	hl, (_match_bad_sp_10000_14)
+                            595 ;	genPlus
+   0197 23            [ 6]  596 	inc	hl
+   0198 23            [ 6]  597 	inc	hl
+                            598 ;	genPointerSet
+                            599 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            600 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0199 3Ar6As01      [13]  601 	ld	a, (_match_pos_10000_14)
+   019C 77            [ 7]  602 	ld	(hl), a
+   019D 23            [ 6]  603 	inc	hl
+                            604 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   019E 3Ar6Bs01      [13]  605 	ld	a, (_match_pos_10000_14 + 1)
+   01A1 77            [ 7]  606 	ld	(hl), a
+                            607 ;cases/./../tests/bug-3166.c:121: ++bad_sp;
+                            608 ;	genPlus
+                            609 ;	Shift into pair
+   01A2 21r6Cs01      [10]  610 	ld	hl, #_match_bad_sp_10000_14
+   01A5 7E            [ 7]  611 	ld	a, (hl)
+   01A6 C6 06         [ 7]  612 	add	a, #0x06
+   01A8 77            [ 7]  613 	ld	(hl), a
+   01A9 D2r70s00      [10]  614 	jp	nc, 00105$
+                            615 ; common peephole 84 jumped to 00105$ directly instead of via 00201$.
+   01AC 23            [ 6]  616 	inc	hl
+   01AD 34            [11]  617 	inc	(hl)
+                            618 ; common peephole 159 removed unused label 00201$.
+                            619 ;cases/./../tests/bug-3166.c:123: goto success;
+                            620 ;	genGoto
+   01AE C3r70s00      [10]  621 	jp	00105$
+                            622 ;	genLabel
+   01B1                     623 00121$:
+                            624 ;cases/./../tests/bug-3166.c:125: }
+                            625 ;	genEndFunction
+   01B1 DD F9         [10]  626 	ld	sp, ix
+   01B3 DD E1         [14]  627 	pop	ix
+   01B5 C9            [10]  628 	ret
+                            629 ;	Total match function size at codegen: 5 bytes.
+                            630 ;cases/./../tests/bug-3166.c:129: testBug(void)
+                            631 ;	genLabel
+                            632 ;	genFunction
+                            633 ;	---------------------------------
+                            634 ; Function testBug
+                            635 ; ---------------------------------
+                            636 ;	Register assignment might be sub-optimal.
+                            637 ; Stack space usage: 0 bytes.
+   01B6                     638 _testBug::
+                            639 ;cases/./../tests/bug-3166.c:132: ASSERT (match("baaab"));
+                            640 ;	genPlus
+                            641 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01B6 2Ar00s00      [16]  642 	ld	hl, (___numTests)
+   01B9 23            [ 6]  643 	inc	hl
+                            644 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01BA 22r00s00      [16]  645 	ld	(___numTests), hl
+                            646 ;	skipping iCode since result will be rematerialized
+                            647 ;	skipping iCode since result will be rematerialized
+                            648 ;	genSend
+                            649 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01BD 21rD8s01      [10]  650 	ld	hl, #___str_0
+                            651 ;	genCall
+   01C0 CDr00s00      [17]  652 	call	_match
+                            653 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            654 ;	genIfx
+   01C3 7A            [ 4]  655 	ld	a, d
+   01C4 B3            [ 4]  656 	or	a, e
+   01C5 C0            [11]  657 	ret	nz
+                            658 ; common peephole 161 replaced jump by return.
+                            659 ;	skipping iCode since result will be rematerialized
+                            660 ;	skipping iCode since result will be rematerialized
+                            661 ;	skipping iCode since result will be rematerialized
+                            662 ;	skipping iCode since result will be rematerialized
+                            663 ;	skipping iCode since result will be rematerialized
+                            664 ;	skipping iCode since result will be rematerialized
+                            665 ;	genIpush
+                            666 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01C6 21 84 00      [10]  667 	ld	hl, #0x0084
+   01C9 E5            [11]  668 	push	hl
+                            669 ;	genIpush
+                            670 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01CA 21rFEs01      [10]  671 	ld	hl, #___str_3
+   01CD E5            [11]  672 	push	hl
+                            673 ;	genSend
+                            674 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01CE 11rEFs01      [10]  675 	ld	de, #___str_2
+                            676 ;	genSend
+                            677 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01D1 21rDEs01      [10]  678 	ld	hl, #___str_1
+                            679 ;	genCall
+   01D4 CDr00s00      [17]  680 	call	___fail
+                            681 ;	genLabel
+                            682 ; common peephole 159 removed unused label 00101$.
+                            683 ;cases/./../tests/bug-3166.c:134: }
+                            684 ;	genEndFunction
+   01D7 C9            [10]  685 	ret
+                            686 ;	Total testBug function size at codegen: 1 bytes.
+   01D8                     687 ___str_0:
+   01D8 62 61 61 61 62      688 	.ascii "baaab"
+   01DD 00                  689 	.db 0x00
+   01DE                     690 ___str_1:
+   01DE 41 73 73 65 72 74   691 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   01EE 00                  692 	.db 0x00
+   01EF                     693 ___str_2:
+   01EF 6D 61 74 63 68 28   694 	.ascii "match("
+   01F5 22                  695 	.db 0x22
+   01F6 62 61 61 61 62      696 	.ascii "baaab"
+   01FB 22                  697 	.db 0x22
+   01FC 29                  698 	.ascii ")"
+   01FD 00                  699 	.db 0x00
+   01FE                     700 ___str_3:
+   01FE 63 61 73 65 73 2F   701 	.ascii "cases/./../tests/bug-3166.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 62
+        75 67 2D 33 31 36
+        36 2E 63
+   0219 00                  702 	.db 0x00
+                            703 ;cases/tst_bug-3166.c:4: __runSuite(void)
+                            704 ;	genLabel
+                            705 ;	genFunction
+                            706 ;	---------------------------------
+                            707 ; Function __runSuite
+                            708 ; ---------------------------------
+                            709 ;	Register assignment is optimal.
+                            710 ; Stack space usage: 0 bytes.
+   021A                     711 ___runSuite::
+                            712 ;cases/tst_bug-3166.c:6: __prints("Running testBug\n");
+                            713 ;	skipping iCode since result will be rematerialized
+                            714 ;	skipping iCode since result will be rematerialized
+                            715 ;	genSend
+                            716 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   021A 21r23s02      [10]  717 	ld	hl, #___str_4
+                            718 ;	genCall
+   021D CDr00s00      [17]  719 	call	___prints
+                            720 ;cases/tst_bug-3166.c:7: testBug();
+                            721 ;	genCall
+                            722 ;	genLabel
+                            723 ; common peephole 159 removed unused label 00101$.
+                            724 ;cases/tst_bug-3166.c:8: }
+                            725 ;	genEndFunction
+   0220 C3rB6s01      [10]  726 	jp	_testBug
+                            727 ; common peephole 152 removed unused ret.
+                            728 ;	Total __runSuite function size at codegen: 1 bytes.
+   0223                     729 ___str_4:
+   0223 52 75 6E 6E 69 6E   730 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   0232 0A                  731 	.db 0x0a
+   0233 00                  732 	.db 0x00
+                            733 ;cases/tst_bug-3166.c:13: __getSuiteName(void)
+                            734 ;	genLabel
+                            735 ;	genFunction
+                            736 ;	---------------------------------
+                            737 ; Function __getSuiteName
+                            738 ; ---------------------------------
+                            739 ;	Register assignment is optimal.
+                            740 ; Stack space usage: 0 bytes.
+   0234                     741 ___getSuiteName::
+                            742 ;cases/tst_bug-3166.c:15: return "bug-3166.c";
+                            743 ;	skipping iCode since result will be rematerialized
+                            744 ;	skipping iCode since result will be rematerialized
+                            745 ;	genRet
+                            746 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0234 11r3As02      [10]  747 	ld	de, #___str_5
+                            748 ;	genLabel
+                            749 ; common peephole 159 removed unused label 00101$.
+                            750 ;cases/tst_bug-3166.c:16: }
+                            751 ;	genEndFunction
+   0237 C9            [10]  752 	ret
+                            753 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0238                     754 ___numCases:
+   0238 01 00               755 	.dw #0x0001
+   023A                     756 ___str_5:
+   023A 62 75 67 2D 33 31   757 	.ascii "bug-3166.c"
+        36 36 2E 63
+   0244 00                  758 	.db 0x00
+                            759 	.area _CODE (BANK=_CSEG)
+                            760 	.area _INITIALIZER
+   0000                     761 __xinit__rule_seq_lists:
+   0000 03 00               762 	.dw #0x0003
+   0002 01 00               763 	.dw #0x0001
+   0004 03 00               764 	.dw #0x0003
+   0006 FF FF               765 	.dw #0xffff
+   0008 02 00               766 	.dw #0x0002
+   000A FF FF               767 	.dw #0xffff
+   000C 02 00               768 	.dw #0x0002
+   000E 01 00               769 	.dw #0x0001
+   0010 FF FF               770 	.dw #0xffff
+   0012                     771 __xinit__rule_alts_lists:
+   0012r00s00               772 	.dw (_rule_seq_lists + 0)
+   0014 00 00               773 	.dw #0x0000
+   0016r08s00               774 	.dw (_rule_seq_lists + 8)
+   0018r0Cs00               775 	.dw (_rule_seq_lists + 12)
+   001A 00 00               776 	.dw #0x0000
+   001C                     777 __xinit__rule:
+   001Cr12s00               778 	.dw (_rule_alts_lists + 0)
+   001Er16s00               779 	.dw (_rule_alts_lists + 4)
+   0020 00 00               780 	.dw #0x0000
+   0022 00 00               781 	.dw #0x0000
+   0024                     782 __xinit__rule_terminal:
+   0024 00                  783 	.db #0x00	; 0
+   0025 00                  784 	.db #0x00	; 0
+   0026 61                  785 	.db #0x61	; 97	'a'
+   0027 62                  786 	.db #0x62	; 98	'b'
+                            787 	.area _CABS (ABS)

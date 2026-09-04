@@ -1,0 +1,330 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_4039
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _LevelDraw
+                             12 	.globl _check
+                             13 	.globl ___prints
+                             14 	.globl ___fail
+                             15 	.globl _vdu_interrupt_state
+                             16 	.globl ___numCases
+                             17 	.globl ___runSuite
+                             18 	.globl ___getSuiteName
+                             19 ;--------------------------------------------------------
+                             20 ; special function registers
+                             21 ;--------------------------------------------------------
+                     0000    22 _VDPControlPort	=	0x0000
+                     0001    23 _VDPDataPortOut	=	0x0001
+                             24 ;--------------------------------------------------------
+                             25 ; ram data
+                             26 ;--------------------------------------------------------
+                             27 	.area _DATA (BANK=_DSEG)
+   0000                      28 _vdu_interrupt_state::
+   0000                      29 	.ds 1
+                             30 ;--------------------------------------------------------
+                             31 ; ram data
+                             32 ;--------------------------------------------------------
+                             33 	.area _INITIALIZED
+                             34 ;--------------------------------------------------------
+                             35 ; absolute ram data
+                             36 ;--------------------------------------------------------
+                             37 	.area _DABS (ABS)
+                             38 	.area _DABS (ABS)
+                             39 ;--------------------------------------------------------
+                             40 ; global & static initialisations
+                             41 ;--------------------------------------------------------
+                             42 	.area _HOME
+                             43 	.area _GSINIT
+                             44 	.area _GSFINAL
+                             45 	.area _GSINIT
+                             46 ;--------------------------------------------------------
+                             47 ; Home
+                             48 ;--------------------------------------------------------
+                             49 	.area _HOME (BANK=_CSEG)
+                             50 	.area _HOME (BANK=_CSEG)
+                             51 ;--------------------------------------------------------
+                             52 ; code
+                             53 ;--------------------------------------------------------
+                             54 	.area _CODE (BANK=_CSEG)
+                             55 ;cases/./../tests/bug-4039.c:32: void check(void)
+                             56 ;	genLabel
+                             57 ;	genFunction
+                             58 ;	---------------------------------
+                             59 ; Function check
+                             60 ; ---------------------------------
+                             61 ;	Register assignment might be sub-optimal.
+                             62 ; Stack space usage: 0 bytes.
+   0000                      63 _check::
+                             64 ;cases/./../tests/bug-4039.c:34: ASSERT( !vdu_interrupt_state );
+                             65 ;	genPlus
+                             66 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0000 2Ar00s00      [16]   67 	ld	hl, (___numTests)
+   0003 23            [ 6]   68 	inc	hl
+                             69 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0004 22r00s00      [16]   70 	ld	(___numTests), hl
+                             71 ;	genIfx
+                             72 ; common peephole 61 used hl instead of iy.
+                             73 ; common peephole 130a removed unnecessary +0 from constant
+   0007 21r00s00      [10]   74 	ld	hl, #_vdu_interrupt_state
+   000A CB 46         [12]   75 	bit	0, (hl)
+   000C C8            [11]   76 	ret	z
+                             77 ; common peephole 161 replaced jump by return.
+                             78 ;	skipping iCode since result will be rematerialized
+                             79 ;	skipping iCode since result will be rematerialized
+                             80 ;	skipping iCode since result will be rematerialized
+                             81 ;	skipping iCode since result will be rematerialized
+                             82 ;	skipping iCode since result will be rematerialized
+                             83 ;	skipping iCode since result will be rematerialized
+                             84 ;	genIpush
+                             85 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000D 21 22 00      [10]   86 	ld	hl, #0x0022
+   0010 E5            [11]   87 	push	hl
+                             88 ;	genIpush
+                             89 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0011 21r45s00      [10]   90 	ld	hl, #___str_2
+   0014 E5            [11]   91 	push	hl
+                             92 ;	genSend
+                             93 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0015 11r30s00      [10]   94 	ld	de, #___str_1
+                             95 ;	genSend
+                             96 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0018 21r1Fs00      [10]   97 	ld	hl, #___str_0
+                             98 ;	genCall
+   001B CDr00s00      [17]   99 	call	___fail
+                            100 ;	genLabel
+                            101 ; common peephole 159 removed unused label 00101$.
+                            102 ;cases/./../tests/bug-4039.c:35: }
+                            103 ;	genEndFunction
+   001E C9            [10]  104 	ret
+                            105 ;	Total check function size at codegen: 1 bytes.
+   001F                     106 ___str_0:
+   001F 41 73 73 65 72 74   107 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   002F 00                  108 	.db 0x00
+   0030                     109 ___str_1:
+   0030 21 76 64 75 5F 69   110 	.ascii "!vdu_interrupt_state"
+        6E 74 65 72 72 75
+        70 74 5F 73 74 61
+        74 65
+   0044 00                  111 	.db 0x00
+   0045                     112 ___str_2:
+   0045 63 61 73 65 73 2F   113 	.ascii "cases/./../tests/bug-4039.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 62
+        75 67 2D 34 30 33
+        39 2E 63
+   0060 00                  114 	.db 0x00
+                            115 ;cases/./../tests/bug-4039.c:53: void LevelDraw() {
+                            116 ;	genLabel
+                            117 ;	genFunction
+                            118 ;	---------------------------------
+                            119 ; Function LevelDraw
+                            120 ; ---------------------------------
+                            121 ;	Register assignment might be sub-optimal.
+                            122 ; Stack space usage: 2 bytes.
+   0061                     123 _LevelDraw::
+   0061 DD E5         [15]  124 	push	ix
+   0063 DD 21 00 00   [14]  125 	ld	ix,	#0
+   0067 DD 39         [15]  126 	add	ix, sp
+                            127 ;	adjustStack by -2
+   0069 F5            [11]  128 	push	af
+                            129 ;cases/./../tests/bug-4039.c:56: uint16_t addr = 32;
+                            130 ;	genAssign
+                            131 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   006A 01 20 00      [10]  132 	ld	bc, #0x0020
+                            133 ;cases/./../tests/bug-4039.c:58: do {
+                            134 ;	genAssign
+                            135 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   006D 1E 02         [ 7]  136 	ld	e, #0x02
+                            137 ;cases/./../tests/bug-4039.c:63: do {
+                            138 ;	genLabel
+   006F                     139 00114$:
+                            140 ;	genAssign
+                            141 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   006F 16 02         [ 7]  142 	ld	d, #0x02
+                            143 ;	genLabel
+   0071                     144 00101$:
+                            145 ;cases/./../tests/bug-4039.c:40: addr += 0x1000;
+                            146 ;	genCast
+                            147 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0071 E1            [10]  148 	pop	hl
+   0072 C5            [11]  149 	push	bc
+                            150 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            151 ;	genPlus
+   0073 DD 6E FE      [19]  152 	ld	l, -2 (ix)
+   0076 DD 7E FF      [19]  153 	ld	a, -1 (ix)
+   0079 C6 10         [ 7]  154 	add	a, #0x10
+                            155 ;	genCast
+                            156 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   007B 67            [ 4]  157 	ld	h, a
+   007C 7D            [ 4]  158 	ld	a, l
+                            159 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            160 ;cases/./../tests/bug-4039.c:42: vdu_address_set_fast( addr );
+                            161 ;	genAssign
+                            162 ;	genMove_o size 1 result type 10 source type 1 a_dead 0 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   007D FD 21r00s00   [14]  163 	ld	iy, #_vdu_interrupt_state
+   0081 FD 36 00 00   [19]  164 	ld	0 (iy), #0x00
+                            165 ;	genCast
+   0085 D3 00         [11]  166 	out	(_VDPControlPort), a
+                            167 ;	genCast
+                            168 ;	(locations are the same)
+                            169 ;	genGetByte
+                            170 ;	genMove_o size 1 result type 5 source type 2 a_dead 0 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0087 F5            [11]  171 	push	af
+   0088 7C            [ 4]  172 	ld	a, h
+   0089 D3 00         [11]  173 	out	(_VDPControlPort), a
+   008B F1            [10]  174 	pop	af
+                            175 ;	genAssign
+                            176 ;	genMove_o size 1 result type 10 source type 1 a_dead 0 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   008C FD 36 00 01   [19]  177 	ld	0 (iy), #0x01
+                            178 ;cases/./../tests/bug-4039.c:43: addr += 32;
+                            179 ;	genPlus
+   0090 C6 20         [ 7]  180 	add	a, #0x20
+   0092 6F            [ 4]  181 	ld	l, a
+                            182 ; common peephole 163 changed absolute to relative conditional jump.
+   0093 30 01         [12]  183 	jr	nc, 00137$
+   0095 24            [ 4]  184 	inc	h
+   0096                     185 00137$:
+                            186 ;	genCast
+                            187 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0096 7D            [ 4]  188 	ld	a, l
+                            189 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            190 ;cases/./../tests/bug-4039.c:45: vdu_address_set_fast2( addr );
+                            191 ;	genAssign
+                            192 ;	genMove_o size 1 result type 10 source type 1 a_dead 0 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0097 FD 36 00 00   [19]  193 	ld	0 (iy), #0x00
+                            194 ;	genCast
+   009B D3 00         [11]  195 	out	(_VDPControlPort), a
+                            196 ;	genCast
+                            197 ;	(locations are the same)
+                            198 ;	genGetByte
+                            199 ;	genMove_o size 1 result type 5 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   009D 7C            [ 4]  200 	ld	a, h
+   009E D3 00         [11]  201 	out	(_VDPControlPort), a
+                            202 ;	genCall
+   00A0 C5            [11]  203 	push	bc
+   00A1 D5            [11]  204 	push	de
+   00A2 CDr00s00      [17]  205 	call	_check
+   00A5 D1            [10]  206 	pop	de
+   00A6 C1            [10]  207 	pop	bc
+                            208 ;	genAssign
+                            209 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00A7 21r00s00      [10]  210 	ld	hl, #_vdu_interrupt_state
+   00AA 36 01         [10]  211 	ld	(hl), #0x01
+                            212 ;cases/./../tests/bug-4039.c:65: } while( --col );
+                            213 ;	genMinus
+   00AC 15            [ 4]  214 	dec	d
+                            215 ; common peephole 163 changed absolute to relative conditional jump.
+   00AD 20 C2         [12]  216 	jr	nz, 00101$
+                            217 ;	skipping generated iCode
+                            218 ;cases/./../tests/bug-4039.c:67: addr += 32;
+                            219 ;	genPlus
+   00AF DD 7E FE      [19]  220 	ld	a, -2 (ix)
+   00B2 C6 20         [ 7]  221 	add	a, #0x20
+   00B4 4F            [ 4]  222 	ld	c, a
+   00B5 DD 7E FF      [19]  223 	ld	a, -1 (ix)
+   00B8 CE 00         [ 7]  224 	adc	a, #0x00
+   00BA 47            [ 4]  225 	ld	b, a
+                            226 ;	genCast
+                            227 ;	(locations are the same)
+                            228 ;cases/./../tests/bug-4039.c:69: } while (--row);
+                            229 ;	genMinus
+   00BB 1D            [ 4]  230 	dec	e
+                            231 ; common peephole 163 changed absolute to relative conditional jump.
+   00BC 20 B1         [12]  232 	jr	nz, 00114$
+                            233 ;	skipping generated iCode
+                            234 ;	genLabel
+                            235 ; common peephole 159 removed unused label 00109$.
+                            236 ;cases/./../tests/bug-4039.c:70: }
+                            237 ;	genEndFunction
+   00BE DD F9         [10]  238 	ld	sp, ix
+   00C0 DD E1         [14]  239 	pop	ix
+   00C2 C9            [10]  240 	ret
+                            241 ;	Total LevelDraw function size at codegen: 5 bytes.
+                            242 ;cases/./../tests/bug-4039.c:73: testBug(void) {
+                            243 ;	genLabel
+                            244 ;	genFunction
+                            245 ;	---------------------------------
+                            246 ; Function testBug
+                            247 ; ---------------------------------
+                            248 ;	Register assignment is optimal.
+                            249 ; Stack space usage: 0 bytes.
+   00C3                     250 _testBug::
+                            251 ;cases/./../tests/bug-4039.c:75: LevelDraw();
+                            252 ;	genCall
+                            253 ;	genLabel
+                            254 ; common peephole 159 removed unused label 00101$.
+                            255 ;cases/./../tests/bug-4039.c:76: }
+                            256 ;	genEndFunction
+   00C3 C3r61s00      [10]  257 	jp	_LevelDraw
+                            258 ; common peephole 152 removed unused ret.
+                            259 ;	Total testBug function size at codegen: 1 bytes.
+                            260 ;cases/tst_bug-4039.c:4: __runSuite(void)
+                            261 ;	genLabel
+                            262 ;	genFunction
+                            263 ;	---------------------------------
+                            264 ; Function __runSuite
+                            265 ; ---------------------------------
+                            266 ;	Register assignment is optimal.
+                            267 ; Stack space usage: 0 bytes.
+   00C6                     268 ___runSuite::
+                            269 ;cases/tst_bug-4039.c:6: __prints("Running testBug\n");
+                            270 ;	skipping iCode since result will be rematerialized
+                            271 ;	skipping iCode since result will be rematerialized
+                            272 ;	genSend
+                            273 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00C6 21rCFs00      [10]  274 	ld	hl, #___str_3
+                            275 ;	genCall
+   00C9 CDr00s00      [17]  276 	call	___prints
+                            277 ;cases/tst_bug-4039.c:7: testBug();
+                            278 ;	genCall
+                            279 ;	genLabel
+                            280 ; common peephole 159 removed unused label 00101$.
+                            281 ;cases/tst_bug-4039.c:8: }
+                            282 ;	genEndFunction
+   00CC C3rC3s00      [10]  283 	jp	_testBug
+                            284 ; common peephole 152 removed unused ret.
+                            285 ;	Total __runSuite function size at codegen: 1 bytes.
+   00CF                     286 ___str_3:
+   00CF 52 75 6E 6E 69 6E   287 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   00DE 0A                  288 	.db 0x0a
+   00DF 00                  289 	.db 0x00
+                            290 ;cases/tst_bug-4039.c:13: __getSuiteName(void)
+                            291 ;	genLabel
+                            292 ;	genFunction
+                            293 ;	---------------------------------
+                            294 ; Function __getSuiteName
+                            295 ; ---------------------------------
+                            296 ;	Register assignment is optimal.
+                            297 ; Stack space usage: 0 bytes.
+   00E0                     298 ___getSuiteName::
+                            299 ;cases/tst_bug-4039.c:15: return "bug-4039.c";
+                            300 ;	skipping iCode since result will be rematerialized
+                            301 ;	skipping iCode since result will be rematerialized
+                            302 ;	genRet
+                            303 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E0 11rE6s00      [10]  304 	ld	de, #___str_4
+                            305 ;	genLabel
+                            306 ; common peephole 159 removed unused label 00101$.
+                            307 ;cases/tst_bug-4039.c:16: }
+                            308 ;	genEndFunction
+   00E3 C9            [10]  309 	ret
+                            310 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   00E4                     311 ___numCases:
+   00E4 01 00               312 	.dw #0x0001
+   00E6                     313 ___str_4:
+   00E6 62 75 67 2D 34 30   314 	.ascii "bug-4039.c"
+        33 39 2E 63
+   00F0 00                  315 	.db 0x00
+                            316 	.area _CODE (BANK=_CSEG)
+                            317 	.area _INITIALIZER
+                            318 	.area _CABS (ABS)

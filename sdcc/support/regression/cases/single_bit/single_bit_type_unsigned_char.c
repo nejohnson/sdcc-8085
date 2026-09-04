@@ -1,0 +1,41 @@
+/* single_bit.c.in
+   single-bit check functions from stdbit.h
+   type: unsigned char, unsigned short, unsigned int, unsigned long, unsigned long long
+ */
+
+#include <testfwk.h>
+
+#if __STDC_VERSION__ >= 202311L || defined(__SDCC)
+#include <stdbit.h>
+#endif
+
+void testSingleBit(void)
+{
+#if __STDC_VERSION_STDBIT_H__ >= 202311L || defined(__SDCC)
+	unsigned char v;
+	v = 0x00;
+	ASSERT (!stdc_has_single_bit(v));
+	v = 0x01;
+	ASSERT ( stdc_has_single_bit(v));
+	v = 0x81;
+	ASSERT (!stdc_has_single_bit(v));
+	v = 0x80;
+	ASSERT ( stdc_has_single_bit(v));
+#endif
+}
+
+
+void
+__runSuite(void)
+{
+  __prints("Running testSingleBit\n");
+  testSingleBit();
+}
+
+const int __numCases = 1;
+
+__code const char *
+__getSuiteName(void)
+{
+  return "single_bit_type_unsigned_char";
+}

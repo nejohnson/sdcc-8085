@@ -1,0 +1,67 @@
+/* Test parameters for functions that use a large stack for local variables.
+   There is apotential a bug where the stack adjustment at function entry overwrites register parameters.
+   To reproduce, we need a large stack (so registers are used for stack adjustment), and
+   parameters that are small enough to be allocated to registers, but big enough that these
+   registers have the smae width as teh stack pointer.
+
+   type1: unsigned char, unsigned int, unsigned long
+   type2: unsigned char, unsigned int, unsigned long
+ */
+
+#include <testfwk.h>
+
+volatile unsigned long int1;
+volatile unsigned char int2;
+
+#ifdef __SDCC_pdk13
+#define ARRAYSIZE 20
+#elif defined (__SDCC_pdk14)
+#define ARRAYSIZE 30
+#elif defined (__SDCC_pdk15) || defined (__SDCC_mcs51) || defined (__SDCC_mos6502) || defined (__SDCC_mos65c02)
+#define ARRAYSIZE 60
+#else
+#define ARRAYSIZE 780 // Needs to be bigger than 266 to reliably trigger conditions for stm8, also sufficient for z80
+#endif
+
+void g(unsigned char *);
+
+void f(unsigned long par1, unsigned char par2)
+{
+	unsigned char array[ARRAYSIZE];
+	g(array);
+	int1 = par1;
+	int2 = par2;
+	ASSERT(array[0] == 0 && array[ARRAYSIZE - 1] == (unsigned char)(ARRAYSIZE - 1));
+}
+
+void g(unsigned char *array)
+{
+	array[0] = 0; array[ARRAYSIZE - 1] = (unsigned char)(ARRAYSIZE - 1);
+}
+
+void
+testStack(void)
+{
+	f(23, 42);
+	ASSERT (int1 == (unsigned long)23);
+	ASSERT (int2 == (unsigned char)42);
+	f(0xa5a5a5, 0x5a5a5a);
+	ASSERT (int1 == (unsigned long)0xa5a5a5);
+	ASSERT (int2 == (unsigned char)0x5a5a5a);
+}
+
+
+void
+__runSuite(void)
+{
+  __prints("Running testStack\n");
+  testStack();
+}
+
+const int __numCases = 1;
+
+__code const char *
+__getSuiteName(void)
+{
+  return "bigstack_type1_unsigned_long_type2_unsigned_char";
+}

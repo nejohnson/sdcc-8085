@@ -1,0 +1,205 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_477835
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _fptr2
+                             12 	.globl _dummy
+                             13 	.globl _fptr
+                             14 	.globl ___prints
+                             15 	.globl ___numCases
+                             16 	.globl ___runSuite
+                             17 	.globl ___getSuiteName
+                             18 ;--------------------------------------------------------
+                             19 ; special function registers
+                             20 ;--------------------------------------------------------
+                             21 ;--------------------------------------------------------
+                             22 ; ram data
+                             23 ;--------------------------------------------------------
+                             24 	.area _DATA (BANK=_DSEG)
+                             25 ;--------------------------------------------------------
+                             26 ; ram data
+                             27 ;--------------------------------------------------------
+                             28 	.area _INITIALIZED
+                             29 ;--------------------------------------------------------
+                             30 ; absolute ram data
+                             31 ;--------------------------------------------------------
+                             32 	.area _DABS (ABS)
+                             33 	.area _DABS (ABS)
+                             34 ;--------------------------------------------------------
+                             35 ; global & static initialisations
+                             36 ;--------------------------------------------------------
+                             37 	.area _HOME
+                             38 	.area _GSINIT
+                             39 	.area _GSFINAL
+                             40 	.area _GSINIT
+                             41 ;--------------------------------------------------------
+                             42 ; Home
+                             43 ;--------------------------------------------------------
+                             44 	.area _HOME (BANK=_CSEG)
+                             45 	.area _HOME (BANK=_CSEG)
+                             46 ;--------------------------------------------------------
+                             47 ; code
+                             48 ;--------------------------------------------------------
+                             49 	.area _CODE (BANK=_CSEG)
+                             50 ;cases/./../tests/bug-477835.c:9: fptr(void (*fp)(void))
+                             51 ;	genLabel
+                             52 ;	genFunction
+                             53 ;	---------------------------------
+                             54 ; Function fptr
+                             55 ; ---------------------------------
+                             56 ;	Register assignment is optimal.
+                             57 ; Stack space usage: 0 bytes.
+   0000                      58 _fptr::
+                             59 ;	genReceive
+                             60 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             61 ;cases/./../tests/bug-477835.c:12: for (i = 0; i < 50; i++)
+                             62 ;	genAssign
+                             63 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0000 06 32         [ 7]   64 	ld	b, #0x32
+                             65 ;	genLabel
+   0002                      66 00104$:
+                             67 ;cases/./../tests/bug-477835.c:13: (*fp)();
+                             68 ;	genCall
+   0002 E5            [11]   69 	push	hl
+   0003 C5            [11]   70 	push	bc
+                             71 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0004 CDr00s00      [17]   72 	call	___sdcc_call_hl
+   0007 C1            [10]   73 	pop	bc
+   0008 E1            [10]   74 	pop	hl
+                             75 ;	genMinus
+                             76 ; common peephole 163 changed absolute to relative conditional jump.
+                             77 ; common peephole 167 used djnz
+   0009 10 F7         [13]   78 	djnz	00104$
+                             79 ;cases/./../tests/bug-477835.c:12: for (i = 0; i < 50; i++)
+                             80 ;	skipping generated iCode
+                             81 ;	genLabel
+                             82 ; common peephole 159 removed unused label 00105$.
+                             83 ;cases/./../tests/bug-477835.c:14: }
+                             84 ;	genEndFunction
+   000B C9            [10]   85 	ret
+                             86 ;	Total fptr function size at codegen: 1 bytes.
+                             87 ;cases/./../tests/bug-477835.c:16: void dummy(void (*fp)(void))
+                             88 ;	genLabel
+                             89 ;	genFunction
+                             90 ;	---------------------------------
+                             91 ; Function dummy
+                             92 ; ---------------------------------
+                             93 ;	Register assignment is optimal.
+                             94 ; Stack space usage: 0 bytes.
+   000C                      95 _dummy::
+                             96 ;cases/./../tests/bug-477835.c:18: UNUSED(fp);
+                             97 ;	genLabel
+                             98 ; common peephole 159 removed unused label 00101$.
+                             99 ;cases/./../tests/bug-477835.c:19: }
+                            100 ;	genEndFunction
+   000C C9            [10]  101 	ret
+                            102 ;	Total dummy function size at codegen: 1 bytes.
+                            103 ;cases/./../tests/bug-477835.c:24: fptr2(void (*fp)(void))
+                            104 ;	genLabel
+                            105 ;	genFunction
+                            106 ;	---------------------------------
+                            107 ; Function fptr2
+                            108 ; ---------------------------------
+                            109 ;	Register assignment is optimal.
+                            110 ; Stack space usage: 0 bytes.
+   000D                     111 _fptr2::
+                            112 ;cases/./../tests/bug-477835.c:29: for (i = 0; i < 50; i++)
+                            113 ;	genAssign
+                            114 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000D AF            [ 4]  115 	xor	a, a
+                            116 ;	genLabel
+   000E                     117 00102$:
+                            118 ;	genPlus
+   000E 3C            [ 4]  119 	inc	a
+                            120 ;	genCmpLt
+   000F FE 32         [ 7]  121 	cp	a, #0x32
+                            122 ; common peephole 163 changed absolute to relative conditional jump.
+   0011 38 FB         [12]  123 	jr	c, 00102$
+                            124 ;	skipping generated iCode
+                            125 ;	genLabel
+                            126 ; common peephole 159 removed unused label 00104$.
+                            127 ;cases/./../tests/bug-477835.c:31: }
+                            128 ;	genEndFunction
+   0013 C9            [10]  129 	ret
+                            130 ;	Total fptr2 function size at codegen: 1 bytes.
+                            131 ;cases/./../tests/bug-477835.c:33: void testBug(void)
+                            132 ;	genLabel
+                            133 ;	genFunction
+                            134 ;	---------------------------------
+                            135 ; Function testBug
+                            136 ; ---------------------------------
+                            137 ;	Register assignment is optimal.
+                            138 ; Stack space usage: 0 bytes.
+   0014                     139 _testBug::
+                            140 ;cases/./../tests/bug-477835.c:35: }
+                            141 ;	genLabel
+                            142 ; common peephole 159 removed unused label 00101$.
+                            143 ;	genEndFunction
+   0014 C9            [10]  144 	ret
+                            145 ;	Total testBug function size at codegen: 1 bytes.
+                            146 ;cases/tst_bug-477835.c:4: __runSuite(void)
+                            147 ;	genLabel
+                            148 ;	genFunction
+                            149 ;	---------------------------------
+                            150 ; Function __runSuite
+                            151 ; ---------------------------------
+                            152 ;	Register assignment is optimal.
+                            153 ; Stack space usage: 0 bytes.
+   0015                     154 ___runSuite::
+                            155 ;cases/tst_bug-477835.c:6: __prints("Running testBug\n");
+                            156 ;	skipping iCode since result will be rematerialized
+                            157 ;	skipping iCode since result will be rematerialized
+                            158 ;	genSend
+                            159 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0015 21r1Bs00      [10]  160 	ld	hl, #___str_0
+                            161 ;	genCall
+                            162 ;cases/tst_bug-477835.c:7: testBug();
+                            163 ;	genLabel
+                            164 ; common peephole 159 removed unused label 00101$.
+                            165 ;cases/tst_bug-477835.c:8: }
+                            166 ;	genEndFunction
+   0018 C3r00s00      [10]  167 	jp	___prints
+                            168 ; common peephole 152 removed unused ret.
+                            169 ;	Total __runSuite function size at codegen: 1 bytes.
+   001B                     170 ___str_0:
+   001B 52 75 6E 6E 69 6E   171 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   002A 0A                  172 	.db 0x0a
+   002B 00                  173 	.db 0x00
+                            174 ;cases/tst_bug-477835.c:13: __getSuiteName(void)
+                            175 ;	genLabel
+                            176 ;	genFunction
+                            177 ;	---------------------------------
+                            178 ; Function __getSuiteName
+                            179 ; ---------------------------------
+                            180 ;	Register assignment is optimal.
+                            181 ; Stack space usage: 0 bytes.
+   002C                     182 ___getSuiteName::
+                            183 ;cases/tst_bug-477835.c:15: return "bug-477835.c";
+                            184 ;	skipping iCode since result will be rematerialized
+                            185 ;	skipping iCode since result will be rematerialized
+                            186 ;	genRet
+                            187 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002C 11r32s00      [10]  188 	ld	de, #___str_1
+                            189 ;	genLabel
+                            190 ; common peephole 159 removed unused label 00101$.
+                            191 ;cases/tst_bug-477835.c:16: }
+                            192 ;	genEndFunction
+   002F C9            [10]  193 	ret
+                            194 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0030                     195 ___numCases:
+   0030 01 00               196 	.dw #0x0001
+   0032                     197 ___str_1:
+   0032 62 75 67 2D 34 37   198 	.ascii "bug-477835.c"
+        37 38 33 35 2E 63
+   003E 00                  199 	.db 0x00
+                            200 	.area _CODE (BANK=_CSEG)
+                            201 	.area _INITIALIZER
+                            202 	.area _CABS (ABS)

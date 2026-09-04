@@ -1,0 +1,353 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_scott_b
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testB
+                             11 	.globl _nested_call
+                             12 	.globl _f1
+                             13 	.globl _inc
+                             14 	.globl ___prints
+                             15 	.globl ___fail
+                             16 	.globl _uchar2
+                             17 	.globl _uchar1
+                             18 	.globl _uchar0
+                             19 	.globl ___numCases
+                             20 	.globl ___runSuite
+                             21 	.globl ___getSuiteName
+                             22 ;--------------------------------------------------------
+                             23 ; special function registers
+                             24 ;--------------------------------------------------------
+                             25 ;--------------------------------------------------------
+                             26 ; ram data
+                             27 ;--------------------------------------------------------
+                             28 	.area _DATA (BANK=_DSEG)
+                             29 ;--------------------------------------------------------
+                             30 ; ram data
+                             31 ;--------------------------------------------------------
+                             32 	.area _INITIALIZED
+   0000                      33 _uchar0::
+   0000                      34 	.ds 1
+   0001                      35 _uchar1::
+   0001                      36 	.ds 1
+   0002                      37 _uchar2::
+   0002                      38 	.ds 1
+                             39 ;--------------------------------------------------------
+                             40 ; absolute ram data
+                             41 ;--------------------------------------------------------
+                             42 	.area _DABS (ABS)
+                             43 	.area _DABS (ABS)
+                             44 ;--------------------------------------------------------
+                             45 ; global & static initialisations
+                             46 ;--------------------------------------------------------
+                             47 	.area _HOME
+                             48 	.area _GSINIT
+                             49 	.area _GSFINAL
+                             50 	.area _GSINIT
+                             51 ;--------------------------------------------------------
+                             52 ; Home
+                             53 ;--------------------------------------------------------
+                             54 	.area _HOME (BANK=_CSEG)
+                             55 	.area _HOME (BANK=_CSEG)
+                             56 ;--------------------------------------------------------
+                             57 ; code
+                             58 ;--------------------------------------------------------
+                             59 	.area _CODE (BANK=_CSEG)
+                             60 ;cases/./../tests/scott-b.c:9: void inc(unsigned char k)
+                             61 ;	genLabel
+                             62 ;	genFunction
+                             63 ;	---------------------------------
+                             64 ; Function inc
+                             65 ; ---------------------------------
+                             66 ;	Register assignment is optimal.
+                             67 ; Stack space usage: 0 bytes.
+   0000                      68 _inc::
+                             69 ;	genReceive
+                             70 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             71 ;cases/./../tests/scott-b.c:11: uchar0 = uchar0 + k;
+                             72 ;	genPlus
+                             73 ;	Shift into pair
+   0000 21r00s00      [10]   74 	ld	hl, #_uchar0
+   0003 86            [ 7]   75 	add	a, (hl)
+   0004 77            [ 7]   76 	ld	(hl), a
+                             77 ;	genLabel
+                             78 ; common peephole 159 removed unused label 00101$.
+                             79 ;cases/./../tests/scott-b.c:12: }
+                             80 ;	genEndFunction
+   0005 C9            [10]   81 	ret
+                             82 ;	Total inc function size at codegen: 1 bytes.
+                             83 ;cases/./../tests/scott-b.c:14: void f1(void)
+                             84 ;	genLabel
+                             85 ;	genFunction
+                             86 ;	---------------------------------
+                             87 ; Function f1
+                             88 ; ---------------------------------
+                             89 ;	Register assignment is optimal.
+                             90 ; Stack space usage: 0 bytes.
+   0006                      91 _f1::
+                             92 ;cases/./../tests/scott-b.c:17: uchar2++;
+                             93 ;	genPlus
+   0006 21r02s00      [10]   94 	ld	hl, #_uchar2
+   0009 34            [11]   95 	inc	(hl)
+                             96 ;	genLabel
+                             97 ; common peephole 159 removed unused label 00101$.
+                             98 ;cases/./../tests/scott-b.c:18: }
+                             99 ;	genEndFunction
+   000A C9            [10]  100 	ret
+                            101 ;	Total f1 function size at codegen: 1 bytes.
+                            102 ;cases/./../tests/scott-b.c:20: void nested_call(unsigned char u)
+                            103 ;	genLabel
+                            104 ;	genFunction
+                            105 ;	---------------------------------
+                            106 ; Function nested_call
+                            107 ; ---------------------------------
+                            108 ;	Register assignment is optimal.
+                            109 ; Stack space usage: 0 bytes.
+   000B                     110 _nested_call::
+                            111 ;	genReceive
+                            112 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000B 4F            [ 4]  113 	ld	c, a
+                            114 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            115 ;cases/./../tests/scott-b.c:23: f1();
+                            116 ;	genCall
+   000C C5            [11]  117 	push	bc
+   000D CDr06s00      [17]  118 	call	_f1
+   0010 C1            [10]  119 	pop	bc
+                            120 ;cases/./../tests/scott-b.c:24: uchar1 = uchar1 + u;
+                            121 ;	genPlus
+                            122 ;	Shift into pair
+   0011 21r01s00      [10]  123 	ld	hl, #_uchar1
+   0014 7E            [ 7]  124 	ld	a, (hl)
+   0015 81            [ 4]  125 	add	a, c
+   0016 77            [ 7]  126 	ld	(hl), a
+                            127 ;cases/./../tests/scott-b.c:25: inc(uchar1);
+                            128 ;	genSend
+                            129 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0017 3Ar01s00      [13]  130 	ld	a, (_uchar1)
+                            131 ;	genCall
+                            132 ;	genLabel
+                            133 ; common peephole 159 removed unused label 00101$.
+                            134 ;cases/./../tests/scott-b.c:27: }
+                            135 ;	genEndFunction
+   001A C3r00s00      [10]  136 	jp	_inc
+                            137 ; common peephole 152 removed unused ret.
+                            138 ;	Total nested_call function size at codegen: 1 bytes.
+                            139 ;cases/./../tests/scott-b.c:32: testB(void)
+                            140 ;	genLabel
+                            141 ;	genFunction
+                            142 ;	---------------------------------
+                            143 ; Function testB
+                            144 ; ---------------------------------
+                            145 ;	Register assignment might be sub-optimal.
+                            146 ; Stack space usage: 0 bytes.
+   001D                     147 _testB::
+                            148 ;cases/./../tests/scott-b.c:35: uchar0=1;
+                            149 ;	genAssign
+                            150 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001D 21r00s00      [10]  151 	ld	hl, #_uchar0
+                            152 ;cases/./../tests/scott-b.c:36: inc(uchar0);
+                            153 ;	genSend
+                            154 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0020 3E 01         [ 7]  155 	ld	a,#0x01
+   0022 77            [ 7]  156 	ld	(hl),a
+                            157 ; common peephole 103 loaded value in a first and used it next
+                            158 ;	genCall
+   0023 CDr00s00      [17]  159 	call	_inc
+                            160 ;cases/./../tests/scott-b.c:37: ASSERT(uchar0 == 2);
+                            161 ;	genPlus
+                            162 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0026 2Ar00s00      [16]  163 	ld	hl, (___numTests)
+   0029 23            [ 6]  164 	inc	hl
+                            165 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002A 22r00s00      [16]  166 	ld	(___numTests), hl
+                            167 ;	genCmpEq
+                            168 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   002D 3Ar00s00      [13]  169 	ld	a, (_uchar0)
+   0030 D6 02         [ 7]  170 	sub	a, #0x02
+                            171 ; common peephole 163 changed absolute to relative conditional jump.
+   0032 28 11         [12]  172 	jr	z, 00104$
+                            173 ; common peephole 81 removed jp by using inverse jump logic
+                            174 ; common peephole 159 removed unused label 00123$.
+                            175 ;	skipping generated iCode
+                            176 ;	skipping iCode since result will be rematerialized
+                            177 ;	skipping iCode since result will be rematerialized
+                            178 ;	skipping iCode since result will be rematerialized
+                            179 ;	skipping iCode since result will be rematerialized
+                            180 ;	skipping iCode since result will be rematerialized
+                            181 ;	skipping iCode since result will be rematerialized
+                            182 ;	genIpush
+                            183 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0034 21 25 00      [10]  184 	ld	hl, #0x0025
+   0037 E5            [11]  185 	push	hl
+                            186 ;	genIpush
+                            187 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0038 21r94s00      [10]  188 	ld	hl, #___str_2
+   003B E5            [11]  189 	push	hl
+                            190 ;	genSend
+                            191 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   003C 11r88s00      [10]  192 	ld	de, #___str_1
+                            193 ;	genSend
+                            194 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   003F 21r77s00      [10]  195 	ld	hl, #___str_0
+                            196 ;	genCall
+   0042 CDr00s00      [17]  197 	call	___fail
+                            198 ;	genLabel
+   0045                     199 00104$:
+                            200 ;cases/./../tests/scott-b.c:39: uchar0 = 2;
+                            201 ;	genAssign
+                            202 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0045 21r00s00      [10]  203 	ld	hl, #_uchar0
+   0048 36 02         [10]  204 	ld	(hl), #0x02
+                            205 ;cases/./../tests/scott-b.c:40: uchar1 = 1;
+                            206 ;	genAssign
+                            207 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   004A 21r01s00      [10]  208 	ld	hl, #_uchar1
+   004D 36 01         [10]  209 	ld	(hl), #0x01
+                            210 ;cases/./../tests/scott-b.c:41: uchar2 = 1;
+                            211 ;	genAssign
+                            212 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   004F 21r02s00      [10]  213 	ld	hl, #_uchar2
+                            214 ;cases/./../tests/scott-b.c:42: nested_call(uchar2);
+                            215 ;	genSend
+                            216 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0052 3E 01         [ 7]  217 	ld	a,#0x01
+   0054 77            [ 7]  218 	ld	(hl),a
+                            219 ; common peephole 103 loaded value in a first and used it next
+                            220 ;	genCall
+   0055 CDr0Bs00      [17]  221 	call	_nested_call
+                            222 ;cases/./../tests/scott-b.c:44: ASSERT(uchar0 == 4);
+                            223 ;	genPlus
+                            224 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0058 2Ar00s00      [16]  225 	ld	hl, (___numTests)
+   005B 23            [ 6]  226 	inc	hl
+                            227 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   005C 22r00s00      [16]  228 	ld	(___numTests), hl
+                            229 ;	genCmpEq
+                            230 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   005F 3Ar00s00      [13]  231 	ld	a, (_uchar0)
+   0062 D6 04         [ 7]  232 	sub	a, #0x04
+   0064 C8            [11]  233 	ret	z
+                            234 ; common peephole 161 replaced jump by return.
+                            235 ; common peephole 81 removed jp by using inverse jump logic
+                            236 ; common peephole 159 removed unused label 00124$.
+                            237 ;	skipping generated iCode
+                            238 ;	skipping iCode since result will be rematerialized
+                            239 ;	skipping iCode since result will be rematerialized
+                            240 ;	skipping iCode since result will be rematerialized
+                            241 ;	skipping iCode since result will be rematerialized
+                            242 ;	skipping iCode since result will be rematerialized
+                            243 ;	skipping iCode since result will be rematerialized
+                            244 ;	genIpush
+                            245 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0065 21 2C 00      [10]  246 	ld	hl, #0x002c
+   0068 E5            [11]  247 	push	hl
+                            248 ;	genIpush
+                            249 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0069 21r94s00      [10]  250 	ld	hl, #___str_2
+   006C E5            [11]  251 	push	hl
+                            252 ;	genSend
+                            253 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   006D 11rAFs00      [10]  254 	ld	de, #___str_3
+                            255 ;	genSend
+                            256 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0070 21r77s00      [10]  257 	ld	hl, #___str_0
+                            258 ;	genCall
+   0073 CDr00s00      [17]  259 	call	___fail
+                            260 ;	genLabel
+                            261 ; common peephole 159 removed unused label 00101$.
+                            262 ;cases/./../tests/scott-b.c:45: }
+                            263 ;	genEndFunction
+   0076 C9            [10]  264 	ret
+                            265 ;	Total testB function size at codegen: 1 bytes.
+   0077                     266 ___str_0:
+   0077 41 73 73 65 72 74   267 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   0087 00                  268 	.db 0x00
+   0088                     269 ___str_1:
+   0088 75 63 68 61 72 30   270 	.ascii "uchar0 == 2"
+        20 3D 3D 20 32
+   0093 00                  271 	.db 0x00
+   0094                     272 ___str_2:
+   0094 63 61 73 65 73 2F   273 	.ascii "cases/./../tests/scott-b.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 73
+        63 6F 74 74 2D 62
+        2E 63
+   00AE 00                  274 	.db 0x00
+   00AF                     275 ___str_3:
+   00AF 75 63 68 61 72 30   276 	.ascii "uchar0 == 4"
+        20 3D 3D 20 34
+   00BA 00                  277 	.db 0x00
+                            278 ;cases/tst_scott-b.c:4: __runSuite(void)
+                            279 ;	genLabel
+                            280 ;	genFunction
+                            281 ;	---------------------------------
+                            282 ; Function __runSuite
+                            283 ; ---------------------------------
+                            284 ;	Register assignment is optimal.
+                            285 ; Stack space usage: 0 bytes.
+   00BB                     286 ___runSuite::
+                            287 ;cases/tst_scott-b.c:6: __prints("Running testB\n");
+                            288 ;	skipping iCode since result will be rematerialized
+                            289 ;	skipping iCode since result will be rematerialized
+                            290 ;	genSend
+                            291 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00BB 21rC4s00      [10]  292 	ld	hl, #___str_4
+                            293 ;	genCall
+   00BE CDr00s00      [17]  294 	call	___prints
+                            295 ;cases/tst_scott-b.c:7: testB();
+                            296 ;	genCall
+                            297 ;	genLabel
+                            298 ; common peephole 159 removed unused label 00101$.
+                            299 ;cases/tst_scott-b.c:8: }
+                            300 ;	genEndFunction
+   00C1 C3r1Ds00      [10]  301 	jp	_testB
+                            302 ; common peephole 152 removed unused ret.
+                            303 ;	Total __runSuite function size at codegen: 1 bytes.
+   00C4                     304 ___str_4:
+   00C4 52 75 6E 6E 69 6E   305 	.ascii "Running testB"
+        67 20 74 65 73 74
+        42
+   00D1 0A                  306 	.db 0x0a
+   00D2 00                  307 	.db 0x00
+                            308 ;cases/tst_scott-b.c:13: __getSuiteName(void)
+                            309 ;	genLabel
+                            310 ;	genFunction
+                            311 ;	---------------------------------
+                            312 ; Function __getSuiteName
+                            313 ; ---------------------------------
+                            314 ;	Register assignment is optimal.
+                            315 ; Stack space usage: 0 bytes.
+   00D3                     316 ___getSuiteName::
+                            317 ;cases/tst_scott-b.c:15: return "scott-b.c";
+                            318 ;	skipping iCode since result will be rematerialized
+                            319 ;	skipping iCode since result will be rematerialized
+                            320 ;	genRet
+                            321 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00D3 11rD9s00      [10]  322 	ld	de, #___str_5
+                            323 ;	genLabel
+                            324 ; common peephole 159 removed unused label 00101$.
+                            325 ;cases/tst_scott-b.c:16: }
+                            326 ;	genEndFunction
+   00D6 C9            [10]  327 	ret
+                            328 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   00D7                     329 ___numCases:
+   00D7 01 00               330 	.dw #0x0001
+   00D9                     331 ___str_5:
+   00D9 73 63 6F 74 74 2D   332 	.ascii "scott-b.c"
+        62 2E 63
+   00E2 00                  333 	.db 0x00
+                            334 	.area _CODE (BANK=_CSEG)
+                            335 	.area _INITIALIZER
+   0000                     336 __xinit__uchar0:
+   0000 00                  337 	.db #0x00	; 0
+   0001                     338 __xinit__uchar1:
+   0001 00                  339 	.db #0x00	; 0
+   0002                     340 __xinit__uchar2:
+   0002 00                  341 	.db #0x00	; 0
+                            342 	.area _CABS (ABS)

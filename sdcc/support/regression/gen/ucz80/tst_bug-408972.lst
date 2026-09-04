@@ -1,0 +1,246 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_408972
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _leftShiftIntMasked3
+                             12 	.globl _leftShiftIntMasked2
+                             13 	.globl _leftShiftIntMasked
+                             14 	.globl _leftShiftLong
+                             15 	.globl ___prints
+                             16 	.globl ___numCases
+                             17 	.globl ___runSuite
+                             18 	.globl ___getSuiteName
+                             19 ;--------------------------------------------------------
+                             20 ; special function registers
+                             21 ;--------------------------------------------------------
+                             22 ;--------------------------------------------------------
+                             23 ; ram data
+                             24 ;--------------------------------------------------------
+                             25 	.area _DATA (BANK=_DSEG)
+                             26 ;--------------------------------------------------------
+                             27 ; ram data
+                             28 ;--------------------------------------------------------
+                             29 	.area _INITIALIZED
+                             30 ;--------------------------------------------------------
+                             31 ; absolute ram data
+                             32 ;--------------------------------------------------------
+                             33 	.area _DABS (ABS)
+                             34 	.area _DABS (ABS)
+                             35 ;--------------------------------------------------------
+                             36 ; global & static initialisations
+                             37 ;--------------------------------------------------------
+                             38 	.area _HOME
+                             39 	.area _GSINIT
+                             40 	.area _GSFINAL
+                             41 	.area _GSINIT
+                             42 ;--------------------------------------------------------
+                             43 ; Home
+                             44 ;--------------------------------------------------------
+                             45 	.area _HOME (BANK=_CSEG)
+                             46 	.area _HOME (BANK=_CSEG)
+                             47 ;--------------------------------------------------------
+                             48 ; code
+                             49 ;--------------------------------------------------------
+                             50 	.area _CODE (BANK=_CSEG)
+                             51 ;cases/./../tests/bug-408972.c:5: long leftShiftLong (long l) {
+                             52 ;	genLabel
+                             53 ;	genFunction
+                             54 ;	---------------------------------
+                             55 ; Function leftShiftLong
+                             56 ; ---------------------------------
+                             57 ;	Register assignment might be sub-optimal.
+                             58 ; Stack space usage: 0 bytes.
+   0000                      59 _leftShiftLong::
+                             60 ;	genReceive
+                             61 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             62 ;cases/./../tests/bug-408972.c:6: return (l << 3);
+                             63 ;	genLeftShift
+                             64 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             65 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0000 06 03         [ 7]   66 	ld	b, #0x03
+   0002                      67 00103$:
+   0002 CB 23         [ 8]   68 	sla	e
+   0004 CB 12         [ 8]   69 	rl	d
+   0006 ED 6A         [15]   70 	adc	hl, hl
+                             71 ; common peephole 159 removed unused label 00104$.
+   0008 10 F8         [13]   72 	djnz	00103$
+                             73 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             74 ;	genRet
+                             75 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             76 ;	genLabel
+                             77 ; common peephole 159 removed unused label 00101$.
+                             78 ;cases/./../tests/bug-408972.c:7: }
+                             79 ;	genEndFunction
+   000A C9            [10]   80 	ret
+                             81 ;	Total leftShiftLong function size at codegen: 1 bytes.
+                             82 ;cases/./../tests/bug-408972.c:9: int leftShiftIntMasked (int v) {
+                             83 ;	genLabel
+                             84 ;	genFunction
+                             85 ;	---------------------------------
+                             86 ; Function leftShiftIntMasked
+                             87 ; ---------------------------------
+                             88 ;	Register assignment might be sub-optimal.
+                             89 ; Stack space usage: 0 bytes.
+   000B                      90 _leftShiftIntMasked::
+                             91 ;	genReceive
+                             92 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             93 ;cases/./../tests/bug-408972.c:10: return ((v & 0xff00U) << 3);
+                             94 ;	genAnd
+                             95 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   000B 2E 00         [ 7]   96 	ld	l, #0x00
+                             97 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                             98 ;	genLeftShift
+   000D 29            [11]   99 	add	hl, hl
+   000E 29            [11]  100 	add	hl, hl
+   000F 29            [11]  101 	add	hl, hl
+                            102 ;fetchPairLong
+                            103 ;	genRet
+                            104 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0010 EB            [ 4]  105 	ex	de, hl
+                            106 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            107 ;	genLabel
+                            108 ; common peephole 159 removed unused label 00101$.
+                            109 ;cases/./../tests/bug-408972.c:11: }
+                            110 ;	genEndFunction
+   0011 C9            [10]  111 	ret
+                            112 ;	Total leftShiftIntMasked function size at codegen: 1 bytes.
+                            113 ;cases/./../tests/bug-408972.c:13: int leftShiftIntMasked2 (int v) {
+                            114 ;	genLabel
+                            115 ;	genFunction
+                            116 ;	---------------------------------
+                            117 ; Function leftShiftIntMasked2
+                            118 ; ---------------------------------
+                            119 ;	Register assignment might be sub-optimal.
+                            120 ; Stack space usage: 0 bytes.
+   0012                     121 _leftShiftIntMasked2::
+                            122 ;	genReceive
+                            123 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            124 ;cases/./../tests/bug-408972.c:14: return ((v & 0xff) << 8);
+                            125 ;	genAnd
+                            126 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0012 55            [ 4]  127 	ld	d, l
+                            128 ;	genMove_o size 0 result type 2 source type 1 a_dead 0 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+                            129 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+                            130 ; common peephole 6b removed dead xor a, a
+                            131 ;	genLeftShift
+   0013 1E 00         [ 7]  132 	ld	e, #0x00
+                            133 ;	genRet
+                            134 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            135 ;	genLabel
+                            136 ; common peephole 159 removed unused label 00101$.
+                            137 ;cases/./../tests/bug-408972.c:15: }
+                            138 ;	genEndFunction
+   0015 C9            [10]  139 	ret
+                            140 ;	Total leftShiftIntMasked2 function size at codegen: 1 bytes.
+                            141 ;cases/./../tests/bug-408972.c:17: int leftShiftIntMasked3 (int v) {
+                            142 ;	genLabel
+                            143 ;	genFunction
+                            144 ;	---------------------------------
+                            145 ; Function leftShiftIntMasked3
+                            146 ; ---------------------------------
+                            147 ;	Register assignment might be sub-optimal.
+                            148 ; Stack space usage: 0 bytes.
+   0016                     149 _leftShiftIntMasked3::
+                            150 ;	genReceive
+                            151 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            152 ;cases/./../tests/bug-408972.c:18: return ((v & 0xff) << 3);
+                            153 ;	genAnd
+                            154 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                            155 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0016 26 00         [ 7]  156 	ld	h, #0x00
+                            157 ;	genLeftShift
+   0018 29            [11]  158 	add	hl, hl
+   0019 29            [11]  159 	add	hl, hl
+   001A 29            [11]  160 	add	hl, hl
+                            161 ;fetchPairLong
+                            162 ;	genRet
+                            163 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001B EB            [ 4]  164 	ex	de, hl
+                            165 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            166 ;	genLabel
+                            167 ; common peephole 159 removed unused label 00101$.
+                            168 ;cases/./../tests/bug-408972.c:19: }
+                            169 ;	genEndFunction
+   001C C9            [10]  170 	ret
+                            171 ;	Total leftShiftIntMasked3 function size at codegen: 1 bytes.
+                            172 ;cases/./../tests/bug-408972.c:21: void testBug(void)
+                            173 ;	genLabel
+                            174 ;	genFunction
+                            175 ;	---------------------------------
+                            176 ; Function testBug
+                            177 ; ---------------------------------
+                            178 ;	Register assignment is optimal.
+                            179 ; Stack space usage: 0 bytes.
+   001D                     180 _testBug::
+                            181 ;cases/./../tests/bug-408972.c:23: }
+                            182 ;	genLabel
+                            183 ; common peephole 159 removed unused label 00101$.
+                            184 ;	genEndFunction
+   001D C9            [10]  185 	ret
+                            186 ;	Total testBug function size at codegen: 1 bytes.
+                            187 ;cases/tst_bug-408972.c:4: __runSuite(void)
+                            188 ;	genLabel
+                            189 ;	genFunction
+                            190 ;	---------------------------------
+                            191 ; Function __runSuite
+                            192 ; ---------------------------------
+                            193 ;	Register assignment is optimal.
+                            194 ; Stack space usage: 0 bytes.
+   001E                     195 ___runSuite::
+                            196 ;cases/tst_bug-408972.c:6: __prints("Running testBug\n");
+                            197 ;	skipping iCode since result will be rematerialized
+                            198 ;	skipping iCode since result will be rematerialized
+                            199 ;	genSend
+                            200 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001E 21r24s00      [10]  201 	ld	hl, #___str_0
+                            202 ;	genCall
+                            203 ;cases/tst_bug-408972.c:7: testBug();
+                            204 ;	genLabel
+                            205 ; common peephole 159 removed unused label 00101$.
+                            206 ;cases/tst_bug-408972.c:8: }
+                            207 ;	genEndFunction
+   0021 C3r00s00      [10]  208 	jp	___prints
+                            209 ; common peephole 152 removed unused ret.
+                            210 ;	Total __runSuite function size at codegen: 1 bytes.
+   0024                     211 ___str_0:
+   0024 52 75 6E 6E 69 6E   212 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   0033 0A                  213 	.db 0x0a
+   0034 00                  214 	.db 0x00
+                            215 ;cases/tst_bug-408972.c:13: __getSuiteName(void)
+                            216 ;	genLabel
+                            217 ;	genFunction
+                            218 ;	---------------------------------
+                            219 ; Function __getSuiteName
+                            220 ; ---------------------------------
+                            221 ;	Register assignment is optimal.
+                            222 ; Stack space usage: 0 bytes.
+   0035                     223 ___getSuiteName::
+                            224 ;cases/tst_bug-408972.c:15: return "bug-408972.c";
+                            225 ;	skipping iCode since result will be rematerialized
+                            226 ;	skipping iCode since result will be rematerialized
+                            227 ;	genRet
+                            228 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0035 11r3Bs00      [10]  229 	ld	de, #___str_1
+                            230 ;	genLabel
+                            231 ; common peephole 159 removed unused label 00101$.
+                            232 ;cases/tst_bug-408972.c:16: }
+                            233 ;	genEndFunction
+   0038 C9            [10]  234 	ret
+                            235 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0039                     236 ___numCases:
+   0039 01 00               237 	.dw #0x0001
+   003B                     238 ___str_1:
+   003B 62 75 67 2D 34 30   239 	.ascii "bug-408972.c"
+        38 39 37 32 2E 63
+   0047 00                  240 	.db 0x00
+                            241 	.area _CODE (BANK=_CSEG)
+                            242 	.area _INITIALIZER
+                            243 	.area _CABS (ABS)

@@ -1,0 +1,1819 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_dilithium_ntt
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testDilithiumNTT
+                             11 	.globl ___prints
+                             12 	.globl ___fail
+                             13 	.globl _buf
+                             14 	.globl ___numCases
+                             15 	.globl _pqcrystals_dilithium2_ref_ntt
+                             16 	.globl _pqcrystals_dilithium2_ref_invntt_tomont
+                             17 	.globl _pqcrystals_dilithium2_ref_montgomery_reduce
+                             18 	.globl _pqcrystals_dilithium2_ref_reduce32
+                             19 	.globl _pqcrystals_dilithium2_ref_caddq
+                             20 	.globl _pqcrystals_dilithium2_ref_freeze
+                             21 	.globl ___runSuite
+                             22 	.globl ___getSuiteName
+                             23 ;--------------------------------------------------------
+                             24 ; special function registers
+                             25 ;--------------------------------------------------------
+                             26 ;--------------------------------------------------------
+                             27 ; ram data
+                             28 ;--------------------------------------------------------
+                             29 	.area _DATA (BANK=_DSEG)
+   0000                      30 _buf::
+   0000                      31 	.ds 1024
+                             32 ;--------------------------------------------------------
+                             33 ; ram data
+                             34 ;--------------------------------------------------------
+                             35 	.area _INITIALIZED
+                             36 ;--------------------------------------------------------
+                             37 ; absolute ram data
+                             38 ;--------------------------------------------------------
+                             39 	.area _DABS (ABS)
+                             40 	.area _DABS (ABS)
+                             41 ;--------------------------------------------------------
+                             42 ; global & static initialisations
+                             43 ;--------------------------------------------------------
+                             44 	.area _HOME
+                             45 	.area _GSINIT
+                             46 	.area _GSFINAL
+                             47 	.area _GSINIT
+                             48 ;--------------------------------------------------------
+                             49 ; Home
+                             50 ;--------------------------------------------------------
+                             51 	.area _HOME (BANK=_CSEG)
+                             52 	.area _HOME (BANK=_CSEG)
+                             53 ;--------------------------------------------------------
+                             54 ; code
+                             55 ;--------------------------------------------------------
+                             56 	.area _CODE (BANK=_CSEG)
+                             57 ;cases/./../tests/dilithium-ntt.c:227: void ntt(int32_t a[N]) {
+                             58 ;	genLabel
+                             59 ;	genFunction
+                             60 ;	---------------------------------
+                             61 ; Function pqcrystals_dilithium2_ref_ntt
+                             62 ; ---------------------------------
+                             63 ;	Register assignment might be sub-optimal.
+                             64 ; Stack space usage: 28 bytes.
+   0000                      65 _pqcrystals_dilithium2_ref_ntt::
+   0000 DD E5         [15]   66 	push	ix
+   0002 DD 21 00 00   [14]   67 	ld	ix,	#0
+   0006 DD 39         [15]   68 	add	ix, sp
+                             69 ;	adjustStack by -28
+   0008 FD 21 E4 FF   [14]   70 	ld	iy, #-28
+   000C FD 39         [15]   71 	add	iy, sp
+   000E FD F9         [10]   72 	ld	sp, iy
+                             73 ;	genReceive
+                             74 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0010 DD 75 F8      [19]   75 	ld	-8 (ix), l
+   0013 DD 74 F9      [19]   76 	ld	-7 (ix), h
+                             77 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             78 ;cases/./../tests/dilithium-ntt.c:231: k = 0;
+                             79 ;	genAssign
+                             80 ;	genMove_o size 2 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0016 AF            [ 4]   81 	xor	a, a
+   0017 DD 77 FC      [19]   82 	ld	-4 (ix), a
+   001A DD 77 FD      [19]   83 	ld	-3 (ix), a
+                             84 ;cases/./../tests/dilithium-ntt.c:232: for(len = 128; len > 0; len >>= 1) {
+                             85 ;	genAssign
+                             86 ;	genMove_o size 2 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001D DD 36 FA 80   [19]   87 	ld	-6 (ix), #0x80
+   0021 DD 36 FB 00   [19]   88 	ld	-5 (ix), #0
+                             89 ; peephole 178 direct load zero constant to memory addressed by index register
+                             90 ;	skipping iCode since result will be rematerialized
+                             91 ;	genLabel
+   0025                      92 00109$:
+                             93 ;cases/./../tests/dilithium-ntt.c:233: for(start = 0; start < N; start = j + len) {
+                             94 ;	genAssign
+                             95 ;	genMove_o size 2 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0025 AF            [ 4]   96 	xor	a, a
+   0026 DD 77 FE      [19]   97 	ld	-2 (ix), a
+   0029 DD 77 FF      [19]   98 	ld	-1 (ix), a
+                             99 ;	genAssign
+                            100 ;	(locations are the same)
+                            101 ;	genLabel
+   002C                     102 00107$:
+                            103 ;cases/./../tests/dilithium-ntt.c:234: zeta = zetas[++k];
+                            104 ;	genPlus
+   002C DD 34 FC      [23]  105 	inc	-4 (ix)
+                            106 ; common peephole 163 changed absolute to relative conditional jump.
+   002F 20 03         [12]  107 	jr	nz, 00158$
+   0031 DD 34 FD      [23]  108 	inc	-3 (ix)
+   0034                     109 00158$:
+                            110 ;	genLeftShift
+                            111 ;	genMove_o size 2 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0034 DD 7E FC      [19]  112 	ld	a, -4 (ix)
+   0037 DD 77 F4      [19]  113 	ld	-12 (ix), a
+   003A DD 7E FD      [19]  114 	ld	a, -3 (ix)
+   003D DD 77 F5      [19]  115 	ld	-11 (ix), a
+                            116 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0040 06 02         [ 7]  117 	ld	b, #0x02
+   0042                     118 00159$:
+   0042 DD CB F4 26   [23]  119 	sla	-12 (ix)
+   0046 DD CB F5 16   [23]  120 	rl	-11 (ix)
+   004A 10 F6         [13]  121 	djnz	00159$
+                            122 ;	genPlus
+   004C 3ErC2         [ 7]  123 	ld	a, #<(_zetas)
+   004E DD 86 F4      [19]  124 	add	a, -12 (ix)
+   0051 DD 77 F6      [19]  125 	ld	-10 (ix), a
+   0054 3Es01         [ 7]  126 	ld	a, #>(_zetas)
+   0056 DD 8E F5      [19]  127 	adc	a, -11 (ix)
+   0059 DD 77 F7      [19]  128 	ld	-9 (ix), a
+                            129 ;	genPointerGet
+                            130 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   005C DD 5E F6      [19]  131 	ld	e, -10 (ix)
+   005F DD 56 F7      [19]  132 	ld	d, -9 (ix)
+                            133 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0062 21 00 00      [10]  134 	ld	hl, #0
+   0065 39            [11]  135 	add	hl, sp
+   0066 EB            [ 4]  136 	ex	de, hl
+   0067 01 04 00      [10]  137 	ld	bc, #0x0004
+   006A ED B0         [21]  138 	ldir
+                            139 ;cases/./../tests/dilithium-ntt.c:235: for(j = start; j < start + len; ++j) {
+                            140 ;	genPlus
+                            141 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   006C DD 5E FE      [19]  142 	ld	e, -2 (ix)
+   006F 16 00         [ 7]  143 	ld	d, #0x00
+                            144 ;	genMove_o size 0 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 1 iy_dead 0 f_dead 1
+                            145 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0071 DD 6E FA      [19]  146 	ld	l, -6 (ix)
+   0074 26 00         [ 7]  147 	ld	h, #0x00
+                            148 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0076 19            [11]  149 	add	hl, de
+                            150 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+   0077 DD 75 E8      [19]  151 	ld	-24 (ix), l
+   007A DD 74 E9      [19]  152 	ld	-23 (ix), h
+                            153 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            154 ;	genAssign
+                            155 ;	(locations are the same)
+                            156 ;	genLabel
+   007D                     157 00105$:
+                            158 ;cases/./../tests/dilithium-ntt.c:236: t = montgomery_reduce((int64_t)zeta * a[j + len]);
+                            159 ;	genPlus
+                            160 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   007D DD 5E FA      [19]  161 	ld	e, -6 (ix)
+   0080 16 00         [ 7]  162 	ld	d, #0x00
+                            163 ;	genMove_o size 0 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 1 iy_dead 0 f_dead 1
+                            164 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0082 DD 6E FE      [19]  165 	ld	l, -2 (ix)
+   0085 DD 66 FF      [19]  166 	ld	h, -1 (ix)
+                            167 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0088 19            [11]  168 	add	hl, de
+                            169 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+   0089 DD 75 F6      [19]  170 	ld	-10 (ix), l
+   008C DD 74 F7      [19]  171 	ld	-9 (ix), h
+                            172 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            173 ;cases/./../tests/dilithium-ntt.c:235: for(j = start; j < start + len; ++j) {
+                            174 ;	genCmpLt
+   008F DD 7E FE      [19]  175 	ld	a, -2 (ix)
+   0092 DD 96 E8      [19]  176 	sub	a, -24 (ix)
+   0095 DD 7E FF      [19]  177 	ld	a, -1 (ix)
+   0098 DD 9E E9      [19]  178 	sbc	a, -23 (ix)
+   009B D2r9Ds01      [10]  179 	jp	nc, 00108$
+                            180 ;	skipping generated iCode
+                            181 ;cases/./../tests/dilithium-ntt.c:236: t = montgomery_reduce((int64_t)zeta * a[j + len]);
+                            182 ;	genAssign
+                            183 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   009E D1            [10]  184 	pop	de
+   009F FD E1         [14]  185 	pop	iy
+   00A1 FD E5         [15]  186 	push	iy
+   00A3 D5            [11]  187 	push	de
+                            188 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            189 ;	genLeftShift
+                            190 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00A4 DD 6E F6      [19]  191 	ld	l, -10 (ix)
+   00A7 DD 66 F7      [19]  192 	ld	h, -9 (ix)
+                            193 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00AA 29            [11]  194 	add	hl, hl
+   00AB 29            [11]  195 	add	hl, hl
+                            196 ;	genPlus
+   00AC 7D            [ 4]  197 	ld	a, l
+   00AD DD 86 F8      [19]  198 	add	a, -8 (ix)
+   00B0 DD 77 F6      [19]  199 	ld	-10 (ix), a
+   00B3 7C            [ 4]  200 	ld	a, h
+   00B4 DD 8E F9      [19]  201 	adc	a, -7 (ix)
+   00B7 DD 77 F7      [19]  202 	ld	-9 (ix), a
+                            203 ;	genPointerGet
+                            204 ;fetchPairLong
+   00BA DD 6E F6      [19]  205 	ld	l, -10 (ix)
+   00BD DD 66 F7      [19]  206 	ld	h, -9 (ix)
+                            207 ;	_moveFrom_tpair_()
+   00C0 4E            [ 7]  208 	ld	c, (hl)
+   00C1 23            [ 6]  209 	inc	hl
+                            210 ;	_moveFrom_tpair_()
+   00C2 46            [ 7]  211 	ld	b, (hl)
+   00C3 23            [ 6]  212 	inc	hl
+                            213 ;	_moveFrom_tpair_()
+   00C4 7E            [ 7]  214 	ld	a, (hl)
+   00C5 23            [ 6]  215 	inc	hl
+                            216 ;	_moveFrom_tpair_()
+   00C6 66            [ 7]  217 	ld	h, (hl)
+                            218 ;	genIpush
+                            219 ;	genMove_o size 2 result type 2 source type 2 a_dead 0 hl_dead 1 de_dead 0 iy_dead 1 f_dead 0
+   00C7 6F            [ 4]  220 	ld	l, a
+                            221 ;	genMove_o size 0 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 1 f_dead 0
+   00C8 E5            [11]  222 	push	hl
+   00C9 C5            [11]  223 	push	bc
+                            224 ;	genSend
+                            225 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00CA FD E5         [15]  226 	push	iy
+                            227 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            228 ;	genCall
+                            229 ; common peephole 50a eliminated dead pop/push hl pair.
+   00CC 21 10 00      [10]  230 	ld	hl, #0x0010
+   00CF 39            [11]  231 	add	hl, sp
+   00D0 4D            [ 4]  232 	ld	c, l
+   00D1 44            [ 4]  233 	ld	b, h
+   00D2 E1            [10]  234 	pop	hl
+   00D3 C5            [11]  235 	push	bc
+   00D4 CDr00s00      [17]  236 	call	___mulslong2slonglong
+                            237 ;	adjustStack by 6
+   00D7 F1            [10]  238 	pop	af
+   00D8 F1            [10]  239 	pop	af
+   00D9 F1            [10]  240 	pop	af
+                            241 ;	genIpush
+                            242 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00DA DD 6E F4      [19]  243 	ld	l, -12 (ix)
+   00DD DD 66 F5      [19]  244 	ld	h, -11 (ix)
+                            245 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E0 E5            [11]  246 	push	hl
+                            247 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E1 DD 6E F2      [19]  248 	ld	l, -14 (ix)
+   00E4 DD 66 F3      [19]  249 	ld	h, -13 (ix)
+                            250 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E7 E5            [11]  251 	push	hl
+                            252 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00E8 DD 6E F0      [19]  253 	ld	l, -16 (ix)
+   00EB DD 66 F1      [19]  254 	ld	h, -15 (ix)
+                            255 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00EE E5            [11]  256 	push	hl
+                            257 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00EF DD 6E EE      [19]  258 	ld	l, -18 (ix)
+   00F2 DD 66 EF      [19]  259 	ld	h, -17 (ix)
+                            260 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00F5 E5            [11]  261 	push	hl
+                            262 ;	genCall
+   00F6 CDrEDs07      [17]  263 	call	_pqcrystals_dilithium2_ref_montgomery_reduce
+                            264 ;	adjustStack by 8
+   00F9 F1            [10]  265 	pop	af
+   00FA F1            [10]  266 	pop	af
+   00FB F1            [10]  267 	pop	af
+   00FC F1            [10]  268 	pop	af
+                            269 ;	genMove_o size 4 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00FD DD 73 EA      [19]  270 	ld	-22 (ix), e
+   0100 DD 72 EB      [19]  271 	ld	-21 (ix), d
+   0103 DD 75 EC      [19]  272 	ld	-20 (ix), l
+   0106 DD 74 ED      [19]  273 	ld	-19 (ix), h
+                            274 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            275 ;cases/./../tests/dilithium-ntt.c:237: a[j + len] = a[j] - t;
+                            276 ;	genLeftShift
+                            277 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0109 DD 6E FE      [19]  278 	ld	l, -2 (ix)
+   010C DD 66 FF      [19]  279 	ld	h, -1 (ix)
+                            280 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   010F 29            [11]  281 	add	hl, hl
+   0110 29            [11]  282 	add	hl, hl
+                            283 ;	genPlus
+   0111 7D            [ 4]  284 	ld	a, l
+   0112 DD 86 F8      [19]  285 	add	a, -8 (ix)
+   0115 DD 77 EE      [19]  286 	ld	-18 (ix), a
+   0118 7C            [ 4]  287 	ld	a, h
+   0119 DD 8E F9      [19]  288 	adc	a, -7 (ix)
+   011C DD 77 EF      [19]  289 	ld	-17 (ix), a
+                            290 ;	genPointerGet
+                            291 ;fetchPairLong
+   011F DD 6E EE      [19]  292 	ld	l, -18 (ix)
+   0122 DD 66 EF      [19]  293 	ld	h, -17 (ix)
+                            294 ;	_moveFrom_tpair_()
+   0125 4E            [ 7]  295 	ld	c, (hl)
+   0126 23            [ 6]  296 	inc	hl
+                            297 ;	_moveFrom_tpair_()
+   0127 46            [ 7]  298 	ld	b, (hl)
+   0128 23            [ 6]  299 	inc	hl
+                            300 ;	_moveFrom_tpair_()
+   0129 5E            [ 7]  301 	ld	e, (hl)
+   012A 23            [ 6]  302 	inc	hl
+                            303 ;	_moveFrom_tpair_()
+   012B 56            [ 7]  304 	ld	d, (hl)
+                            305 ;	genMinus
+   012C 79            [ 4]  306 	ld	a, c
+   012D DD 96 EA      [19]  307 	sub	a, -22 (ix)
+   0130 4F            [ 4]  308 	ld	c, a
+   0131 78            [ 4]  309 	ld	a, b
+   0132 DD 9E EB      [19]  310 	sbc	a, -21 (ix)
+   0135 47            [ 4]  311 	ld	b, a
+   0136 7B            [ 4]  312 	ld	a, e
+   0137 DD 9E EC      [19]  313 	sbc	a, -20 (ix)
+   013A 5F            [ 4]  314 	ld	e, a
+   013B 7A            [ 4]  315 	ld	a, d
+   013C DD 9E ED      [19]  316 	sbc	a, -19 (ix)
+   013F 57            [ 4]  317 	ld	d, a
+                            318 ;	genPointerSet
+                            319 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0140 DD 6E F6      [19]  320 	ld	l, -10 (ix)
+   0143 DD 66 F7      [19]  321 	ld	h, -9 (ix)
+                            322 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0146 71            [ 7]  323 	ld	(hl), c
+   0147 23            [ 6]  324 	inc	hl
+   0148 70            [ 7]  325 	ld	(hl), b
+   0149 23            [ 6]  326 	inc	hl
+   014A 73            [ 7]  327 	ld	(hl), e
+   014B 23            [ 6]  328 	inc	hl
+   014C 72            [ 7]  329 	ld	(hl), d
+                            330 ;cases/./../tests/dilithium-ntt.c:238: a[j] = a[j] + t;
+                            331 ;	genPointerGet
+                            332 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   014D DD 5E EE      [19]  333 	ld	e, -18 (ix)
+   0150 DD 56 EF      [19]  334 	ld	d, -17 (ix)
+                            335 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0153 21 0C 00      [10]  336 	ld	hl, #12
+   0156 39            [11]  337 	add	hl, sp
+   0157 EB            [ 4]  338 	ex	de, hl
+   0158 01 04 00      [10]  339 	ld	bc, #0x0004
+   015B ED B0         [21]  340 	ldir
+                            341 ;	genPlus
+                            342 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   015D DD 5E EA      [19]  343 	ld	e, -22 (ix)
+   0160 DD 56 EB      [19]  344 	ld	d, -21 (ix)
+                            345 ;	genMove_o size 0 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 1 iy_dead 0 f_dead 1
+                            346 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0163 DD 6E F0      [19]  347 	ld	l, -16 (ix)
+   0166 DD 66 F1      [19]  348 	ld	h, -15 (ix)
+                            349 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0169 19            [11]  350 	add	hl, de
+                            351 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   016A DD 75 F4      [19]  352 	ld	-12 (ix), l
+   016D DD 74 F5      [19]  353 	ld	-11 (ix), h
+                            354 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0170 DD 7E F2      [19]  355 	ld	a, -14 (ix)
+   0173 DD 8E EC      [19]  356 	adc	a, -20 (ix)
+   0176 DD 77 F6      [19]  357 	ld	-10 (ix), a
+   0179 DD 7E F3      [19]  358 	ld	a, -13 (ix)
+   017C DD 8E ED      [19]  359 	adc	a, -19 (ix)
+   017F DD 77 F7      [19]  360 	ld	-9 (ix), a
+                            361 ;	genPointerSet
+                            362 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0182 DD 5E EE      [19]  363 	ld	e, -18 (ix)
+   0185 DD 56 EF      [19]  364 	ld	d, -17 (ix)
+                            365 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0188 21 10 00      [10]  366 	ld	hl, #16
+   018B 39            [11]  367 	add	hl, sp
+   018C 01 04 00      [10]  368 	ld	bc, #0x0004
+   018F ED B0         [21]  369 	ldir
+                            370 ;cases/./../tests/dilithium-ntt.c:235: for(j = start; j < start + len; ++j) {
+                            371 ;	genPlus
+   0191 DD 34 FE      [23]  372 	inc	-2 (ix)
+   0194 C2r7Ds00      [10]  373 	jp	nz, 00105$
+                            374 ; common peephole 84 jumped to 00105$ directly instead of via 00160$.
+   0197 DD 34 FF      [23]  375 	inc	-1 (ix)
+                            376 ; common peephole 159 removed unused label 00160$.
+                            377 ;	genGoto
+   019A C3r7Ds00      [10]  378 	jp	00105$
+                            379 ;	genLabel
+   019D                     380 00108$:
+                            381 ;cases/./../tests/dilithium-ntt.c:233: for(start = 0; start < N; start = j + len) {
+                            382 ;	genAssign
+                            383 ;	genMove_o size 2 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   019D DD 7E F6      [19]  384 	ld	a, -10 (ix)
+   01A0 DD 77 FE      [19]  385 	ld	-2 (ix), a
+   01A3 DD 7E F7      [19]  386 	ld	a, -9 (ix)
+                            387 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            388 ;	genCmpLt
+                            389 ; common peephole 33 loaded a from a instead of going through -1 (ix).
+   01A6 DD 77 FF      [19]  390 	ld	-1 (ix), a
+                            391 ; common peephole 0a removed redundant load from a into a.
+   01A9 D6 01         [ 7]  392 	sub	a, #0x01
+   01AB DAr2Cs00      [10]  393 	jp	c, 00107$
+                            394 ;	skipping generated iCode
+                            395 ;cases/./../tests/dilithium-ntt.c:232: for(len = 128; len > 0; len >>= 1) {
+                            396 ;	genAssign
+                            397 ;	(locations are the same)
+                            398 ;	genRightShift
+                            399 ;	genMove_o size 2 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01AE DD CB FB 3E   [23]  400 	srl	-5 (ix)
+   01B2 DD CB FA 1E   [23]  401 	rr	-6 (ix)
+                            402 ;	genIfx
+                            403 ; common peephole 123 optimize ld a, 0x00
+   01B6 AF            [ 4]  404 	xor	a, a
+   01B7 DD B6 FA      [19]  405 	or	a, -6 (ix)
+   01BA C2r25s00      [10]  406 	jp	nz, 00109$
+                            407 ;	genLabel
+                            408 ; common peephole 159 removed unused label 00111$.
+                            409 ;cases/./../tests/dilithium-ntt.c:242: }
+                            410 ;	genEndFunction
+   01BD DD F9         [10]  411 	ld	sp, ix
+   01BF DD E1         [14]  412 	pop	ix
+   01C1 C9            [10]  413 	ret
+                            414 ;	Total pqcrystals_dilithium2_ref_ntt function size at codegen: 30 bytes.
+   01C2                     415 _zetas:
+   01C2 00 00 00 00         416 	.byte #0x00, #0x00, #0x00, #0x00	;  0
+   01C6 F7 64 00 00         417 	.byte #0xf7, #0x64, #0x00, #0x00	;  25847
+   01CA 02 31 D8 FF         418 	.byte #0x02, #0x31, #0xd8, #0xff	; -2608894
+   01CE 03 15 F8 FF         419 	.byte #0x03, #0x15, #0xf8, #0xff	; -518909
+   01D2 44 9E 03 00         420 	.byte #0x44, #0x9e, #0x03, #0x00	;  237124
+   01D6 18 21 F4 FF         421 	.byte #0x18, #0x21, #0xf4, #0xff	; -777960
+   01DA 28 A1 F2 FF         422 	.byte #0x28, #0xa1, #0xf2, #0xff	; -876248
+   01DE 24 1E 07 00         423 	.byte #0x24, #0x1e, #0x07, #0x00	;  466468
+   01E2 2B DE 1B 00         424 	.byte #0x2b, #0xde, #0x1b, #0x00	;  1826347
+   01E6 2B E9 23 00         425 	.byte #0x2b, #0xe9, #0x23, #0x00	;  2353451
+   01EA AD 84 FA FF         426 	.byte #0xad, #0x84, #0xfa, #0xff	; -359251
+   01EE 7F 14 E0 FF         427 	.byte #0x7f, #0x14, #0xe0, #0xff	; -2091905
+   01F2 75 9A 2F 00         428 	.byte #0x75, #0x9a, #0x2f, #0x00	;  3119733
+   01F6 09 FB D3 FF         429 	.byte #0x09, #0xfb, #0xd3, #0xff	; -2884855
+   01FA 49 7A 2F 00         430 	.byte #0x49, #0x7a, #0x2f, #0x00	;  3111497
+   01FE 27 E5 28 00         431 	.byte #0x27, #0xe5, #0x28, #0x00	;  2680103
+   0202 58 96 29 00         432 	.byte #0x58, #0x96, #0x29, #0x00	;  2725464
+   0206 70 A0 0F 00         433 	.byte #0x70, #0xa0, #0x0f, #0x00	;  1024112
+   020A A4 85 EF FF         434 	.byte #0xa4, #0x85, #0xef, #0xff	; -1079900
+   020E 88 B7 36 00         435 	.byte #0x88, #0xb7, #0x36, #0x00	;  3585928
+   0212 90 9D F7 FF         436 	.byte #0x90, #0x9d, #0xf7, #0xff	; -549488
+   0216 A0 EA EE FF         437 	.byte #0xa0, #0xea, #0xee, #0xff	; -1119584
+   021A 68 F9 27 00         438 	.byte #0x68, #0xf9, #0x27, #0x00	;  2619752
+   021E 7B D3 DF FF         439 	.byte #0x7b, #0xd3, #0xdf, #0xff	; -2108549
+   0222 D6 AD DF FF         440 	.byte #0xd6, #0xad, #0xdf, #0xff	; -2118186
+   0226 E7 1A C5 FF         441 	.byte #0xe7, #0x1a, #0xc5, #0xff	; -3859737
+   022A F7 A4 EA FF         442 	.byte #0xf7, #0xa4, #0xea, #0xff	; -1399561
+   022E 98 FC CD FF         443 	.byte #0x98, #0xfc, #0xcd, #0xff	; -3277672
+   0232 35 D0 1A 00         444 	.byte #0x35, #0xd0, #0x1a, #0x00	;  1757237
+   0236 22 B4 FF FF         445 	.byte #0x22, #0xb4, #0xff, #0xff	; -19422
+   023A 01 32 3D 00         446 	.byte #0x01, #0x32, #0x3d, #0x00	;  4010497
+   023E C5 45 04 00         447 	.byte #0xc5, #0x45, #0x04, #0x00	;  280005
+   0242 67 4A 29 00         448 	.byte #0x67, #0x4a, #0x29, #0x00	;  2706023
+   0246 20 76 01 00         449 	.byte #0x20, #0x76, #0x01, #0x00	;  95776
+   024A CD F4 2E 00         450 	.byte #0xcd, #0xf4, #0x2e, #0x00	;  3077325
+   024E C5 DE 35 00         451 	.byte #0xc5, #0xde, #0x35, #0x00	;  3530437
+   0252 03 A5 E6 FF         452 	.byte #0x03, #0xa5, #0xe6, #0xff	; -1661693
+   0256 2C 30 C9 FF         453 	.byte #0x2c, #0x30, #0xc9, #0xff	; -3592148
+   025A D4 47 D9 FF         454 	.byte #0xd4, #0x47, #0xd9, #0xff	; -2537516
+   025E AF BE 3B 00         455 	.byte #0xaf, #0xbe, #0x3b, #0x00	;  3915439
+   0262 85 15 C5 FF         456 	.byte #0x85, #0x15, #0xc5, #0xff	; -3861115
+   0266 7C 8E D1 FF         457 	.byte #0x7c, #0x8e, #0xd1, #0xff	; -3043716
+   026A 96 8A 36 00         458 	.byte #0x96, #0x8a, #0x36, #0x00	;  3574422
+   026E 41 3E D4 FF         459 	.byte #0x41, #0x3e, #0xd4, #0xff	; -2867647
+   0272 00 04 36 00         460 	.byte #0x00, #0x04, #0x36, #0x00	;  3539968
+   0276 4D 6A FB FF         461 	.byte #0x4d, #0x6a, #0xfb, #0xff	; -300467
+   027A 9C D6 23 00         462 	.byte #0x9c, #0xd6, #0x23, #0x00	;  2348700
+   027E 5D C5 F7 FF         463 	.byte #0x5d, #0xc5, #0xf7, #0xff	; -539299
+   0282 3D 12 E6 FF         464 	.byte #0x3d, #0x12, #0xe6, #0xff	; -1699267
+   0286 D6 EA E6 FF         465 	.byte #0xd6, #0xea, #0xe6, #0xff	; -1643818
+   028A 1E 7E 35 00         466 	.byte #0x1e, #0x7e, #0x35, #0x00	;  3505694
+   028E 59 AF C5 FF         467 	.byte #0x59, #0xaf, #0xc5, #0xff	; -3821735
+   0292 3F 84 35 00         468 	.byte #0x3f, #0x84, #0x35, #0x00	;  3507263
+   0296 17 56 DF FF         469 	.byte #0x17, #0x56, #0xdf, #0xff	; -2140649
+   029A 5C 94 E7 FF         470 	.byte #0x5c, #0x94, #0xe7, #0xff	; -1600420
+   029E 8C 73 38 00         471 	.byte #0x8c, #0x73, #0x38, #0x00	;  3699596
+   02A2 A8 63 0C 00         472 	.byte #0xa8, #0x63, #0x0c, #0x00	;  811944
+   02A6 9A 1B 08 00         473 	.byte #0x9a, #0x1b, #0x08, #0x00	;  531354
+   02AA 76 8F 0E 00         474 	.byte #0x76, #0x8f, #0x0e, #0x00	;  954230
+   02AE 53 38 3B 00         475 	.byte #0x53, #0x38, #0x3b, #0x00	;  3881043
+   02B2 34 85 3B 00         476 	.byte #0x34, #0x85, #0x3b, #0x00	;  3900724
+   02B6 30 FC D8 FF         477 	.byte #0x30, #0xfc, #0xd8, #0xff	; -2556880
+   02BA 54 9D 1F 00         478 	.byte #0x54, #0x9d, #0x1f, #0x00	;  2071892
+   02BE 2D 4F D5 FF         479 	.byte #0x2d, #0x4f, #0xd5, #0xff	; -2797779
+   02C2 E5 06 C4 FF         480 	.byte #0xe5, #0x06, #0xc4, #0xff	; -3930395
+   02C6 81 AC E8 FF         481 	.byte #0x81, #0xac, #0xe8, #0xff	; -1528703
+   02CA CF E1 C7 FF         482 	.byte #0xcf, #0xe1, #0xc7, #0xff	; -3677745
+   02CE 19 98 D1 FF         483 	.byte #0x19, #0x98, #0xd1, #0xff	; -3041255
+   02D2 5D D6 E9 FF         484 	.byte #0x5d, #0xd6, #0xe9, #0xff	; -1452451
+   02D6 EE 09 35 00         485 	.byte #0xee, #0x09, #0x35, #0x00	;  3475950
+   02DA C7 35 21 00         486 	.byte #0xc7, #0x35, #0x21, #0x00	;  2176455
+   02DE BB CF E7 FF         487 	.byte #0xbb, #0xcf, #0xe7, #0xff	; -1585221
+   02E2 75 CF EC FF         488 	.byte #0x75, #0xcf, #0xec, #0xff	; -1257611
+   02E6 72 97 1D 00         489 	.byte #0x72, #0x97, #0x1d, #0x00	;  1939314
+   02EA 72 B0 C1 FF         490 	.byte #0x72, #0xb0, #0xc1, #0xff	; -4083598
+   02EE F6 BC F0 FF         491 	.byte #0xf6, #0xbc, #0xf0, #0xff	; -1000202
+   02F2 80 52 CF FF         492 	.byte #0x80, #0x52, #0xcf, #0xff	; -3190144
+   02F6 AE D2 CF FF         493 	.byte #0xae, #0xd2, #0xcf, #0xff	; -3157330
+   02FA E0 90 C8 FF         494 	.byte #0xe0, #0x90, #0xc8, #0xff	; -3632928
+   02FE CA EF 01 00         495 	.byte #0xca, #0xef, #0x01, #0x00	;  126922
+   0302 F2 10 34 00         496 	.byte #0xf2, #0x10, #0x34, #0x00	;  3412210
+   0306 85 FE F0 FF         497 	.byte #0x85, #0xfe, #0xf0, #0xff	; -983419
+   030A 38 C6 20 00         498 	.byte #0x38, #0xc6, #0x20, #0x00	;  2147896
+   030E 9F 6E 29 00         499 	.byte #0x9f, #0x6e, #0x29, #0x00	;  2715295
+   0312 A3 B7 D2 FF         500 	.byte #0xa3, #0xb7, #0xd2, #0xff	; -2967645
+   0316 4B A4 C7 FF         501 	.byte #0x4b, #0xa4, #0xc7, #0xff	; -3693493
+   031A 6D BA F9 FF         502 	.byte #0x6d, #0xba, #0xf9, #0xff	; -411027
+   031E 09 34 DA FF         503 	.byte #0x09, #0x34, #0xda, #0xff	; -2477047
+   0322 82 C2 F5 FF         504 	.byte #0x82, #0xc2, #0xf5, #0xff	; -671102
+   0326 13 41 ED FF         505 	.byte #0x13, #0x41, #0xed, #0xff	; -1228525
+   032A 3B A6 FF FF         506 	.byte #0x3b, #0xa6, #0xff, #0xff	; -22981
+   032E F7 09 EC FF         507 	.byte #0xf7, #0x09, #0xec, #0xff	; -1308169
+   0332 DD 2B FA FF         508 	.byte #0xdd, #0x2b, #0xfa, #0xff	; -381987
+   0336 D4 95 14 00         509 	.byte #0xd4, #0x95, #0x14, #0x00	;  1349076
+   033A 63 45 1C 00         510 	.byte #0x63, #0x45, #0x1c, #0x00	;  1852771
+   033E 62 2C EA FF         511 	.byte #0x62, #0x2c, #0xea, #0xff	; -1430430
+   0342 E9 FB CC FF         512 	.byte #0xe9, #0xfb, #0xcc, #0xff	; -3343383
+   0346 F0 0A 04 00         513 	.byte #0xf0, #0x0a, #0x04, #0x00	;  264944
+   034A 17 C4 07 00         514 	.byte #0x17, #0xc4, #0x07, #0x00	;  508951
+   034E 88 45 2F 00         515 	.byte #0x88, #0x45, #0x2f, #0x00	;  3097992
+   0352 00 AD 00 00         516 	.byte #0x00, #0xad, #0x00, #0x00	;  44288
+   0356 BE 36 EF FF         517 	.byte #0xbe, #0x36, #0xef, #0xff	; -1100098
+   035A 44 CD 0D 00         518 	.byte #0x44, #0xcd, #0x0d, #0x00	;  904516
+   035E 5A 67 3C 00         519 	.byte #0x5a, #0x67, #0x3c, #0x00	;  3958618
+   0362 CA 2B C7 FF         520 	.byte #0xca, #0x2b, #0xc7, #0xff	; -3724342
+   0366 7E DE FF FF         521 	.byte #0x7e, #0xde, #0xff, #0xff	; -8578
+   036A 48 39 19 00         522 	.byte #0x48, #0x39, #0x19, #0x00	;  1653064
+   036E C0 69 CE FF         523 	.byte #0xc0, #0x69, #0xce, #0xff	; -3249728
+   0372 6C 75 24 00         524 	.byte #0x6c, #0x75, #0x24, #0x00	;  2389356
+   0376 DF C7 FC FF         525 	.byte #0xdf, #0xc7, #0xfc, #0xff	; -210977
+   037A A1 98 0B 00         526 	.byte #0xa1, #0x98, #0x0b, #0x00	;  759969
+   037E 08 E8 EB FF         527 	.byte #0x08, #0xe8, #0xeb, #0xff	; -1316856
+   0382 6C E4 02 00         528 	.byte #0x6c, #0xe4, #0x02, #0x00	;  189548
+   0386 08 C8 C9 FF         529 	.byte #0x08, #0xc8, #0xc9, #0xff	; -3553272
+   038A C2 36 30 00         530 	.byte #0xc2, #0x36, #0x30, #0x00	;  3159746
+   038E F6 BF E3 FF         531 	.byte #0xf6, #0xbf, #0xe3, #0xff	; -1851402
+   0392 93 3C DB FF         532 	.byte #0x93, #0x3c, #0xdb, #0xff	; -2409325
+   0396 E0 4A FD FF         533 	.byte #0xe0, #0x4a, #0xfd, #0xff	; -177440
+   039A 05 13 14 00         534 	.byte #0x05, #0x13, #0x14, #0x00	;  1315589
+   039E 92 77 14 00         535 	.byte #0x92, #0x77, #0x14, #0x00	;  1341330
+   03A2 25 9E 13 00         536 	.byte #0x25, #0x9e, #0x13, #0x00	;  1285669
+   03A6 E0 D0 E7 FF         537 	.byte #0xe0, #0xd0, #0xe7, #0xff	; -1584928
+   03AA 44 99 F3 FF         538 	.byte #0x44, #0x99, #0xf3, #0xff	; -812732
+   03AE 02 08 EA FF         539 	.byte #0x02, #0x08, #0xea, #0xff	; -1439742
+   03B2 A2 EE D1 FF         540 	.byte #0xa2, #0xee, #0xd1, #0xff	; -3019102
+   03B6 9C C7 C4 FF         541 	.byte #0x9c, #0xc7, #0xc4, #0xff	; -3881060
+   03BA 57 A0 C8 FF         542 	.byte #0x57, #0xa0, #0xc8, #0xff	; -3628969
+   03BE D9 97 3A 00         543 	.byte #0xd9, #0x97, #0x3a, #0x00	;  3839961
+   03C2 93 EA 1F 00         544 	.byte #0x93, #0xea, #0x1f, #0x00	;  2091667
+   03C6 5A FF 33 00         545 	.byte #0x5a, #0xff, #0x33, #0x00	;  3407706
+   03CA D4 58 23 00         546 	.byte #0xd4, #0x58, #0x23, #0x00	;  2316500
+   03CE F8 41 3A 00         547 	.byte #0xf8, #0x41, #0x3a, #0x00	;  3817976
+   03D2 72 FF CC FF         548 	.byte #0x72, #0xff, #0xcc, #0xff	; -3342478
+   03D6 FB 3D 22 00         549 	.byte #0xfb, #0x3d, #0x22, #0x00	;  2244091
+   03DA 9F AB DA FF         550 	.byte #0x9f, #0xab, #0xda, #0xff	; -2446433
+   03DE 22 A4 C9 FF         551 	.byte #0x22, #0xa4, #0xc9, #0xff	; -3562462
+   03E2 F5 12 04 00         552 	.byte #0xf5, #0x12, #0x04, #0x00	;  266997
+   03E6 87 25 25 00         553 	.byte #0x87, #0x25, #0x25, #0x00	;  2434439
+   03EA F0 24 ED FF         554 	.byte #0xf0, #0x24, #0xed, #0xff	; -1235728
+   03EE 5D 9B 35 00         555 	.byte #0x5d, #0x9b, #0x35, #0x00	;  3513181
+   03F2 A0 48 CA FF         556 	.byte #0xa0, #0x48, #0xca, #0xff	; -3520352
+   03F6 FC A2 C6 FF         557 	.byte #0xfc, #0xa2, #0xc6, #0xff	; -3759364
+   03FA 56 BB ED FF         558 	.byte #0x56, #0xbb, #0xed, #0xff	; -1197226
+   03FE DE 45 CF FF         559 	.byte #0xde, #0x45, #0xcf, #0xff	; -3193378
+   0402 5E BE 0D 00         560 	.byte #0x5e, #0xbe, #0x0d, #0x00	;  900702
+   0406 1A 5E 1C 00         561 	.byte #0x1a, #0x5e, #0x1c, #0x00	;  1859098
+   040A E6 E0 0D 00         562 	.byte #0xe6, #0xe0, #0x0d, #0x00	;  909542
+   040E 5A 7F 0C 00         563 	.byte #0x5a, #0x7f, #0x0c, #0x00	;  819034
+   0412 83 8F 07 00         564 	.byte #0x83, #0x8f, #0x07, #0x00	;  495491
+   0416 8A 62 E7 FF         565 	.byte #0x8a, #0x62, #0xe7, #0xff	; -1613174
+   041A 04 57 FF FF         566 	.byte #0x04, #0x57, #0xff, #0xff	; -43260
+   041E FC 06 F8 FF         567 	.byte #0xfc, #0x06, #0xf8, #0xff	; -522500
+   0422 21 00 F6 FF         568 	.byte #0x21, #0x00, #0xf6, #0xff	; -655327
+   0426 F6 5A D0 FF         569 	.byte #0xf6, #0x5a, #0xd0, #0xff	; -3122442
+   042A 84 00 1F 00         570 	.byte #0x84, #0x00, #0x1f, #0x00	;  2031748
+   042E 86 EF 30 00         571 	.byte #0x86, #0xef, #0x30, #0x00	;  3207046
+   0432 7D B9 C9 FF         572 	.byte #0x7d, #0xb9, #0xc9, #0xff	; -3556995
+   0436 D6 FC F7 FF         573 	.byte #0xd6, #0xfc, #0xf7, #0xff	; -525098
+   043A 92 45 F4 FF         574 	.byte #0x92, #0x45, #0xf4, #0xff	; -768622
+   043E C2 21 C9 FF         575 	.byte #0xc2, #0x21, #0xc9, #0xff	; -3595838
+   0442 19 39 05 00         576 	.byte #0x19, #0x39, #0x05, #0x00	;  342297
+   0446 0C 61 04 00         577 	.byte #0x0c, #0x61, #0x04, #0x00	;  286988
+   044A 41 CD DA FF         578 	.byte #0x41, #0xcd, #0xda, #0xff	; -2437823
+   044E 1B B0 3E 00         579 	.byte #0x1b, #0xb0, #0x3e, #0x00	;  4108315
+   0452 E7 72 34 00         580 	.byte #0xe7, #0x72, #0x34, #0x00	;  3437287
+   0456 3B 00 CD FF         581 	.byte #0x3b, #0x00, #0xcd, #0xff	; -3342277
+   045A C7 7C 1A 00         582 	.byte #0xc7, #0x7c, #0x1a, #0x00	;  1735879
+   045E 24 19 03 00         583 	.byte #0x24, #0x19, #0x03, #0x00	;  203044
+   0462 E5 5E 2B 00         584 	.byte #0xe5, #0x5e, #0x2b, #0x00	;  2842341
+   0466 99 11 29 00         585 	.byte #0x99, #0x11, #0x29, #0x00	;  2691481
+   046A 3A 7A D8 FF         586 	.byte #0x3a, #0x7a, #0xd8, #0xff	; -2590150
+   046E 71 4D 13 00         587 	.byte #0x71, #0x4d, #0x13, #0x00	;  1265009
+   0472 1C E1 3D 00         588 	.byte #0x1c, #0xe1, #0x3d, #0x00	;  4055324
+   0476 84 09 13 00         589 	.byte #0x84, #0x09, #0x13, #0x00	;  1247620
+   047A 51 F0 25 00         590 	.byte #0x51, #0xf0, #0x25, #0x00	;  2486353
+   047E 46 5A 18 00         591 	.byte #0x46, #0x5a, #0x18, #0x00	;  1595974
+   0482 18 85 C6 FF         592 	.byte #0x18, #0x85, #0xc6, #0xff	; -3767016
+   0486 BE 14 13 00         593 	.byte #0xbe, #0x14, #0x13, #0x00	;  1250494
+   048A 91 38 28 00         594 	.byte #0x91, #0x38, #0x28, #0x00	;  2635921
+   048E 90 DB C9 FF         595 	.byte #0x90, #0xdb, #0xc9, #0xff	; -3548272
+   0492 89 50 D2 FF         596 	.byte #0x89, #0x50, #0xd2, #0xff	; -2994039
+   0496 3F 85 1C 00         597 	.byte #0x3f, #0x85, #0x1c, #0x00	;  1869119
+   049A 4B 0B 1D 00         598 	.byte #0x4b, #0x0b, #0x1d, #0x00	;  1903435
+   049E A6 F6 EF FF         599 	.byte #0xa6, #0xf6, #0xef, #0xff	; -1050970
+   04A2 BE A8 EB FF         600 	.byte #0xbe, #0xa8, #0xeb, #0xff	; -1333058
+   04A6 1B E1 12 00         601 	.byte #0x1b, #0xe1, #0x12, #0x00	;  1237275
+   04AA 3E 5E CD FF         602 	.byte #0x3e, #0x5e, #0xcd, #0xff	; -3318210
+   04AE 2F 2D EA FF         603 	.byte #0x2f, #0x2d, #0xea, #0xff	; -1430225
+   04B2 E4 1D F9 FF         604 	.byte #0xe4, #0x1d, #0xf9, #0xff	; -451100
+   04B6 C7 06 14 00         605 	.byte #0xc7, #0x06, #0x14, #0x00	;  1312455
+   04BA 83 72 32 00         606 	.byte #0x83, #0x72, #0x32, #0x00	;  3306115
+   04BE 6E 0D E2 FF         607 	.byte #0x6e, #0x0d, #0xe2, #0xff	; -1962642
+   04C2 53 79 EC FF         608 	.byte #0x53, #0x79, #0xec, #0xff	; -1279661
+   04C6 99 40 1D 00         609 	.byte #0x99, #0x40, #0x1d, #0x00	;  1917081
+   04CA 78 25 D9 FF         610 	.byte #0x78, #0x25, #0xd9, #0xff	; -2546312
+   04CE AD 05 EB FF         611 	.byte #0xad, #0x05, #0xeb, #0xff	; -1374803
+   04D2 05 E4 16 00         612 	.byte #0x05, #0xe4, #0x16, #0x00	;  1500165
+   04D6 E7 DB 0B 00         613 	.byte #0xe7, #0xdb, #0x0b, #0x00	;  777191
+   04DA E8 1D 22 00         614 	.byte #0xe8, #0x1d, #0x22, #0x00	;  2235880
+   04DE CF F8 33 00         615 	.byte #0xcf, #0xf8, #0x33, #0x00	;  3406031
+   04E2 34 B9 F7 FF         616 	.byte #0x34, #0xb9, #0xf7, #0xff	; -542412
+   04E6 0C CA D4 FF         617 	.byte #0x0c, #0xca, #0xd4, #0xff	; -2831860
+   04EA F8 7F E6 FF         618 	.byte #0xf8, #0x7f, #0xe6, #0xff	; -1671176
+   04EE 57 D1 E3 FF         619 	.byte #0x57, #0xd1, #0xe3, #0xff	; -1846953
+   04F2 1B 91 D8 FF         620 	.byte #0x1b, #0x91, #0xd8, #0xff	; -2584293
+   04F6 12 2C C7 FF         621 	.byte #0x12, #0x2c, #0xc7, #0xff	; -3724270
+   04FA D8 10 09 00         622 	.byte #0xd8, #0x10, #0x09, #0x00	;  594136
+   04FE 1F 5E C6 FF         623 	.byte #0x1f, #0x5e, #0xc6, #0xff	; -3776993
+   0502 58 46 E1 FF         624 	.byte #0x58, #0x46, #0xe1, #0xff	; -2013608
+   0506 8B 1D 25 00         625 	.byte #0x8b, #0x1d, #0x25, #0x00	;  2432395
+   050A B7 73 25 00         626 	.byte #0xb7, #0x73, #0x25, #0x00	;  2454455
+   050E 8F 7C FD FF         627 	.byte #0x8f, #0x7c, #0xfd, #0xff	; -164721
+   0512 98 DD 1D 00         628 	.byte #0x98, #0xdd, #0x1d, #0x00	;  1957272
+   0516 98 68 33 00         629 	.byte #0x98, #0x68, #0x33, #0x00	;  3369112
+   051A BB D4 02 00         630 	.byte #0xbb, #0xd4, #0x02, #0x00	;  185531
+   051E A7 93 ED FF         631 	.byte #0xa7, #0x93, #0xed, #0xff	; -1207385
+   0522 BE 6C CF FF         632 	.byte #0xbe, #0x6c, #0xcf, #0xff	; -3183426
+   0526 1C 7C 02 00         633 	.byte #0x1c, #0x7c, #0x02, #0x00	;  162844
+   052A 08 AA 18 00         634 	.byte #0x08, #0xaa, #0x18, #0x00	;  1616392
+   052E 71 FD 2D 00         635 	.byte #0x71, #0xfd, #0x2d, #0x00	;  3014001
+   0532 A5 5C 0C 00         636 	.byte #0xa5, #0x5c, #0x0c, #0x00	;  810149
+   0536 9A 37 19 00         637 	.byte #0x9a, #0x37, #0x19, #0x00	;  1652634
+   053A 67 A1 C7 FF         638 	.byte #0x67, #0xa1, #0xc7, #0xff	; -3694233
+   053E 3D 8C E4 FF         639 	.byte #0x3d, #0x8c, #0xe4, #0xff	; -1799107
+   0542 3C A1 D1 FF         640 	.byte #0x3c, #0xa1, #0xd1, #0xff	; -3038916
+   0546 39 C5 35 00         641 	.byte #0x39, #0xc5, #0x35, #0x00	;  3523897
+   054A 15 01 3B 00         642 	.byte #0x15, #0x01, #0x3b, #0x00	;  3866901
+   054E C0 1D 04 00         643 	.byte #0xc0, #0x1d, #0x04, #0x00	;  269760
+   0552 F7 C4 21 00         644 	.byte #0xf7, #0xc4, #0x21, #0x00	;  2213111
+   0556 F4 1B F1 FF         645 	.byte #0xf4, #0x1b, #0xf1, #0xff	; -975884
+   055A E7 35 1A 00         646 	.byte #0xe7, #0x35, #0x1a, #0x00	;  1717735
+   055E 0E 34 07 00         647 	.byte #0x0e, #0x34, #0x07, #0x00	;  472078
+   0562 45 7D F9 FF         648 	.byte #0x45, #0x7d, #0xf9, #0xff	; -426683
+   0566 D0 4C 1A 00         649 	.byte #0xd0, #0x4c, #0x1a, #0x00	;  1723600
+   056A AE 7C E4 FF         650 	.byte #0xae, #0x7c, #0xe4, #0xff	; -1803090
+   056E 68 26 1D 00         651 	.byte #0x68, #0x26, #0x1d, #0x00	;  1910376
+   0572 98 8E E6 FF         652 	.byte #0x98, #0x8e, #0xe6, #0xff	; -1667432
+   0576 33 26 EF FF         653 	.byte #0x33, #0x26, #0xef, #0xff	; -1104333
+   057A DA 05 FC FF         654 	.byte #0xda, #0x05, #0xfc, #0xff	; -260646
+   057E DB 7F C5 FF         655 	.byte #0xdb, #0x7f, #0xc5, #0xff	; -3833893
+   0582 64 27 D3 FF         656 	.byte #0x64, #0x27, #0xd3, #0xff	; -2939036
+   0586 AF E1 DD FF         657 	.byte #0xaf, #0xe1, #0xdd, #0xff	; -2235985
+   058A DD 93 F9 FF         658 	.byte #0xdd, #0x93, #0xf9, #0xff	; -420899
+   058E 09 1D DD FF         659 	.byte #0x09, #0x1d, #0xdd, #0xff	; -2286327
+   0592 93 CC 02 00         660 	.byte #0x93, #0xcc, #0x02, #0x00	;  183443
+   0596 05 18 F1 FF         661 	.byte #0x05, #0x18, #0xf1, #0xff	; -976891
+   059A 2A 9C 18 00         662 	.byte #0x2a, #0x9c, #0x18, #0x00	;  1612842
+   059E A9 E5 C9 FF         663 	.byte #0xa9, #0xe5, #0xc9, #0xff	; -3545687
+   05A2 50 8A F7 FF         664 	.byte #0x50, #0x8a, #0xf7, #0xff	; -554416
+   05A6 2C CF 3B 00         665 	.byte #0x2c, #0xcf, #0x3b, #0x00	;  3919660
+   05AA 4E 43 FF FF         666 	.byte #0x4e, #0x43, #0xff, #0xff	; -48306
+   05AE DF 36 EB FF         667 	.byte #0xdf, #0x36, #0xeb, #0xff	; -1362209
+   05B2 CA 15 3C 00         668 	.byte #0xca, #0x15, #0x3c, #0x00	;  3937738
+   05B6 68 5E 15 00         669 	.byte #0x68, #0x5e, #0x15, #0x00	;  1400424
+   05BA B6 16 F3 FF         670 	.byte #0xb6, #0x16, #0xf3, #0xff	; -846154
+   05BE CE 29 1E 00         671 	.byte #0xce, #0x29, #0x1e, #0x00	;  1976782
+                            672 ;cases/./../tests/dilithium-ntt.c:255: void invntt_tomont(int32_t a[N]) {
+                            673 ;	genLabel
+                            674 ;	genFunction
+                            675 ;	---------------------------------
+                            676 ; Function pqcrystals_dilithium2_ref_invntt_tomont
+                            677 ; ---------------------------------
+                            678 ;	Register assignment might be sub-optimal.
+                            679 ; Stack space usage: 32 bytes.
+   05C2                     680 _pqcrystals_dilithium2_ref_invntt_tomont::
+   05C2 DD E5         [15]  681 	push	ix
+   05C4 DD 21 00 00   [14]  682 	ld	ix,	#0
+   05C8 DD 39         [15]  683 	add	ix, sp
+                            684 ;	adjustStack by -32
+   05CA FD 21 E0 FF   [14]  685 	ld	iy, #-32
+   05CE FD 39         [15]  686 	add	iy, sp
+   05D0 FD F9         [10]  687 	ld	sp, iy
+                            688 ;	genReceive
+                            689 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   05D2 DD 75 F8      [19]  690 	ld	-8 (ix), l
+   05D5 DD 74 F9      [19]  691 	ld	-7 (ix), h
+                            692 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            693 ;cases/./../tests/dilithium-ntt.c:260: k = 256;
+                            694 ;	genAssign
+                            695 ;	genMove_o size 2 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   05D8 DD 36 FC 00   [19]  696 	ld	-4 (ix), #0x00
+   05DC DD 36 FD 01   [19]  697 	ld	-3 (ix), #0x01
+                            698 ;cases/./../tests/dilithium-ntt.c:261: for(len = 1; len < N; len <<= 1) {
+                            699 ;	genAssign
+                            700 ;	genMove_o size 2 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   05E0 DD 36 FA 01   [19]  701 	ld	-6 (ix), #0x01
+   05E4 DD 36 FB 00   [19]  702 	ld	-5 (ix), #0
+                            703 ; peephole 178 direct load zero constant to memory addressed by index register
+                            704 ;	skipping iCode since result will be rematerialized
+                            705 ;	genLabel
+   05E8                     706 00110$:
+                            707 ;cases/./../tests/dilithium-ntt.c:262: for(start = 0; start < N; start = j + len) {
+                            708 ;	genAssign
+                            709 ;	genMove_o size 2 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   05E8 AF            [ 4]  710 	xor	a, a
+   05E9 DD 77 FE      [19]  711 	ld	-2 (ix), a
+   05EC DD 77 FF      [19]  712 	ld	-1 (ix), a
+                            713 ;	genAssign
+                            714 ;	(locations are the same)
+                            715 ;	genLabel
+   05EF                     716 00108$:
+                            717 ;cases/./../tests/dilithium-ntt.c:263: zeta = -zetas[--k];
+                            718 ;	genMinus
+                            719 ;fetchPairLong
+   05EF DD 6E FC      [19]  720 	ld	l, -4 (ix)
+   05F2 DD 66 FD      [19]  721 	ld	h, -3 (ix)
+   05F5 2B            [ 6]  722 	dec	hl
+                            723 ;	genLeftShift
+                            724 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   05F6 DD 75 FC      [19]  725 	ld	-4 (ix), l
+   05F9 DD 74 FD      [19]  726 	ld	-3 (ix), h
+                            727 ; common peephole 11 loaded lh from lh directly instead of going through -4 (ix) -3 (ix).
+                            728 ; common peephole 0a removed redundant load from l into l.
+                            729 ; common peephole 0a removed redundant load from h into h.
+                            730 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   05FC 29            [11]  731 	add	hl, hl
+   05FD 29            [11]  732 	add	hl, hl
+                            733 ;	genPlus
+                            734 ;	genMove_o size 2 result type 2 source type 7 a_dead 0 hl_dead 0 de_dead 0 iy_dead 0 f_dead 1
+   05FE 11rC2s01      [10]  735 	ld	de, #_zetas
+   0601 19            [11]  736 	add	hl, de
+                            737 ;	genPointerGet
+                            738 ;fetchPairLong
+                            739 ;	_moveFrom_tpair_()
+   0602 7E            [ 7]  740 	ld	a, (hl)
+   0603 23            [ 6]  741 	inc	hl
+                            742 ;	_moveFrom_tpair_()
+   0604 4E            [ 7]  743 	ld	c, (hl)
+   0605 23            [ 6]  744 	inc	hl
+                            745 ;	_moveFrom_tpair_()
+   0606 5E            [ 7]  746 	ld	e, (hl)
+   0607 23            [ 6]  747 	inc	hl
+                            748 ;	_moveFrom_tpair_()
+   0608 46            [ 7]  749 	ld	b, (hl)
+                            750 ;	genUminus
+   0609 ED 44         [ 8]  751 	neg
+   060B DD 77 E8      [19]  752 	ld	-24 (ix), a
+   060E 3E 00         [ 7]  753 	ld	a, #0x00
+   0610 99            [ 4]  754 	sbc	a, c
+   0611 DD 77 E9      [19]  755 	ld	-23 (ix), a
+   0614 3E 00         [ 7]  756 	ld	a, #0x00
+   0616 9B            [ 4]  757 	sbc	a, e
+   0617 DD 77 EA      [19]  758 	ld	-22 (ix), a
+   061A 9F            [ 4]  759 	sbc	a, a
+   061B 90            [ 4]  760 	sub	a, b
+   061C DD 77 EB      [19]  761 	ld	-21 (ix), a
+                            762 ;cases/./../tests/dilithium-ntt.c:264: for(j = start; j < start + len; ++j) {
+                            763 ;	genPlus
+                            764 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   061F DD 5E FA      [19]  765 	ld	e, -6 (ix)
+   0622 16 00         [ 7]  766 	ld	d, #0x00
+                            767 ;	genMove_o size 0 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 1 iy_dead 0 f_dead 1
+                            768 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0624 DD 6E FE      [19]  769 	ld	l, -2 (ix)
+   0627 26 00         [ 7]  770 	ld	h, #0x00
+                            771 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0629 19            [11]  772 	add	hl, de
+                            773 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+   062A DD 75 EC      [19]  774 	ld	-20 (ix), l
+   062D DD 74 ED      [19]  775 	ld	-19 (ix), h
+                            776 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            777 ;	genAssign
+                            778 ;	(locations are the same)
+                            779 ;	genLabel
+   0630                     780 00106$:
+                            781 ;cases/./../tests/dilithium-ntt.c:266: a[j] = t + a[j + len];
+                            782 ;	genPlus
+                            783 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0630 DD 5E FA      [19]  784 	ld	e, -6 (ix)
+   0633 16 00         [ 7]  785 	ld	d, #0x00
+                            786 ;	genMove_o size 0 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 1 iy_dead 0 f_dead 1
+                            787 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0635 DD 6E FE      [19]  788 	ld	l, -2 (ix)
+   0638 DD 66 FF      [19]  789 	ld	h, -1 (ix)
+                            790 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   063B 19            [11]  791 	add	hl, de
+                            792 ;	genMove_o size 2 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+   063C DD 75 F6      [19]  793 	ld	-10 (ix), l
+   063F DD 74 F7      [19]  794 	ld	-9 (ix), h
+                            795 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 0
+                            796 ;cases/./../tests/dilithium-ntt.c:264: for(j = start; j < start + len; ++j) {
+                            797 ;	genCmpLt
+   0642 DD 7E FE      [19]  798 	ld	a, -2 (ix)
+   0645 DD 96 EC      [19]  799 	sub	a, -20 (ix)
+   0648 DD 7E FF      [19]  800 	ld	a, -1 (ix)
+   064B DD 9E ED      [19]  801 	sbc	a, -19 (ix)
+   064E D2r57s07      [10]  802 	jp	nc, 00109$
+                            803 ;	skipping generated iCode
+                            804 ;cases/./../tests/dilithium-ntt.c:265: t = a[j];
+                            805 ;	genLeftShift
+                            806 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0651 DD 6E FE      [19]  807 	ld	l, -2 (ix)
+   0654 DD 66 FF      [19]  808 	ld	h, -1 (ix)
+                            809 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0657 29            [11]  810 	add	hl, hl
+   0658 29            [11]  811 	add	hl, hl
+                            812 ;	genPlus
+   0659 7D            [ 4]  813 	ld	a, l
+   065A DD 86 F8      [19]  814 	add	a, -8 (ix)
+   065D 5F            [ 4]  815 	ld	e, a
+   065E 7C            [ 4]  816 	ld	a, h
+   065F DD 8E F9      [19]  817 	adc	a, -7 (ix)
+   0662 57            [ 4]  818 	ld	d, a
+                            819 ;	genPointerGet
+   0663 D5            [11]  820 	push	de
+                            821 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0664 21 10 00      [10]  822 	ld	hl, #16
+   0667 39            [11]  823 	add	hl, sp
+   0668 EB            [ 4]  824 	ex	de, hl
+   0669 01 04 00      [10]  825 	ld	bc, #0x0004
+   066C ED B0         [21]  826 	ldir
+   066E D1            [10]  827 	pop	de
+                            828 ;cases/./../tests/dilithium-ntt.c:266: a[j] = t + a[j + len];
+                            829 ;	genLeftShift
+                            830 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   066F DD 6E F6      [19]  831 	ld	l, -10 (ix)
+   0672 DD 66 F7      [19]  832 	ld	h, -9 (ix)
+                            833 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0675 29            [11]  834 	add	hl, hl
+   0676 29            [11]  835 	add	hl, hl
+                            836 ;	genPlus
+   0677 7D            [ 4]  837 	ld	a, l
+   0678 DD 86 F8      [19]  838 	add	a, -8 (ix)
+   067B DD 77 F2      [19]  839 	ld	-14 (ix), a
+   067E 7C            [ 4]  840 	ld	a, h
+   067F DD 8E F9      [19]  841 	adc	a, -7 (ix)
+   0682 DD 77 F3      [19]  842 	ld	-13 (ix), a
+                            843 ;	genPointerGet
+                            844 ;fetchPairLong
+   0685 DD 6E F2      [19]  845 	ld	l, -14 (ix)
+   0688 DD 66 F3      [19]  846 	ld	h, -13 (ix)
+                            847 ;	_moveFrom_tpair_()
+   068B 4E            [ 7]  848 	ld	c, (hl)
+   068C 23            [ 6]  849 	inc	hl
+                            850 ;	_moveFrom_tpair_()
+   068D 46            [ 7]  851 	ld	b, (hl)
+   068E 23            [ 6]  852 	inc	hl
+   068F 23            [ 6]  853 	inc	hl
+                            854 ;	_moveFrom_tpair_()
+   0690 7E            [ 7]  855 	ld	a, (hl)
+   0691 2B            [ 6]  856 	dec	hl
+                            857 ;	_moveFrom_tpair_()
+   0692 6E            [ 7]  858 	ld	l, (hl)
+   0693 67            [ 4]  859 	ld	h, a
+                            860 ;	genPlus
+   0694 79            [ 4]  861 	ld	a, c
+   0695 DD 86 EE      [19]  862 	add	a, -18 (ix)
+   0698 4F            [ 4]  863 	ld	c, a
+   0699 78            [ 4]  864 	ld	a, b
+   069A DD 8E EF      [19]  865 	adc	a, -17 (ix)
+   069D 47            [ 4]  866 	ld	b, a
+   069E 7D            [ 4]  867 	ld	a, l
+   069F DD 8E F0      [19]  868 	adc	a, -16 (ix)
+   06A2 6F            [ 4]  869 	ld	l, a
+   06A3 7C            [ 4]  870 	ld	a, h
+   06A4 DD 8E F1      [19]  871 	adc	a, -15 (ix)
+   06A7 67            [ 4]  872 	ld	h, a
+                            873 ;	genPointerSet
+                            874 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                            875 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   06A8 79            [ 4]  876 	ld	a, c
+                            877 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   06A9 12            [ 7]  878 	ld	(de), a
+   06AA 13            [ 6]  879 	inc	de
+                            880 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   06AB 78            [ 4]  881 	ld	a, b
+                            882 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   06AC 12            [ 7]  883 	ld	(de), a
+   06AD 13            [ 6]  884 	inc	de
+                            885 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   06AE 7D            [ 4]  886 	ld	a, l
+                            887 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   06AF 12            [ 7]  888 	ld	(de), a
+   06B0 13            [ 6]  889 	inc	de
+                            890 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   06B1 7C            [ 4]  891 	ld	a, h
+                            892 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   06B2 12            [ 7]  893 	ld	(de), a
+                            894 ;cases/./../tests/dilithium-ntt.c:267: a[j + len] = t - a[j + len];
+                            895 ;	genPointerGet
+                            896 ;fetchPairLong
+   06B3 DD 6E F2      [19]  897 	ld	l, -14 (ix)
+   06B6 DD 66 F3      [19]  898 	ld	h, -13 (ix)
+                            899 ;	_moveFrom_tpair_()
+   06B9 4E            [ 7]  900 	ld	c, (hl)
+   06BA 23            [ 6]  901 	inc	hl
+                            902 ;	_moveFrom_tpair_()
+   06BB 46            [ 7]  903 	ld	b, (hl)
+   06BC 23            [ 6]  904 	inc	hl
+                            905 ;	_moveFrom_tpair_()
+   06BD 5E            [ 7]  906 	ld	e, (hl)
+   06BE 23            [ 6]  907 	inc	hl
+                            908 ;	_moveFrom_tpair_()
+   06BF 56            [ 7]  909 	ld	d, (hl)
+                            910 ;	genMinus
+   06C0 DD 7E EE      [19]  911 	ld	a, -18 (ix)
+   06C3 91            [ 4]  912 	sub	a, c
+   06C4 DD 77 F4      [19]  913 	ld	-12 (ix), a
+   06C7 DD 7E EF      [19]  914 	ld	a, -17 (ix)
+   06CA 98            [ 4]  915 	sbc	a, b
+   06CB DD 77 F5      [19]  916 	ld	-11 (ix), a
+   06CE DD 7E F0      [19]  917 	ld	a, -16 (ix)
+   06D1 9B            [ 4]  918 	sbc	a, e
+   06D2 DD 77 F6      [19]  919 	ld	-10 (ix), a
+   06D5 DD 7E F1      [19]  920 	ld	a, -15 (ix)
+   06D8 9A            [ 4]  921 	sbc	a, d
+   06D9 DD 77 F7      [19]  922 	ld	-9 (ix), a
+                            923 ;	genPointerSet
+                            924 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   06DC DD 5E F2      [19]  925 	ld	e, -14 (ix)
+   06DF DD 56 F3      [19]  926 	ld	d, -13 (ix)
+                            927 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   06E2 21 14 00      [10]  928 	ld	hl, #20
+   06E5 39            [11]  929 	add	hl, sp
+   06E6 01 04 00      [10]  930 	ld	bc, #0x0004
+   06E9 ED B0         [21]  931 	ldir
+                            932 ;cases/./../tests/dilithium-ntt.c:268: a[j + len] = montgomery_reduce((int64_t)zeta * a[j + len]);
+                            933 ;	genAssign
+                            934 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   06EB DD 5E E8      [19]  935 	ld	e, -24 (ix)
+   06EE DD 56 E9      [19]  936 	ld	d, -23 (ix)
+   06F1 DD 6E EA      [19]  937 	ld	l, -22 (ix)
+   06F4 DD 66 EB      [19]  938 	ld	h, -21 (ix)
+                            939 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            940 ;	genAssign
+                            941 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   06F7 DD 4E F4      [19]  942 	ld	c, -12 (ix)
+   06FA DD 46 F5      [19]  943 	ld	b, -11 (ix)
+   06FD FD E5         [15]  944 	push	iy
+   06FF E3            [19]  945 	ex	(sp), hl
+   0700 DD 6E F6      [19]  946 	ld	l, -10 (ix)
+   0703 E3            [19]  947 	ex	(sp), hl
+                            948 ; common peephole 50a eliminated dead pop/push iy pair.
+   0704 E3            [19]  949 	ex	(sp), hl
+   0705 DD 66 F7      [19]  950 	ld	h, -9 (ix)
+   0708 E3            [19]  951 	ex	(sp), hl
+                            952 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+                            953 ;	genIpush
+                            954 ; common peephole 50a eliminated dead pop/push iy pair.
+   0709 C5            [11]  955 	push	bc
+                            956 ;	genSend
+                            957 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            958 ;	genCall
+   070A E5            [11]  959 	push	hl
+   070B 21 06 00      [10]  960 	ld	hl, #0x0006
+   070E 39            [11]  961 	add	hl, sp
+   070F 4D            [ 4]  962 	ld	c, l
+   0710 44            [ 4]  963 	ld	b, h
+   0711 E1            [10]  964 	pop	hl
+   0712 C5            [11]  965 	push	bc
+   0713 CDr00s00      [17]  966 	call	___mulslong2slonglong
+                            967 ;	adjustStack by 6
+   0716 F1            [10]  968 	pop	af
+   0717 F1            [10]  969 	pop	af
+   0718 F1            [10]  970 	pop	af
+                            971 ;	genIpush
+                            972 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0719 DD 6E E6      [19]  973 	ld	l, -26 (ix)
+   071C DD 66 E7      [19]  974 	ld	h, -25 (ix)
+                            975 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   071F E5            [11]  976 	push	hl
+                            977 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0720 DD 6E E4      [19]  978 	ld	l, -28 (ix)
+   0723 DD 66 E5      [19]  979 	ld	h, -27 (ix)
+                            980 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0726 E5            [11]  981 	push	hl
+                            982 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0727 DD 6E E2      [19]  983 	ld	l, -30 (ix)
+   072A DD 66 E3      [19]  984 	ld	h, -29 (ix)
+                            985 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   072D E5            [11]  986 	push	hl
+                            987 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   072E DD 6E E0      [19]  988 	ld	l, -32 (ix)
+   0731 DD 66 E1      [19]  989 	ld	h, -31 (ix)
+                            990 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0734 E5            [11]  991 	push	hl
+                            992 ;	genCall
+   0735 CDrEDs07      [17]  993 	call	_pqcrystals_dilithium2_ref_montgomery_reduce
+                            994 ;	adjustStack by 8
+   0738 F1            [10]  995 	pop	af
+   0739 F1            [10]  996 	pop	af
+   073A F1            [10]  997 	pop	af
+   073B F1            [10]  998 	pop	af
+                            999 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   073C 4D            [ 4] 1000 	ld	c, l
+   073D 44            [ 4] 1001 	ld	b, h
+                           1002 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1003 ;	genPointerSet
+                           1004 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   073E DD 6E F2      [19] 1005 	ld	l, -14 (ix)
+   0741 DD 66 F3      [19] 1006 	ld	h, -13 (ix)
+                           1007 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0744 73            [ 7] 1008 	ld	(hl), e
+   0745 23            [ 6] 1009 	inc	hl
+   0746 72            [ 7] 1010 	ld	(hl), d
+   0747 23            [ 6] 1011 	inc	hl
+   0748 71            [ 7] 1012 	ld	(hl), c
+   0749 23            [ 6] 1013 	inc	hl
+   074A 70            [ 7] 1014 	ld	(hl), b
+                           1015 ;cases/./../tests/dilithium-ntt.c:264: for(j = start; j < start + len; ++j) {
+                           1016 ;	genPlus
+   074B DD 34 FE      [23] 1017 	inc	-2 (ix)
+   074E C2r30s06      [10] 1018 	jp	nz, 00106$
+                           1019 ; common peephole 84 jumped to 00106$ directly instead of via 00175$.
+   0751 DD 34 FF      [23] 1020 	inc	-1 (ix)
+                           1021 ; common peephole 159 removed unused label 00175$.
+                           1022 ;	genGoto
+   0754 C3r30s06      [10] 1023 	jp	00106$
+                           1024 ;	genLabel
+   0757                    1025 00109$:
+                           1026 ;cases/./../tests/dilithium-ntt.c:262: for(start = 0; start < N; start = j + len) {
+                           1027 ;	genAssign
+                           1028 ;	genMove_o size 2 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0757 DD 7E F6      [19] 1029 	ld	a, -10 (ix)
+   075A DD 77 FE      [19] 1030 	ld	-2 (ix), a
+   075D DD 7E F7      [19] 1031 	ld	a, -9 (ix)
+                           1032 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1033 ;	genCmpLt
+                           1034 ; common peephole 33 loaded a from a instead of going through -1 (ix).
+   0760 DD 77 FF      [19] 1035 	ld	-1 (ix), a
+                           1036 ; common peephole 0a removed redundant load from a into a.
+   0763 D6 01         [ 7] 1037 	sub	a, #0x01
+   0765 DArEFs05      [10] 1038 	jp	c, 00108$
+                           1039 ;	skipping generated iCode
+                           1040 ;cases/./../tests/dilithium-ntt.c:261: for(len = 1; len < N; len <<= 1) {
+                           1041 ;	genAssign
+                           1042 ;	(locations are the same)
+                           1043 ;	genLeftShift
+                           1044 ;	genMove_o size 2 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0768 DD CB FA 26   [23] 1045 	sla	-6 (ix)
+   076C DD CB FB 16   [23] 1046 	rl	-5 (ix)
+                           1047 ;	genCmpLt
+   0770 DD 7E FB      [19] 1048 	ld	a, -5 (ix)
+   0773 D6 01         [ 7] 1049 	sub	a, #0x01
+   0775 DArE8s05      [10] 1050 	jp	c, 00110$
+                           1051 ;	skipping generated iCode
+                           1052 ;cases/./../tests/dilithium-ntt.c:273: for(j = 0; j < N; ++j) {
+                           1053 ;	genAssign
+                           1054 ;	genMove_o size 2 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0778 AF            [ 4] 1055 	xor	a, a
+   0779 DD 77 FE      [19] 1056 	ld	-2 (ix), a
+   077C DD 77 FF      [19] 1057 	ld	-1 (ix), a
+                           1058 ;	genLabel
+   077F                    1059 00112$:
+                           1060 ;cases/./../tests/dilithium-ntt.c:274: a[j] = montgomery_reduce((int64_t)f * a[j]);
+                           1061 ;	genLeftShift
+                           1062 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   077F DD 6E FE      [19] 1063 	ld	l, -2 (ix)
+   0782 26 00         [ 7] 1064 	ld	h, #0x00
+                           1065 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0784 29            [11] 1066 	add	hl, hl
+   0785 29            [11] 1067 	add	hl, hl
+                           1068 ;	genPlus
+                           1069 ;	genMove_o size 2 result type 2 source type 6 a_dead 0 hl_dead 0 de_dead 0 iy_dead 0 f_dead 1
+   0786 DD 5E F8      [19] 1070 	ld	e, -8 (ix)
+   0789 DD 56 F9      [19] 1071 	ld	d, -7 (ix)
+                           1072 ;	genMove_o size 0 result type 2 source type 1 a_dead 0 hl_dead 0 de_dead 1 iy_dead 0 f_dead 1
+   078C 19            [11] 1073 	add	hl, de
+                           1074 ;	genPointerGet
+   078D E5            [11] 1075 	push	hl
+                           1076 ;fetchPairLong
+                           1077 ;	_moveFrom_tpair_()
+   078E 4E            [ 7] 1078 	ld	c, (hl)
+   078F 23            [ 6] 1079 	inc	hl
+                           1080 ;	_moveFrom_tpair_()
+   0790 46            [ 7] 1081 	ld	b, (hl)
+   0791 23            [ 6] 1082 	inc	hl
+                           1083 ;	_moveFrom_tpair_()
+   0792 5E            [ 7] 1084 	ld	e, (hl)
+   0793 23            [ 6] 1085 	inc	hl
+                           1086 ;	_moveFrom_tpair_()
+   0794 56            [ 7] 1087 	ld	d, (hl)
+                           1088 ;	genIpush
+                           1089 ; common peephole 50a eliminated dead pop/push hl pair.
+   0795 D5            [11] 1090 	push	de
+   0796 C5            [11] 1091 	push	bc
+                           1092 ;	genSend
+                           1093 ;	genMove_o size 4 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0797 11 FA A3      [10] 1094 	ld	de, #0xa3fa
+   079A 21 00 00      [10] 1095 	ld	hl, #0x0000
+                           1096 ;	genCall
+   079D E5            [11] 1097 	push	hl
+   079E 21 18 00      [10] 1098 	ld	hl, #0x0018
+   07A1 39            [11] 1099 	add	hl, sp
+   07A2 4D            [ 4] 1100 	ld	c, l
+   07A3 44            [ 4] 1101 	ld	b, h
+   07A4 E1            [10] 1102 	pop	hl
+   07A5 C5            [11] 1103 	push	bc
+   07A6 CDr00s00      [17] 1104 	call	___mulslong2slonglong
+                           1105 ;	adjustStack by 6
+   07A9 F1            [10] 1106 	pop	af
+   07AA F1            [10] 1107 	pop	af
+   07AB F1            [10] 1108 	pop	af
+                           1109 ;	genIpush
+                           1110 ; common peephole 50a eliminated dead pop/push hl pair.
+                           1111 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   07AC DD 5E F6      [19] 1112 	ld	e, -10 (ix)
+   07AF DD 56 F7      [19] 1113 	ld	d, -9 (ix)
+                           1114 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   07B2 D5            [11] 1115 	push	de
+                           1116 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   07B3 DD 5E F4      [19] 1117 	ld	e, -12 (ix)
+   07B6 DD 56 F5      [19] 1118 	ld	d, -11 (ix)
+                           1119 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   07B9 D5            [11] 1120 	push	de
+                           1121 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   07BA DD 5E F2      [19] 1122 	ld	e, -14 (ix)
+   07BD DD 56 F3      [19] 1123 	ld	d, -13 (ix)
+                           1124 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   07C0 D5            [11] 1125 	push	de
+                           1126 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   07C1 DD 5E F0      [19] 1127 	ld	e, -16 (ix)
+   07C4 DD 56 F1      [19] 1128 	ld	d, -15 (ix)
+                           1129 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   07C7 D5            [11] 1130 	push	de
+                           1131 ;	genCall
+   07C8 CDrEDs07      [17] 1132 	call	_pqcrystals_dilithium2_ref_montgomery_reduce
+                           1133 ;	adjustStack by 8
+   07CB F1            [10] 1134 	pop	af
+   07CC F1            [10] 1135 	pop	af
+   07CD F1            [10] 1136 	pop	af
+   07CE F1            [10] 1137 	pop	af
+                           1138 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   07CF 4D            [ 4] 1139 	ld	c, l
+   07D0 44            [ 4] 1140 	ld	b, h
+                           1141 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   07D1 E1            [10] 1142 	pop	hl
+                           1143 ;	genPointerSet
+                           1144 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   07D2 73            [ 7] 1145 	ld	(hl), e
+   07D3 23            [ 6] 1146 	inc	hl
+   07D4 72            [ 7] 1147 	ld	(hl), d
+   07D5 23            [ 6] 1148 	inc	hl
+   07D6 71            [ 7] 1149 	ld	(hl), c
+   07D7 23            [ 6] 1150 	inc	hl
+   07D8 70            [ 7] 1151 	ld	(hl), b
+                           1152 ;cases/./../tests/dilithium-ntt.c:273: for(j = 0; j < N; ++j) {
+                           1153 ;	genPlus
+   07D9 DD 34 FE      [23] 1154 	inc	-2 (ix)
+                           1155 ; common peephole 163 changed absolute to relative conditional jump.
+   07DC 20 03         [12] 1156 	jr	nz, 00177$
+   07DE DD 34 FF      [23] 1157 	inc	-1 (ix)
+   07E1                    1158 00177$:
+                           1159 ;	genCmpLt
+   07E1 DD 7E FF      [19] 1160 	ld	a, -1 (ix)
+   07E4 D6 01         [ 7] 1161 	sub	a, #0x01
+                           1162 ; common peephole 163 changed absolute to relative conditional jump.
+   07E6 38 97         [12] 1163 	jr	c, 00112$
+                           1164 ;	skipping generated iCode
+                           1165 ;	genLabel
+                           1166 ; common peephole 159 removed unused label 00114$.
+                           1167 ;cases/./../tests/dilithium-ntt.c:276: }
+                           1168 ;	genEndFunction
+   07E8 DD F9         [10] 1169 	ld	sp, ix
+   07EA DD E1         [14] 1170 	pop	ix
+   07EC C9            [10] 1171 	ret
+                           1172 ;	Total pqcrystals_dilithium2_ref_invntt_tomont function size at codegen: 13 bytes.
+                           1173 ;cases/./../tests/dilithium-ntt.c:294: int32_t montgomery_reduce(int64_t a) {
+                           1174 ;	genLabel
+                           1175 ;	genFunction
+                           1176 ;	---------------------------------
+                           1177 ; Function pqcrystals_dilithium2_ref_montgomery_reduce
+                           1178 ; ---------------------------------
+                           1179 ;	Register assignment might be sub-optimal.
+                           1180 ; Stack space usage: 8 bytes.
+   07ED                    1181 _pqcrystals_dilithium2_ref_montgomery_reduce::
+   07ED DD E5         [15] 1182 	push	ix
+   07EF DD 21 00 00   [14] 1183 	ld	ix,	#0
+   07F3 DD 39         [15] 1184 	add	ix, sp
+                           1185 ;	adjustStack by -8
+   07F5 21 F8 FF      [10] 1186 	ld	hl, #-8
+   07F8 39            [11] 1187 	add	hl, sp
+   07F9 F9            [ 6] 1188 	ld	sp, hl
+                           1189 ;cases/./../tests/dilithium-ntt.c:297: t = (int64_t)(int32_t)a*QINV;
+                           1190 ;	genCast
+                           1191 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   07FA DD 4E 04      [19] 1192 	ld	c, 4 (ix)
+   07FD DD 46 05      [19] 1193 	ld	b, 5 (ix)
+   0800 DD 5E 06      [19] 1194 	ld	e, 6 (ix)
+   0803 DD 56 07      [19] 1195 	ld	d, 7 (ix)
+                           1196 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1197 ;	genIpush
+   0806 D5            [11] 1198 	push	de
+   0807 C5            [11] 1199 	push	bc
+                           1200 ;	genSend
+                           1201 ;	genMove_o size 4 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0808 11 01 20      [10] 1202 	ld	de, #0x2001
+   080B 21 80 03      [10] 1203 	ld	hl, #0x0380
+                           1204 ;	genCall
+   080E CDr00s00      [17] 1205 	call	__mullong
+                           1206 ;	adjustStack by 4
+   0811 F1            [10] 1207 	pop	af
+                           1208 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1209 ;cases/./../tests/dilithium-ntt.c:298: t = (a - (int64_t)t*Q) >> 32;
+                           1210 ;	genAssign
+                           1211 ;	(locations are the same)
+                           1212 ;	genIpush
+                           1213 ; common peephole 142 used ex to move hl onto the stack.
+   0812 E3            [19] 1214 	ex	(sp),hl
+   0813 D5            [11] 1215 	push	de
+                           1216 ;	genSend
+                           1217 ;	genMove_o size 4 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0814 11 01 E0      [10] 1218 	ld	de, #0xe001
+   0817 21 7F 00      [10] 1219 	ld	hl, #0x007f
+                           1220 ;	genCall
+   081A E5            [11] 1221 	push	hl
+   081B 21 06 00      [10] 1222 	ld	hl, #0x0006
+   081E 39            [11] 1223 	add	hl, sp
+   081F 4D            [ 4] 1224 	ld	c, l
+   0820 44            [ 4] 1225 	ld	b, h
+   0821 E1            [10] 1226 	pop	hl
+   0822 C5            [11] 1227 	push	bc
+   0823 CDr00s00      [17] 1228 	call	___mulslong2slonglong
+                           1229 ;	adjustStack by 6
+   0826 F1            [10] 1230 	pop	af
+   0827 F1            [10] 1231 	pop	af
+   0828 F1            [10] 1232 	pop	af
+                           1233 ;	genMinus
+   0829 DD 7E 04      [19] 1234 	ld	a, 4 (ix)
+   082C DD 96 F8      [19] 1235 	sub	a, -8 (ix)
+   082F DD 77 F8      [19] 1236 	ld	-8 (ix), a
+   0832 DD 7E 05      [19] 1237 	ld	a, 5 (ix)
+   0835 DD 9E F9      [19] 1238 	sbc	a, -7 (ix)
+   0838 DD 77 F9      [19] 1239 	ld	-7 (ix), a
+   083B DD 7E 06      [19] 1240 	ld	a, 6 (ix)
+   083E DD 9E FA      [19] 1241 	sbc	a, -6 (ix)
+   0841 DD 77 FA      [19] 1242 	ld	-6 (ix), a
+   0844 DD 7E 07      [19] 1243 	ld	a, 7 (ix)
+   0847 DD 9E FB      [19] 1244 	sbc	a, -5 (ix)
+   084A DD 77 FB      [19] 1245 	ld	-5 (ix), a
+   084D DD 7E 08      [19] 1246 	ld	a, 8 (ix)
+   0850 DD 9E FC      [19] 1247 	sbc	a, -4 (ix)
+   0853 DD 77 FC      [19] 1248 	ld	-4 (ix), a
+   0856 DD 7E 09      [19] 1249 	ld	a, 9 (ix)
+   0859 DD 9E FD      [19] 1250 	sbc	a, -3 (ix)
+   085C DD 77 FD      [19] 1251 	ld	-3 (ix), a
+   085F DD 7E 0A      [19] 1252 	ld	a, 10 (ix)
+   0862 DD 9E FE      [19] 1253 	sbc	a, -2 (ix)
+   0865 DD 77 FE      [19] 1254 	ld	-2 (ix), a
+   0868 DD 7E 0B      [19] 1255 	ld	a, 11 (ix)
+   086B DD 9E FF      [19] 1256 	sbc	a, -1 (ix)
+   086E DD 77 FF      [19] 1257 	ld	-1 (ix), a
+                           1258 ;	genRightShift
+   0871 06 20         [ 7] 1259 	ld	b, #0x20
+   0873                    1260 00103$:
+   0873 DD CB FF 2E   [23] 1261 	sra	-1 (ix)
+   0877 DD CB FE 1E   [23] 1262 	rr	-2 (ix)
+   087B DD CB FD 1E   [23] 1263 	rr	-3 (ix)
+   087F DD CB FC 1E   [23] 1264 	rr	-4 (ix)
+   0883 DD CB FB 1E   [23] 1265 	rr	-5 (ix)
+   0887 DD CB FA 1E   [23] 1266 	rr	-6 (ix)
+   088B DD CB F9 1E   [23] 1267 	rr	-7 (ix)
+   088F DD CB F8 1E   [23] 1268 	rr	-8 (ix)
+                           1269 ; common peephole 159 removed unused label 00104$.
+   0893 10 DE         [13] 1270 	djnz	00103$
+                           1271 ;	genMove_o size 8 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1272 ;	genCast
+                           1273 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0895 D1            [10] 1274 	pop	de
+   0896 E1            [10] 1275 	pop	hl
+   0897 E5            [11] 1276 	push	hl
+   0898 D5            [11] 1277 	push	de
+                           1278 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1279 ;cases/./../tests/dilithium-ntt.c:299: return t;
+                           1280 ;	genRet
+                           1281 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1282 ;	genLabel
+                           1283 ; common peephole 159 removed unused label 00101$.
+                           1284 ;cases/./../tests/dilithium-ntt.c:300: }
+                           1285 ;	genEndFunction
+   0899 DD F9         [10] 1286 	ld	sp, ix
+   089B DD E1         [14] 1287 	pop	ix
+   089D C9            [10] 1288 	ret
+                           1289 ;	Total pqcrystals_dilithium2_ref_montgomery_reduce function size at codegen: 5 bytes.
+                           1290 ;cases/./../tests/dilithium-ntt.c:312: int32_t reduce32(int32_t a) {
+                           1291 ;	genLabel
+                           1292 ;	genFunction
+                           1293 ;	---------------------------------
+                           1294 ; Function pqcrystals_dilithium2_ref_reduce32
+                           1295 ; ---------------------------------
+                           1296 ;	Register assignment might be sub-optimal.
+                           1297 ; Stack space usage: 4 bytes.
+   089E                    1298 _pqcrystals_dilithium2_ref_reduce32::
+   089E DD E5         [15] 1299 	push	ix
+   08A0 DD 21 00 00   [14] 1300 	ld	ix,	#0
+   08A4 DD 39         [15] 1301 	add	ix, sp
+                           1302 ;	adjustStack by -4
+   08A6 F5            [11] 1303 	push	af
+                           1304 ;	genReceive
+                           1305 ;	genMove_o size 4 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1306 ; common peephole 50c eliminated dead push/inc sp pair.
+   08A7 D5            [11] 1307 	push	de
+   08A8 DD 75 FE      [19] 1308 	ld	-2 (ix), l
+   08AB DD 74 FF      [19] 1309 	ld	-1 (ix), h
+                           1310 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1311 ;cases/./../tests/dilithium-ntt.c:315: t = (a + (1l << 22)) >> 23;
+                           1312 ;	genPlus
+   08AE DD 5E FC      [19] 1313 	ld	e, -4 (ix)
+   08B1 DD 56 FD      [19] 1314 	ld	d, -3 (ix)
+   08B4 DD 7E FE      [19] 1315 	ld	a, -2 (ix)
+   08B7 C6 40         [ 7] 1316 	add	a, #0x40
+   08B9 4F            [ 4] 1317 	ld	c, a
+   08BA DD 7E FF      [19] 1318 	ld	a, -1 (ix)
+   08BD CE 00         [ 7] 1319 	adc	a, #0x00
+                           1320 ;	genRightShift
+                           1321 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   08BF 06 17         [ 7] 1322 	ld	b, #0x17
+   08C1                    1323 00103$:
+   08C1 CB 2F         [ 8] 1324 	sra	a
+   08C3 CB 19         [ 8] 1325 	rr	c
+   08C5 CB 1A         [ 8] 1326 	rr	d
+   08C7 CB 1B         [ 8] 1327 	rr	e
+                           1328 ; common peephole 159 removed unused label 00104$.
+   08C9 10 F6         [13] 1329 	djnz	00103$
+                           1330 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1331 ;cases/./../tests/dilithium-ntt.c:316: t = a - t*Q;
+                           1332 ;	genIpush
+                           1333 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   08CB 47            [ 4] 1334 	ld	b, a
+                           1335 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   08CC C5            [11] 1336 	push	bc
+   08CD D5            [11] 1337 	push	de
+                           1338 ;	genSend
+                           1339 ;	genMove_o size 4 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   08CE 11 01 E0      [10] 1340 	ld	de, #0xe001
+   08D1 21 7F 00      [10] 1341 	ld	hl, #0x007f
+                           1342 ;	genCall
+   08D4 CDr00s00      [17] 1343 	call	__mullong
+                           1344 ;	adjustStack by 4
+   08D7 F1            [10] 1345 	pop	af
+   08D8 F1            [10] 1346 	pop	af
+                           1347 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1348 ;	genMinus
+   08D9 DD 7E FC      [19] 1349 	ld	a, -4 (ix)
+   08DC 93            [ 4] 1350 	sub	a, e
+   08DD 5F            [ 4] 1351 	ld	e, a
+   08DE DD 7E FD      [19] 1352 	ld	a, -3 (ix)
+   08E1 9A            [ 4] 1353 	sbc	a, d
+   08E2 57            [ 4] 1354 	ld	d, a
+   08E3 DD 7E FE      [19] 1355 	ld	a, -2 (ix)
+   08E6 9D            [ 4] 1356 	sbc	a, l
+   08E7 6F            [ 4] 1357 	ld	l, a
+   08E8 DD 7E FF      [19] 1358 	ld	a, -1 (ix)
+   08EB 9C            [ 4] 1359 	sbc	a, h
+   08EC 67            [ 4] 1360 	ld	h, a
+                           1361 ;cases/./../tests/dilithium-ntt.c:317: return t;
+                           1362 ;	genRet
+                           1363 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1364 ;	genLabel
+                           1365 ; common peephole 159 removed unused label 00101$.
+                           1366 ;cases/./../tests/dilithium-ntt.c:318: }
+                           1367 ;	genEndFunction
+   08ED DD F9         [10] 1368 	ld	sp, ix
+   08EF DD E1         [14] 1369 	pop	ix
+   08F1 C9            [10] 1370 	ret
+                           1371 ;	Total pqcrystals_dilithium2_ref_reduce32 function size at codegen: 5 bytes.
+                           1372 ;cases/./../tests/dilithium-ntt.c:329: int32_t caddq(int32_t a) {
+                           1373 ;	genLabel
+                           1374 ;	genFunction
+                           1375 ;	---------------------------------
+                           1376 ; Function pqcrystals_dilithium2_ref_caddq
+                           1377 ; ---------------------------------
+                           1378 ;	Register assignment might be sub-optimal.
+                           1379 ; Stack space usage: 4 bytes.
+   08F2                    1380 _pqcrystals_dilithium2_ref_caddq::
+   08F2 DD E5         [15] 1381 	push	ix
+   08F4 DD 21 00 00   [14] 1382 	ld	ix,	#0
+   08F8 DD 39         [15] 1383 	add	ix, sp
+                           1384 ;	adjustStack by -4
+   08FA F5            [11] 1385 	push	af
+                           1386 ;	genReceive
+                           1387 ;	genMove_o size 4 result type 6 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1388 ; common peephole 50c eliminated dead push/inc sp pair.
+   08FB D5            [11] 1389 	push	de
+   08FC DD 75 FE      [19] 1390 	ld	-2 (ix), l
+   08FF DD 74 FF      [19] 1391 	ld	-1 (ix), h
+                           1392 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1393 ;cases/./../tests/dilithium-ntt.c:330: a += (a >> 31) & Q;
+                           1394 ;	genRightShift
+                           1395 ;	genMove_o size 4 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0902 D1            [10] 1396 	pop	de
+   0903 E1            [10] 1397 	pop	hl
+   0904 E5            [11] 1398 	push	hl
+   0905 D5            [11] 1399 	push	de
+                           1400 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0906 06 1F         [ 7] 1401 	ld	b, #0x1f
+   0908                    1402 00103$:
+   0908 CB 2C         [ 8] 1403 	sra	h
+   090A CB 1D         [ 8] 1404 	rr	l
+   090C CB 1A         [ 8] 1405 	rr	d
+   090E CB 1B         [ 8] 1406 	rr	e
+                           1407 ; common peephole 159 removed unused label 00104$.
+   0910 10 F6         [13] 1408 	djnz	00103$
+                           1409 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1410 ;	genAnd
+   0912 7B            [ 4] 1411 	ld	a, e
+   0913 E6 01         [ 7] 1412 	and	a, #0x01
+                           1413 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0915 4F            [ 4] 1414 	ld	c, a
+                           1415 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0916 7A            [ 4] 1416 	ld	a, d
+   0917 E6 E0         [ 7] 1417 	and	a, #0xe0
+                           1418 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0919 47            [ 4] 1419 	ld	b, a
+                           1420 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   091A CB BD         [ 8] 1421 	res	7, l
+                           1422 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   091C 26 00         [ 7] 1423 	ld	h, #0x00
+                           1424 ;	genPlus
+   091E DD 7E FC      [19] 1425 	ld	a, -4 (ix)
+   0921 81            [ 4] 1426 	add	a, c
+   0922 5F            [ 4] 1427 	ld	e, a
+   0923 DD 7E FD      [19] 1428 	ld	a, -3 (ix)
+   0926 88            [ 4] 1429 	adc	a, b
+   0927 57            [ 4] 1430 	ld	d, a
+   0928 DD 7E FE      [19] 1431 	ld	a, -2 (ix)
+   092B 8D            [ 4] 1432 	adc	a, l
+   092C 6F            [ 4] 1433 	ld	l, a
+   092D DD 7E FF      [19] 1434 	ld	a, -1 (ix)
+   0930 8C            [ 4] 1435 	adc	a, h
+   0931 67            [ 4] 1436 	ld	h, a
+                           1437 ;cases/./../tests/dilithium-ntt.c:331: return a;
+                           1438 ;	genRet
+                           1439 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1440 ;	genLabel
+                           1441 ; common peephole 159 removed unused label 00101$.
+                           1442 ;cases/./../tests/dilithium-ntt.c:332: }
+                           1443 ;	genEndFunction
+   0932 DD F9         [10] 1444 	ld	sp, ix
+   0934 DD E1         [14] 1445 	pop	ix
+   0936 C9            [10] 1446 	ret
+                           1447 ;	Total pqcrystals_dilithium2_ref_caddq function size at codegen: 5 bytes.
+                           1448 ;cases/./../tests/dilithium-ntt.c:344: int32_t freeze(int32_t a) {
+                           1449 ;	genLabel
+                           1450 ;	genFunction
+                           1451 ;	---------------------------------
+                           1452 ; Function pqcrystals_dilithium2_ref_freeze
+                           1453 ; ---------------------------------
+                           1454 ;	Register assignment might be sub-optimal.
+                           1455 ; Stack space usage: 0 bytes.
+   0937                    1456 _pqcrystals_dilithium2_ref_freeze::
+                           1457 ;	genReceive
+                           1458 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1459 ;cases/./../tests/dilithium-ntt.c:345: a = reduce32(a);
+                           1460 ;	genSend
+                           1461 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1462 ;	genCall
+   0937 CDr9Es08      [17] 1463 	call	_pqcrystals_dilithium2_ref_reduce32
+                           1464 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1465 ;cases/./../tests/dilithium-ntt.c:346: a = caddq(a);
+                           1466 ;	genSend
+                           1467 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1468 ;	genCall
+                           1469 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1470 ;cases/./../tests/dilithium-ntt.c:347: return a;
+                           1471 ;	genRet
+                           1472 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1473 ;	genLabel
+                           1474 ; common peephole 159 removed unused label 00101$.
+                           1475 ;cases/./../tests/dilithium-ntt.c:348: }
+                           1476 ;	genEndFunction
+   093A C3rF2s08      [10] 1477 	jp	_pqcrystals_dilithium2_ref_caddq
+                           1478 ; common peephole 152 removed unused ret.
+                           1479 ;	Total pqcrystals_dilithium2_ref_freeze function size at codegen: 1 bytes.
+                           1480 ;cases/./../tests/dilithium-ntt.c:360: void testDilithiumNTT(void)
+                           1481 ;	genLabel
+                           1482 ;	genFunction
+                           1483 ;	---------------------------------
+                           1484 ; Function testDilithiumNTT
+                           1485 ; ---------------------------------
+                           1486 ;	Register assignment might be sub-optimal.
+                           1487 ; Stack space usage: 10 bytes.
+   093D                    1488 _testDilithiumNTT::
+   093D DD E5         [15] 1489 	push	ix
+   093F DD 21 00 00   [14] 1490 	ld	ix,	#0
+   0943 DD 39         [15] 1491 	add	ix, sp
+                           1492 ;	adjustStack by -10
+   0945 21 F6 FF      [10] 1493 	ld	hl, #-10
+   0948 39            [11] 1494 	add	hl, sp
+   0949 F9            [ 6] 1495 	ld	sp, hl
+                           1496 ;cases/./../tests/dilithium-ntt.c:363: for(int32_t i = 0; i < N; i++)
+                           1497 ;	skipping iCode since result will be rematerialized
+                           1498 ;	genAssign
+                           1499 ;	genMove_o size 2 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   094A AF            [ 4] 1500 	xor	a, a
+   094B DD 77 FE      [19] 1501 	ld	-2 (ix), a
+   094E DD 77 FF      [19] 1502 	ld	-1 (ix), a
+                           1503 ;	genLabel
+   0951                    1504 00104$:
+                           1505 ;	genCmpLt
+   0951 DD 7E FF      [19] 1506 	ld	a, -1 (ix)
+   0954 D6 01         [ 7] 1507 	sub	a, #0x01
+                           1508 ; common peephole 163 changed absolute to relative conditional jump.
+   0956 30 52         [12] 1509 	jr	nc, 00101$
+                           1510 ;	skipping generated iCode
+                           1511 ;cases/./../tests/dilithium-ntt.c:364: buf[i] = montgomery_reduce(i);
+                           1512 ;	genCast
+                           1513 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0958 DD 6E FE      [19] 1514 	ld	l, -2 (ix)
+   095B 26 00         [ 7] 1515 	ld	h, #0x00
+                           1516 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1517 ;	genLeftShift
+   095D 29            [11] 1518 	add	hl, hl
+   095E 29            [11] 1519 	add	hl, hl
+                           1520 ;fetchPairLong
+                           1521 ;	genPlus
+                           1522 ;	genMove_o size 2 result type 2 source type 7 a_dead 0 hl_dead 0 de_dead 0 iy_dead 0 f_dead 1
+   095F 11r00s00      [10] 1523 	ld	de, #_buf
+   0962 19            [11] 1524 	add	hl, de
+                           1525 ;	genCast
+                           1526 ;	genMove_o size 2 result type 6 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0963 DD 7E FE      [19] 1527 	ld	a, -2 (ix)
+   0966 DD 77 F6      [19] 1528 	ld	-10 (ix), a
+                           1529 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                           1530 ;	genMove_o size 6 result type 6 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0969 AF            [ 4] 1531 	xor	a, a
+                           1532 ; common peephole 99b removed load by reordering.
+   096A DD 77 F7      [19] 1533 	ld	-9 (ix), a
+   096D DD 77 F8      [19] 1534 	ld	-8 (ix), a
+   0970 DD 77 F9      [19] 1535 	ld	-7 (ix), a
+   0973 DD 77 FA      [19] 1536 	ld	-6 (ix), a
+   0976 DD 77 FB      [19] 1537 	ld	-5 (ix), a
+   0979 DD 77 FC      [19] 1538 	ld	-4 (ix), a
+   097C DD 77 FD      [19] 1539 	ld	-3 (ix), a
+                           1540 ;	genIpush
+   097F E5            [11] 1541 	push	hl
+                           1542 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                           1543 ; common peephole 92a combined constant loads into register pair.
+                           1544 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                           1545 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                           1546 ; common peephole 92a combined constant loads into register pair.
+   0980 11 00 00      [10] 1547 	ld	de, #0x0
+   0983 D5            [11] 1548 	push	de
+                           1549 ; common peephole 94d pushed register pair twice.
+                           1550 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0984 D5            [11] 1551 	push	de
+                           1552 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                           1553 ; common peephole 92a combined constant loads into register pair.
+   0985 11 00 00      [10] 1554 	ld	de, #0x0
+                           1555 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0988 D5            [11] 1556 	push	de
+                           1557 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   0989 DD 5E F6      [19] 1558 	ld	e, -10 (ix)
+   098C 16 00         [ 7] 1559 	ld	d, #0x00
+                           1560 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   098E D5            [11] 1561 	push	de
+                           1562 ;	genCall
+   098F CDrEDs07      [17] 1563 	call	_pqcrystals_dilithium2_ref_montgomery_reduce
+                           1564 ;	adjustStack by 8
+   0992 F1            [10] 1565 	pop	af
+   0993 F1            [10] 1566 	pop	af
+   0994 F1            [10] 1567 	pop	af
+   0995 F1            [10] 1568 	pop	af
+                           1569 ;	genMove_o size 4 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0996 4D            [ 4] 1570 	ld	c, l
+   0997 44            [ 4] 1571 	ld	b, h
+                           1572 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0998 E1            [10] 1573 	pop	hl
+                           1574 ;	genPointerSet
+                           1575 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0999 73            [ 7] 1576 	ld	(hl), e
+   099A 23            [ 6] 1577 	inc	hl
+   099B 72            [ 7] 1578 	ld	(hl), d
+   099C 23            [ 6] 1579 	inc	hl
+   099D 71            [ 7] 1580 	ld	(hl), c
+   099E 23            [ 6] 1581 	inc	hl
+   099F 70            [ 7] 1582 	ld	(hl), b
+                           1583 ;cases/./../tests/dilithium-ntt.c:363: for(int32_t i = 0; i < N; i++)
+                           1584 ;	genPlus
+   09A0 DD 34 FE      [23] 1585 	inc	-2 (ix)
+                           1586 ; common peephole 163 changed absolute to relative conditional jump.
+   09A3 20 AC         [12] 1587 	jr	nz, 00104$
+                           1588 ; common peephole 84 jumped to 00104$ directly instead of via 00155$.
+   09A5 DD 34 FF      [23] 1589 	inc	-1 (ix)
+                           1590 ; common peephole 159 removed unused label 00155$.
+                           1591 ;	genGoto
+                           1592 ; common peephole 162 changed absolute to relative unconditional jump.
+   09A8 18 A7         [12] 1593 	jr	00104$
+                           1594 ;	genLabel
+   09AA                    1595 00101$:
+                           1596 ;cases/./../tests/dilithium-ntt.c:366: ntt(buf);
+                           1597 ;	skipping iCode since result will be rematerialized
+                           1598 ;	genCast
+                           1599 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   09AA 21r00s00      [10] 1600 	ld	hl, #_buf
+                           1601 ;	genSend
+   09AD E5            [11] 1602 	push	hl
+                           1603 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                           1604 ;	genCall
+   09AE CDr00s00      [17] 1605 	call	_pqcrystals_dilithium2_ref_ntt
+   09B1 E1            [10] 1606 	pop	hl
+                           1607 ;cases/./../tests/dilithium-ntt.c:368: invntt_tomont(buf);
+                           1608 ;	genSend
+                           1609 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1610 ;	genCall
+   09B2 CDrC2s05      [17] 1611 	call	_pqcrystals_dilithium2_ref_invntt_tomont
+                           1612 ;cases/./../tests/dilithium-ntt.c:370: for(int32_t i = 0; i < N; i++)
+                           1613 ;	skipping iCode since result will be rematerialized
+                           1614 ;	skipping iCode since result will be rematerialized
+                           1615 ;	skipping iCode since result will be rematerialized
+                           1616 ;	genAssign
+                           1617 ;	genMove_o size 4 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   09B5 AF            [ 4] 1618 	xor	a, a
+   09B6 DD 77 FC      [19] 1619 	ld	-4 (ix), a
+   09B9 DD 77 FD      [19] 1620 	ld	-3 (ix), a
+   09BC DD 77 FE      [19] 1621 	ld	-2 (ix), a
+   09BF DD 77 FF      [19] 1622 	ld	-1 (ix), a
+                           1623 ;	genLabel
+   09C2                    1624 00107$:
+                           1625 ;	genCmpLt
+   09C2 DD 7E FD      [19] 1626 	ld	a, -3 (ix)
+   09C5 D6 01         [ 7] 1627 	sub	a, #0x01
+   09C7 D2r48s0A      [10] 1628 	jp	nc, 00109$
+                           1629 ;	skipping generated iCode
+                           1630 ;cases/./../tests/dilithium-ntt.c:371: ASSERT(buf[i] == i);
+                           1631 ;	genPlus
+                           1632 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   09CA 2Ar00s00      [16] 1633 	ld	hl, (___numTests)
+   09CD 23            [ 6] 1634 	inc	hl
+                           1635 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   09CE 22r00s00      [16] 1636 	ld	(___numTests), hl
+                           1637 ;	genCast
+                           1638 ;	genMove_o size 2 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   09D1 DD 7E FC      [19] 1639 	ld	a, -4 (ix)
+   09D4 DD 77 FA      [19] 1640 	ld	-6 (ix), a
+   09D7 DD 36 FB 00   [19] 1641 	ld	-5 (ix), #0x00
+                           1642 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                           1643 ;	genLeftShift
+                           1644 ;	genMove_o size 2 result type 6 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   09DB DD 7E FA      [19] 1645 	ld	a, -6 (ix)
+   09DE DD 77 F8      [19] 1646 	ld	-8 (ix), a
+   09E1 DD 36 F9 00   [19] 1647 	ld	-7 (ix), #0x00
+                           1648 ;	genMove_o size 0 result type 6 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   09E5 06 02         [ 7] 1649 	ld	b, #0x02
+   09E7                    1650 00156$:
+   09E7 DD CB F8 26   [23] 1651 	sla	-8 (ix)
+   09EB DD CB F9 16   [23] 1652 	rl	-7 (ix)
+   09EF 10 F6         [13] 1653 	djnz	00156$
+                           1654 ;	genPlus
+   09F1 3Er00         [ 7] 1655 	ld	a, #<(_buf)
+   09F3 DD 86 F8      [19] 1656 	add	a, -8 (ix)
+   09F6 DD 77 FA      [19] 1657 	ld	-6 (ix), a
+   09F9 3Es00         [ 7] 1658 	ld	a, #>(_buf)
+   09FB DD 8E F9      [19] 1659 	adc	a, -7 (ix)
+   09FE DD 77 FB      [19] 1660 	ld	-5 (ix), a
+                           1661 ;	genPointerGet
+                           1662 ;	genMove_o size 2 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A01 DD 5E FA      [19] 1663 	ld	e, -6 (ix)
+   0A04 DD 56 FB      [19] 1664 	ld	d, -5 (ix)
+                           1665 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A07 21 02 00      [10] 1666 	ld	hl, #2
+   0A0A 39            [11] 1667 	add	hl, sp
+   0A0B EB            [ 4] 1668 	ex	de, hl
+   0A0C 01 04 00      [10] 1669 	ld	bc, #0x0004
+   0A0F ED B0         [21] 1670 	ldir
+                           1671 ;	genCmpEq
+                           1672 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A11 DD 7E F8      [19] 1673 	ld	a, -8 (ix)
+                           1674 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A14 DD 96 FC      [19] 1675 	sub	a, -4 (ix)
+                           1676 ; common peephole 163 changed absolute to relative conditional jump.
+   0A17 20 12         [12] 1677 	jr	nz, 00157$
+                           1678 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A19 DD 7E F9      [19] 1679 	ld	a, -7 (ix)
+                           1680 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A1C B7            [ 4] 1681 	or	a, a
+                           1682 ; common peephole 163 changed absolute to relative conditional jump.
+   0A1D 20 0C         [12] 1683 	jr	nz, 00157$
+                           1684 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A1F DD 7E FA      [19] 1685 	ld	a, -6 (ix)
+                           1686 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A22 B7            [ 4] 1687 	or	a, a
+                           1688 ; common peephole 163 changed absolute to relative conditional jump.
+   0A23 20 06         [12] 1689 	jr	nz, 00157$
+                           1690 ;	genMove_o size 1 result type 2 source type 6 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A25 DD 7E FB      [19] 1691 	ld	a, -5 (ix)
+                           1692 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A28 B7            [ 4] 1693 	or	a, a
+                           1694 ; common peephole 163 changed absolute to relative conditional jump.
+   0A29 28 11         [12] 1695 	jr	z, 00108$
+                           1696 ; common peephole 81 removed jp by using inverse jump logic
+   0A2B                    1697 00157$:
+                           1698 ;	skipping generated iCode
+                           1699 ;	skipping iCode since result will be rematerialized
+                           1700 ;	skipping iCode since result will be rematerialized
+                           1701 ;	skipping iCode since result will be rematerialized
+                           1702 ;	genIpush
+                           1703 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A2B 21 73 01      [10] 1704 	ld	hl, #0x0173
+   0A2E E5            [11] 1705 	push	hl
+                           1706 ;	genIpush
+                           1707 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A2F 21r6As0A      [10] 1708 	ld	hl, #___str_2
+   0A32 E5            [11] 1709 	push	hl
+                           1710 ;	genSend
+                           1711 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A33 11r5Es0A      [10] 1712 	ld	de, #___str_1
+                           1713 ;	genSend
+                           1714 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0A36 21r4Ds0A      [10] 1715 	ld	hl, #___str_0
+                           1716 ;	genCall
+   0A39 CDr00s00      [17] 1717 	call	___fail
+                           1718 ;	genLabel
+   0A3C                    1719 00108$:
+                           1720 ;cases/./../tests/dilithium-ntt.c:370: for(int32_t i = 0; i < N; i++)
+                           1721 ;	genPlus
+   0A3C DD 34 FC      [23] 1722 	inc	-4 (ix)
+   0A3F C2rC2s09      [10] 1723 	jp	nz, 00107$
+                           1724 ; common peephole 84 jumped to 00107$ directly instead of via 00158$.
+   0A42 DD 34 FD      [23] 1725 	inc	-3 (ix)
+                           1726 ; common peephole 84 jumped to 00107$ directly instead of via 00158$.
+                           1727 ; common peephole 159 removed unused label 00158$.
+                           1728 ;	genGoto
+                           1729 ; common peephole 78 removed redundant jp
+   0A45 C3rC2s09      [10] 1730 	jp	00107$
+                           1731 ;	genLabel
+   0A48                    1732 00109$:
+                           1733 ;cases/./../tests/dilithium-ntt.c:373: }
+                           1734 ;	genEndFunction
+   0A48 DD F9         [10] 1735 	ld	sp, ix
+   0A4A DD E1         [14] 1736 	pop	ix
+   0A4C C9            [10] 1737 	ret
+                           1738 ;	Total testDilithiumNTT function size at codegen: 9 bytes.
+   0A4D                    1739 ___str_0:
+   0A4D 41 73 73 65 72 74  1740 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   0A5D 00                 1741 	.db 0x00
+   0A5E                    1742 ___str_1:
+   0A5E 62 75 66 5B 69 5D  1743 	.ascii "buf[i] == i"
+        20 3D 3D 20 69
+   0A69 00                 1744 	.db 0x00
+   0A6A                    1745 ___str_2:
+   0A6A 63 61 73 65 73 2F  1746 	.ascii "cases/./../tests/dilithium-ntt.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 64
+        69 6C 69 74 68 69
+        75 6D 2D 6E 74 74
+        2E 63
+   0A8A 00                 1747 	.db 0x00
+                           1748 ;cases/tst_dilithium-ntt.c:4: __runSuite(void)
+                           1749 ;	genLabel
+                           1750 ;	genFunction
+                           1751 ;	---------------------------------
+                           1752 ; Function __runSuite
+                           1753 ; ---------------------------------
+                           1754 ;	Register assignment is optimal.
+                           1755 ; Stack space usage: 0 bytes.
+   0A8B                    1756 ___runSuite::
+                           1757 ;cases/tst_dilithium-ntt.c:6: __prints("Running testDilithiumNTT\n");
+                           1758 ;	skipping iCode since result will be rematerialized
+                           1759 ;	skipping iCode since result will be rematerialized
+                           1760 ;	genSend
+                           1761 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0A8B 21r94s0A      [10] 1762 	ld	hl, #___str_3
+                           1763 ;	genCall
+   0A8E CDr00s00      [17] 1764 	call	___prints
+                           1765 ;cases/tst_dilithium-ntt.c:7: testDilithiumNTT();
+                           1766 ;	genCall
+                           1767 ;	genLabel
+                           1768 ; common peephole 159 removed unused label 00101$.
+                           1769 ;cases/tst_dilithium-ntt.c:8: }
+                           1770 ;	genEndFunction
+   0A91 C3r3Ds09      [10] 1771 	jp	_testDilithiumNTT
+                           1772 ; common peephole 152 removed unused ret.
+                           1773 ;	Total __runSuite function size at codegen: 1 bytes.
+   0A94                    1774 ___str_3:
+   0A94 52 75 6E 6E 69 6E  1775 	.ascii "Running testDilithiumNTT"
+        67 20 74 65 73 74
+        44 69 6C 69 74 68
+        69 75 6D 4E 54 54
+   0AAC 0A                 1776 	.db 0x0a
+   0AAD 00                 1777 	.db 0x00
+                           1778 ;cases/tst_dilithium-ntt.c:13: __getSuiteName(void)
+                           1779 ;	genLabel
+                           1780 ;	genFunction
+                           1781 ;	---------------------------------
+                           1782 ; Function __getSuiteName
+                           1783 ; ---------------------------------
+                           1784 ;	Register assignment is optimal.
+                           1785 ; Stack space usage: 0 bytes.
+   0AAE                    1786 ___getSuiteName::
+                           1787 ;cases/tst_dilithium-ntt.c:15: return "dilithium-ntt.c";
+                           1788 ;	skipping iCode since result will be rematerialized
+                           1789 ;	skipping iCode since result will be rematerialized
+                           1790 ;	genRet
+                           1791 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0AAE 11rB4s0A      [10] 1792 	ld	de, #___str_4
+                           1793 ;	genLabel
+                           1794 ; common peephole 159 removed unused label 00101$.
+                           1795 ;cases/tst_dilithium-ntt.c:16: }
+                           1796 ;	genEndFunction
+   0AB1 C9            [10] 1797 	ret
+                           1798 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0AB2                    1799 ___numCases:
+   0AB2 01 00              1800 	.dw #0x0001
+   0AB4                    1801 ___str_4:
+   0AB4 64 69 6C 69 74 68  1802 	.ascii "dilithium-ntt.c"
+        69 75 6D 2D 6E 74
+        74 2E 63
+   0AC3 00                 1803 	.db 0x00
+                           1804 	.area _CODE (BANK=_CSEG)
+                           1805 	.area _INITIALIZER
+                           1806 	.area _CABS (ABS)

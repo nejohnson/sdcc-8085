@@ -1,0 +1,285 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug608752
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testOpAssign
+                             11 	.globl _get_next_item
+                             12 	.globl ___prints
+                             13 	.globl ___fail
+                             14 	.globl _t
+                             15 	.globl ___numCases
+                             16 	.globl ___runSuite
+                             17 	.globl ___getSuiteName
+                             18 ;--------------------------------------------------------
+                             19 ; special function registers
+                             20 ;--------------------------------------------------------
+                             21 ;--------------------------------------------------------
+                             22 ; ram data
+                             23 ;--------------------------------------------------------
+                             24 	.area _DATA (BANK=_DSEG)
+   0000                      25 _t::
+   0000                      26 	.ds 2
+                             27 ;--------------------------------------------------------
+                             28 ; ram data
+                             29 ;--------------------------------------------------------
+                             30 	.area _INITIALIZED
+                             31 ;--------------------------------------------------------
+                             32 ; absolute ram data
+                             33 ;--------------------------------------------------------
+                             34 	.area _DABS (ABS)
+                             35 	.area _DABS (ABS)
+                             36 ;--------------------------------------------------------
+                             37 ; global & static initialisations
+                             38 ;--------------------------------------------------------
+                             39 	.area _HOME
+                             40 	.area _GSINIT
+                             41 	.area _GSFINAL
+                             42 	.area _GSINIT
+                             43 ;--------------------------------------------------------
+                             44 ; Home
+                             45 ;--------------------------------------------------------
+                             46 	.area _HOME (BANK=_CSEG)
+                             47 	.area _HOME (BANK=_CSEG)
+                             48 ;--------------------------------------------------------
+                             49 ; code
+                             50 ;--------------------------------------------------------
+                             51 	.area _CODE (BANK=_CSEG)
+                             52 ;cases/./../tests/bug608752.c:20: _STATMEM item_type* get_next_item(void)
+                             53 ;	genLabel
+                             54 ;	genFunction
+                             55 ;	---------------------------------
+                             56 ; Function get_next_item
+                             57 ; ---------------------------------
+                             58 ;	Register assignment might be sub-optimal.
+                             59 ; Stack space usage: 0 bytes.
+   0000                      60 _get_next_item::
+                             61 ;cases/./../tests/bug608752.c:23: t.n++;
+                             62 ;	skipping iCode since result will be rematerialized
+                             63 ;	genPlus
+   0000 21r01s00      [10]   64 	ld	hl, #_t + 1
+                             65 ;	genPointerGet
+                             66 ;	genPlus
+                             67 ;	genPointerSet
+   0003 34            [11]   68 	inc	(hl)
+                             69 ; common peephole 1 removed dead load from (hl) into a.
+                             70 ; common peephole 104b inc (hl) directly to remove redundant load from a into (hl)
+                             71 ;cases/./../tests/bug608752.c:30: return &t;
+                             72 ;	skipping iCode since result will be rematerialized
+                             73 ;	genRet
+                             74 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0004 11r00s00      [10]   75 	ld	de, #_t
+                             76 ;	genLabel
+                             77 ; common peephole 159 removed unused label 00101$.
+                             78 ;cases/./../tests/bug608752.c:31: }
+                             79 ;	genEndFunction
+   0007 C9            [10]   80 	ret
+                             81 ;	Total get_next_item function size at codegen: 1 bytes.
+                             82 ;cases/./../tests/bug608752.c:35: testOpAssign(void)
+                             83 ;	genLabel
+                             84 ;	genFunction
+                             85 ;	---------------------------------
+                             86 ; Function testOpAssign
+                             87 ; ---------------------------------
+                             88 ;	Register assignment might be sub-optimal.
+                             89 ; Stack space usage: 0 bytes.
+   0008                      90 _testOpAssign::
+                             91 ;cases/./../tests/bug608752.c:37: t.a = 0;
+                             92 ;	skipping iCode since result will be rematerialized
+                             93 ;	skipping iCode since result will be rematerialized
+                             94 ;	genPointerSet
+                             95 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0008 21r00s00      [10]   96 	ld	hl, #_t
+   000B 36 00         [10]   97 	ld	(hl), #0x00
+                             98 ;cases/./../tests/bug608752.c:38: t.n = 0;
+                             99 ;	skipping iCode since result will be rematerialized
+                            100 ;	genPointerSet
+                            101 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000D 23            [ 6]  102 	inc	hl
+   000E 36 00         [10]  103 	ld	(hl), #0x00
+                            104 ;cases/./../tests/bug608752.c:41: get_next_item()->a |= 42;
+                            105 ;	genCall
+   0010 CDr00s00      [17]  106 	call	_get_next_item
+                            107 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            108 ;	genCast
+                            109 ;	(locations are the same)
+                            110 ;	genPointerGet
+   0013 1A            [ 7]  111 	ld	a, (de)
+                            112 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            113 ;	genOr
+   0014 F6 2A         [ 7]  114 	or	a, #0x2a
+                            115 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            116 ;	genPointerSet
+                            117 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0016 12            [ 7]  118 	ld	(de), a
+                            119 ;cases/./../tests/bug608752.c:43: ASSERT (t.a == 42);
+                            120 ;	genPlus
+                            121 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0017 2Ar00s00      [16]  122 	ld	hl, (___numTests)
+   001A 23            [ 6]  123 	inc	hl
+                            124 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001B 22r00s00      [16]  125 	ld	(___numTests), hl
+                            126 ;	genPointerGet
+   001E 3Ar00s00      [13]  127 	ld	a, (#_t + 0)
+                            128 ;	genCmpEq
+   0021 FE 2A         [ 7]  129 	cp	a, #0x2a
+                            130 ; common peephole 163 changed absolute to relative conditional jump.
+   0023 28 11         [12]  131 	jr	z, 00104$
+                            132 ; common peephole 81 removed jp by using inverse jump logic
+                            133 ; common peephole 159 removed unused label 00123$.
+                            134 ;	skipping generated iCode
+                            135 ;	skipping iCode since result will be rematerialized
+                            136 ;	skipping iCode since result will be rematerialized
+                            137 ;	skipping iCode since result will be rematerialized
+                            138 ;	skipping iCode since result will be rematerialized
+                            139 ;	skipping iCode since result will be rematerialized
+                            140 ;	skipping iCode since result will be rematerialized
+                            141 ;	genIpush
+                            142 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0025 21 2B 00      [10]  143 	ld	hl, #0x002b
+   0028 E5            [11]  144 	push	hl
+                            145 ;	genIpush
+                            146 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0029 21r70s00      [10]  147 	ld	hl, #___str_2
+   002C E5            [11]  148 	push	hl
+                            149 ;	genSend
+                            150 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002D 11r66s00      [10]  151 	ld	de, #___str_1
+                            152 ;	genSend
+                            153 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0030 21r55s00      [10]  154 	ld	hl, #___str_0
+                            155 ;	genCall
+   0033 CDr00s00      [17]  156 	call	___fail
+                            157 ;	genLabel
+   0036                     158 00104$:
+                            159 ;cases/./../tests/bug608752.c:44: ASSERT (t.n == 1);
+                            160 ;	genPlus
+                            161 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0036 2Ar00s00      [16]  162 	ld	hl, (___numTests)
+   0039 23            [ 6]  163 	inc	hl
+                            164 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   003A 22r00s00      [16]  165 	ld	(___numTests), hl
+                            166 ;	genPointerGet
+   003D 3Ar01s00      [13]  167 	ld	a, (#(_t + 1) + 0)
+                            168 ;	genCmpEq
+   0040 FE 01         [ 7]  169 	cp	a, #0x01
+   0042 C8            [11]  170 	ret	z
+                            171 ; common peephole 161 replaced jump by return.
+                            172 ; common peephole 81 removed jp by using inverse jump logic
+                            173 ; common peephole 159 removed unused label 00124$.
+                            174 ;	skipping generated iCode
+                            175 ;	skipping iCode since result will be rematerialized
+                            176 ;	skipping iCode since result will be rematerialized
+                            177 ;	skipping iCode since result will be rematerialized
+                            178 ;	skipping iCode since result will be rematerialized
+                            179 ;	skipping iCode since result will be rematerialized
+                            180 ;	skipping iCode since result will be rematerialized
+                            181 ;	genIpush
+                            182 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0043 21 2C 00      [10]  183 	ld	hl, #0x002c
+   0046 E5            [11]  184 	push	hl
+                            185 ;	genIpush
+                            186 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0047 21r70s00      [10]  187 	ld	hl, #___str_2
+   004A E5            [11]  188 	push	hl
+                            189 ;	genSend
+                            190 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   004B 11r8Ds00      [10]  191 	ld	de, #___str_3
+                            192 ;	genSend
+                            193 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   004E 21r55s00      [10]  194 	ld	hl, #___str_0
+                            195 ;	genCall
+   0051 CDr00s00      [17]  196 	call	___fail
+                            197 ;	genLabel
+                            198 ; common peephole 159 removed unused label 00101$.
+                            199 ;cases/./../tests/bug608752.c:45: }
+                            200 ;	genEndFunction
+   0054 C9            [10]  201 	ret
+                            202 ;	Total testOpAssign function size at codegen: 1 bytes.
+   0055                     203 ___str_0:
+   0055 41 73 73 65 72 74   204 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   0065 00                  205 	.db 0x00
+   0066                     206 ___str_1:
+   0066 74 2E 61 20 3D 3D   207 	.ascii "t.a == 42"
+        20 34 32
+   006F 00                  208 	.db 0x00
+   0070                     209 ___str_2:
+   0070 63 61 73 65 73 2F   210 	.ascii "cases/./../tests/bug608752.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 62
+        75 67 36 30 38 37
+        35 32 2E 63
+   008C 00                  211 	.db 0x00
+   008D                     212 ___str_3:
+   008D 74 2E 6E 20 3D 3D   213 	.ascii "t.n == 1"
+        20 31
+   0095 00                  214 	.db 0x00
+                            215 ;cases/tst_bug608752.c:4: __runSuite(void)
+                            216 ;	genLabel
+                            217 ;	genFunction
+                            218 ;	---------------------------------
+                            219 ; Function __runSuite
+                            220 ; ---------------------------------
+                            221 ;	Register assignment is optimal.
+                            222 ; Stack space usage: 0 bytes.
+   0096                     223 ___runSuite::
+                            224 ;cases/tst_bug608752.c:6: __prints("Running testOpAssign\n");
+                            225 ;	skipping iCode since result will be rematerialized
+                            226 ;	skipping iCode since result will be rematerialized
+                            227 ;	genSend
+                            228 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0096 21r9Fs00      [10]  229 	ld	hl, #___str_4
+                            230 ;	genCall
+   0099 CDr00s00      [17]  231 	call	___prints
+                            232 ;cases/tst_bug608752.c:7: testOpAssign();
+                            233 ;	genCall
+                            234 ;	genLabel
+                            235 ; common peephole 159 removed unused label 00101$.
+                            236 ;cases/tst_bug608752.c:8: }
+                            237 ;	genEndFunction
+   009C C3r08s00      [10]  238 	jp	_testOpAssign
+                            239 ; common peephole 152 removed unused ret.
+                            240 ;	Total __runSuite function size at codegen: 1 bytes.
+   009F                     241 ___str_4:
+   009F 52 75 6E 6E 69 6E   242 	.ascii "Running testOpAssign"
+        67 20 74 65 73 74
+        4F 70 41 73 73 69
+        67 6E
+   00B3 0A                  243 	.db 0x0a
+   00B4 00                  244 	.db 0x00
+                            245 ;cases/tst_bug608752.c:13: __getSuiteName(void)
+                            246 ;	genLabel
+                            247 ;	genFunction
+                            248 ;	---------------------------------
+                            249 ; Function __getSuiteName
+                            250 ; ---------------------------------
+                            251 ;	Register assignment is optimal.
+                            252 ; Stack space usage: 0 bytes.
+   00B5                     253 ___getSuiteName::
+                            254 ;cases/tst_bug608752.c:15: return "bug608752.c";
+                            255 ;	skipping iCode since result will be rematerialized
+                            256 ;	skipping iCode since result will be rematerialized
+                            257 ;	genRet
+                            258 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B5 11rBBs00      [10]  259 	ld	de, #___str_5
+                            260 ;	genLabel
+                            261 ; common peephole 159 removed unused label 00101$.
+                            262 ;cases/tst_bug608752.c:16: }
+                            263 ;	genEndFunction
+   00B8 C9            [10]  264 	ret
+                            265 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   00B9                     266 ___numCases:
+   00B9 01 00               267 	.dw #0x0001
+   00BB                     268 ___str_5:
+   00BB 62 75 67 36 30 38   269 	.ascii "bug608752.c"
+        37 35 32 2E 63
+   00C6 00                  270 	.db 0x00
+                            271 	.area _CODE (BANK=_CSEG)
+                            272 	.area _INITIALIZER
+                            273 	.area _CABS (ABS)

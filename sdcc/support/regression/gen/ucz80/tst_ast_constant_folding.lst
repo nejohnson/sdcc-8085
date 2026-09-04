@@ -1,0 +1,1110 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_ast_constant_folding
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _test_ast_cf
+                             11 	.globl _foo_and
+                             12 	.globl _foo_or
+                             13 	.globl _foo_div
+                             14 	.globl _foo_mul
+                             15 	.globl _foo_sa
+                             16 	.globl _foo_ssl
+                             17 	.globl _foo_ssr
+                             18 	.globl _foo_asl
+                             19 	.globl _foo_asr
+                             20 	.globl _foo_aa
+                             21 	.globl ___prints
+                             22 	.globl ___fail
+                             23 	.globl _i
+                             24 	.globl ___numCases
+                             25 	.globl ___runSuite
+                             26 	.globl ___getSuiteName
+                             27 ;--------------------------------------------------------
+                             28 ; special function registers
+                             29 ;--------------------------------------------------------
+                             30 ;--------------------------------------------------------
+                             31 ; ram data
+                             32 ;--------------------------------------------------------
+                             33 	.area _DATA (BANK=_DSEG)
+   0000                      34 _i::
+   0000                      35 	.ds 2
+                             36 ;--------------------------------------------------------
+                             37 ; ram data
+                             38 ;--------------------------------------------------------
+                             39 	.area _INITIALIZED
+                             40 ;--------------------------------------------------------
+                             41 ; absolute ram data
+                             42 ;--------------------------------------------------------
+                             43 	.area _DABS (ABS)
+                             44 	.area _DABS (ABS)
+                             45 ;--------------------------------------------------------
+                             46 ; global & static initialisations
+                             47 ;--------------------------------------------------------
+                             48 	.area _HOME
+                             49 	.area _GSINIT
+                             50 	.area _GSFINAL
+                             51 	.area _GSINIT
+                             52 ;--------------------------------------------------------
+                             53 ; Home
+                             54 ;--------------------------------------------------------
+                             55 	.area _HOME (BANK=_CSEG)
+                             56 	.area _HOME (BANK=_CSEG)
+                             57 ;--------------------------------------------------------
+                             58 ; code
+                             59 ;--------------------------------------------------------
+                             60 	.area _CODE (BANK=_CSEG)
+                             61 ;cases/./../tests/ast_constant_folding.c:8: foo_aa (void)
+                             62 ;	genLabel
+                             63 ;	genFunction
+                             64 ;	---------------------------------
+                             65 ; Function foo_aa
+                             66 ; ---------------------------------
+                             67 ;	Register assignment might be sub-optimal.
+                             68 ; Stack space usage: 0 bytes.
+   0000                      69 _foo_aa::
+                             70 ;cases/./../tests/ast_constant_folding.c:10: return i + 5 + i - i + 12;
+                             71 ;	genPlus
+   0000 3Ar00s00      [13]   72 	ld	a, (_i+0)
+   0003 C6 11         [ 7]   73 	add	a, #0x11
+   0005 4F            [ 4]   74 	ld	c, a
+   0006 3Ar01s00      [13]   75 	ld	a, (_i+1)
+   0009 CE 00         [ 7]   76 	adc	a, #0x00
+   000B 47            [ 4]   77 	ld	b, a
+                             78 ;	genMinus
+                             79 ;	Shift into pair
+   000C 21r00s00      [10]   80 	ld	hl, #_i
+   000F 79            [ 4]   81 	ld	a, c
+   0010 96            [ 7]   82 	sub	a, (hl)
+                             83 ; common peephole 96b move inc hl before ld a, b
+                             84 ; common peephole 96b move inc hl before ld c, a
+   0011 23            [ 6]   85 	inc	hl
+   0012 4F            [ 4]   86 	ld	c, a
+   0013 78            [ 4]   87 	ld	a, b
+   0014 9E            [ 7]   88 	sbc	a, (hl)
+   0015 47            [ 4]   89 	ld	b, a
+                             90 ;	genPlus
+                             91 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0016 2Ar00s00      [16]   92 	ld	hl, (_i)
+   0019 09            [11]   93 	add	hl, bc
+                             94 ;	genRet
+                             95 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001A EB            [ 4]   96 	ex	de, hl
+                             97 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             98 ;	genLabel
+                             99 ; common peephole 159 removed unused label 00101$.
+                            100 ;cases/./../tests/ast_constant_folding.c:11: }
+                            101 ;	genEndFunction
+   001B C9            [10]  102 	ret
+                            103 ;	Total foo_aa function size at codegen: 1 bytes.
+                            104 ;cases/./../tests/ast_constant_folding.c:14: foo_asr (void)
+                            105 ;	genLabel
+                            106 ;	genFunction
+                            107 ;	---------------------------------
+                            108 ; Function foo_asr
+                            109 ; ---------------------------------
+                            110 ;	Register assignment might be sub-optimal.
+                            111 ; Stack space usage: 0 bytes.
+   001C                     112 _foo_asr::
+                            113 ;cases/./../tests/ast_constant_folding.c:16: return i - 5 + i + i + 12;
+                            114 ;	genPlus
+                            115 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001C 2Ar00s00      [16]  116 	ld	hl, (_i)
+                            117 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   001F 11 07 00      [10]  118 	ld	de, #0x0007
+   0022 19            [11]  119 	add	hl, de
+                            120 ;	genPlus
+                            121 ;	genMove_o size 2 result type 2 source type 10 a_dead 0 hl_dead 0 de_dead 0 iy_dead 0 f_dead 1
+   0023 ED 5Br00s00   [20]  122 	ld	de, (_i)
+   0027 19            [11]  123 	add	hl, de
+                            124 ;	genPlus
+                            125 ;	genMove_o size 2 result type 2 source type 10 a_dead 0 hl_dead 0 de_dead 0 iy_dead 0 f_dead 1
+   0028 ED 5Br00s00   [20]  126 	ld	de, (_i)
+   002C 19            [11]  127 	add	hl, de
+                            128 ;	genRet
+                            129 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002D EB            [ 4]  130 	ex	de, hl
+                            131 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            132 ;	genLabel
+                            133 ; common peephole 159 removed unused label 00101$.
+                            134 ;cases/./../tests/ast_constant_folding.c:17: }
+                            135 ;	genEndFunction
+   002E C9            [10]  136 	ret
+                            137 ;	Total foo_asr function size at codegen: 1 bytes.
+                            138 ;cases/./../tests/ast_constant_folding.c:20: foo_asl (void)
+                            139 ;	genLabel
+                            140 ;	genFunction
+                            141 ;	---------------------------------
+                            142 ; Function foo_asl
+                            143 ; ---------------------------------
+                            144 ;	Register assignment is optimal.
+                            145 ; Stack space usage: 0 bytes.
+   002F                     146 _foo_asl::
+                            147 ;cases/./../tests/ast_constant_folding.c:22: return 5 - i + i + 12;
+                            148 ;	genPlus
+   002F 3Ar00s00      [13]  149 	ld	a, (_i+0)
+   0032 C6 11         [ 7]  150 	add	a, #0x11
+   0034 4F            [ 4]  151 	ld	c, a
+   0035 3Ar01s00      [13]  152 	ld	a, (_i+1)
+   0038 CE 00         [ 7]  153 	adc	a, #0x00
+   003A 47            [ 4]  154 	ld	b, a
+                            155 ;	genMinus
+                            156 ;	Shift into pair
+   003B 21r00s00      [10]  157 	ld	hl, #_i
+   003E 79            [ 4]  158 	ld	a, c
+   003F 96            [ 7]  159 	sub	a, (hl)
+                            160 ; common peephole 96b move inc hl before ld a, b
+                            161 ; common peephole 96b move inc hl before ld e, a
+   0040 23            [ 6]  162 	inc	hl
+   0041 5F            [ 4]  163 	ld	e, a
+   0042 78            [ 4]  164 	ld	a, b
+   0043 9E            [ 7]  165 	sbc	a, (hl)
+   0044 57            [ 4]  166 	ld	d, a
+                            167 ;	genRet
+                            168 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            169 ;	genLabel
+                            170 ; common peephole 159 removed unused label 00101$.
+                            171 ;cases/./../tests/ast_constant_folding.c:23: }
+                            172 ;	genEndFunction
+   0045 C9            [10]  173 	ret
+                            174 ;	Total foo_asl function size at codegen: 1 bytes.
+                            175 ;cases/./../tests/ast_constant_folding.c:26: foo_ssr (void)
+                            176 ;	genLabel
+                            177 ;	genFunction
+                            178 ;	---------------------------------
+                            179 ; Function foo_ssr
+                            180 ; ---------------------------------
+                            181 ;	Register assignment might be sub-optimal.
+                            182 ; Stack space usage: 0 bytes.
+   0046                     183 _foo_ssr::
+                            184 ;cases/./../tests/ast_constant_folding.c:28: return i - 5 - i - i - 12;
+                            185 ;	genMinus
+                            186 ;	Shift into pair
+   0046 21r00s00      [10]  187 	ld	hl, #_i
+   0049 7E            [ 7]  188 	ld	a, (hl)
+   004A 96            [ 7]  189 	sub	a, (hl)
+                            190 ; common peephole 96b move inc hl before ld c, a
+   004B 23            [ 6]  191 	inc	hl
+   004C 4F            [ 4]  192 	ld	c, a
+   004D 7E            [ 7]  193 	ld	a, (hl)
+   004E 9E            [ 7]  194 	sbc	a, (hl)
+   004F 47            [ 4]  195 	ld	b, a
+                            196 ;	genMinus
+                            197 ;	Shift into pair
+   0050 21r00s00      [10]  198 	ld	hl, #_i
+   0053 79            [ 4]  199 	ld	a, c
+   0054 96            [ 7]  200 	sub	a, (hl)
+                            201 ; common peephole 96b move inc hl before ld a, b
+                            202 ; common peephole 96b move inc hl before ld c, a
+   0055 23            [ 6]  203 	inc	hl
+   0056 4F            [ 4]  204 	ld	c, a
+   0057 78            [ 4]  205 	ld	a, b
+   0058 9E            [ 7]  206 	sbc	a, (hl)
+   0059 47            [ 4]  207 	ld	b, a
+                            208 ;	genMinus
+   005A 79            [ 4]  209 	ld	a, c
+   005B C6 EF         [ 7]  210 	add	a, #0xef
+   005D 5F            [ 4]  211 	ld	e, a
+   005E 78            [ 4]  212 	ld	a, b
+   005F CE FF         [ 7]  213 	adc	a, #0xff
+   0061 57            [ 4]  214 	ld	d, a
+                            215 ;	genRet
+                            216 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            217 ;	genLabel
+                            218 ; common peephole 159 removed unused label 00101$.
+                            219 ;cases/./../tests/ast_constant_folding.c:29: }
+                            220 ;	genEndFunction
+   0062 C9            [10]  221 	ret
+                            222 ;	Total foo_ssr function size at codegen: 1 bytes.
+                            223 ;cases/./../tests/ast_constant_folding.c:32: foo_ssl (void)
+                            224 ;	genLabel
+                            225 ;	genFunction
+                            226 ;	---------------------------------
+                            227 ; Function foo_ssl
+                            228 ; ---------------------------------
+                            229 ;	Register assignment is optimal.
+                            230 ; Stack space usage: 0 bytes.
+   0063                     231 _foo_ssl::
+                            232 ;cases/./../tests/ast_constant_folding.c:34: return 5 - i - i - 12;
+                            233 ;	genMinus
+                            234 ;	Shift into pair
+   0063 21r00s00      [10]  235 	ld	hl, #_i
+   0066 3E F9         [ 7]  236 	ld	a, #0xf9
+   0068 96            [ 7]  237 	sub	a, (hl)
+                            238 ; common peephole 96b move inc hl before ld a, #0xff
+                            239 ; common peephole 96b move inc hl before ld c, a
+   0069 23            [ 6]  240 	inc	hl
+   006A 4F            [ 4]  241 	ld	c, a
+   006B 3E FF         [ 7]  242 	ld	a, #0xff
+   006D 9E            [ 7]  243 	sbc	a, (hl)
+   006E 47            [ 4]  244 	ld	b, a
+                            245 ;	genMinus
+                            246 ;	Shift into pair
+   006F 21r00s00      [10]  247 	ld	hl, #_i
+   0072 79            [ 4]  248 	ld	a, c
+   0073 96            [ 7]  249 	sub	a, (hl)
+                            250 ; common peephole 96b move inc hl before ld a, b
+                            251 ; common peephole 96b move inc hl before ld e, a
+   0074 23            [ 6]  252 	inc	hl
+   0075 5F            [ 4]  253 	ld	e, a
+   0076 78            [ 4]  254 	ld	a, b
+   0077 9E            [ 7]  255 	sbc	a, (hl)
+   0078 57            [ 4]  256 	ld	d, a
+                            257 ;	genRet
+                            258 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            259 ;	genLabel
+                            260 ; common peephole 159 removed unused label 00101$.
+                            261 ;cases/./../tests/ast_constant_folding.c:35: }
+                            262 ;	genEndFunction
+   0079 C9            [10]  263 	ret
+                            264 ;	Total foo_ssl function size at codegen: 1 bytes.
+                            265 ;cases/./../tests/ast_constant_folding.c:37: foo_sa (void)
+                            266 ;	genLabel
+                            267 ;	genFunction
+                            268 ;	---------------------------------
+                            269 ; Function foo_sa
+                            270 ; ---------------------------------
+                            271 ;	Register assignment might be sub-optimal.
+                            272 ; Stack space usage: 0 bytes.
+   007A                     273 _foo_sa::
+                            274 ;cases/./../tests/ast_constant_folding.c:39: return i + 5 - i - i - 12;
+                            275 ;	genMinus
+                            276 ;	Shift into pair
+   007A 21r00s00      [10]  277 	ld	hl, #_i
+   007D 3E F9         [ 7]  278 	ld	a, #0xf9
+   007F 96            [ 7]  279 	sub	a, (hl)
+                            280 ; common peephole 96b move inc hl before ld a, #0xff
+                            281 ; common peephole 96b move inc hl before ld c, a
+   0080 23            [ 6]  282 	inc	hl
+   0081 4F            [ 4]  283 	ld	c, a
+   0082 3E FF         [ 7]  284 	ld	a, #0xff
+   0084 9E            [ 7]  285 	sbc	a, (hl)
+   0085 47            [ 4]  286 	ld	b, a
+                            287 ;	genMinus
+                            288 ;	Shift into pair
+   0086 21r00s00      [10]  289 	ld	hl, #_i
+   0089 79            [ 4]  290 	ld	a, c
+   008A 96            [ 7]  291 	sub	a, (hl)
+                            292 ; common peephole 96b move inc hl before ld a, b
+                            293 ; common peephole 96b move inc hl before ld c, a
+   008B 23            [ 6]  294 	inc	hl
+   008C 4F            [ 4]  295 	ld	c, a
+   008D 78            [ 4]  296 	ld	a, b
+   008E 9E            [ 7]  297 	sbc	a, (hl)
+   008F 47            [ 4]  298 	ld	b, a
+                            299 ;	genPlus
+                            300 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0090 2Ar00s00      [16]  301 	ld	hl, (_i)
+   0093 09            [11]  302 	add	hl, bc
+                            303 ;	genRet
+                            304 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0094 EB            [ 4]  305 	ex	de, hl
+                            306 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            307 ;	genLabel
+                            308 ; common peephole 159 removed unused label 00101$.
+                            309 ;cases/./../tests/ast_constant_folding.c:40: }
+                            310 ;	genEndFunction
+   0095 C9            [10]  311 	ret
+                            312 ;	Total foo_sa function size at codegen: 1 bytes.
+                            313 ;cases/./../tests/ast_constant_folding.c:43: foo_mul (void)
+                            314 ;	genLabel
+                            315 ;	genFunction
+                            316 ;	---------------------------------
+                            317 ; Function foo_mul
+                            318 ; ---------------------------------
+                            319 ;	Register assignment is optimal.
+                            320 ; Stack space usage: 0 bytes.
+   0096                     321 _foo_mul::
+                            322 ;cases/./../tests/ast_constant_folding.c:45: return 5 * i * i * 12;
+                            323 ;	genMult
+                            324 ;fetchPairLong
+   0096 ED 4Br00s00   [20]  325 	ld	bc, (_i)
+   009A 69            [ 4]  326 	ld	l, c
+   009B 60            [ 4]  327 	ld	h, b
+   009C 29            [11]  328 	add	hl, hl
+   009D 09            [11]  329 	add	hl, bc
+   009E 29            [11]  330 	add	hl, hl
+   009F 09            [11]  331 	add	hl, bc
+   00A0 29            [11]  332 	add	hl, hl
+   00A1 09            [11]  333 	add	hl, bc
+   00A2 29            [11]  334 	add	hl, hl
+   00A3 29            [11]  335 	add	hl, hl
+                            336 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            337 ;	genSend
+                            338 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   00A4 ED 5Br00s00   [20]  339 	ld	de, (_i)
+                            340 ;	genSend
+                            341 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            342 ;	genCall
+                            343 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            344 ;	genRet
+                            345 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            346 ;	genLabel
+                            347 ; common peephole 159 removed unused label 00101$.
+                            348 ;cases/./../tests/ast_constant_folding.c:46: }
+                            349 ;	genEndFunction
+   00A8 C3r00s00      [10]  350 	jp	__mulint
+                            351 ; common peephole 152 removed unused ret.
+                            352 ;	Total foo_mul function size at codegen: 1 bytes.
+                            353 ;cases/./../tests/ast_constant_folding.c:49: foo_div (void)
+                            354 ;	genLabel
+                            355 ;	genFunction
+                            356 ;	---------------------------------
+                            357 ; Function foo_div
+                            358 ; ---------------------------------
+                            359 ;	Register assignment might be sub-optimal.
+                            360 ; Stack space usage: 0 bytes.
+   00AB                     361 _foo_div::
+                            362 ;cases/./../tests/ast_constant_folding.c:51: return 33971u / i / 5 / i / i / 12;
+                            363 ;	genSend
+                            364 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00AB ED 5Br00s00   [20]  365 	ld	de, (_i)
+                            366 ;	genSend
+                            367 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00AF 21 B3 84      [10]  368 	ld	hl, #0x84b3
+                            369 ;	genCall
+   00B2 CDr00s00      [17]  370 	call	__divuint
+                            371 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B5 EB            [ 4]  372 	ex	de, hl
+                            373 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            374 ;	genSend
+                            375 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   00B6 11 05 00      [10]  376 	ld	de, #0x0005
+                            377 ;	genSend
+                            378 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            379 ;	genCall
+   00B9 CDr00s00      [17]  380 	call	__divuint
+                            381 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00BC EB            [ 4]  382 	ex	de, hl
+                            383 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            384 ;	genSend
+                            385 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   00BD ED 5Br00s00   [20]  386 	ld	de, (_i)
+                            387 ;	genSend
+                            388 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            389 ;	genCall
+   00C1 CDr00s00      [17]  390 	call	__divuint
+                            391 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00C4 EB            [ 4]  392 	ex	de, hl
+                            393 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            394 ;	genSend
+                            395 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   00C5 ED 5Br00s00   [20]  396 	ld	de, (_i)
+                            397 ;	genSend
+                            398 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            399 ;	genCall
+   00C9 CDr00s00      [17]  400 	call	__divuint
+                            401 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00CC EB            [ 4]  402 	ex	de, hl
+                            403 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            404 ;	genSend
+                            405 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   00CD 11 0C 00      [10]  406 	ld	de, #0x000c
+                            407 ;	genSend
+                            408 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            409 ;	genCall
+                            410 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            411 ;	genRet
+                            412 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            413 ;	genLabel
+                            414 ; common peephole 159 removed unused label 00101$.
+                            415 ;cases/./../tests/ast_constant_folding.c:52: }
+                            416 ;	genEndFunction
+   00D0 C3r00s00      [10]  417 	jp	__divuint
+                            418 ; common peephole 152 removed unused ret.
+                            419 ;	Total foo_div function size at codegen: 1 bytes.
+                            420 ;cases/./../tests/ast_constant_folding.c:55: foo_or (void)
+                            421 ;	genLabel
+                            422 ;	genFunction
+                            423 ;	---------------------------------
+                            424 ; Function foo_or
+                            425 ; ---------------------------------
+                            426 ;	Register assignment is optimal.
+                            427 ; Stack space usage: 0 bytes.
+   00D3                     428 _foo_or::
+                            429 ;cases/./../tests/ast_constant_folding.c:57: return 5 | i | i | 12;
+                            430 ;	genOr
+                            431 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00D3 2Ar00s00      [16]  432 	ld	hl, (_i)
+   00D6 7D            [ 4]  433 	ld	a, l
+   00D7 F6 0D         [ 7]  434 	or	a, #0x0d
+                            435 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                            436 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                            437 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                            438 ;	genOr
+                            439 ; common peephole 9 loaded a from a directly instead of going through l.
+                            440 ; common peephole 0a removed redundant load from a into a.
+   00D9 FD 21r00s00   [14]  441 	ld	iy, #_i
+   00DD FD B6 00      [19]  442 	or	a, 0 (iy)
+                            443 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   00E0 5F            [ 4]  444 	ld	e, a
+                            445 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   00E1 7C            [ 4]  446 	ld	a, h
+   00E2 FD B6 01      [19]  447 	or	a, 1 (iy)
+                            448 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00E5 57            [ 4]  449 	ld	d, a
+                            450 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            451 ;	genRet
+                            452 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            453 ;	genLabel
+                            454 ; common peephole 159 removed unused label 00101$.
+                            455 ;cases/./../tests/ast_constant_folding.c:58: }
+                            456 ;	genEndFunction
+   00E6 C9            [10]  457 	ret
+                            458 ;	Total foo_or function size at codegen: 1 bytes.
+                            459 ;cases/./../tests/ast_constant_folding.c:61: foo_and (void)
+                            460 ;	genLabel
+                            461 ;	genFunction
+                            462 ;	---------------------------------
+                            463 ; Function foo_and
+                            464 ; ---------------------------------
+                            465 ;	Register assignment is optimal.
+                            466 ; Stack space usage: 0 bytes.
+   00E7                     467 _foo_and::
+                            468 ;cases/./../tests/ast_constant_folding.c:63: return 5 & i & i & 12;
+                            469 ;	genAnd
+   00E7 3Ar00s00      [13]  470 	ld	a, (_i+0)
+   00EA E6 04         [ 7]  471 	and	a, #0x04
+                            472 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            473 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            474 ; common peephole 1 removed dead load from #0x00 into c.
+                            475 ;	genAnd
+                            476 ; common peephole 54 used hl instead of iy.
+                            477 ; common peephole 130a removed unnecessary +0 from constant
+   00EC 21r00s00      [10]  478 	ld	hl, #_i
+   00EF A6            [ 7]  479 	and	a, (hl)
+                            480 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00F0 5F            [ 4]  481 	ld	e, a
+                            482 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            483 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00F1 16 00         [ 7]  484 	ld	d, #0x00
+                            485 ;	genRet
+                            486 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            487 ;	genLabel
+                            488 ; common peephole 159 removed unused label 00101$.
+                            489 ;cases/./../tests/ast_constant_folding.c:64: }
+                            490 ;	genEndFunction
+   00F3 C9            [10]  491 	ret
+                            492 ;	Total foo_and function size at codegen: 1 bytes.
+                            493 ;cases/./../tests/ast_constant_folding.c:67: test_ast_cf(void)
+                            494 ;	genLabel
+                            495 ;	genFunction
+                            496 ;	---------------------------------
+                            497 ; Function test_ast_cf
+                            498 ; ---------------------------------
+                            499 ;	Register assignment might be sub-optimal.
+                            500 ; Stack space usage: 0 bytes.
+   00F4                     501 _test_ast_cf::
+                            502 ;cases/./../tests/ast_constant_folding.c:69: i = 30; ASSERT(foo_aa () ==    47);
+                            503 ;	genAssign
+                            504 ;fetchPairLong
+   00F4 21 1E 00      [10]  505 	ld	hl, #0x001e
+                            506 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00F7 22r00s00      [16]  507 	ld	(_i), hl
+                            508 ;	genPlus
+                            509 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00FA 2Ar00s00      [16]  510 	ld	hl, (___numTests)
+   00FD 23            [ 6]  511 	inc	hl
+                            512 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00FE 22r00s00      [16]  513 	ld	(___numTests), hl
+                            514 ;	genCall
+   0101 CDr00s00      [17]  515 	call	_foo_aa
+                            516 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            517 ;	genCmpEq
+                            518 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0104 7B            [ 4]  519 	ld	a, e
+                            520 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0105 D6 2F         [ 7]  521 	sub	a, #0x2f
+   0107 B2            [ 4]  522 	or	a, d
+                            523 ; common peephole 163 changed absolute to relative conditional jump.
+   0108 28 11         [12]  524 	jr	z, 00104$
+                            525 ; common peephole 81 removed jp by using inverse jump logic
+                            526 ; common peephole 159 removed unused label 00203$.
+                            527 ;	skipping generated iCode
+                            528 ;	skipping iCode since result will be rematerialized
+                            529 ;	skipping iCode since result will be rematerialized
+                            530 ;	skipping iCode since result will be rematerialized
+                            531 ;	skipping iCode since result will be rematerialized
+                            532 ;	skipping iCode since result will be rematerialized
+                            533 ;	skipping iCode since result will be rematerialized
+                            534 ;	genIpush
+                            535 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   010A 21 45 00      [10]  536 	ld	hl, #0x0045
+   010D E5            [11]  537 	push	hl
+                            538 ;	genIpush
+                            539 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   010E 21r80s02      [10]  540 	ld	hl, #___str_2
+   0111 E5            [11]  541 	push	hl
+                            542 ;	genSend
+                            543 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0112 11r70s02      [10]  544 	ld	de, #___str_1
+                            545 ;	genSend
+                            546 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0115 21r5Fs02      [10]  547 	ld	hl, #___str_0
+                            548 ;	genCall
+   0118 CDr00s00      [17]  549 	call	___fail
+                            550 ;	genLabel
+   011B                     551 00104$:
+                            552 ;cases/./../tests/ast_constant_folding.c:70: ASSERT(foo_asr() ==    97);
+                            553 ;	genPlus
+                            554 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   011B 2Ar00s00      [16]  555 	ld	hl, (___numTests)
+   011E 23            [ 6]  556 	inc	hl
+                            557 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   011F 22r00s00      [16]  558 	ld	(___numTests), hl
+                            559 ;	genCall
+   0122 CDr1Cs00      [17]  560 	call	_foo_asr
+                            561 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            562 ;	genCmpEq
+                            563 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0125 7B            [ 4]  564 	ld	a, e
+                            565 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0126 D6 61         [ 7]  566 	sub	a, #0x61
+   0128 B2            [ 4]  567 	or	a, d
+                            568 ; common peephole 163 changed absolute to relative conditional jump.
+   0129 28 11         [12]  569 	jr	z, 00106$
+                            570 ; common peephole 81 removed jp by using inverse jump logic
+                            571 ; common peephole 159 removed unused label 00204$.
+                            572 ;	skipping generated iCode
+                            573 ;	skipping iCode since result will be rematerialized
+                            574 ;	skipping iCode since result will be rematerialized
+                            575 ;	skipping iCode since result will be rematerialized
+                            576 ;	skipping iCode since result will be rematerialized
+                            577 ;	skipping iCode since result will be rematerialized
+                            578 ;	skipping iCode since result will be rematerialized
+                            579 ;	genIpush
+                            580 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   012B 21 46 00      [10]  581 	ld	hl, #0x0046
+   012E E5            [11]  582 	push	hl
+                            583 ;	genIpush
+                            584 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   012F 21r80s02      [10]  585 	ld	hl, #___str_2
+   0132 E5            [11]  586 	push	hl
+                            587 ;	genSend
+                            588 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0133 11rA8s02      [10]  589 	ld	de, #___str_3
+                            590 ;	genSend
+                            591 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0136 21r5Fs02      [10]  592 	ld	hl, #___str_0
+                            593 ;	genCall
+   0139 CDr00s00      [17]  594 	call	___fail
+                            595 ;	genLabel
+   013C                     596 00106$:
+                            597 ;cases/./../tests/ast_constant_folding.c:71: ASSERT(foo_asl() ==    17);
+                            598 ;	genPlus
+                            599 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   013C 2Ar00s00      [16]  600 	ld	hl, (___numTests)
+   013F 23            [ 6]  601 	inc	hl
+                            602 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0140 22r00s00      [16]  603 	ld	(___numTests), hl
+                            604 ;	genCall
+   0143 CDr2Fs00      [17]  605 	call	_foo_asl
+                            606 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            607 ;	genCmpEq
+                            608 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0146 7B            [ 4]  609 	ld	a, e
+                            610 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0147 D6 11         [ 7]  611 	sub	a, #0x11
+   0149 B2            [ 4]  612 	or	a, d
+                            613 ; common peephole 163 changed absolute to relative conditional jump.
+   014A 28 11         [12]  614 	jr	z, 00108$
+                            615 ; common peephole 81 removed jp by using inverse jump logic
+                            616 ; common peephole 159 removed unused label 00205$.
+                            617 ;	skipping generated iCode
+                            618 ;	skipping iCode since result will be rematerialized
+                            619 ;	skipping iCode since result will be rematerialized
+                            620 ;	skipping iCode since result will be rematerialized
+                            621 ;	skipping iCode since result will be rematerialized
+                            622 ;	skipping iCode since result will be rematerialized
+                            623 ;	skipping iCode since result will be rematerialized
+                            624 ;	genIpush
+                            625 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   014C 21 47 00      [10]  626 	ld	hl, #0x0047
+   014F E5            [11]  627 	push	hl
+                            628 ;	genIpush
+                            629 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0150 21r80s02      [10]  630 	ld	hl, #___str_2
+   0153 E5            [11]  631 	push	hl
+                            632 ;	genSend
+                            633 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0154 11rB8s02      [10]  634 	ld	de, #___str_4
+                            635 ;	genSend
+                            636 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0157 21r5Fs02      [10]  637 	ld	hl, #___str_0
+                            638 ;	genCall
+   015A CDr00s00      [17]  639 	call	___fail
+                            640 ;	genLabel
+   015D                     641 00108$:
+                            642 ;cases/./../tests/ast_constant_folding.c:72: ASSERT(foo_ssr() ==   -47);
+                            643 ;	genPlus
+                            644 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   015D 2Ar00s00      [16]  645 	ld	hl, (___numTests)
+   0160 23            [ 6]  646 	inc	hl
+                            647 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0161 22r00s00      [16]  648 	ld	(___numTests), hl
+                            649 ;	genCall
+   0164 CDr46s00      [17]  650 	call	_foo_ssr
+                            651 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            652 ;	genCmpEq
+                            653 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0167 7B            [ 4]  654 	ld	a, e
+                            655 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0168 D6 D1         [ 7]  656 	sub	a, #0xd1
+                            657 ; common peephole 163 changed absolute to relative conditional jump.
+   016A 20 03         [12]  658 	jr	nz, 00206$
+   016C 14            [ 4]  659 	inc	d
+                            660 ; common peephole 163 changed absolute to relative conditional jump.
+   016D 28 11         [12]  661 	jr	z, 00110$
+                            662 ; common peephole 81 removed jp by using inverse jump logic
+   016F                     663 00206$:
+                            664 ;	skipping generated iCode
+                            665 ;	skipping iCode since result will be rematerialized
+                            666 ;	skipping iCode since result will be rematerialized
+                            667 ;	skipping iCode since result will be rematerialized
+                            668 ;	skipping iCode since result will be rematerialized
+                            669 ;	skipping iCode since result will be rematerialized
+                            670 ;	skipping iCode since result will be rematerialized
+                            671 ;	genIpush
+                            672 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   016F 21 48 00      [10]  673 	ld	hl, #0x0048
+   0172 E5            [11]  674 	push	hl
+                            675 ;	genIpush
+                            676 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0173 21r80s02      [10]  677 	ld	hl, #___str_2
+   0176 E5            [11]  678 	push	hl
+                            679 ;	genSend
+                            680 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0177 11rC8s02      [10]  681 	ld	de, #___str_5
+                            682 ;	genSend
+                            683 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   017A 21r5Fs02      [10]  684 	ld	hl, #___str_0
+                            685 ;	genCall
+   017D CDr00s00      [17]  686 	call	___fail
+                            687 ;	genLabel
+   0180                     688 00110$:
+                            689 ;cases/./../tests/ast_constant_folding.c:73: ASSERT(foo_ssl() ==   -67);
+                            690 ;	genPlus
+                            691 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0180 2Ar00s00      [16]  692 	ld	hl, (___numTests)
+   0183 23            [ 6]  693 	inc	hl
+                            694 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0184 22r00s00      [16]  695 	ld	(___numTests), hl
+                            696 ;	genCall
+   0187 CDr63s00      [17]  697 	call	_foo_ssl
+                            698 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            699 ;	genCmpEq
+                            700 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   018A 7B            [ 4]  701 	ld	a, e
+                            702 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   018B D6 BD         [ 7]  703 	sub	a, #0xbd
+                            704 ; common peephole 163 changed absolute to relative conditional jump.
+   018D 20 03         [12]  705 	jr	nz, 00207$
+   018F 14            [ 4]  706 	inc	d
+                            707 ; common peephole 163 changed absolute to relative conditional jump.
+   0190 28 11         [12]  708 	jr	z, 00112$
+                            709 ; common peephole 81 removed jp by using inverse jump logic
+   0192                     710 00207$:
+                            711 ;	skipping generated iCode
+                            712 ;	skipping iCode since result will be rematerialized
+                            713 ;	skipping iCode since result will be rematerialized
+                            714 ;	skipping iCode since result will be rematerialized
+                            715 ;	skipping iCode since result will be rematerialized
+                            716 ;	skipping iCode since result will be rematerialized
+                            717 ;	skipping iCode since result will be rematerialized
+                            718 ;	genIpush
+                            719 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0192 21 49 00      [10]  720 	ld	hl, #0x0049
+   0195 E5            [11]  721 	push	hl
+                            722 ;	genIpush
+                            723 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0196 21r80s02      [10]  724 	ld	hl, #___str_2
+   0199 E5            [11]  725 	push	hl
+                            726 ;	genSend
+                            727 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   019A 11rD9s02      [10]  728 	ld	de, #___str_6
+                            729 ;	genSend
+                            730 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   019D 21r5Fs02      [10]  731 	ld	hl, #___str_0
+                            732 ;	genCall
+   01A0 CDr00s00      [17]  733 	call	___fail
+                            734 ;	genLabel
+   01A3                     735 00112$:
+                            736 ;cases/./../tests/ast_constant_folding.c:74: ASSERT(foo_sa () ==   -37);
+                            737 ;	genPlus
+                            738 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01A3 2Ar00s00      [16]  739 	ld	hl, (___numTests)
+   01A6 23            [ 6]  740 	inc	hl
+                            741 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01A7 22r00s00      [16]  742 	ld	(___numTests), hl
+                            743 ;	genCall
+   01AA CDr7As00      [17]  744 	call	_foo_sa
+                            745 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            746 ;	genCmpEq
+                            747 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   01AD 7B            [ 4]  748 	ld	a, e
+                            749 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   01AE D6 DB         [ 7]  750 	sub	a, #0xdb
+                            751 ; common peephole 163 changed absolute to relative conditional jump.
+   01B0 20 03         [12]  752 	jr	nz, 00208$
+   01B2 14            [ 4]  753 	inc	d
+                            754 ; common peephole 163 changed absolute to relative conditional jump.
+   01B3 28 11         [12]  755 	jr	z, 00114$
+                            756 ; common peephole 81 removed jp by using inverse jump logic
+   01B5                     757 00208$:
+                            758 ;	skipping generated iCode
+                            759 ;	skipping iCode since result will be rematerialized
+                            760 ;	skipping iCode since result will be rematerialized
+                            761 ;	skipping iCode since result will be rematerialized
+                            762 ;	skipping iCode since result will be rematerialized
+                            763 ;	skipping iCode since result will be rematerialized
+                            764 ;	skipping iCode since result will be rematerialized
+                            765 ;	genIpush
+                            766 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01B5 21 4A 00      [10]  767 	ld	hl, #0x004a
+   01B8 E5            [11]  768 	push	hl
+                            769 ;	genIpush
+                            770 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01B9 21r80s02      [10]  771 	ld	hl, #___str_2
+   01BC E5            [11]  772 	push	hl
+                            773 ;	genSend
+                            774 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01BD 11rEAs02      [10]  775 	ld	de, #___str_7
+                            776 ;	genSend
+                            777 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01C0 21r5Fs02      [10]  778 	ld	hl, #___str_0
+                            779 ;	genCall
+   01C3 CDr00s00      [17]  780 	call	___fail
+                            781 ;	genLabel
+   01C6                     782 00114$:
+                            783 ;cases/./../tests/ast_constant_folding.c:75: ASSERT(foo_mul() == 54000);
+                            784 ;	genPlus
+                            785 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01C6 2Ar00s00      [16]  786 	ld	hl, (___numTests)
+   01C9 23            [ 6]  787 	inc	hl
+                            788 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01CA 22r00s00      [16]  789 	ld	(___numTests), hl
+                            790 ;	genCall
+   01CD CDr96s00      [17]  791 	call	_foo_mul
+                            792 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01D0 EB            [ 4]  793 	ex	de, hl
+                            794 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            795 ;	genCmpEq
+   01D1 11 F0 D2      [10]  796 	ld	de, #0xd2f0
+   01D4 BF            [ 4]  797 	cp	a, a
+   01D5 ED 52         [15]  798 	sbc	hl, de
+                            799 ; common peephole 163 changed absolute to relative conditional jump.
+   01D7 28 11         [12]  800 	jr	z, 00116$
+                            801 ; common peephole 81 removed jp by using inverse jump logic
+                            802 ; common peephole 159 removed unused label 00209$.
+                            803 ;	skipping generated iCode
+                            804 ;	skipping iCode since result will be rematerialized
+                            805 ;	skipping iCode since result will be rematerialized
+                            806 ;	skipping iCode since result will be rematerialized
+                            807 ;	skipping iCode since result will be rematerialized
+                            808 ;	skipping iCode since result will be rematerialized
+                            809 ;	skipping iCode since result will be rematerialized
+                            810 ;	genIpush
+                            811 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01D9 21 4B 00      [10]  812 	ld	hl, #0x004b
+   01DC E5            [11]  813 	push	hl
+                            814 ;	genIpush
+                            815 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01DD 21r80s02      [10]  816 	ld	hl, #___str_2
+   01E0 E5            [11]  817 	push	hl
+                            818 ;	genSend
+                            819 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01E1 11rFBs02      [10]  820 	ld	de, #___str_8
+                            821 ;	genSend
+                            822 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   01E4 21r5Fs02      [10]  823 	ld	hl, #___str_0
+                            824 ;	genCall
+   01E7 CDr00s00      [17]  825 	call	___fail
+                            826 ;	genLabel
+   01EA                     827 00116$:
+                            828 ;cases/./../tests/ast_constant_folding.c:77: i =  3; ASSERT(foo_div() ==    20);
+                            829 ;	genAssign
+                            830 ;fetchPairLong
+   01EA 21 03 00      [10]  831 	ld	hl, #0x0003
+                            832 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01ED 22r00s00      [16]  833 	ld	(_i), hl
+                            834 ;	genPlus
+                            835 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01F0 2Ar00s00      [16]  836 	ld	hl, (___numTests)
+   01F3 23            [ 6]  837 	inc	hl
+                            838 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   01F4 22r00s00      [16]  839 	ld	(___numTests), hl
+                            840 ;	genCall
+   01F7 CDrABs00      [17]  841 	call	_foo_div
+                            842 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            843 ;	genCmpEq
+                            844 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   01FA 7B            [ 4]  845 	ld	a, e
+                            846 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   01FB D6 14         [ 7]  847 	sub	a, #0x14
+   01FD B2            [ 4]  848 	or	a, d
+                            849 ; common peephole 163 changed absolute to relative conditional jump.
+   01FE 28 11         [12]  850 	jr	z, 00118$
+                            851 ; common peephole 81 removed jp by using inverse jump logic
+                            852 ; common peephole 159 removed unused label 00210$.
+                            853 ;	skipping generated iCode
+                            854 ;	skipping iCode since result will be rematerialized
+                            855 ;	skipping iCode since result will be rematerialized
+                            856 ;	skipping iCode since result will be rematerialized
+                            857 ;	skipping iCode since result will be rematerialized
+                            858 ;	skipping iCode since result will be rematerialized
+                            859 ;	skipping iCode since result will be rematerialized
+                            860 ;	genIpush
+                            861 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0200 21 4D 00      [10]  862 	ld	hl, #0x004d
+   0203 E5            [11]  863 	push	hl
+                            864 ;	genIpush
+                            865 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0204 21r80s02      [10]  866 	ld	hl, #___str_2
+   0207 E5            [11]  867 	push	hl
+                            868 ;	genSend
+                            869 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0208 11r0Es03      [10]  870 	ld	de, #___str_9
+                            871 ;	genSend
+                            872 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   020B 21r5Fs02      [10]  873 	ld	hl, #___str_0
+                            874 ;	genCall
+   020E CDr00s00      [17]  875 	call	___fail
+                            876 ;	genLabel
+   0211                     877 00118$:
+                            878 ;cases/./../tests/ast_constant_folding.c:78: i =  3; ASSERT(foo_or () ==    15);
+                            879 ;	genAssign
+                            880 ;fetchPairLong
+   0211 21 03 00      [10]  881 	ld	hl, #0x0003
+                            882 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0214 22r00s00      [16]  883 	ld	(_i), hl
+                            884 ;	genPlus
+                            885 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0217 2Ar00s00      [16]  886 	ld	hl, (___numTests)
+   021A 23            [ 6]  887 	inc	hl
+                            888 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   021B 22r00s00      [16]  889 	ld	(___numTests), hl
+                            890 ;	genCall
+   021E CDrD3s00      [17]  891 	call	_foo_or
+                            892 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            893 ;	genCmpEq
+                            894 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0221 7B            [ 4]  895 	ld	a, e
+                            896 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0222 D6 0F         [ 7]  897 	sub	a, #0x0f
+   0224 B2            [ 4]  898 	or	a, d
+                            899 ; common peephole 163 changed absolute to relative conditional jump.
+   0225 28 11         [12]  900 	jr	z, 00120$
+                            901 ; common peephole 81 removed jp by using inverse jump logic
+                            902 ; common peephole 159 removed unused label 00211$.
+                            903 ;	skipping generated iCode
+                            904 ;	skipping iCode since result will be rematerialized
+                            905 ;	skipping iCode since result will be rematerialized
+                            906 ;	skipping iCode since result will be rematerialized
+                            907 ;	skipping iCode since result will be rematerialized
+                            908 ;	skipping iCode since result will be rematerialized
+                            909 ;	skipping iCode since result will be rematerialized
+                            910 ;	genIpush
+                            911 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0227 21 4E 00      [10]  912 	ld	hl, #0x004e
+   022A E5            [11]  913 	push	hl
+                            914 ;	genIpush
+                            915 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   022B 21r80s02      [10]  916 	ld	hl, #___str_2
+   022E E5            [11]  917 	push	hl
+                            918 ;	genSend
+                            919 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   022F 11r1Es03      [10]  920 	ld	de, #___str_10
+                            921 ;	genSend
+                            922 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0232 21r5Fs02      [10]  923 	ld	hl, #___str_0
+                            924 ;	genCall
+   0235 CDr00s00      [17]  925 	call	___fail
+                            926 ;	genLabel
+   0238                     927 00120$:
+                            928 ;cases/./../tests/ast_constant_folding.c:79: i =  7; ASSERT(foo_and() ==     4);
+                            929 ;	genAssign
+                            930 ;fetchPairLong
+   0238 21 07 00      [10]  931 	ld	hl, #0x0007
+                            932 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   023B 22r00s00      [16]  933 	ld	(_i), hl
+                            934 ;	genPlus
+                            935 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   023E 2Ar00s00      [16]  936 	ld	hl, (___numTests)
+   0241 23            [ 6]  937 	inc	hl
+                            938 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0242 22r00s00      [16]  939 	ld	(___numTests), hl
+                            940 ;	genCall
+   0245 CDrE7s00      [17]  941 	call	_foo_and
+                            942 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            943 ;	genCmpEq
+                            944 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0248 7B            [ 4]  945 	ld	a, e
+                            946 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0249 D6 04         [ 7]  947 	sub	a, #0x04
+   024B B2            [ 4]  948 	or	a, d
+   024C C8            [11]  949 	ret	z
+                            950 ; common peephole 161 replaced jump by return.
+                            951 ; common peephole 81 removed jp by using inverse jump logic
+                            952 ; common peephole 159 removed unused label 00212$.
+                            953 ;	skipping generated iCode
+                            954 ;	skipping iCode since result will be rematerialized
+                            955 ;	skipping iCode since result will be rematerialized
+                            956 ;	skipping iCode since result will be rematerialized
+                            957 ;	skipping iCode since result will be rematerialized
+                            958 ;	skipping iCode since result will be rematerialized
+                            959 ;	skipping iCode since result will be rematerialized
+                            960 ;	genIpush
+                            961 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   024D 21 4F 00      [10]  962 	ld	hl, #0x004f
+   0250 E5            [11]  963 	push	hl
+                            964 ;	genIpush
+                            965 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0251 21r80s02      [10]  966 	ld	hl, #___str_2
+   0254 E5            [11]  967 	push	hl
+                            968 ;	genSend
+                            969 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0255 11r2Es03      [10]  970 	ld	de, #___str_11
+                            971 ;	genSend
+                            972 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0258 21r5Fs02      [10]  973 	ld	hl, #___str_0
+                            974 ;	genCall
+   025B CDr00s00      [17]  975 	call	___fail
+                            976 ;	genLabel
+                            977 ; common peephole 159 removed unused label 00101$.
+                            978 ;cases/./../tests/ast_constant_folding.c:81: }
+                            979 ;	genEndFunction
+   025E C9            [10]  980 	ret
+                            981 ;	Total test_ast_cf function size at codegen: 1 bytes.
+   025F                     982 ___str_0:
+   025F 41 73 73 65 72 74   983 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   026F 00                  984 	.db 0x00
+   0270                     985 ___str_1:
+   0270 66 6F 6F 5F 61 61   986 	.ascii "foo_aa () == 47"
+        20 28 29 20 3D 3D
+        20 34 37
+   027F 00                  987 	.db 0x00
+   0280                     988 ___str_2:
+   0280 63 61 73 65 73 2F   989 	.ascii "cases/./../tests/ast_constant_folding.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 61
+        73 74 5F 63 6F 6E
+        73 74 61 6E 74 5F
+        66 6F 6C 64 69 6E
+        67 2E 63
+   02A7 00                  990 	.db 0x00
+   02A8                     991 ___str_3:
+   02A8 66 6F 6F 5F 61 73   992 	.ascii "foo_asr() == 97"
+        72 28 29 20 3D 3D
+        20 39 37
+   02B7 00                  993 	.db 0x00
+   02B8                     994 ___str_4:
+   02B8 66 6F 6F 5F 61 73   995 	.ascii "foo_asl() == 17"
+        6C 28 29 20 3D 3D
+        20 31 37
+   02C7 00                  996 	.db 0x00
+   02C8                     997 ___str_5:
+   02C8 66 6F 6F 5F 73 73   998 	.ascii "foo_ssr() == -47"
+        72 28 29 20 3D 3D
+        20 2D 34 37
+   02D8 00                  999 	.db 0x00
+   02D9                    1000 ___str_6:
+   02D9 66 6F 6F 5F 73 73  1001 	.ascii "foo_ssl() == -67"
+        6C 28 29 20 3D 3D
+        20 2D 36 37
+   02E9 00                 1002 	.db 0x00
+   02EA                    1003 ___str_7:
+   02EA 66 6F 6F 5F 73 61  1004 	.ascii "foo_sa () == -37"
+        20 28 29 20 3D 3D
+        20 2D 33 37
+   02FA 00                 1005 	.db 0x00
+   02FB                    1006 ___str_8:
+   02FB 66 6F 6F 5F 6D 75  1007 	.ascii "foo_mul() == 54000"
+        6C 28 29 20 3D 3D
+        20 35 34 30 30 30
+   030D 00                 1008 	.db 0x00
+   030E                    1009 ___str_9:
+   030E 66 6F 6F 5F 64 69  1010 	.ascii "foo_div() == 20"
+        76 28 29 20 3D 3D
+        20 32 30
+   031D 00                 1011 	.db 0x00
+   031E                    1012 ___str_10:
+   031E 66 6F 6F 5F 6F 72  1013 	.ascii "foo_or () == 15"
+        20 28 29 20 3D 3D
+        20 31 35
+   032D 00                 1014 	.db 0x00
+   032E                    1015 ___str_11:
+   032E 66 6F 6F 5F 61 6E  1016 	.ascii "foo_and() == 4"
+        64 28 29 20 3D 3D
+        20 34
+   033C 00                 1017 	.db 0x00
+                           1018 ;cases/tst_ast_constant_folding.c:4: __runSuite(void)
+                           1019 ;	genLabel
+                           1020 ;	genFunction
+                           1021 ;	---------------------------------
+                           1022 ; Function __runSuite
+                           1023 ; ---------------------------------
+                           1024 ;	Register assignment is optimal.
+                           1025 ; Stack space usage: 0 bytes.
+   033D                    1026 ___runSuite::
+                           1027 ;cases/tst_ast_constant_folding.c:6: __prints("Running test_ast_cf\n");
+                           1028 ;	skipping iCode since result will be rematerialized
+                           1029 ;	skipping iCode since result will be rematerialized
+                           1030 ;	genSend
+                           1031 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   033D 21r46s03      [10] 1032 	ld	hl, #___str_12
+                           1033 ;	genCall
+   0340 CDr00s00      [17] 1034 	call	___prints
+                           1035 ;cases/tst_ast_constant_folding.c:7: test_ast_cf();
+                           1036 ;	genCall
+                           1037 ;	genLabel
+                           1038 ; common peephole 159 removed unused label 00101$.
+                           1039 ;cases/tst_ast_constant_folding.c:8: }
+                           1040 ;	genEndFunction
+   0343 C3rF4s00      [10] 1041 	jp	_test_ast_cf
+                           1042 ; common peephole 152 removed unused ret.
+                           1043 ;	Total __runSuite function size at codegen: 1 bytes.
+   0346                    1044 ___str_12:
+   0346 52 75 6E 6E 69 6E  1045 	.ascii "Running test_ast_cf"
+        67 20 74 65 73 74
+        5F 61 73 74 5F 63
+        66
+   0359 0A                 1046 	.db 0x0a
+   035A 00                 1047 	.db 0x00
+                           1048 ;cases/tst_ast_constant_folding.c:13: __getSuiteName(void)
+                           1049 ;	genLabel
+                           1050 ;	genFunction
+                           1051 ;	---------------------------------
+                           1052 ; Function __getSuiteName
+                           1053 ; ---------------------------------
+                           1054 ;	Register assignment is optimal.
+                           1055 ; Stack space usage: 0 bytes.
+   035B                    1056 ___getSuiteName::
+                           1057 ;cases/tst_ast_constant_folding.c:15: return "ast_constant_folding.c";
+                           1058 ;	skipping iCode since result will be rematerialized
+                           1059 ;	skipping iCode since result will be rematerialized
+                           1060 ;	genRet
+                           1061 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   035B 11r61s03      [10] 1062 	ld	de, #___str_13
+                           1063 ;	genLabel
+                           1064 ; common peephole 159 removed unused label 00101$.
+                           1065 ;cases/tst_ast_constant_folding.c:16: }
+                           1066 ;	genEndFunction
+   035E C9            [10] 1067 	ret
+                           1068 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   035F                    1069 ___numCases:
+   035F 01 00              1070 	.dw #0x0001
+   0361                    1071 ___str_13:
+   0361 61 73 74 5F 63 6F  1072 	.ascii "ast_constant_folding.c"
+        6E 73 74 61 6E 74
+        5F 66 6F 6C 64 69
+        6E 67 2E 63
+   0377 00                 1073 	.db 0x00
+                           1074 	.area _CODE (BANK=_CSEG)
+                           1075 	.area _INITIALIZER
+                           1076 	.area _CABS (ABS)

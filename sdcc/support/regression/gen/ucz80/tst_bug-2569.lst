@@ -1,0 +1,303 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_2569
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _uip_arp_timer
+                             12 	.globl ___prints
+                             13 	.globl ___numCases
+                             14 	.globl _uip_all_zeroes_addr
+                             15 	.globl ___runSuite
+                             16 	.globl ___getSuiteName
+                             17 ;--------------------------------------------------------
+                             18 ; special function registers
+                             19 ;--------------------------------------------------------
+                             20 ;--------------------------------------------------------
+                             21 ; ram data
+                             22 ;--------------------------------------------------------
+                             23 	.area _DATA (BANK=_DSEG)
+   0000                      24 _arp_table:
+   0000                      25 	.ds 88
+   0058                      26 _i:
+   0058                      27 	.ds 1
+   0059                      28 _arptime:
+   0059                      29 	.ds 1
+                             30 ;--------------------------------------------------------
+                             31 ; ram data
+                             32 ;--------------------------------------------------------
+                             33 	.area _INITIALIZED
+                             34 ;--------------------------------------------------------
+                             35 ; absolute ram data
+                             36 ;--------------------------------------------------------
+                             37 	.area _DABS (ABS)
+                             38 	.area _DABS (ABS)
+                             39 ;--------------------------------------------------------
+                             40 ; global & static initialisations
+                             41 ;--------------------------------------------------------
+                             42 	.area _HOME
+                             43 	.area _GSINIT
+                             44 	.area _GSFINAL
+                             45 	.area _GSINIT
+                             46 ;--------------------------------------------------------
+                             47 ; Home
+                             48 ;--------------------------------------------------------
+                             49 	.area _HOME (BANK=_CSEG)
+                             50 	.area _HOME (BANK=_CSEG)
+                             51 ;--------------------------------------------------------
+                             52 ; code
+                             53 ;--------------------------------------------------------
+                             54 	.area _CODE (BANK=_CSEG)
+                             55 ;cases/./../tests/bug-2569.c:49: uip_arp_timer(void)
+                             56 ;	genLabel
+                             57 ;	genFunction
+                             58 ;	---------------------------------
+                             59 ; Function uip_arp_timer
+                             60 ; ---------------------------------
+                             61 ;	Register assignment might be sub-optimal.
+                             62 ; Stack space usage: 0 bytes.
+   0000                      63 _uip_arp_timer::
+                             64 ;cases/./../tests/bug-2569.c:53: ++arptime;
+                             65 ;	genPlus
+   0000 21r59s00      [10]   66 	ld	hl, #_arptime
+   0003 34            [11]   67 	inc	(hl)
+                             68 ;cases/./../tests/bug-2569.c:54: for(i = 0; i < UIP_ARPTAB_SIZE; ++i) {
+                             69 ;	genAssign
+                             70 ;	genMove_o size 1 result type 11 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0004 AF            [ 4]   71 	xor	a, a
+   0005 32r58s00      [13]   72 	ld	(#_i), a
+                             73 ; common peephole 19 loaded (#_i) from a directly instead of using hl.
+                             74 ;	skipping iCode since result will be rematerialized
+                             75 ;	skipping iCode since result will be rematerialized
+                             76 ;	skipping iCode since result will be rematerialized
+                             77 ;	genLabel
+   0008                      78 00106$:
+                             79 ;cases/./../tests/bug-2569.c:55: tabptr = &arp_table[i];
+                             80 ;	genMult
+                             81 ;fetchPairLong
+                             82 ; common peephole 53 used direct memory load instead of indirect.
+   0008 3Ar58s00      [13]   83 	ld	a, (#_i + 0)
+   000B 4F            [ 4]   84 	ld	c, a
+   000C 06 00         [ 7]   85 	ld	b, #0x00
+   000E 69            [ 4]   86 	ld	l, c
+   000F 60            [ 4]   87 	ld	h, b
+   0010 29            [11]   88 	add	hl, hl
+   0011 29            [11]   89 	add	hl, hl
+   0012 09            [11]   90 	add	hl, bc
+   0013 29            [11]   91 	add	hl, hl
+   0014 09            [11]   92 	add	hl, bc
+                             93 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             94 ;	genPlus
+                             95 ;	genMove_o size 2 result type 2 source type 7 a_dead 0 hl_dead 0 de_dead 0 iy_dead 0 f_dead 1
+   0015 11r00s00      [10]   96 	ld	de, #_arp_table
+   0018 19            [11]   97 	add	hl, de
+                             98 ;	genCast
+                             99 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            100 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            101 ;cases/./../tests/bug-2569.c:56: if(uip_ipaddr_cmp(&tabptr->ipaddr, &uip_all_zeroes_addr) &&
+                            102 ;	genPointerGet
+                            103 ;fetchPairLong
+                            104 ; common peephole 32b removed de/hl swap.
+   0019 5D            [ 4]  105 	ld	e, l
+   001A 54            [ 4]  106 	ld	d, h
+                            107 ;	_moveFrom_tpair_()
+   001B 4E            [ 7]  108 	ld	c, (hl)
+   001C 23            [ 6]  109 	inc	hl
+                            110 ;	_moveFrom_tpair_()
+   001D 46            [ 7]  111 	ld	b, (hl)
+                            112 ;	genPointerGet
+   001E 2Ar68s00      [16]  113 	ld	hl, (#_uip_all_zeroes_addr + 0)
+                            114 ;	genCmpEq
+                            115 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0021 AF            [ 4]  116 	xor	a, a
+   0022 ED 42         [15]  117 	sbc	hl, bc
+                            118 ; common peephole 81 removed jp by using inverse jump logic
+                            119 ; common peephole 159 removed unused label 00142$.
+                            120 ; common peephole 163 changed absolute to relative conditional jump.
+   0024 20 36         [12]  121 	jr	nz, 00107$
+                            122 ; common peephole 82 removed jp by using inverse jump logic
+                            123 ; common peephole 159 removed unused label 00143$.
+                            124 ;	skipping generated iCode
+                            125 ;	genAssign
+                            126 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0026 6B            [ 4]  127 	ld	l, e
+   0027 62            [ 4]  128 	ld	h, d
+                            129 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            130 ;	genPointerGet
+                            131 ;fetchPairLong
+   0028 23            [ 6]  132 	inc	hl
+   0029 23            [ 6]  133 	inc	hl
+                            134 ;	_moveFrom_tpair_()
+   002A 4E            [ 7]  135 	ld	c, (hl)
+   002B 23            [ 6]  136 	inc	hl
+                            137 ;	_moveFrom_tpair_()
+   002C 46            [ 7]  138 	ld	b, (hl)
+                            139 ;	genPointerGet
+   002D 2Ar6As00      [16]  140 	ld	hl, (#(_uip_all_zeroes_addr + 2) + 0)
+                            141 ;	genCmpEq
+                            142 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0030 AF            [ 4]  143 	xor	a, a
+   0031 ED 42         [15]  144 	sbc	hl, bc
+                            145 ; common peephole 81 removed jp by using inverse jump logic
+                            146 ; common peephole 159 removed unused label 00144$.
+                            147 ; common peephole 163 changed absolute to relative conditional jump.
+   0033 20 27         [12]  148 	jr	nz, 00107$
+                            149 ; common peephole 82 removed jp by using inverse jump logic
+                            150 ; common peephole 159 removed unused label 00145$.
+                            151 ;	skipping generated iCode
+                            152 ;cases/./../tests/bug-2569.c:57: arptime - tabptr->time >= UIP_ARP_MAXAGE) {
+                            153 ;	genCast
+                            154 ;	genMove_o size 1 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0035 3Ar59s00      [13]  155 	ld	a, (_arptime)
+                            156 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0038 06 00         [ 7]  157 	ld	b, #0x00
+                            158 ;	genAssign
+                            159 ;	genMove_o size 2 result type 2 source type 2 a_dead 0 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   003A 6B            [ 4]  160 	ld	l, e
+   003B 62            [ 4]  161 	ld	h, d
+                            162 ;	genMove_o size 0 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            163 ;	genPointerGet
+                            164 ;fetchPairLong
+   003C C5            [11]  165 	push	bc
+   003D 01 0A 00      [10]  166 	ld	bc, #0x000a
+   0040 09            [11]  167 	add	hl, bc
+   0041 C1            [10]  168 	pop	bc
+                            169 ;	_moveFrom_tpair_()
+   0042 6E            [ 7]  170 	ld	l, (hl)
+                            171 ;	genCast
+                            172 ;	genMove_o size 1 result type 2 source type 2 a_dead 0 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            173 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 0 de_dead 0 iy_dead 0 f_dead 1
+   0043 26 00         [ 7]  174 	ld	h, #0x00
+                            175 ;	genMinus
+   0045 95            [ 4]  176 	sub	a, l
+   0046 4F            [ 4]  177 	ld	c, a
+   0047 9F            [ 4]  178 	sbc	a, a
+   0048 47            [ 4]  179 	ld	b, a
+                            180 ;	genCmpLt
+   0049 79            [ 4]  181 	ld	a, c
+   004A D6 78         [ 7]  182 	sub	a, #0x78
+   004C 78            [ 4]  183 	ld	a, b
+   004D 17            [ 4]  184 	rla
+   004E 3F            [ 4]  185 	ccf
+   004F 1F            [ 4]  186 	rra
+   0050 DE 80         [ 7]  187 	sbc	a, #0x80
+                            188 ; common peephole 163 changed absolute to relative conditional jump.
+   0052 38 08         [12]  189 	jr	c, 00107$
+                            190 ;	skipping generated iCode
+                            191 ;cases/./../tests/bug-2569.c:58: memset(&tabptr->ipaddr, 0, 4);
+                            192 ;	genCast
+                            193 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0054 EB            [ 4]  194 	ex	de, hl
+                            195 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                            196 ;	genBuiltIn
+                            197 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 0 f_dead 1
+   0055 06 04         [ 7]  198 	ld	b, #0x04
+   0057                     199 00146$:
+   0057 36 00         [10]  200 	ld	(hl), #0x00
+   0059 23            [ 6]  201 	inc	hl
+   005A 10 FB         [13]  202 	djnz	00146$
+                            203 ;	skipping generated iCode
+                            204 ;	skipping generated iCode
+                            205 ;	skipping generated iCode
+                            206 ;	genLabel
+   005C                     207 00107$:
+                            208 ;cases/./../tests/bug-2569.c:54: for(i = 0; i < UIP_ARPTAB_SIZE; ++i) {
+                            209 ;	genPlus
+   005C 21r58s00      [10]  210 	ld	hl, #_i
+   005F 34            [11]  211 	inc	(hl)
+                            212 ;	genCmpLt
+   0060 3Ar58s00      [13]  213 	ld	a, (_i+0)
+   0063 D6 08         [ 7]  214 	sub	a, #0x08
+                            215 ; common peephole 163 changed absolute to relative conditional jump.
+   0065 38 A1         [12]  216 	jr	c, 00106$
+                            217 ;	skipping generated iCode
+                            218 ;	genLabel
+                            219 ; common peephole 159 removed unused label 00108$.
+                            220 ;cases/./../tests/bug-2569.c:61: }
+                            221 ;	genEndFunction
+   0067 C9            [10]  222 	ret
+                            223 ;	Total uip_arp_timer function size at codegen: 5 bytes.
+   0068                     224 _uip_all_zeroes_addr:
+   0068 00                  225 	.db #0x00	; 0
+   0069 00                  226 	.db 0x00
+   006A 00                  227 	.db 0x00
+   006B 00                  228 	.db 0x00
+                            229 ;cases/./../tests/bug-2569.c:64: void testBug (void)
+                            230 ;	genLabel
+                            231 ;	genFunction
+                            232 ;	---------------------------------
+                            233 ; Function testBug
+                            234 ; ---------------------------------
+                            235 ;	Register assignment is optimal.
+                            236 ; Stack space usage: 0 bytes.
+   006C                     237 _testBug::
+                            238 ;cases/./../tests/bug-2569.c:66: }
+                            239 ;	genLabel
+                            240 ; common peephole 159 removed unused label 00101$.
+                            241 ;	genEndFunction
+   006C C9            [10]  242 	ret
+                            243 ;	Total testBug function size at codegen: 5 bytes.
+                            244 ;cases/tst_bug-2569.c:4: __runSuite(void)
+                            245 ;	genLabel
+                            246 ;	genFunction
+                            247 ;	---------------------------------
+                            248 ; Function __runSuite
+                            249 ; ---------------------------------
+                            250 ;	Register assignment is optimal.
+                            251 ; Stack space usage: 0 bytes.
+   006D                     252 ___runSuite::
+                            253 ;cases/tst_bug-2569.c:6: __prints("Running testBug\n");
+                            254 ;	skipping iCode since result will be rematerialized
+                            255 ;	skipping iCode since result will be rematerialized
+                            256 ;	genSend
+                            257 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   006D 21r73s00      [10]  258 	ld	hl, #___str_0
+                            259 ;	genCall
+                            260 ;cases/tst_bug-2569.c:7: testBug();
+                            261 ;	genLabel
+                            262 ; common peephole 159 removed unused label 00101$.
+                            263 ;cases/tst_bug-2569.c:8: }
+                            264 ;	genEndFunction
+   0070 C3r00s00      [10]  265 	jp	___prints
+                            266 ; common peephole 152 removed unused ret.
+                            267 ;	Total __runSuite function size at codegen: 1 bytes.
+   0073                     268 ___str_0:
+   0073 52 75 6E 6E 69 6E   269 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   0082 0A                  270 	.db 0x0a
+   0083 00                  271 	.db 0x00
+                            272 ;cases/tst_bug-2569.c:13: __getSuiteName(void)
+                            273 ;	genLabel
+                            274 ;	genFunction
+                            275 ;	---------------------------------
+                            276 ; Function __getSuiteName
+                            277 ; ---------------------------------
+                            278 ;	Register assignment is optimal.
+                            279 ; Stack space usage: 0 bytes.
+   0084                     280 ___getSuiteName::
+                            281 ;cases/tst_bug-2569.c:15: return "bug-2569.c";
+                            282 ;	skipping iCode since result will be rematerialized
+                            283 ;	skipping iCode since result will be rematerialized
+                            284 ;	genRet
+                            285 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0084 11r8As00      [10]  286 	ld	de, #___str_1
+                            287 ;	genLabel
+                            288 ; common peephole 159 removed unused label 00101$.
+                            289 ;cases/tst_bug-2569.c:16: }
+                            290 ;	genEndFunction
+   0087 C9            [10]  291 	ret
+                            292 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0088                     293 ___numCases:
+   0088 01 00               294 	.dw #0x0001
+   008A                     295 ___str_1:
+   008A 62 75 67 2D 32 35   296 	.ascii "bug-2569.c"
+        36 39 2E 63
+   0094 00                  297 	.db 0x00
+                            298 	.area _CODE (BANK=_CSEG)
+                            299 	.area _INITIALIZER
+                            300 	.area _CABS (ABS)

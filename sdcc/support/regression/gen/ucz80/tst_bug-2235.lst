@@ -1,0 +1,191 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_2235
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug2235
+                             11 	.globl _foo
+                             12 	.globl ___prints
+                             13 	.globl _SFR32
+                             14 	.globl ___numCases
+                             15 	.globl ___runSuite
+                             16 	.globl ___getSuiteName
+                             17 ;--------------------------------------------------------
+                             18 ; special function registers
+                             19 ;--------------------------------------------------------
+                             20 ;--------------------------------------------------------
+                             21 ; ram data
+                             22 ;--------------------------------------------------------
+                             23 	.area _DATA (BANK=_DSEG)
+   0000                      24 _SFR32::
+   0000                      25 	.ds 4
+                             26 ;--------------------------------------------------------
+                             27 ; ram data
+                             28 ;--------------------------------------------------------
+                             29 	.area _INITIALIZED
+                             30 ;--------------------------------------------------------
+                             31 ; absolute ram data
+                             32 ;--------------------------------------------------------
+                             33 	.area _DABS (ABS)
+                             34 	.area _DABS (ABS)
+                             35 ;--------------------------------------------------------
+                             36 ; global & static initialisations
+                             37 ;--------------------------------------------------------
+                             38 	.area _HOME
+                             39 	.area _GSINIT
+                             40 	.area _GSFINAL
+                             41 	.area _GSINIT
+                             42 ;--------------------------------------------------------
+                             43 ; Home
+                             44 ;--------------------------------------------------------
+                             45 	.area _HOME (BANK=_CSEG)
+                             46 	.area _HOME (BANK=_CSEG)
+                             47 ;--------------------------------------------------------
+                             48 ; code
+                             49 ;--------------------------------------------------------
+                             50 	.area _CODE (BANK=_CSEG)
+                             51 ;cases/./../tests/bug-2235.c:12: void foo(unsigned long u1, unsigned long u2, unsigned long u3)
+                             52 ;	genLabel
+                             53 ;	genFunction
+                             54 ;	---------------------------------
+                             55 ; Function foo
+                             56 ; ---------------------------------
+                             57 ;	Register assignment is optimal.
+                             58 ; Stack space usage: 0 bytes.
+   0000                      59 _foo::
+                             60 ;cases/./../tests/bug-2235.c:16: u3;
+                             61 ;	genLabel
+                             62 ; common peephole 159 removed unused label 00101$.
+                             63 ;cases/./../tests/bug-2235.c:17: }
+                             64 ;	genEndFunction
+   0000 E1            [10]   65 	pop	hl
+                             66 ;	adjustStack by 8
+   0001 F1            [10]   67 	pop	af
+   0002 F1            [10]   68 	pop	af
+   0003 F1            [10]   69 	pop	af
+   0004 F1            [10]   70 	pop	af
+   0005 E9            [ 4]   71 	jp	(hl)
+                             72 ;	Total foo function size at codegen: 6 bytes.
+                             73 ;cases/./../tests/bug-2235.c:20: void testBug2235(void)
+                             74 ;	genLabel
+                             75 ;	genFunction
+                             76 ;	---------------------------------
+                             77 ; Function testBug2235
+                             78 ; ---------------------------------
+                             79 ;	Register assignment is optimal.
+                             80 ; Stack space usage: 0 bytes.
+   0006                      81 _testBug2235::
+                             82 ;cases/./../tests/bug-2235.c:24: U1 = 0xABCDEF01 + SFR32;
+                             83 ;	genDummyRead
+                             84 ; common peephole 1 removed dead load from #_SFR32 into iy.
+                             85 ; common peephole 7 removed dead load from 0 (iy) into a.
+                             86 ; common peephole 7 removed dead load from 1 (iy) into a.
+                             87 ; common peephole 7 removed dead load from 2 (iy) into a.
+                             88 ; common peephole 7 removed dead load from 3 (iy) into a.
+                             89 ;cases/./../tests/bug-2235.c:25: U2 = U1 + SFR32;
+                             90 ;	genDummyRead
+                             91 ; common peephole 7 removed dead load from 0 (iy) into a.
+                             92 ; common peephole 7 removed dead load from 1 (iy) into a.
+                             93 ; common peephole 7 removed dead load from 2 (iy) into a.
+                             94 ; common peephole 7 removed dead load from 3 (iy) into a.
+                             95 ;cases/./../tests/bug-2235.c:26: U3 = U2 + SFR32;
+                             96 ;	genDummyRead
+                             97 ; common peephole 7 removed dead load from 0 (iy) into a.
+                             98 ; common peephole 7 removed dead load from 1 (iy) into a.
+                             99 ; common peephole 7 removed dead load from 2 (iy) into a.
+                            100 ; common peephole 7 removed dead load from 3 (iy) into a.
+                            101 ;cases/./../tests/bug-2235.c:28: ASSERT(1);
+                            102 ;	genPlus
+                            103 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0006 2Ar00s00      [16]  104 	ld	hl, (___numTests)
+   0009 23            [ 6]  105 	inc	hl
+                            106 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000A 22r00s00      [16]  107 	ld	(___numTests), hl
+                            108 ;	genLabel
+                            109 ; common peephole 159 removed unused label 00101$.
+                            110 ;cases/./../tests/bug-2235.c:29: }
+                            111 ;	genEndFunction
+   000D C9            [10]  112 	ret
+                            113 ;	Total testBug2235 function size at codegen: 1 bytes.
+   000E                     114 __str_0:
+   000E 41 73 73 65 72 74   115 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   001E 00                  116 	.db 0x00
+   001F                     117 __str_1:
+   001F 31                  118 	.ascii "1"
+   0020 00                  119 	.db 0x00
+   0021                     120 __str_2:
+   0021 63 61 73 65 73 2F   121 	.ascii "cases/./../tests/bug-2235.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 62
+        75 67 2D 32 32 33
+        35 2E 63
+   003C 00                  122 	.db 0x00
+                            123 ;cases/tst_bug-2235.c:4: __runSuite(void)
+                            124 ;	genLabel
+                            125 ;	genFunction
+                            126 ;	---------------------------------
+                            127 ; Function __runSuite
+                            128 ; ---------------------------------
+                            129 ;	Register assignment is optimal.
+                            130 ; Stack space usage: 0 bytes.
+   003D                     131 ___runSuite::
+                            132 ;cases/tst_bug-2235.c:6: __prints("Running testBug2235\n");
+                            133 ;	skipping iCode since result will be rematerialized
+                            134 ;	skipping iCode since result will be rematerialized
+                            135 ;	genSend
+                            136 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   003D 21r46s00      [10]  137 	ld	hl, #___str_3
+                            138 ;	genCall
+   0040 CDr00s00      [17]  139 	call	___prints
+                            140 ;cases/tst_bug-2235.c:7: testBug2235();
+                            141 ;	genCall
+                            142 ;	genLabel
+                            143 ; common peephole 159 removed unused label 00101$.
+                            144 ;cases/tst_bug-2235.c:8: }
+                            145 ;	genEndFunction
+   0043 C3r06s00      [10]  146 	jp	_testBug2235
+                            147 ; common peephole 152 removed unused ret.
+                            148 ;	Total __runSuite function size at codegen: 1 bytes.
+   0046                     149 ___str_3:
+   0046 52 75 6E 6E 69 6E   150 	.ascii "Running testBug2235"
+        67 20 74 65 73 74
+        42 75 67 32 32 33
+        35
+   0059 0A                  151 	.db 0x0a
+   005A 00                  152 	.db 0x00
+                            153 ;cases/tst_bug-2235.c:13: __getSuiteName(void)
+                            154 ;	genLabel
+                            155 ;	genFunction
+                            156 ;	---------------------------------
+                            157 ; Function __getSuiteName
+                            158 ; ---------------------------------
+                            159 ;	Register assignment is optimal.
+                            160 ; Stack space usage: 0 bytes.
+   005B                     161 ___getSuiteName::
+                            162 ;cases/tst_bug-2235.c:15: return "bug-2235.c";
+                            163 ;	skipping iCode since result will be rematerialized
+                            164 ;	skipping iCode since result will be rematerialized
+                            165 ;	genRet
+                            166 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   005B 11r61s00      [10]  167 	ld	de, #___str_4
+                            168 ;	genLabel
+                            169 ; common peephole 159 removed unused label 00101$.
+                            170 ;cases/tst_bug-2235.c:16: }
+                            171 ;	genEndFunction
+   005E C9            [10]  172 	ret
+                            173 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   005F                     174 ___numCases:
+   005F 01 00               175 	.dw #0x0001
+   0061                     176 ___str_4:
+   0061 62 75 67 2D 32 32   177 	.ascii "bug-2235.c"
+        33 35 2E 63
+   006B 00                  178 	.db 0x00
+                            179 	.area _CODE (BANK=_CSEG)
+                            180 	.area _INITIALIZER
+                            181 	.area _CABS (ABS)

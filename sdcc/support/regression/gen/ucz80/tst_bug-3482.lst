@@ -1,0 +1,204 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_3482
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _PlayerHit
+                             12 	.globl ___prints
+                             13 	.globl ___numCases
+                             14 	.globl _fast_rand
+                             15 	.globl _StatePlayerHit
+                             16 	.globl ___runSuite
+                             17 	.globl ___getSuiteName
+                             18 ;--------------------------------------------------------
+                             19 ; special function registers
+                             20 ;--------------------------------------------------------
+                             21 ;--------------------------------------------------------
+                             22 ; ram data
+                             23 ;--------------------------------------------------------
+                             24 	.area _DATA (BANK=_DSEG)
+                             25 ;--------------------------------------------------------
+                             26 ; ram data
+                             27 ;--------------------------------------------------------
+                             28 	.area _INITIALIZED
+                             29 ;--------------------------------------------------------
+                             30 ; absolute ram data
+                             31 ;--------------------------------------------------------
+                             32 	.area _DABS (ABS)
+                             33 	.area _DABS (ABS)
+                             34 ;--------------------------------------------------------
+                             35 ; global & static initialisations
+                             36 ;--------------------------------------------------------
+                             37 	.area _HOME
+                             38 	.area _GSINIT
+                             39 	.area _GSFINAL
+                             40 	.area _GSINIT
+                             41 ;--------------------------------------------------------
+                             42 ; Home
+                             43 ;--------------------------------------------------------
+                             44 	.area _HOME (BANK=_CSEG)
+                             45 	.area _HOME (BANK=_CSEG)
+                             46 ;--------------------------------------------------------
+                             47 ; code
+                             48 ;--------------------------------------------------------
+                             49 	.area _CODE (BANK=_CSEG)
+                             50 ;cases/./../tests/bug-3482.c:17: void PlayerHit( int8_t percent ) {
+                             51 ;	genLabel
+                             52 ;	genFunction
+                             53 ;	---------------------------------
+                             54 ; Function PlayerHit
+                             55 ; ---------------------------------
+                             56 ;	Register assignment might be sub-optimal.
+                             57 ; Stack space usage: 0 bytes.
+   0000                      58 _PlayerHit::
+                             59 ;cases/./../tests/bug-3482.c:19: percent = fast_rand() % 8 + 8;
+                             60 ;	genCall
+   0000 CDr0Fs00      [17]   61 	call	_fast_rand
+                             62 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             63 ;	genCast
+                             64 ;	(locations are the same)
+                             65 ;	genAnd
+   0003 7B            [ 4]   66 	ld	a, e
+   0004 E6 07         [ 7]   67 	and	a, #0x07
+                             68 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                             69 ;	genMove_o size 1 result type 2 source type 1 a_dead 0 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                             70 ; common peephole 1 removed dead load from #0x00 into c.
+                             71 ;	genCast
+                             72 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             73 ;	genCast
+                             74 ;	(locations are the same)
+                             75 ;	genPlus
+   0006 C6 08         [ 7]   76 	add	a, #0x08
+                             77 ;cases/./../tests/bug-3482.c:21: StatePlayerHit( percent ); // Code that corrupts the stack was generated for this call.
+                             78 ;	genSend
+                             79 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             80 ;	genCall
+                             81 ;	genLabel
+                             82 ; common peephole 159 removed unused label 00101$.
+                             83 ;cases/./../tests/bug-3482.c:22: }
+                             84 ;	genEndFunction
+   0008 C3r13s00      [10]   85 	jp	_StatePlayerHit
+                             86 ; common peephole 152 removed unused ret.
+                             87 ;	Total PlayerHit function size at codegen: 1 bytes.
+                             88 ;cases/./../tests/bug-3482.c:25: testBug(void)
+                             89 ;	genLabel
+                             90 ;	genFunction
+                             91 ;	---------------------------------
+                             92 ; Function testBug
+                             93 ; ---------------------------------
+                             94 ;	Register assignment is optimal.
+                             95 ; Stack space usage: 0 bytes.
+   000B                      96 _testBug::
+                             97 ;cases/./../tests/bug-3482.c:27: PlayerHit( 0 );
+                             98 ;	genSend
+                             99 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000B AF            [ 4]  100 	xor	a, a
+                            101 ;	genCall
+                            102 ;	genLabel
+                            103 ; common peephole 159 removed unused label 00101$.
+                            104 ;cases/./../tests/bug-3482.c:28: }
+                            105 ;	genEndFunction
+   000C C3r00s00      [10]  106 	jp	_PlayerHit
+                            107 ; common peephole 152 removed unused ret.
+                            108 ;	Total testBug function size at codegen: 1 bytes.
+                            109 ;cases/./../tests/bug-3482.c:30: uint16_t fast_rand( void ) {
+                            110 ;	genLabel
+                            111 ;	genFunction
+                            112 ;	---------------------------------
+                            113 ; Function fast_rand
+                            114 ; ---------------------------------
+                            115 ;	Register assignment is optimal.
+                            116 ; Stack space usage: 0 bytes.
+   000F                     117 _fast_rand::
+                            118 ;cases/./../tests/bug-3482.c:31: return 0;
+                            119 ;	genRet
+                            120 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000F 11 00 00      [10]  121 	ld	de, #0x0000
+                            122 ;	genLabel
+                            123 ; common peephole 159 removed unused label 00101$.
+                            124 ;cases/./../tests/bug-3482.c:32: }
+                            125 ;	genEndFunction
+   0012 C9            [10]  126 	ret
+                            127 ;	Total fast_rand function size at codegen: 1 bytes.
+                            128 ;cases/./../tests/bug-3482.c:34: void StatePlayerHit( uint8_t amount ) {
+                            129 ;	genLabel
+                            130 ;	genFunction
+                            131 ;	---------------------------------
+                            132 ; Function StatePlayerHit
+                            133 ; ---------------------------------
+                            134 ;	Register assignment is optimal.
+                            135 ; Stack space usage: 0 bytes.
+   0013                     136 _StatePlayerHit::
+                            137 ;cases/./../tests/bug-3482.c:35: }
+                            138 ;	genLabel
+                            139 ; common peephole 159 removed unused label 00101$.
+                            140 ;	genEndFunction
+   0013 C9            [10]  141 	ret
+                            142 ;	Total StatePlayerHit function size at codegen: 1 bytes.
+                            143 ;cases/tst_bug-3482.c:4: __runSuite(void)
+                            144 ;	genLabel
+                            145 ;	genFunction
+                            146 ;	---------------------------------
+                            147 ; Function __runSuite
+                            148 ; ---------------------------------
+                            149 ;	Register assignment is optimal.
+                            150 ; Stack space usage: 0 bytes.
+   0014                     151 ___runSuite::
+                            152 ;cases/tst_bug-3482.c:6: __prints("Running testBug\n");
+                            153 ;	skipping iCode since result will be rematerialized
+                            154 ;	skipping iCode since result will be rematerialized
+                            155 ;	genSend
+                            156 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0014 21r1Ds00      [10]  157 	ld	hl, #___str_0
+                            158 ;	genCall
+   0017 CDr00s00      [17]  159 	call	___prints
+                            160 ;cases/tst_bug-3482.c:7: testBug();
+                            161 ;	genCall
+                            162 ;	genLabel
+                            163 ; common peephole 159 removed unused label 00101$.
+                            164 ;cases/tst_bug-3482.c:8: }
+                            165 ;	genEndFunction
+   001A C3r0Bs00      [10]  166 	jp	_testBug
+                            167 ; common peephole 152 removed unused ret.
+                            168 ;	Total __runSuite function size at codegen: 1 bytes.
+   001D                     169 ___str_0:
+   001D 52 75 6E 6E 69 6E   170 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   002C 0A                  171 	.db 0x0a
+   002D 00                  172 	.db 0x00
+                            173 ;cases/tst_bug-3482.c:13: __getSuiteName(void)
+                            174 ;	genLabel
+                            175 ;	genFunction
+                            176 ;	---------------------------------
+                            177 ; Function __getSuiteName
+                            178 ; ---------------------------------
+                            179 ;	Register assignment is optimal.
+                            180 ; Stack space usage: 0 bytes.
+   002E                     181 ___getSuiteName::
+                            182 ;cases/tst_bug-3482.c:15: return "bug-3482.c";
+                            183 ;	skipping iCode since result will be rematerialized
+                            184 ;	skipping iCode since result will be rematerialized
+                            185 ;	genRet
+                            186 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   002E 11r34s00      [10]  187 	ld	de, #___str_1
+                            188 ;	genLabel
+                            189 ; common peephole 159 removed unused label 00101$.
+                            190 ;cases/tst_bug-3482.c:16: }
+                            191 ;	genEndFunction
+   0031 C9            [10]  192 	ret
+                            193 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0032                     194 ___numCases:
+   0032 01 00               195 	.dw #0x0001
+   0034                     196 ___str_1:
+   0034 62 75 67 2D 33 34   197 	.ascii "bug-3482.c"
+        38 32 2E 63
+   003E 00                  198 	.db 0x00
+                            199 	.area _CODE (BANK=_CSEG)
+                            200 	.area _INITIALIZER
+                            201 	.area _CABS (ABS)

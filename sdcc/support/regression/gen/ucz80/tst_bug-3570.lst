@@ -1,0 +1,184 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_3570
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _LevelMapGet
+                             12 	.globl ___prints
+                             13 	.globl _mapData
+                             14 	.globl ___numCases
+                             15 	.globl ___runSuite
+                             16 	.globl ___getSuiteName
+                             17 ;--------------------------------------------------------
+                             18 ; special function registers
+                             19 ;--------------------------------------------------------
+                             20 ;--------------------------------------------------------
+                             21 ; ram data
+                             22 ;--------------------------------------------------------
+                             23 	.area _DATA (BANK=_DSEG)
+   0000                      24 _mapData::
+   0000                      25 	.ds 2
+                             26 ;--------------------------------------------------------
+                             27 ; ram data
+                             28 ;--------------------------------------------------------
+                             29 	.area _INITIALIZED
+                             30 ;--------------------------------------------------------
+                             31 ; absolute ram data
+                             32 ;--------------------------------------------------------
+                             33 	.area _DABS (ABS)
+                             34 	.area _DABS (ABS)
+                             35 ;--------------------------------------------------------
+                             36 ; global & static initialisations
+                             37 ;--------------------------------------------------------
+                             38 	.area _HOME
+                             39 	.area _GSINIT
+                             40 	.area _GSFINAL
+                             41 	.area _GSINIT
+                             42 ;--------------------------------------------------------
+                             43 ; Home
+                             44 ;--------------------------------------------------------
+                             45 	.area _HOME (BANK=_CSEG)
+                             46 	.area _HOME (BANK=_CSEG)
+                             47 ;--------------------------------------------------------
+                             48 ; code
+                             49 ;--------------------------------------------------------
+                             50 	.area _CODE (BANK=_CSEG)
+                             51 ;cases/./../tests/bug-3570.c:7: unsigned char *LevelMapGet(void) { return 0; }
+                             52 ;	genLabel
+                             53 ;	genFunction
+                             54 ;	---------------------------------
+                             55 ; Function LevelMapGet
+                             56 ; ---------------------------------
+                             57 ;	Register assignment is optimal.
+                             58 ; Stack space usage: 0 bytes.
+   0000                      59 _LevelMapGet::
+                             60 ;	genRet
+                             61 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0000 11 00 00      [10]   62 	ld	de, #0x0000
+                             63 ;	genLabel
+                             64 ; common peephole 159 removed unused label 00101$.
+                             65 ;	genEndFunction
+   0003 C9            [10]   66 	ret
+                             67 ;	Total LevelMapGet function size at codegen: 1 bytes.
+                             68 ;cases/./../tests/bug-3570.c:17: testBug(void) {
+                             69 ;	genLabel
+                             70 ;	genFunction
+                             71 ;	---------------------------------
+                             72 ; Function testBug
+                             73 ; ---------------------------------
+                             74 ;	Register assignment might be sub-optimal.
+                             75 ; Stack space usage: 0 bytes.
+   0004                      76 _testBug::
+                             77 ;cases/./../tests/bug-3570.c:18: if ( mapData.current + 5 >= LevelMapGet() )
+                             78 ;	skipping iCode since result will be rematerialized
+                             79 ;	genPointerGet
+   0004 2Ar00s00      [16]   80 	ld	hl, (#_mapData + 0)
+                             81 ;	genPlus
+                             82 ;fetchPairLong
+   0007 01 05 00      [10]   83 	ld	bc, #0x0005
+   000A 09            [11]   84 	add	hl, bc
+                             85 ;	genCall
+   000B E5            [11]   86 	push	hl
+   000C CDr00s00      [17]   87 	call	_LevelMapGet
+                             88 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000F E1            [10]   89 	pop	hl
+                             90 ;	genCmpLt
+   0010 7D            [ 4]   91 	ld	a, l
+   0011 93            [ 4]   92 	sub	a, e
+   0012 7C            [ 4]   93 	ld	a, h
+   0013 9A            [ 4]   94 	sbc	a, d
+                             95 ;	skipping generated iCode
+                             96 ;cases/./../tests/bug-3570.c:19: return;
+                             97 ;	genRet
+                             98 ;	genLabel
+   0014 D0            [11]   99 	ret	nc
+                            100 ; common peephole 161 replaced jump by return.
+                            101 ; common peephole 80 removed jp by using inverse jump logic
+                            102 ; common peephole 159 removed unused label 00102$.
+                            103 ;cases/./../tests/bug-3570.c:21: if ( &mapData.current[5] >= LevelMapGet() ) // This comparison failed to compile
+                            104 ;	genCall
+   0015 E5            [11]  105 	push	hl
+   0016 CDr00s00      [17]  106 	call	_LevelMapGet
+                            107 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0019 E1            [10]  108 	pop	hl
+                            109 ;	genCmpLt
+   001A AF            [ 4]  110 	xor	a, a
+   001B ED 52         [15]  111 	sbc	hl, de
+   001D D8            [11]  112 	ret	c
+                            113 ; common peephole 161 replaced jump by return.
+                            114 ;	skipping generated iCode
+                            115 ;cases/./../tests/bug-3570.c:22: return;
+                            116 ;	genRet
+                            117 ;	genLabel
+                            118 ; common peephole 159 removed unused label 00105$.
+                            119 ;cases/./../tests/bug-3570.c:23: }
+                            120 ;	genEndFunction
+   001E C9            [10]  121 	ret
+                            122 ;	Total testBug function size at codegen: 1 bytes.
+                            123 ;cases/tst_bug-3570.c:4: __runSuite(void)
+                            124 ;	genLabel
+                            125 ;	genFunction
+                            126 ;	---------------------------------
+                            127 ; Function __runSuite
+                            128 ; ---------------------------------
+                            129 ;	Register assignment is optimal.
+                            130 ; Stack space usage: 0 bytes.
+   001F                     131 ___runSuite::
+                            132 ;cases/tst_bug-3570.c:6: __prints("Running testBug\n");
+                            133 ;	skipping iCode since result will be rematerialized
+                            134 ;	skipping iCode since result will be rematerialized
+                            135 ;	genSend
+                            136 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001F 21r28s00      [10]  137 	ld	hl, #___str_0
+                            138 ;	genCall
+   0022 CDr00s00      [17]  139 	call	___prints
+                            140 ;cases/tst_bug-3570.c:7: testBug();
+                            141 ;	genCall
+                            142 ;	genLabel
+                            143 ; common peephole 159 removed unused label 00101$.
+                            144 ;cases/tst_bug-3570.c:8: }
+                            145 ;	genEndFunction
+   0025 C3r04s00      [10]  146 	jp	_testBug
+                            147 ; common peephole 152 removed unused ret.
+                            148 ;	Total __runSuite function size at codegen: 1 bytes.
+   0028                     149 ___str_0:
+   0028 52 75 6E 6E 69 6E   150 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   0037 0A                  151 	.db 0x0a
+   0038 00                  152 	.db 0x00
+                            153 ;cases/tst_bug-3570.c:13: __getSuiteName(void)
+                            154 ;	genLabel
+                            155 ;	genFunction
+                            156 ;	---------------------------------
+                            157 ; Function __getSuiteName
+                            158 ; ---------------------------------
+                            159 ;	Register assignment is optimal.
+                            160 ; Stack space usage: 0 bytes.
+   0039                     161 ___getSuiteName::
+                            162 ;cases/tst_bug-3570.c:15: return "bug-3570.c";
+                            163 ;	skipping iCode since result will be rematerialized
+                            164 ;	skipping iCode since result will be rematerialized
+                            165 ;	genRet
+                            166 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0039 11r3Fs00      [10]  167 	ld	de, #___str_1
+                            168 ;	genLabel
+                            169 ; common peephole 159 removed unused label 00101$.
+                            170 ;cases/tst_bug-3570.c:16: }
+                            171 ;	genEndFunction
+   003C C9            [10]  172 	ret
+                            173 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   003D                     174 ___numCases:
+   003D 01 00               175 	.dw #0x0001
+   003F                     176 ___str_1:
+   003F 62 75 67 2D 33 35   177 	.ascii "bug-3570.c"
+        37 30 2E 63
+   0049 00                  178 	.db 0x00
+                            179 	.area _CODE (BANK=_CSEG)
+                            180 	.area _INITIALIZER
+                            181 	.area _CABS (ABS)

@@ -1,0 +1,472 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_3097
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _scene_to_map
+                             12 	.globl _clear_map
+                             13 	.globl ___prints
+                             14 	.globl ___fail
+                             15 	.globl _collision_buf
+                             16 	.globl ___numCases
+                             17 	.globl _scene_items
+                             18 	.globl ___runSuite
+                             19 	.globl ___getSuiteName
+                             20 ;--------------------------------------------------------
+                             21 ; special function registers
+                             22 ;--------------------------------------------------------
+                             23 ;--------------------------------------------------------
+                             24 ; ram data
+                             25 ;--------------------------------------------------------
+                             26 	.area _DATA (BANK=_DSEG)
+   0000                      27 _collision_buf::
+   0000                      28 	.ds 324
+   0144                      29 _scene_to_map_src_10000_15:
+   0144                      30 	.ds 2
+   0146                      31 _scene_to_map_x_10000_15:
+   0146                      32 	.ds 1
+   0147                      33 _scene_to_map_y_10000_15:
+   0147                      34 	.ds 1
+   0148                      35 _scene_to_map_z_10000_15:
+   0148                      36 	.ds 1
+                             37 ;--------------------------------------------------------
+                             38 ; ram data
+                             39 ;--------------------------------------------------------
+                             40 	.area _INITIALIZED
+                             41 ;--------------------------------------------------------
+                             42 ; absolute ram data
+                             43 ;--------------------------------------------------------
+                             44 	.area _DABS (ABS)
+                             45 	.area _DABS (ABS)
+                             46 ;--------------------------------------------------------
+                             47 ; global & static initialisations
+                             48 ;--------------------------------------------------------
+                             49 	.area _HOME
+                             50 	.area _GSINIT
+                             51 	.area _GSFINAL
+                             52 	.area _GSINIT
+                             53 ;--------------------------------------------------------
+                             54 ; Home
+                             55 ;--------------------------------------------------------
+                             56 	.area _HOME (BANK=_CSEG)
+                             57 	.area _HOME (BANK=_CSEG)
+                             58 ;--------------------------------------------------------
+                             59 ; code
+                             60 ;--------------------------------------------------------
+                             61 	.area _CODE (BANK=_CSEG)
+                             62 ;cases/./../tests/bug-3097.c:32: void clear_map(void * data) {
+                             63 ;	genLabel
+                             64 ;	genFunction
+                             65 ;	---------------------------------
+                             66 ; Function clear_map
+                             67 ; ---------------------------------
+                             68 ;	Register assignment is optimal.
+                             69 ; Stack space usage: 0 bytes.
+   0000                      70 _clear_map::
+                             71 ;cases/./../tests/bug-3097.c:33: data;
+                             72 ;	genLabel
+                             73 ; common peephole 159 removed unused label 00101$.
+                             74 ;cases/./../tests/bug-3097.c:34: }
+                             75 ;	genEndFunction
+   0000 C9            [10]   76 	ret
+                             77 ;	Total clear_map function size at codegen: 1 bytes.
+                             78 ;cases/./../tests/bug-3097.c:36: void scene_to_map(const scene_item_t * sour, scene_t * dest) {
+                             79 ;	genLabel
+                             80 ;	genFunction
+                             81 ;	---------------------------------
+                             82 ; Function scene_to_map
+                             83 ; ---------------------------------
+                             84 ;	Register assignment might be sub-optimal.
+                             85 ; Stack space usage: 0 bytes.
+   0001                      86 _scene_to_map::
+                             87 ;	genReceive
+                             88 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0001 22r44s01      [16]   89 	ld	(_scene_to_map_src_10000_15), hl
+                             90 ;	genReceive
+                             91 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             92 ;cases/./../tests/bug-3097.c:43: while (src) {
+                             93 ;	genLabel
+   0004                      94 00105$:
+                             95 ;	genIfx
+   0004 3Ar45s01      [13]   96 	ld	a, (_scene_to_map_src_10000_15+1)
+                             97 ; common peephole 54 used hl instead of iy.
+                             98 ; common peephole 130a removed unnecessary +0 from constant
+   0007 21r44s01      [10]   99 	ld	hl, #_scene_to_map_src_10000_15
+   000A B6            [ 7]  100 	or	a, (hl)
+   000B C8            [11]  101 	ret	z
+                            102 ; common peephole 161 replaced jump by return.
+                            103 ;cases/./../tests/bug-3097.c:44: from_coords(src->coords, x, y, z);
+                            104 ;	genAssign
+                            105 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   000C 2Ar44s01      [16]  106 	ld	hl, (_scene_to_map_src_10000_15)
+                            107 ;	genPlus
+                            108 ;fetchPairLong
+   000F 01 04 00      [10]  109 	ld	bc, #0x0004
+   0012 09            [11]  110 	add	hl, bc
+                            111 ;	genPointerGet
+                            112 ;fetchPairLong
+                            113 ;	_moveFrom_tpair_()
+                            114 ; common peephole 1 removed dead load from (hl) into c.
+   0013 23            [ 6]  115 	inc	hl
+                            116 ;	_moveFrom_tpair_()
+   0014 7E            [ 7]  117 	ld	a, (hl)
+   0015 2B            [ 6]  118 	dec	hl
+                            119 ;	genGetByte
+                            120 ;	genMove_o size 1 result type 3 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0016 32r46s01      [13]  121 	ld	(_scene_to_map_x_10000_15+0), a
+                            122 ;	genPointerGet
+                            123 ;fetchPairLong
+                            124 ;	_moveFrom_tpair_()
+   0019 4E            [ 7]  125 	ld	c, (hl)
+   001A 23            [ 6]  126 	inc	hl
+                            127 ;	_moveFrom_tpair_()
+   001B 7E            [ 7]  128 	ld	a, (hl)
+   001C 2B            [ 6]  129 	dec	hl
+                            130 ;	genRightShift
+                            131 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   001D CB 3F         [ 8]  132 	srl	a
+   001F CB 19         [ 8]  133 	rr	c
+   0021 CB 3F         [ 8]  134 	srl	a
+   0023 CB 19         [ 8]  135 	rr	c
+   0025 CB 3F         [ 8]  136 	srl	a
+   0027 CB 19         [ 8]  137 	rr	c
+   0029 CB 3F         [ 8]  138 	srl	a
+   002B CB 19         [ 8]  139 	rr	c
+                            140 ;	genCast
+                            141 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+                            142 ;	genMinus
+   002D 3E 08         [ 7]  143 	ld	a, #0x08
+   002F 91            [ 4]  144 	sub	a, c
+                            145 ;	genAnd
+   0030 E6 0F         [ 7]  146 	and	a, #0x0f
+                            147 ;	genMove_o size 1 result type 3 source type 2 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   0032 32r47s01      [13]  148 	ld	(_scene_to_map_y_10000_15+0), a
+                            149 ;	genPointerGet
+   0035 7E            [ 7]  150 	ld	a, (hl)
+                            151 ;	genAnd
+   0036 E6 0F         [ 7]  152 	and	a, #0x0f
+                            153 ;	genMove_o size 1 result type 11 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0038 32r48s01      [13]  154 	ld	(#_scene_to_map_z_10000_15), a
+                            155 ; common peephole 19 loaded (#_scene_to_map_z_10000_15) from a directly instead of using hl.
+                            156 ;cases/./../tests/bug-3097.c:45: if ((x < max_scene_x) && (y < max_scene_y) && (z < max_scene_z)) {
+                            157 ;	genCmpLt
+   003B 3Ar46s01      [13]  158 	ld	a, (_scene_to_map_x_10000_15+0)
+   003E D6 09         [ 7]  159 	sub	a, #0x09
+                            160 ; common peephole 163 changed absolute to relative conditional jump.
+   0040 30 3C         [12]  161 	jr	nc, 00102$
+                            162 ;	skipping generated iCode
+                            163 ;	genCmpLt
+   0042 3Ar47s01      [13]  164 	ld	a, (_scene_to_map_y_10000_15+0)
+   0045 D6 09         [ 7]  165 	sub	a, #0x09
+                            166 ; common peephole 163 changed absolute to relative conditional jump.
+   0047 30 35         [12]  167 	jr	nc, 00102$
+                            168 ;	skipping generated iCode
+                            169 ;	genCmpLt
+   0049 3Ar48s01      [13]  170 	ld	a, (_scene_to_map_z_10000_15+0)
+   004C D6 04         [ 7]  171 	sub	a, #0x04
+                            172 ; common peephole 163 changed absolute to relative conditional jump.
+   004E 30 2E         [12]  173 	jr	nc, 00102$
+                            174 ;	skipping generated iCode
+                            175 ;cases/./../tests/bug-3097.c:46: (*dest)[x][z][y] = src->id + 1;
+                            176 ;	genMult
+                            177 ;fetchPairLong
+                            178 ; common peephole 53 used direct memory load instead of indirect.
+   0050 3Ar46s01      [13]  179 	ld	a, (#_scene_to_map_x_10000_15 + 0)
+   0053 4F            [ 4]  180 	ld	c, a
+   0054 06 00         [ 7]  181 	ld	b, #0x00
+   0056 69            [ 4]  182 	ld	l, c
+   0057 60            [ 4]  183 	ld	h, b
+   0058 29            [11]  184 	add	hl, hl
+   0059 29            [11]  185 	add	hl, hl
+   005A 29            [11]  186 	add	hl, hl
+   005B 09            [11]  187 	add	hl, bc
+   005C 29            [11]  188 	add	hl, hl
+   005D 29            [11]  189 	add	hl, hl
+                            190 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            191 ;	genPlus
+   005E 19            [11]  192 	add	hl, de
+                            193 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   005F 4D            [ 4]  194 	ld	c, l
+   0060 44            [ 4]  195 	ld	b, h
+                            196 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            197 ;	genMult
+   0061 D5            [11]  198 	push	de
+   0062 3Ar48s01      [13]  199 	ld	a, (_scene_to_map_z_10000_15+0)
+   0065 5F            [ 4]  200 	ld	e, a
+   0066 87            [ 4]  201 	add	a, a
+   0067 87            [ 4]  202 	add	a, a
+   0068 87            [ 4]  203 	add	a, a
+   0069 83            [ 4]  204 	add	a, e
+   006A D1            [10]  205 	pop	de
+                            206 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            207 ;	genPlus
+                            208 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   006B 6F            [ 4]  209 	ld	l, a
+                            210 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   006C 26 00         [ 7]  211 	ld	h, #0x00
+   006E 09            [11]  212 	add	hl, bc
+                            213 ;	genAssign
+                            214 ;	genMove_o size 1 result type 2 source type 3 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+   006F 3Ar47s01      [13]  215 	ld	a, (_scene_to_map_y_10000_15+0)
+                            216 ;	genPlus
+   0072 85            [ 4]  217 	add	a, l
+   0073 4F            [ 4]  218 	ld	c, a
+   0074 3E 00         [ 7]  219 	ld	a, #0x00
+   0076 8C            [ 4]  220 	adc	a, h
+   0077 47            [ 4]  221 	ld	b, a
+                            222 ;	genPointerGet
+                            223 ;fetchPairLong
+   0078 2Ar44s01      [16]  224 	ld	hl, (_scene_to_map_src_10000_15)
+                            225 ;	_moveFrom_tpair_()
+   007B 7E            [ 7]  226 	ld	a, (hl)
+                            227 ;	genCast
+                            228 ;	(locations are the same)
+                            229 ;	genPlus
+   007C 3C            [ 4]  230 	inc	a
+                            231 ;	genPointerSet
+                            232 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   007D 02            [ 7]  233 	ld	(bc), a
+                            234 ;	genLabel
+   007E                     235 00102$:
+                            236 ;cases/./../tests/bug-3097.c:48: src = src->next;
+                            237 ;	genAssign
+                            238 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   007E 2Ar44s01      [16]  239 	ld	hl, (_scene_to_map_src_10000_15)
+                            240 ;	genPointerGet
+                            241 ;fetchPairLong
+   0081 01 06 00      [10]  242 	ld	bc, #0x0006
+   0084 09            [11]  243 	add	hl, bc
+                            244 ;	_moveFrom_tpair_()
+   0085 7E            [ 7]  245 	ld	a, (hl)
+                            246 ; common peephole 96b move inc hl before ld (_scene_to_map_src_10000_15+0), a
+   0086 23            [ 6]  247 	inc	hl
+   0087 32r44s01      [13]  248 	ld	(_scene_to_map_src_10000_15+0), a
+                            249 ;	_moveFrom_tpair_()
+   008A 7E            [ 7]  250 	ld	a, (hl)
+   008B 32r45s01      [13]  251 	ld	(_scene_to_map_src_10000_15+1), a
+                            252 ;	genGoto
+                            253 ;	genLabel
+                            254 ; common peephole 159 removed unused label 00108$.
+                            255 ;cases/./../tests/bug-3097.c:50: }
+                            256 ;	genEndFunction
+   008E C3r04s00      [10]  257 	jp	00105$
+                            258 ; common peephole 152 removed unused ret.
+                            259 ;	Total scene_to_map function size at codegen: 1 bytes.
+                            260 ;cases/./../tests/bug-3097.c:59: testBug(void)
+                            261 ;	genLabel
+                            262 ;	genFunction
+                            263 ;	---------------------------------
+                            264 ; Function testBug
+                            265 ; ---------------------------------
+                            266 ;	Register assignment might be sub-optimal.
+                            267 ; Stack space usage: 0 bytes.
+   0091                     268 _testBug::
+                            269 ;cases/./../tests/bug-3097.c:62: scene_to_map(scene_items, &collision_buf);
+                            270 ;	skipping iCode since result will be rematerialized
+                            271 ;	skipping iCode since result will be rematerialized
+                            272 ;	skipping iCode since result will be rematerialized
+                            273 ;	skipping iCode since result will be rematerialized
+                            274 ;	genSend
+                            275 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0091 11r00s00      [10]  276 	ld	de, #_collision_buf
+                            277 ;	genSend
+                            278 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0094 21rD8s00      [10]  279 	ld	hl, #_scene_items
+                            280 ;	genCall
+   0097 CDr01s00      [17]  281 	call	_scene_to_map
+                            282 ;cases/./../tests/bug-3097.c:64: ASSERT(collision_buf[0][0][max_scene_y - 1] == 2);
+                            283 ;	genPlus
+                            284 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   009A 2Ar00s00      [16]  285 	ld	hl, (___numTests)
+   009D 23            [ 6]  286 	inc	hl
+                            287 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   009E 22r00s00      [16]  288 	ld	(___numTests), hl
+                            289 ;	skipping iCode since result will be rematerialized
+                            290 ;	genPointerGet
+   00A1 3Ar08s00      [13]  291 	ld	a, (#_collision_buf + 8)
+                            292 ;	genCmpEq
+   00A4 FE 02         [ 7]  293 	cp	a, #0x02
+                            294 ; common peephole 163 changed absolute to relative conditional jump.
+   00A6 28 11         [12]  295 	jr	z, 00104$
+                            296 ; common peephole 81 removed jp by using inverse jump logic
+                            297 ; common peephole 159 removed unused label 00123$.
+                            298 ;	skipping generated iCode
+                            299 ;	skipping iCode since result will be rematerialized
+                            300 ;	skipping iCode since result will be rematerialized
+                            301 ;	skipping iCode since result will be rematerialized
+                            302 ;	skipping iCode since result will be rematerialized
+                            303 ;	skipping iCode since result will be rematerialized
+                            304 ;	skipping iCode since result will be rematerialized
+                            305 ;	genIpush
+                            306 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00A8 21 40 00      [10]  307 	ld	hl, #0x0040
+   00AB E5            [11]  308 	push	hl
+                            309 ;	genIpush
+                            310 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00AC 21r23s01      [10]  311 	ld	hl, #___str_2
+   00AF E5            [11]  312 	push	hl
+                            313 ;	genSend
+                            314 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B0 11rF9s00      [10]  315 	ld	de, #___str_1
+                            316 ;	genSend
+                            317 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00B3 21rE8s00      [10]  318 	ld	hl, #___str_0
+                            319 ;	genCall
+   00B6 CDr00s00      [17]  320 	call	___fail
+                            321 ;	genLabel
+   00B9                     322 00104$:
+                            323 ;cases/./../tests/bug-3097.c:65: ASSERT(collision_buf[0][1][max_scene_y - 1] == 2);
+                            324 ;	genPlus
+                            325 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00B9 2Ar00s00      [16]  326 	ld	hl, (___numTests)
+   00BC 23            [ 6]  327 	inc	hl
+                            328 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00BD 22r00s00      [16]  329 	ld	(___numTests), hl
+                            330 ;	skipping iCode since result will be rematerialized
+                            331 ;	genPointerGet
+   00C0 3Ar11s00      [13]  332 	ld	a, (#_collision_buf + 17)
+                            333 ;	genCmpEq
+   00C3 FE 02         [ 7]  334 	cp	a, #0x02
+   00C5 C8            [11]  335 	ret	z
+                            336 ; common peephole 161 replaced jump by return.
+                            337 ; common peephole 81 removed jp by using inverse jump logic
+                            338 ; common peephole 159 removed unused label 00124$.
+                            339 ;	skipping generated iCode
+                            340 ;	skipping iCode since result will be rematerialized
+                            341 ;	skipping iCode since result will be rematerialized
+                            342 ;	skipping iCode since result will be rematerialized
+                            343 ;	skipping iCode since result will be rematerialized
+                            344 ;	skipping iCode since result will be rematerialized
+                            345 ;	skipping iCode since result will be rematerialized
+                            346 ;	genIpush
+                            347 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00C6 21 41 00      [10]  348 	ld	hl, #0x0041
+   00C9 E5            [11]  349 	push	hl
+                            350 ;	genIpush
+                            351 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00CA 21r23s01      [10]  352 	ld	hl, #___str_2
+   00CD E5            [11]  353 	push	hl
+                            354 ;	genSend
+                            355 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00CE 11r3Fs01      [10]  356 	ld	de, #___str_3
+                            357 ;	genSend
+                            358 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   00D1 21rE8s00      [10]  359 	ld	hl, #___str_0
+                            360 ;	genCall
+   00D4 CDr00s00      [17]  361 	call	___fail
+                            362 ;	genLabel
+                            363 ; common peephole 159 removed unused label 00101$.
+                            364 ;cases/./../tests/bug-3097.c:67: }
+                            365 ;	genEndFunction
+   00D7 C9            [10]  366 	ret
+                            367 ;	Total testBug function size at codegen: 1 bytes.
+   00D8                     368 _scene_items:
+   00D8 01                  369 	.db #0x01	; 1
+   00D9 08                  370 	.db #0x08	; 8
+   00DA 18                  371 	.db #0x18	; 24
+   00DB 00                  372 	.db #0x00	; 0
+   00DC 00 00               373 	.dw #0x0000
+   00DErE0s00               374 	.dw (_scene_items + 8)
+   00E0 01                  375 	.db #0x01	; 1
+   00E1 08                  376 	.db #0x08	; 8
+   00E2 10                  377 	.db #0x10	; 16
+   00E3 00                  378 	.db #0x00	; 0
+   00E4 01 00               379 	.dw #0x0001
+   00E6 00 00               380 	.dw #0x0000
+   00E8                     381 ___str_0:
+   00E8 41 73 73 65 72 74   382 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   00F8 00                  383 	.db 0x00
+   00F9                     384 ___str_1:
+   00F9 63 6F 6C 6C 69 73   385 	.ascii "collision_buf[0][0][max_scene_y - 1] == 2"
+        69 6F 6E 5F 62 75
+        66 5B 30 5D 5B 30
+        5D 5B 6D 61 78 5F
+        73 63 65 6E 65 5F
+        79 20 2D 20 31 5D
+        20 3D 3D 20 32
+   0122 00                  386 	.db 0x00
+   0123                     387 ___str_2:
+   0123 63 61 73 65 73 2F   388 	.ascii "cases/./../tests/bug-3097.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 62
+        75 67 2D 33 30 39
+        37 2E 63
+   013E 00                  389 	.db 0x00
+   013F                     390 ___str_3:
+   013F 63 6F 6C 6C 69 73   391 	.ascii "collision_buf[0][1][max_scene_y - 1] == 2"
+        69 6F 6E 5F 62 75
+        66 5B 30 5D 5B 31
+        5D 5B 6D 61 78 5F
+        73 63 65 6E 65 5F
+        79 20 2D 20 31 5D
+        20 3D 3D 20 32
+   0168 00                  392 	.db 0x00
+                            393 ;cases/tst_bug-3097.c:4: __runSuite(void)
+                            394 ;	genLabel
+                            395 ;	genFunction
+                            396 ;	---------------------------------
+                            397 ; Function __runSuite
+                            398 ; ---------------------------------
+                            399 ;	Register assignment is optimal.
+                            400 ; Stack space usage: 0 bytes.
+   0169                     401 ___runSuite::
+                            402 ;cases/tst_bug-3097.c:6: __prints("Running testBug\n");
+                            403 ;	skipping iCode since result will be rematerialized
+                            404 ;	skipping iCode since result will be rematerialized
+                            405 ;	genSend
+                            406 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0169 21r72s01      [10]  407 	ld	hl, #___str_4
+                            408 ;	genCall
+   016C CDr00s00      [17]  409 	call	___prints
+                            410 ;cases/tst_bug-3097.c:7: testBug();
+                            411 ;	genCall
+                            412 ;	genLabel
+                            413 ; common peephole 159 removed unused label 00101$.
+                            414 ;cases/tst_bug-3097.c:8: }
+                            415 ;	genEndFunction
+   016F C3r91s00      [10]  416 	jp	_testBug
+                            417 ; common peephole 152 removed unused ret.
+                            418 ;	Total __runSuite function size at codegen: 1 bytes.
+   0172                     419 ___str_4:
+   0172 52 75 6E 6E 69 6E   420 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   0181 0A                  421 	.db 0x0a
+   0182 00                  422 	.db 0x00
+                            423 ;cases/tst_bug-3097.c:13: __getSuiteName(void)
+                            424 ;	genLabel
+                            425 ;	genFunction
+                            426 ;	---------------------------------
+                            427 ; Function __getSuiteName
+                            428 ; ---------------------------------
+                            429 ;	Register assignment is optimal.
+                            430 ; Stack space usage: 0 bytes.
+   0183                     431 ___getSuiteName::
+                            432 ;cases/tst_bug-3097.c:15: return "bug-3097.c";
+                            433 ;	skipping iCode since result will be rematerialized
+                            434 ;	skipping iCode since result will be rematerialized
+                            435 ;	genRet
+                            436 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0183 11r89s01      [10]  437 	ld	de, #___str_5
+                            438 ;	genLabel
+                            439 ; common peephole 159 removed unused label 00101$.
+                            440 ;cases/tst_bug-3097.c:16: }
+                            441 ;	genEndFunction
+   0186 C9            [10]  442 	ret
+                            443 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0187                     444 ___numCases:
+   0187 01 00               445 	.dw #0x0001
+   0189                     446 ___str_5:
+   0189 62 75 67 2D 33 30   447 	.ascii "bug-3097.c"
+        39 37 2E 63
+   0193 00                  448 	.db 0x00
+                            449 	.area _CODE (BANK=_CSEG)
+                            450 	.area _INITIALIZER
+                            451 	.area _CABS (ABS)

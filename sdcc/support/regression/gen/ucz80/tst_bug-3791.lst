@@ -1,0 +1,162 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_3791
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _vdu_sprite_position_set_fast
+                             12 	.globl ___prints
+                             13 	.globl ___numCases
+                             14 	.globl ___runSuite
+                             15 	.globl ___getSuiteName
+                             16 ;--------------------------------------------------------
+                             17 ; special function registers
+                             18 ;--------------------------------------------------------
+                     00BF    19 _VDPControlPort	=	0x00bf
+                     00BE    20 _VDPDataPortOut	=	0x00be
+                             21 ;--------------------------------------------------------
+                             22 ; ram data
+                             23 ;--------------------------------------------------------
+                             24 	.area _DATA (BANK=_DSEG)
+                             25 ;--------------------------------------------------------
+                             26 ; ram data
+                             27 ;--------------------------------------------------------
+                             28 	.area _INITIALIZED
+                             29 ;--------------------------------------------------------
+                             30 ; absolute ram data
+                             31 ;--------------------------------------------------------
+                             32 	.area _DABS (ABS)
+                             33 	.area _DABS (ABS)
+                             34 ;--------------------------------------------------------
+                             35 ; global & static initialisations
+                             36 ;--------------------------------------------------------
+                             37 	.area _HOME
+                             38 	.area _GSINIT
+                             39 	.area _GSFINAL
+                             40 	.area _GSINIT
+                             41 ;--------------------------------------------------------
+                             42 ; Home
+                             43 ;--------------------------------------------------------
+                             44 	.area _HOME (BANK=_CSEG)
+                             45 	.area _HOME (BANK=_CSEG)
+                             46 ;--------------------------------------------------------
+                             47 ; code
+                             48 ;--------------------------------------------------------
+                             49 	.area _CODE (BANK=_CSEG)
+                             50 ;cases/./../tests/bug-3791.c:28: void vdu_sprite_position_set_fast( uint8_t id ) {
+                             51 ;	genLabel
+                             52 ;	genFunction
+                             53 ;	---------------------------------
+                             54 ; Function vdu_sprite_position_set_fast
+                             55 ; ---------------------------------
+                             56 ;	Register assignment might be sub-optimal.
+                             57 ; Stack space usage: 0 bytes.
+   0000                      58 _vdu_sprite_position_set_fast::
+                             59 ;	genReceive
+                             60 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             61 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             62 ;cases/./../tests/bug-3791.c:30: vdu_address_set2( VDU_SPRITE_POSITION_TABLE_ADDRESS2 + id );
+                             63 ;	genAssign
+   0000 4F            [ 4]   64 	ld	c, a
+                             65 ; common peephole 98 removed redundant load from c into a.
+   0001 D3 BF         [11]   66 	out	(_VDPControlPort), a
+                             67 ;	genCast
+                             68 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             69 ; common peephole 1 removed dead load from c into l.
+                             70 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                             71 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                             72 ; common peephole 1 removed dead load from #0x00 into h.
+                             73 ;	genPlus
+   0003 3E 1B         [ 7]   74 	ld	a, #0x1b
+                             75 ;	genGetByte
+                             76 ;	genMove_o size 1 result type 5 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0005 D3 BF         [11]   77 	out	(_VDPControlPort), a
+                             78 ;cases/./../tests/bug-3791.c:32: vdu_next_set_fast2( id );
+                             79 ;	genAssign
+   0007 79            [ 4]   80 	ld	a, c
+   0008 D3 BE         [11]   81 	out	(_VDPDataPortOut), a
+                             82 ;	genLabel
+                             83 ; common peephole 159 removed unused label 00101$.
+                             84 ;cases/./../tests/bug-3791.c:33: }
+                             85 ;	genEndFunction
+   000A C9            [10]   86 	ret
+                             87 ;	Total vdu_sprite_position_set_fast function size at codegen: 1 bytes.
+                             88 ;cases/./../tests/bug-3791.c:35: void testBug( void )
+                             89 ;	genLabel
+                             90 ;	genFunction
+                             91 ;	---------------------------------
+                             92 ; Function testBug
+                             93 ; ---------------------------------
+                             94 ;	Register assignment is optimal.
+                             95 ; Stack space usage: 0 bytes.
+   000B                      96 _testBug::
+                             97 ;cases/./../tests/bug-3791.c:37: }
+                             98 ;	genLabel
+                             99 ; common peephole 159 removed unused label 00101$.
+                            100 ;	genEndFunction
+   000B C9            [10]  101 	ret
+                            102 ;	Total testBug function size at codegen: 1 bytes.
+                            103 ;cases/tst_bug-3791.c:4: __runSuite(void)
+                            104 ;	genLabel
+                            105 ;	genFunction
+                            106 ;	---------------------------------
+                            107 ; Function __runSuite
+                            108 ; ---------------------------------
+                            109 ;	Register assignment is optimal.
+                            110 ; Stack space usage: 0 bytes.
+   000C                     111 ___runSuite::
+                            112 ;cases/tst_bug-3791.c:6: __prints("Running testBug\n");
+                            113 ;	skipping iCode since result will be rematerialized
+                            114 ;	skipping iCode since result will be rematerialized
+                            115 ;	genSend
+                            116 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000C 21r12s00      [10]  117 	ld	hl, #___str_0
+                            118 ;	genCall
+                            119 ;cases/tst_bug-3791.c:7: testBug();
+                            120 ;	genLabel
+                            121 ; common peephole 159 removed unused label 00101$.
+                            122 ;cases/tst_bug-3791.c:8: }
+                            123 ;	genEndFunction
+   000F C3r00s00      [10]  124 	jp	___prints
+                            125 ; common peephole 152 removed unused ret.
+                            126 ;	Total __runSuite function size at codegen: 1 bytes.
+   0012                     127 ___str_0:
+   0012 52 75 6E 6E 69 6E   128 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   0021 0A                  129 	.db 0x0a
+   0022 00                  130 	.db 0x00
+                            131 ;cases/tst_bug-3791.c:13: __getSuiteName(void)
+                            132 ;	genLabel
+                            133 ;	genFunction
+                            134 ;	---------------------------------
+                            135 ; Function __getSuiteName
+                            136 ; ---------------------------------
+                            137 ;	Register assignment is optimal.
+                            138 ; Stack space usage: 0 bytes.
+   0023                     139 ___getSuiteName::
+                            140 ;cases/tst_bug-3791.c:15: return "bug-3791.c";
+                            141 ;	skipping iCode since result will be rematerialized
+                            142 ;	skipping iCode since result will be rematerialized
+                            143 ;	genRet
+                            144 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0023 11r29s00      [10]  145 	ld	de, #___str_1
+                            146 ;	genLabel
+                            147 ; common peephole 159 removed unused label 00101$.
+                            148 ;cases/tst_bug-3791.c:16: }
+                            149 ;	genEndFunction
+   0026 C9            [10]  150 	ret
+                            151 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0027                     152 ___numCases:
+   0027 01 00               153 	.dw #0x0001
+   0029                     154 ___str_1:
+   0029 62 75 67 2D 33 37   155 	.ascii "bug-3791.c"
+        39 31 2E 63
+   0033 00                  156 	.db 0x00
+                            157 	.area _CODE (BANK=_CSEG)
+                            158 	.area _INITIALIZER
+                            159 	.area _CABS (ABS)

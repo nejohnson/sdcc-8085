@@ -1,0 +1,230 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug3027957
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _correct
+                             12 	.globl _foo
+                             13 	.globl ___prints
+                             14 	.globl ___fail
+                             15 	.globl ___numCases
+                             16 	.globl ___runSuite
+                             17 	.globl ___getSuiteName
+                             18 ;--------------------------------------------------------
+                             19 ; special function registers
+                             20 ;--------------------------------------------------------
+                             21 ;--------------------------------------------------------
+                             22 ; ram data
+                             23 ;--------------------------------------------------------
+                             24 	.area _DATA (BANK=_DSEG)
+                             25 ;--------------------------------------------------------
+                             26 ; ram data
+                             27 ;--------------------------------------------------------
+                             28 	.area _INITIALIZED
+                             29 ;--------------------------------------------------------
+                             30 ; absolute ram data
+                             31 ;--------------------------------------------------------
+                             32 	.area _DABS (ABS)
+                             33 	.area _DABS (ABS)
+                             34 ;--------------------------------------------------------
+                             35 ; global & static initialisations
+                             36 ;--------------------------------------------------------
+                             37 	.area _HOME
+                             38 	.area _GSINIT
+                             39 	.area _GSFINAL
+                             40 	.area _GSINIT
+                             41 ;--------------------------------------------------------
+                             42 ; Home
+                             43 ;--------------------------------------------------------
+                             44 	.area _HOME (BANK=_CSEG)
+                             45 	.area _HOME (BANK=_CSEG)
+                             46 ;--------------------------------------------------------
+                             47 ; code
+                             48 ;--------------------------------------------------------
+                             49 	.area _CODE (BANK=_CSEG)
+                             50 ;cases/./../tests/bug3027957.c:29: void foo(void)
+                             51 ;	genLabel
+                             52 ;	genFunction
+                             53 ;	---------------------------------
+                             54 ; Function foo
+                             55 ; ---------------------------------
+                             56 ;	Register assignment is optimal.
+                             57 ; Stack space usage: 0 bytes.
+   0000                      58 _foo::
+                             59 ;cases/./../tests/bug3027957.c:31: ((unsigned char __xdata *)ADDRESS)[OFFSET_DECIMAL] = 0x12;
+                             60 ;	genPointerSet
+                             61 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0000 21 64 F0      [10]   62 	ld	hl, #0xf064
+   0003 36 12         [10]   63 	ld	(hl), #0x12
+                             64 ;	genLabel
+                             65 ; common peephole 159 removed unused label 00101$.
+                             66 ;cases/./../tests/bug3027957.c:32: }
+                             67 ;	genEndFunction
+   0005 C9            [10]   68 	ret
+                             69 ;	Total foo function size at codegen: 1 bytes.
+                             70 ;cases/./../tests/bug3027957.c:35: char * correct(void)
+                             71 ;	genLabel
+                             72 ;	genFunction
+                             73 ;	---------------------------------
+                             74 ; Function correct
+                             75 ; ---------------------------------
+                             76 ;	Register assignment is optimal.
+                             77 ; Stack space usage: 0 bytes.
+   0006                      78 _correct::
+                             79 ;cases/./../tests/bug3027957.c:37: return (char __code *) 0x1234;
+                             80 ;	genRet
+                             81 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0006 11 34 12      [10]   82 	ld	de, #0x1234
+                             83 ;	genLabel
+                             84 ; common peephole 159 removed unused label 00101$.
+                             85 ;cases/./../tests/bug3027957.c:38: }
+                             86 ;	genEndFunction
+   0009 C9            [10]   87 	ret
+                             88 ;	Total correct function size at codegen: 1 bytes.
+                             89 ;cases/./../tests/bug3027957.c:40: void testBug(void)
+                             90 ;	genLabel
+                             91 ;	genFunction
+                             92 ;	---------------------------------
+                             93 ; Function testBug
+                             94 ; ---------------------------------
+                             95 ;	Register assignment might be sub-optimal.
+                             96 ; Stack space usage: 0 bytes.
+   000A                      97 _testBug::
+                             98 ;cases/./../tests/bug3027957.c:44: foo();
+                             99 ;	genCall
+   000A CDr00s00      [17]  100 	call	_foo
+                            101 ;cases/./../tests/bug3027957.c:45: ASSERT (*(unsigned char __xdata *)(ADDRESS + OFFSET_HEX) == 0x12);
+                            102 ;	genPlus
+                            103 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000D 2Ar00s00      [16]  104 	ld	hl, (___numTests)
+   0010 23            [ 6]  105 	inc	hl
+                            106 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0011 22r00s00      [16]  107 	ld	(___numTests), hl
+                            108 ;	genPointerGet
+   0014 3A 64 F0      [13]  109 	ld	a, (#0xf064)
+                            110 ;	genCmpEq
+   0017 FE 12         [ 7]  111 	cp	a, #0x12
+   0019 C8            [11]  112 	ret	z
+                            113 ; common peephole 161 replaced jump by return.
+                            114 ; common peephole 81 removed jp by using inverse jump logic
+                            115 ; common peephole 159 removed unused label 00113$.
+                            116 ;	skipping generated iCode
+                            117 ;	skipping iCode since result will be rematerialized
+                            118 ;	skipping iCode since result will be rematerialized
+                            119 ;	skipping iCode since result will be rematerialized
+                            120 ;	skipping iCode since result will be rematerialized
+                            121 ;	skipping iCode since result will be rematerialized
+                            122 ;	skipping iCode since result will be rematerialized
+                            123 ;	genIpush
+                            124 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001A 21 2D 00      [10]  125 	ld	hl, #0x002d
+   001D E5            [11]  126 	push	hl
+                            127 ;	genIpush
+                            128 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001E 21r76s00      [10]  129 	ld	hl, #___str_2
+   0021 E5            [11]  130 	push	hl
+                            131 ;	genSend
+                            132 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0022 11r3Ds00      [10]  133 	ld	de, #___str_1
+                            134 ;	genSend
+                            135 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0025 21r2Cs00      [10]  136 	ld	hl, #___str_0
+                            137 ;	genCall
+   0028 CDr00s00      [17]  138 	call	___fail
+                            139 ;	genLabel
+                            140 ; common peephole 159 removed unused label 00101$.
+                            141 ;cases/./../tests/bug3027957.c:48: }
+                            142 ;	genEndFunction
+   002B C9            [10]  143 	ret
+                            144 ;	Total testBug function size at codegen: 1 bytes.
+   002C                     145 ___str_0:
+   002C 41 73 73 65 72 74   146 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   003C 00                  147 	.db 0x00
+   003D                     148 ___str_1:
+   003D 2A 28 75 6E 73 69   149 	.ascii "*(unsigned char __xdata *)(ADDRESS + OFFSET_HEX) == 0x12"
+        67 6E 65 64 20 63
+        68 61 72 20 5F 5F
+        78 64 61 74 61 20
+        2A 29 28 41 44 44
+        52 45 53 53 20 2B
+        20 4F 46 46 53 45
+        54 5F 48 45 58 29
+        20 3D 3D 20 30 78
+        31 32
+   0075 00                  150 	.db 0x00
+   0076                     151 ___str_2:
+   0076 63 61 73 65 73 2F   152 	.ascii "cases/./../tests/bug3027957.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 62
+        75 67 33 30 32 37
+        39 35 37 2E 63
+   0093 00                  153 	.db 0x00
+                            154 ;cases/tst_bug3027957.c:4: __runSuite(void)
+                            155 ;	genLabel
+                            156 ;	genFunction
+                            157 ;	---------------------------------
+                            158 ; Function __runSuite
+                            159 ; ---------------------------------
+                            160 ;	Register assignment is optimal.
+                            161 ; Stack space usage: 0 bytes.
+   0094                     162 ___runSuite::
+                            163 ;cases/tst_bug3027957.c:6: __prints("Running testBug\n");
+                            164 ;	skipping iCode since result will be rematerialized
+                            165 ;	skipping iCode since result will be rematerialized
+                            166 ;	genSend
+                            167 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0094 21r9Ds00      [10]  168 	ld	hl, #___str_3
+                            169 ;	genCall
+   0097 CDr00s00      [17]  170 	call	___prints
+                            171 ;cases/tst_bug3027957.c:7: testBug();
+                            172 ;	genCall
+                            173 ;	genLabel
+                            174 ; common peephole 159 removed unused label 00101$.
+                            175 ;cases/tst_bug3027957.c:8: }
+                            176 ;	genEndFunction
+   009A C3r0As00      [10]  177 	jp	_testBug
+                            178 ; common peephole 152 removed unused ret.
+                            179 ;	Total __runSuite function size at codegen: 1 bytes.
+   009D                     180 ___str_3:
+   009D 52 75 6E 6E 69 6E   181 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   00AC 0A                  182 	.db 0x0a
+   00AD 00                  183 	.db 0x00
+                            184 ;cases/tst_bug3027957.c:13: __getSuiteName(void)
+                            185 ;	genLabel
+                            186 ;	genFunction
+                            187 ;	---------------------------------
+                            188 ; Function __getSuiteName
+                            189 ; ---------------------------------
+                            190 ;	Register assignment is optimal.
+                            191 ; Stack space usage: 0 bytes.
+   00AE                     192 ___getSuiteName::
+                            193 ;cases/tst_bug3027957.c:15: return "bug3027957.c";
+                            194 ;	skipping iCode since result will be rematerialized
+                            195 ;	skipping iCode since result will be rematerialized
+                            196 ;	genRet
+                            197 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   00AE 11rB4s00      [10]  198 	ld	de, #___str_4
+                            199 ;	genLabel
+                            200 ; common peephole 159 removed unused label 00101$.
+                            201 ;cases/tst_bug3027957.c:16: }
+                            202 ;	genEndFunction
+   00B1 C9            [10]  203 	ret
+                            204 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   00B2                     205 ___numCases:
+   00B2 01 00               206 	.dw #0x0001
+   00B4                     207 ___str_4:
+   00B4 62 75 67 33 30 32   208 	.ascii "bug3027957.c"
+        37 39 35 37 2E 63
+   00C0 00                  209 	.db 0x00
+                            210 	.area _CODE (BANK=_CSEG)
+                            211 	.area _INITIALIZER
+                            212 	.area _CABS (ABS)

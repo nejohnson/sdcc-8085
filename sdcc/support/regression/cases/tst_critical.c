@@ -1,0 +1,16 @@
+#include "./../tests/critical.c"
+
+void
+__runSuite(void)
+{
+  __prints("Running testCritical\n");
+  testCritical();
+}
+
+const int __numCases = 1;
+
+__code const char *
+__getSuiteName(void)
+{
+  return "critical.c";
+}

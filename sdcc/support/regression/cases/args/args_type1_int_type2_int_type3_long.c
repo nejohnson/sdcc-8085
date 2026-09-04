@@ -1,0 +1,65 @@
+/** Tests argument passing to functions.
+    Assumes that up to the first two arguments can be passed in registers.
+
+    type1: char, int, long
+    type2: char, int, long
+    type3: char, int, long
+ */
+#include <testfwk.h>
+
+#define TYPE3_long
+
+static int
+returnFirstArg(int arg1, int arg2, long arg3)
+{
+    UNUSED(arg2);
+    UNUSED(arg3);
+    return arg1;
+}
+
+static int
+returnSecondArg(int arg1, int arg2, long arg3)
+{
+    UNUSED(arg1);
+    UNUSED(arg3);
+    return arg2;
+}
+
+static long
+returnThirdArg(int arg1, int arg2, long arg3)
+{
+    UNUSED(arg1);
+    UNUSED(arg2);
+    return arg3;
+}
+
+static void
+testArgs(void)
+{
+#if !(defined(__SDCC_pdk14) && defined(TYPE3_long)) // Not enough RAM
+    ASSERT(returnFirstArg(123, 45, 67) == (int)123);
+    ASSERT(returnFirstArg(-123, 45, 67) == (int)-123);
+
+    ASSERT(returnSecondArg(1, -23, 64) == (int)-23);
+    ASSERT(returnSecondArg(1, 8, 64) == (int)8);
+
+    ASSERT(returnThirdArg(-33, -34, -35) == (long)-35);
+    ASSERT(returnThirdArg(-33, -34, 35) == (long)35);
+#endif
+}
+
+
+void
+__runSuite(void)
+{
+  __prints("Running testArgs\n");
+  testArgs();
+}
+
+const int __numCases = 1;
+
+__code const char *
+__getSuiteName(void)
+{
+  return "args_type1_int_type2_int_type3_long";
+}

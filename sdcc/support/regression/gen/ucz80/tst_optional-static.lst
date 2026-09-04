@@ -1,0 +1,218 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_optional_static
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testOptionalStatic
+                             11 	.globl _f
+                             12 	.globl ___prints
+                             13 	.globl ___fail
+                             14 	.globl _flag
+                             15 	.globl ___numCases
+                             16 	.globl ___runSuite
+                             17 	.globl ___getSuiteName
+                             18 ;--------------------------------------------------------
+                             19 ; special function registers
+                             20 ;--------------------------------------------------------
+                             21 ;--------------------------------------------------------
+                             22 ; ram data
+                             23 ;--------------------------------------------------------
+                             24 	.area _DATA (BANK=_DSEG)
+   0000                      25 _flag::
+   0000                      26 	.ds 1
+                             27 ;--------------------------------------------------------
+                             28 ; ram data
+                             29 ;--------------------------------------------------------
+                             30 	.area _INITIALIZED
+                             31 ;--------------------------------------------------------
+                             32 ; absolute ram data
+                             33 ;--------------------------------------------------------
+                             34 	.area _DABS (ABS)
+                             35 	.area _DABS (ABS)
+                             36 ;--------------------------------------------------------
+                             37 ; global & static initialisations
+                             38 ;--------------------------------------------------------
+                             39 	.area _HOME
+                             40 	.area _GSINIT
+                             41 	.area _GSFINAL
+                             42 	.area _GSINIT
+                             43 ;--------------------------------------------------------
+                             44 ; Home
+                             45 ;--------------------------------------------------------
+                             46 	.area _HOME (BANK=_CSEG)
+                             47 	.area _HOME (BANK=_CSEG)
+                             48 ;--------------------------------------------------------
+                             49 ; code
+                             50 ;--------------------------------------------------------
+                             51 	.area _CODE (BANK=_CSEG)
+                             52 ;cases/./../tests/optional-static.c:12: void f(_Optional int a[static 1])
+                             53 ;	genLabel
+                             54 ;	genFunction
+                             55 ;	---------------------------------
+                             56 ; Function f
+                             57 ; ---------------------------------
+                             58 ;	Register assignment is optimal.
+                             59 ; Stack space usage: 0 bytes.
+   0000                      60 _f::
+                             61 ;	genReceive
+                             62 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0000 7D            [ 4]   63 	ld	a, l
+                             64 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+                             65 ;cases/./../tests/optional-static.c:14: flag = (bool)a;
+                             66 ;	genCast
+                             67 ;	Casting to bool
+   0001 B4            [ 4]   68 	or	a, h
+   0002 C6 FF         [ 7]   69 	add	a, #0xff
+   0004 3E 00         [ 7]   70 	ld	a, #0x00
+   0006 17            [ 4]   71 	rla
+   0007 32r00s00      [13]   72 	ld	(#_flag), a
+                             73 ; common peephole 19 loaded (#_flag) from a directly instead of using hl.
+                             74 ;	genMove_o size 0 result type 11 source type 1 a_dead 1 hl_dead 0 de_dead 0 iy_dead 1 f_dead 1
+                             75 ;	genLabel
+                             76 ; common peephole 159 removed unused label 00101$.
+                             77 ;cases/./../tests/optional-static.c:15: }
+                             78 ;	genEndFunction
+   000A C9            [10]   79 	ret
+                             80 ;	Total f function size at codegen: 1 bytes.
+                             81 ;cases/./../tests/optional-static.c:18: void testOptionalStatic(void)
+                             82 ;	genLabel
+                             83 ;	genFunction
+                             84 ;	---------------------------------
+                             85 ; Function testOptionalStatic
+                             86 ; ---------------------------------
+                             87 ;	Register assignment might be sub-optimal.
+                             88 ; Stack space usage: 0 bytes.
+   000B                      89 _testOptionalStatic::
+                             90 ;cases/./../tests/optional-static.c:21: f(NULL);
+                             91 ;	genSend
+                             92 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000B 21 00 00      [10]   93 	ld	hl, #0x0000
+                             94 ;	genCall
+   000E CDr00s00      [17]   95 	call	_f
+                             96 ;cases/./../tests/optional-static.c:23: ASSERT(!flag);
+                             97 ;	genPlus
+                             98 ;	genMove_o size 2 result type 2 source type 10 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0011 2Ar00s00      [16]   99 	ld	hl, (___numTests)
+   0014 23            [ 6]  100 	inc	hl
+                            101 ;	genMove_o size 2 result type 10 source type 2 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0015 22r00s00      [16]  102 	ld	(___numTests), hl
+                            103 ;	genIfx
+                            104 ; common peephole 61 used hl instead of iy.
+                            105 ; common peephole 130a removed unnecessary +0 from constant
+   0018 21r00s00      [10]  106 	ld	hl, #_flag
+   001B CB 46         [12]  107 	bit	0, (hl)
+   001D C8            [11]  108 	ret	z
+                            109 ; common peephole 161 replaced jump by return.
+                            110 ;	skipping iCode since result will be rematerialized
+                            111 ;	skipping iCode since result will be rematerialized
+                            112 ;	skipping iCode since result will be rematerialized
+                            113 ;	skipping iCode since result will be rematerialized
+                            114 ;	skipping iCode since result will be rematerialized
+                            115 ;	skipping iCode since result will be rematerialized
+                            116 ;	genIpush
+                            117 ;	genMove_o size 2 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   001E 21 17 00      [10]  118 	ld	hl, #0x0017
+   0021 E5            [11]  119 	push	hl
+                            120 ;	genIpush
+                            121 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0022 21r47s00      [10]  122 	ld	hl, #___str_2
+   0025 E5            [11]  123 	push	hl
+                            124 ;	genSend
+                            125 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0026 11r41s00      [10]  126 	ld	de, #___str_1
+                            127 ;	genSend
+                            128 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0029 21r30s00      [10]  129 	ld	hl, #___str_0
+                            130 ;	genCall
+   002C CDr00s00      [17]  131 	call	___fail
+                            132 ;	genLabel
+                            133 ; common peephole 159 removed unused label 00101$.
+                            134 ;cases/./../tests/optional-static.c:24: }
+                            135 ;	genEndFunction
+   002F C9            [10]  136 	ret
+                            137 ;	Total testOptionalStatic function size at codegen: 1 bytes.
+   0030                     138 ___str_0:
+   0030 41 73 73 65 72 74   139 	.ascii "Assertion failed"
+        69 6F 6E 20 66 61
+        69 6C 65 64
+   0040 00                  140 	.db 0x00
+   0041                     141 ___str_1:
+   0041 21 66 6C 61 67      142 	.ascii "!flag"
+   0046 00                  143 	.db 0x00
+   0047                     144 ___str_2:
+   0047 63 61 73 65 73 2F   145 	.ascii "cases/./../tests/optional-static.c"
+        2E 2F 2E 2E 2F 74
+        65 73 74 73 2F 6F
+        70 74 69 6F 6E 61
+        6C 2D 73 74 61 74
+        69 63 2E 63
+   0069 00                  146 	.db 0x00
+                            147 ;cases/tst_optional-static.c:4: __runSuite(void)
+                            148 ;	genLabel
+                            149 ;	genFunction
+                            150 ;	---------------------------------
+                            151 ; Function __runSuite
+                            152 ; ---------------------------------
+                            153 ;	Register assignment is optimal.
+                            154 ; Stack space usage: 0 bytes.
+   006A                     155 ___runSuite::
+                            156 ;cases/tst_optional-static.c:6: __prints("Running testOptionalStatic\n");
+                            157 ;	skipping iCode since result will be rematerialized
+                            158 ;	skipping iCode since result will be rematerialized
+                            159 ;	genSend
+                            160 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   006A 21r73s00      [10]  161 	ld	hl, #___str_3
+                            162 ;	genCall
+   006D CDr00s00      [17]  163 	call	___prints
+                            164 ;cases/tst_optional-static.c:7: testOptionalStatic();
+                            165 ;	genCall
+                            166 ;	genLabel
+                            167 ; common peephole 159 removed unused label 00101$.
+                            168 ;cases/tst_optional-static.c:8: }
+                            169 ;	genEndFunction
+   0070 C3r0Bs00      [10]  170 	jp	_testOptionalStatic
+                            171 ; common peephole 152 removed unused ret.
+                            172 ;	Total __runSuite function size at codegen: 1 bytes.
+   0073                     173 ___str_3:
+   0073 52 75 6E 6E 69 6E   174 	.ascii "Running testOptionalStatic"
+        67 20 74 65 73 74
+        4F 70 74 69 6F 6E
+        61 6C 53 74 61 74
+        69 63
+   008D 0A                  175 	.db 0x0a
+   008E 00                  176 	.db 0x00
+                            177 ;cases/tst_optional-static.c:13: __getSuiteName(void)
+                            178 ;	genLabel
+                            179 ;	genFunction
+                            180 ;	---------------------------------
+                            181 ; Function __getSuiteName
+                            182 ; ---------------------------------
+                            183 ;	Register assignment is optimal.
+                            184 ; Stack space usage: 0 bytes.
+   008F                     185 ___getSuiteName::
+                            186 ;cases/tst_optional-static.c:15: return "optional-static.c";
+                            187 ;	skipping iCode since result will be rematerialized
+                            188 ;	skipping iCode since result will be rematerialized
+                            189 ;	genRet
+                            190 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   008F 11r95s00      [10]  191 	ld	de, #___str_4
+                            192 ;	genLabel
+                            193 ; common peephole 159 removed unused label 00101$.
+                            194 ;cases/tst_optional-static.c:16: }
+                            195 ;	genEndFunction
+   0092 C9            [10]  196 	ret
+                            197 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0093                     198 ___numCases:
+   0093 01 00               199 	.dw #0x0001
+   0095                     200 ___str_4:
+   0095 6F 70 74 69 6F 6E   201 	.ascii "optional-static.c"
+        61 6C 2D 73 74 61
+        74 69 63 2E 63
+   00A6 00                  202 	.db 0x00
+                            203 	.area _CODE (BANK=_CSEG)
+                            204 	.area _INITIALIZER
+                            205 	.area _CABS (ABS)

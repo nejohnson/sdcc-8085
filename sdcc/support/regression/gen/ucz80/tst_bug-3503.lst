@@ -1,0 +1,194 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : free open source ISO C Compiler
+                              3 ; Version 4.6.2 #16710 (Linux)
+                              4 ;--------------------------------------------------------
+                              5 	.module tst_bug_3503
+                              6 	
+                              7 ;--------------------------------------------------------
+                              8 ; Public variables in this module
+                              9 ;--------------------------------------------------------
+                             10 	.globl _testBug
+                             11 	.globl _RayDraw
+                             12 	.globl ___prints
+                             13 	.globl ___numCases
+                             14 	.globl ___runSuite
+                             15 	.globl ___getSuiteName
+                             16 ;--------------------------------------------------------
+                             17 ; special function registers
+                             18 ;--------------------------------------------------------
+                             19 ;--------------------------------------------------------
+                             20 ; ram data
+                             21 ;--------------------------------------------------------
+                             22 	.area _DATA (BANK=_DSEG)
+                             23 ;--------------------------------------------------------
+                             24 ; ram data
+                             25 ;--------------------------------------------------------
+                             26 	.area _INITIALIZED
+                             27 ;--------------------------------------------------------
+                             28 ; absolute ram data
+                             29 ;--------------------------------------------------------
+                             30 	.area _DABS (ABS)
+                             31 	.area _DABS (ABS)
+                             32 ;--------------------------------------------------------
+                             33 ; global & static initialisations
+                             34 ;--------------------------------------------------------
+                             35 	.area _HOME
+                             36 	.area _GSINIT
+                             37 	.area _GSFINAL
+                             38 	.area _GSINIT
+                             39 ;--------------------------------------------------------
+                             40 ; Home
+                             41 ;--------------------------------------------------------
+                             42 	.area _HOME (BANK=_CSEG)
+                             43 	.area _HOME (BANK=_CSEG)
+                             44 ;--------------------------------------------------------
+                             45 ; code
+                             46 ;--------------------------------------------------------
+                             47 	.area _CODE (BANK=_CSEG)
+                             48 ;cases/./../tests/bug-3503.c:18: void RayDraw() {
+                             49 ;	genLabel
+                             50 ;	genFunction
+                             51 ;	---------------------------------
+                             52 ; Function RayDraw
+                             53 ; ---------------------------------
+                             54 ;	Register assignment might be sub-optimal.
+                             55 ; Stack space usage: 44 bytes.
+   0000                      56 _RayDraw::
+   0000 DD E5         [15]   57 	push	ix
+   0002 DD 21 00 00   [14]   58 	ld	ix,	#0
+   0006 DD 39         [15]   59 	add	ix, sp
+                             60 ;	adjustStack by -44
+   0008 21 D4 FF      [10]   61 	ld	hl, #-44
+   000B 39            [11]   62 	add	hl, sp
+                             63 ;cases/./../tests/bug-3503.c:21: SegmentData *segment = segments;
+                             64 ;	genAddrOf
+   000C F9            [ 6]   65 	ld	sp, hl
+                             66 ; common peephole 9c reused value still in hl.
+                             67 ;	genCast
+                             68 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+   000D 4D            [ 4]   69 	ld	c, l
+   000E 44            [ 4]   70 	ld	b, h
+                             71 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 0 de_dead 1 iy_dead 1 f_dead 1
+                             72 ;cases/./../tests/bug-3503.c:24: do {
+                             73 ;	skipping iCode since result will be rematerialized
+                             74 ;	genAssign
+                             75 ;	genMove_o size 1 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   000F 1E 00         [ 7]   76 	ld	e, #0x00
+                             77 ;	genLabel
+   0011                      78 00103$:
+                             79 ;cases/./../tests/bug-3503.c:26: if ( segment >= segments + 1 ) // Assertion in codegen triggered.
+                             80 ;	genCast
+                             81 ;	genMove_o size 2 result type 2 source type 8 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   0011 21 02 00      [10]   82 	ld	hl, #2
+   0014 39            [11]   83 	add	hl, sp
+                             84 ;	genMove_o size 2 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                             85 ;	genCmpLt
+   0015 79            [ 4]   86 	ld	a, c
+   0016 95            [ 4]   87 	sub	a, l
+   0017 78            [ 4]   88 	ld	a, b
+   0018 9C            [ 4]   89 	sbc	a, h
+                             90 ; common peephole 163 changed absolute to relative conditional jump.
+   0019 38 02         [12]   91 	jr	c, 00104$
+                             92 ;	skipping generated iCode
+                             93 ;cases/./../tests/bug-3503.c:27: segment--;
+                             94 ;	genMinus
+   001B 0B            [ 6]   95 	dec	bc
+   001C 0B            [ 6]   96 	dec	bc
+                             97 ;	genLabel
+   001D                      98 00104$:
+                             99 ;cases/./../tests/bug-3503.c:29: } while( pos++ < 32 );
+                            100 ;	genAssign
+                            101 ;	genMove_o size 1 result type 2 source type 2 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+   001D 7B            [ 4]  102 	ld	a, e
+                            103 ;	genMove_o size 0 result type 2 source type 1 a_dead 1 hl_dead 1 de_dead 0 iy_dead 1 f_dead 1
+                            104 ;	genPlus
+   001E 1C            [ 4]  105 	inc	e
+                            106 ;	genCmpLt
+   001F D6 20         [ 7]  107 	sub	a, #0x20
+                            108 ; common peephole 163 changed absolute to relative conditional jump.
+   0021 38 EE         [12]  109 	jr	c, 00103$
+                            110 ;	skipping generated iCode
+                            111 ;	genLabel
+                            112 ; common peephole 159 removed unused label 00106$.
+                            113 ;cases/./../tests/bug-3503.c:30: }
+                            114 ;	genEndFunction
+   0023 DD F9         [10]  115 	ld	sp, ix
+   0025 DD E1         [14]  116 	pop	ix
+   0027 C9            [10]  117 	ret
+                            118 ;	Total RayDraw function size at codegen: 5 bytes.
+                            119 ;cases/./../tests/bug-3503.c:33: testBug(void)
+                            120 ;	genLabel
+                            121 ;	genFunction
+                            122 ;	---------------------------------
+                            123 ; Function testBug
+                            124 ; ---------------------------------
+                            125 ;	Register assignment is optimal.
+                            126 ; Stack space usage: 0 bytes.
+   0028                     127 _testBug::
+                            128 ;cases/./../tests/bug-3503.c:35: RayDraw();
+                            129 ;	genLabel
+                            130 ; common peephole 159 removed unused label 00101$.
+                            131 ;cases/./../tests/bug-3503.c:36: }
+                            132 ;	genEndFunction
+   0028 C9            [10]  133 	ret
+                            134 ;	Total testBug function size at codegen: 1 bytes.
+                            135 ;cases/tst_bug-3503.c:4: __runSuite(void)
+                            136 ;	genLabel
+                            137 ;	genFunction
+                            138 ;	---------------------------------
+                            139 ; Function __runSuite
+                            140 ; ---------------------------------
+                            141 ;	Register assignment is optimal.
+                            142 ; Stack space usage: 0 bytes.
+   0029                     143 ___runSuite::
+                            144 ;cases/tst_bug-3503.c:6: __prints("Running testBug\n");
+                            145 ;	skipping iCode since result will be rematerialized
+                            146 ;	skipping iCode since result will be rematerialized
+                            147 ;	genSend
+                            148 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0029 21r2Fs00      [10]  149 	ld	hl, #___str_0
+                            150 ;	genCall
+                            151 ;cases/tst_bug-3503.c:7: testBug();
+                            152 ;	genLabel
+                            153 ; common peephole 159 removed unused label 00101$.
+                            154 ;cases/tst_bug-3503.c:8: }
+                            155 ;	genEndFunction
+   002C C3r00s00      [10]  156 	jp	___prints
+                            157 ; common peephole 152 removed unused ret.
+                            158 ;	Total __runSuite function size at codegen: 1 bytes.
+   002F                     159 ___str_0:
+   002F 52 75 6E 6E 69 6E   160 	.ascii "Running testBug"
+        67 20 74 65 73 74
+        42 75 67
+   003E 0A                  161 	.db 0x0a
+   003F 00                  162 	.db 0x00
+                            163 ;cases/tst_bug-3503.c:13: __getSuiteName(void)
+                            164 ;	genLabel
+                            165 ;	genFunction
+                            166 ;	---------------------------------
+                            167 ; Function __getSuiteName
+                            168 ; ---------------------------------
+                            169 ;	Register assignment is optimal.
+                            170 ; Stack space usage: 0 bytes.
+   0040                     171 ___getSuiteName::
+                            172 ;cases/tst_bug-3503.c:15: return "bug-3503.c";
+                            173 ;	skipping iCode since result will be rematerialized
+                            174 ;	skipping iCode since result will be rematerialized
+                            175 ;	genRet
+                            176 ;	genMove_o size 2 result type 2 source type 7 a_dead 1 hl_dead 1 de_dead 1 iy_dead 1 f_dead 1
+   0040 11r46s00      [10]  177 	ld	de, #___str_1
+                            178 ;	genLabel
+                            179 ; common peephole 159 removed unused label 00101$.
+                            180 ;cases/tst_bug-3503.c:16: }
+                            181 ;	genEndFunction
+   0043 C9            [10]  182 	ret
+                            183 ;	Total __getSuiteName function size at codegen: 1 bytes.
+   0044                     184 ___numCases:
+   0044 01 00               185 	.dw #0x0001
+   0046                     186 ___str_1:
+   0046 62 75 67 2D 33 35   187 	.ascii "bug-3503.c"
+        30 33 2E 63
+   0050 00                  188 	.db 0x00
+                            189 	.area _CODE (BANK=_CSEG)
+                            190 	.area _INITIALIZER
+                            191 	.area _CABS (ABS)

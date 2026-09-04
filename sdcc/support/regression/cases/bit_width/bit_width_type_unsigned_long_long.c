@@ -1,0 +1,41 @@
+/* bit_width.c.in
+   bit-width functions from stdbit.h
+   type: unsigned char, unsigned short, unsigned int, unsigned long, unsigned long long
+ */
+
+#include <testfwk.h>
+
+#if __STDC_VERSION__ >= 202311L || defined(__SDCC)
+#include <stdbit.h>
+#endif
+
+void testBitWidth(void)
+{
+#if __STDC_VERSION_STDBIT_H__ >= 202311L || defined(__SDCC)
+	unsigned long long v;
+	v = 0x00;
+	ASSERT (stdc_bit_width(v) == 0);
+	v = 0x01;
+	ASSERT (stdc_bit_width(v) == 1);
+	v = 0x81;
+	ASSERT (stdc_bit_width(v) == 8);
+	v = 0x80;
+	ASSERT (stdc_bit_width(v) == 8);
+#endif
+}
+
+
+void
+__runSuite(void)
+{
+  __prints("Running testBitWidth\n");
+  testBitWidth();
+}
+
+const int __numCases = 1;
+
+__code const char *
+__getSuiteName(void)
+{
+  return "bit_width_type_unsigned_long_long";
+}
