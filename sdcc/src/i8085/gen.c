@@ -299,8 +299,14 @@ static struct asmop *const ASMOP_D = &asmop_d;
 static struct asmop *const ASMOP_E = &asmop_e;
 static struct asmop *const ASMOP_H = &asmop_h;
 static struct asmop *const ASMOP_L = &asmop_l;
-static struct asmop *const ASMOP_IYH = &asmop_iyh;
-static struct asmop *const ASMOP_IYL = &asmop_iyl;
+/* ASMOP_IYH/ASMOP_IYL (aliases for asmop_iyh/asmop_iyl) declarations
+   removed: unused on this port as of #24 (their only call site,
+   commitPair()'s dead case PAIR_IY, was removed - id is never PAIR_IY
+   there, see the call-site trace above commitPair()'s first "if"). The
+   underlying asmop_iyh/asmop_iyl storage and its init_reg_asmop() calls
+   are left in place - harmless, and the structs themselves are still
+   referenced directly (not via these named aliases) by asmopregs[]
+   below, same as the ASMOP_JK precedent (#23) above. */
 static struct asmop *const ASMOP_HL = &asmop_hl;
 static struct asmop *const ASMOP_DE = &asmop_de;
 static struct asmop *const ASMOP_BC = &asmop_bc;
@@ -4788,25 +4794,20 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
 
   /* Stack positions will change, so do not assume this is possible in the cost function. */
 
-  // id == PAIR_HL)" simplified to "id == PAIR_HL" (IS_RAB unconditionally
-  // false in this file).
+  /* id == PAIR_IY was already documented dead here (no IY hardware on
+     i8080/i8085). Exhaustive tracing of all 4 call sites of commitPair()
+     (genPointerGet-family callers passing _getTempPairId(), a proven-
+     always-PAIR_HL "pair" local, a getDeadPairId()-derived local that can
+     only be PAIR_BC/PAIR_DE/PAIR_HL, and a local explicitly guarded with
+     "!= PAIR_IY" before falling back to PAIR_HL) confirms the stronger
+     fact: id is never actually PAIR_IY here, not merely dead for lack of
+     hardware. "id == PAIR_HL || id == PAIR_IY" simplified to "id ==
+     PAIR_HL" accordingly. */
   if (!regalloc_dry_run && (aop->type == AOP_STK || aop->type == AOP_EXSTK) && !sp_offset
-      && (id == PAIR_HL || id == PAIR_IY) && !dont_destroy)
+      && id == PAIR_HL && !dont_destroy)
     {
-      /* Zilog's "ex (sp), hl"/"ex (sp), iy" (swap top-of-stack word with a
-         pair) has no Intel 2-operand form: XTHL always swaps the stack top
-         with HL specifically, with no operand slot at all (unlike dad/inx/
-         dcx, whose single operand can be any of several pairs - XTHL's
-         hardware encoding is fixed to HL only, so there is no equivalent
-         to translate the dead id==PAIR_IY case *to* either). id==PAIR_HL
-         is the only live case (no IY hardware on i8080/i8085); id==PAIR_IY
-         is left as unmodified Zilog text, matching this file's established
-         practice for other dead-IY sites. */
-      emit2 (id == PAIR_IY ? "ex (sp), %s" : "xthl", _pairs[id].name);
-      if (id == PAIR_IY)
-        cost2 (2, 2, -1, 3, 23, 19, 15, 15, -1, 14, -1, 8, 8, 6, 6);
-      else
-        cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // "1 + IS_RAB" simplified to "1" (IS_RAB unconditionally 0 in this file).
+      emit2 ("xthl");
+      cost2 (1, 2, -1, 3, 19, 16, 15, 15, -1, 14, -1, 8, 8, 5, 5); // "1 + IS_RAB" simplified to "1" (IS_RAB unconditionally 0 in this file).
       spillPair (id);
     }
   else if (!regalloc_dry_run && (aop->type == AOP_STK || aop->type == AOP_EXSTK) && !sp_offset)
@@ -4816,10 +4817,7 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
       emit2 ("inx sp");
       cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
       emit2 ("push %s", _pairs[id].name);
-      if (id == PAIR_IY)
-        cost2 (2, 1, -1, 2, 15, 13, 12, 13, -1, 8, -1, 4, 4, 4, 5);
-      else
-        cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4);
+      cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4); // id == PAIR_IY dead (see comment above); its cost2 arm dropped.
     }
 
   /* PENDING: Verify this. */
@@ -4901,10 +4899,9 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
                   cheapMove (aop, 1, ASMOP_H, 0, true);
                 }
               break;
-            case PAIR_IY:
-              cheapMove (aop, 0, ASMOP_IYL, 0, true);
-              cheapMove (aop, 1, ASMOP_IYH, 0, true);
-              break;
+            // "case PAIR_IY: cheapMove(...ASMOP_IYL...); cheapMove(...ASMOP_IYH...); break;"
+            // removed: id is never PAIR_IY here (see the exhaustive
+            // call-site trace above commitPair()'s first "if").
             default:
               wassertl (0, "Unknown pair id in commitPair()");
               fprintf (stderr, "pair %s\n", _pairs[id].name);
