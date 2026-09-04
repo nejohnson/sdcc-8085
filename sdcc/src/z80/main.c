@@ -302,7 +302,9 @@ _z80_init (void)
       asm_addTree (&_gas_z80);
       break;
     default:
-      asm_addTree (&_asxxxx_z80);
+      /* The banked area mapping is only correct for an ASxxxx assembler;
+         sdas has no banks and rejects the syntax. */
+      asm_addTree (port->assembler.asxxxx ? &_asxxxx_z80_bank : &_asxxxx_z80);
       break;
     }
 
@@ -320,7 +322,9 @@ _z180_init (void)
       asm_addTree (&_gas_z80);
       break;
     default:
-      asm_addTree (&_asxxxx_z80);
+      /* The banked area mapping is only correct for an ASxxxx assembler;
+         sdas has no banks and rejects the syntax. */
+      asm_addTree (port->assembler.asxxxx ? &_asxxxx_z80_bank : &_asxxxx_z80);
       break;
     }
 
@@ -401,7 +405,9 @@ static void
 _tlcs90_init (void)
 {
   z80_opts.sub = SUB_TLCS90;
-  asm_addTree (&_asxxxx_z80);
+  /* The banked area mapping is only correct for an ASxxxx assembler;
+     sdas has no banks and rejects the syntax. */
+  asm_addTree (port->assembler.asxxxx ? &_asxxxx_z80_bank : &_asxxxx_z80);
 
   regsZ80 = z80_regs;
   z80_init_asmops ();
@@ -417,7 +423,9 @@ _ez80_init (void)
       asm_addTree (&_gas_z80);
       break;
     default:
-      asm_addTree (&_asxxxx_z80);
+      /* The banked area mapping is only correct for an ASxxxx assembler;
+         sdas has no banks and rejects the syntax. */
+      asm_addTree (port->assembler.asxxxx ? &_asxxxx_z80_bank : &_asxxxx_z80);
       break;
     }
 
@@ -429,7 +437,9 @@ static void
 _z80n_init (void)
 {
   z80_opts.sub = SUB_Z80N;
-  asm_addTree (&_asxxxx_z80);
+  /* The banked area mapping is only correct for an ASxxxx assembler;
+     sdas has no banks and rejects the syntax. */
+  asm_addTree (port->assembler.asxxxx ? &_asxxxx_z80_bank : &_asxxxx_z80);
 
   regsZ80 = z80_regs;
   z80_init_asmops ();
@@ -439,7 +449,9 @@ static void
 _r800_init (void)
 {
   z80_opts.sub = SUB_R800;
-  asm_addTree (&_asxxxx_z80);
+  /* The banked area mapping is only correct for an ASxxxx assembler;
+     sdas has no banks and rejects the syntax. */
+  asm_addTree (port->assembler.asxxxx ? &_asxxxx_z80_bank : &_asxxxx_z80);
 
   regsZ80 = z80_regs;
   z80_init_asmops ();

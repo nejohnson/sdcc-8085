@@ -74,6 +74,62 @@ static const ASM_MAPPING _asxxxx_z80_mapping[] = {
     { NULL, NULL }
 };
 
+/* Areas whose name the compiler chooses - the ones --codeseg, --dataseg
+   and #pragma bank rename - have to say which bank they belong to when
+   the assembler is ASxxxx.  aslink lays out the areas of a bank from
+   that bank's base and packs areas belonging to no bank from address 0,
+   so an area crt0.s has not named would otherwise land on top of the
+   reset vector rather than after the code.  _CSEG and _DSEG are the
+   banks ASxxxx predefines, holding _CODE and _DATA;  naming the bank an
+   area is already in is accepted, naming a different one is an error,
+   which is why only these three area kinds carry it - the rest are
+   declared once by crt0.s, and a plain declaration inherits the bank
+   from whichever module named one.  sdas has no banks, so this differs
+   from the mapping the sdas-assembled ports use. */
+static const ASM_MAPPING _asxxxx_z80_bank_mapping[] = {
+    /* We want to prepend the _ */
+    { "area", ".area _%s" },
+    { "areacode", ".area _%s (BANK=_CSEG)" },
+    { "areadata", ".area _%s (BANK=_DSEG)" },
+    { "areahome", ".area _%s (BANK=_CSEG)" },
+    { "*ixx", "%d (ix)" },
+    { "*iyx", "%d (iy)" },
+    { "*hl", "(hl)" },
+    { "jphl", "jp (hl)" },
+    { "di", "di" },
+    { "ei", "ei" },
+    { "ldahli",
+      "ld a, (hl)\n"
+      "inc\thl" },
+    { "ldahld",
+      "ld a, (hl)\n"
+      "dec\thl" },
+    { "lldahli",
+      "ld (hl), a\n"
+      "inc\thl" },
+    { "lldahld",
+      "ld (hl), a\n"
+      "dec\thl" },
+    { "ldahlsp",
+      "ld hl, #%d\n"
+      "add\thl, sp" },
+    { "ldaspsp",
+      "ld iy,#%d\n"
+      "add\tiy,sp\n"
+      "ld\tsp,iy" },
+    { "mems", "(%s)" },
+    { "enter",
+      "push\tix\n"
+      "ld\tix, #0\n"
+      "add\tix, sp" },
+    { "enters",
+      "call\t___sdcc_enter_ix\n" },
+    { "adjustsp", "lda sp,-%d(sp)" },
+    { "here", "." },
+    { "optsdcc", ".optsdcc" },
+    { NULL, NULL }
+};
+
 static const ASM_MAPPING _asxxxx_r2k_mapping[] = {
     /* We want to prepend the _ */
     { "area", ".area _%s" },
@@ -460,6 +516,11 @@ const ASM_MAPPINGS _asxxxx_gb = {
 const ASM_MAPPINGS _asxxxx_z80 = {
     &asm_asxxxx_mapping,
     _asxxxx_z80_mapping
+};
+
+const ASM_MAPPINGS _asxxxx_z80_bank = {
+    &asm_asxxxx_mapping,
+    _asxxxx_z80_bank_mapping
 };
 
 static const ASM_MAPPINGS _z80asm = {
