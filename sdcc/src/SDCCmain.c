@@ -1935,6 +1935,14 @@ linkEdit (char **envp)
             fprintf (lnkfile, "-M\n");
         }
 
+      /* aslink names the map and the debug files after the first object
+         file, which is the crt0 sitting in the library directory - the
+         wrong name, and unwritable if that directory is not the user's.
+         -o+ gives them the program's name instead.  The linked output is
+         already named by the -i+/-s+/-t+ above, which takes precedence. */
+      if (port->linker.asxxxx)
+        fprintf (lnkfile, "-o+%s\n", dstFileName);
+
       if (!TARGET_Z80_LIKE)   /* Not for the z80 and related */
         {
           /* if iram size specified */
