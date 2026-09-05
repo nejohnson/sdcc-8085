@@ -32,11 +32,11 @@
 
 /* The instruction-pattern matching below (lineIsInst() against strings like
    "ld", "jp", "ex", "rlca", ...) recognizes Zilog-syntax mnemonics, not the
-   Intel mnemonics gen.c emits (mov, jmp, xchg, ral, ...) for most of this
-   file's history. This is registered as the port's peephole-optimizer
-   support (port->peep in main.c) and is reached whenever peephole rules are
-   applied, which is unconditionally in a default build now: this port's
-   own src/i8085/peeph-i8085.def is the active rule set (options.nopeep = 0
+   Intel mnemonics gen.c emits (mov, jmp, xchg, ral, ...). This is
+   registered as the port's peephole-optimizer support (port->peep in
+   main.c) and is reached whenever peephole rules are applied, which is
+   unconditionally in a default build now: this port's own
+   src/i8085/peeph-i8085.def is the active rule set (options.nopeep = 0
    in main.c's _setDefaultOptions()), so every function in this file runs
    on every compile, not just under --peep-file.
    The classifier functions below (mightRead/mightReadFlag/surelyWrites/
@@ -1106,7 +1106,7 @@ surelyWritesFlag(const lineNode *pl, const char *what)
     return (!!strcmp(what, "cf"));
 
   if(lineIsInst (pl, "mlt"))
-    return true; // mlt (Z80N-only multiply) never appears in this port's output; kept for parity with the shared dispatch shape.
+    return true; // mlt is a Z80N-only multiply instruction and never appears in this port's output.
 
   // pop af writes
   if(lineIsInst (pl, "pop.l"))
