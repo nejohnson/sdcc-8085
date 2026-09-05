@@ -50,9 +50,7 @@
 
 /* This port's own Intel-syntax peephole rules (src/i8085/peeph-i8085.def -
    see peep.c's leading comment and the "Intel-mnemonic instruction
-   classification" block it introduces). Replaces the shared z80-family
-   peeph.def/peeph-z80.def, which are Zilog-syntax and were never actually
-   applied here - see the git history of this file for that era. */
+   classification" block it introduces). */
 static char _i8085_defaultRules[] = {
 #include "peeph-i8085.rul"
 };
@@ -451,15 +449,12 @@ _setDefaultOptions (void)
   /* Peephole optimization is enabled by default via this port's own
      Intel-syntax rule set, src/i8085/peeph-i8085.def (_i8085_defaultRules
      above) - written and validated specifically against the Intel
-     mnemonics gen.c actually emits, unlike the shared z80-family
-     peeph.def/peeph-z80.def this port used to (uselessly, and unsafely -
-     see bug-3013.c) inherit. Landed incrementally, one tight logical
-     group of rules at a time, each validated by hand-reasoning against
-     the 8085 data sheet, a real-corpus scan with --peep-file to find
-     genuine firing instances (not just regression-neutrality, which
-     can't tell a correct rule from one that simply never fires), and a
-     ucsim behavioral check - see peeph-i8085.def's own header and its
-     git history for the full record. This function is shared by both
+     mnemonics gen.c actually emits: hand-reasoning against the 8085
+     data sheet, a real-corpus scan with --peep-file to find genuine
+     firing instances (not just regression-neutrality, which can't
+     tell a correct rule from one that simply never fires), and a
+     ucsim behavioral check - see peeph-i8085.def's own header for the
+     full methodology. This function is shared by both
      i8085_port and i8080_port, and both get the same validated rules. */
   options.nopeep = 0;
   options.stackAuto = 1;
@@ -567,8 +562,8 @@ _genAssemblerStart (FILE * of)
     }
 
   /* Only i8080_port/i8085_port ever call this, so port->id is always
-     TARGET_ID_I8080 or TARGET_ID_I8085; every other TARGET_IS_* arm from
-     the shared z80/main.c version is unreachable here. */
+     TARGET_ID_I8080 or TARGET_ID_I8085 - the two branches below cover
+     every case. */
   if (TARGET_IS_I8080)
     fprintf (of, "\t.8080\n");
   else if (TARGET_IS_I8085)
