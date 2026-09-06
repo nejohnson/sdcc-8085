@@ -2526,15 +2526,13 @@ spillPairReg (const char *regname)
         // register name drawn from aop_reg[...]->name or
         // i8085_regs[countreg].name, both always sourced from the fixed
         // 8-entry i8085_gpr_regs[] pool (ralloc.c), which has no
-        // "j"/"k" register at all (nor "iy"/"ix" - see the sibling arms
-        // below, whose identical reasoning is noted but not acted on
-        // here, out of scope for this specific check) (#24).
+        // "j"/"k" register at all (#24).
         }
     }
-  else if (!strncmp (regname, "iy", 2))
-    spillPair (PAIR_IY);
-  else if (!strncmp (regname, "ix", 2))
-    spillPair (PAIR_IX);
+  // "else if (!strncmp(regname,"iy",2)) spillPair(PAIR_IY); else if
+  // (!strncmp(regname,"ix",2)) spillPair(PAIR_IX);" removed: same
+  // exhaustive-callsite proof as the "j"/"k" arm above - regname is
+  // never "iy"/"ix" either (#24).
 }
 
 /* swap pairs fiels type/base */
@@ -8994,7 +8992,7 @@ genPlus (iCode * ic)
       // register-allocated to IY on this port, #24), so this whole block
       // could never execute.
       if (!maskedword && (!premoved || i) && !started && i == size - 2 && !i && isPair (rightop) && leftop->type == AOP_IMMD &&
-        getPairId (rightop) != PAIR_HL && (getPairId (rightop) != PAIR_IY) &&
+        getPairId (rightop) != PAIR_HL && // "&& (getPairId(...) != PAIR_IY)" dropped: always true (#24).
         isPairDead (PAIR_HL, ic))
         {
           genMove_o (ASMOP_HL, 0, IC_LEFT (ic)->aop, i, 2, a_dead, true, de_dead, true, true);
@@ -9005,7 +9003,7 @@ genPlus (iCode * ic)
           i += 2;
         }
      else  if (!maskedword && (!premoved || i) && !started && i == size - 2 && !i && isPair (leftop) && (rightop->type == AOP_LIT  || rightop->type == AOP_IMMD) &&
-       getPairId (leftop) != PAIR_HL && (getPairId (leftop) != PAIR_IY) &&
+       getPairId (leftop) != PAIR_HL && // "&& (getPairId(...) != PAIR_IY)" dropped: always true (#24).
        isPairDead (PAIR_HL, ic))
         {
           genMove_o (ASMOP_HL, 0, IC_RIGHT (ic)->aop, i, 2, a_dead, true, de_dead, true, true);
@@ -9016,7 +9014,7 @@ genPlus (iCode * ic)
           i += 2;
         }
       else if (!maskedword && (!premoved || i) && !started && i == size - 2 && !i && aopInReg (leftop, i, HL_IDX) &&
-        isPair (rightop) && getPairId (rightop) != PAIR_HL && (getPairId (rightop) != PAIR_IY) &&
+        isPair (rightop) && getPairId (rightop) != PAIR_HL && // "&& (getPairId(...) != PAIR_IY)" dropped: always true (#24).
         isPairDead (PAIR_HL, ic))
         {
           emit3w (A_ADD, ASMOP_HL, ic->right->aop);
@@ -9026,7 +9024,7 @@ genPlus (iCode * ic)
           i += 2;
         }
       else if (!maskedword && (!premoved || i) && !started && i == size - 2 && !i &&
-        isPair (leftop) && getPairId (leftop) != PAIR_HL && (getPairId (leftop) != PAIR_IY) &&
+        isPair (leftop) && getPairId (leftop) != PAIR_HL && // "&& (getPairId(...) != PAIR_IY)" dropped: always true (#24).
         aopInReg (rightop, i, HL_IDX) && isPairDead (PAIR_HL, ic))
         {
           emit3w (A_ADD, ASMOP_HL, ic->left->aop);
@@ -15289,7 +15287,9 @@ genAddrOf (const iCode *ic)
       // IS_EZ80/IS_TLCS90-gated conditions below.
 
       // "if (IS_EZ80 && in_fp_range && getPairId (ic->result->aop) !=
-      pair = (getPairId (ic->result->aop) == PAIR_IY) ? PAIR_IY : PAIR_HL;
+      // "(getPairId(ic->result->aop) == PAIR_IY) ? PAIR_IY : PAIR_HL"
+      // simplified to just PAIR_HL: getPairId() never returns PAIR_IY (#24).
+      pair = PAIR_HL;
 
       if (pair == PAIR_HL && !isRegDead (HL_IDX, ic))
         {
@@ -15347,15 +15347,15 @@ genAddrOf (const iCode *ic)
 
       if (sym->onStack)
         cheapMove (ic->result->aop, 2, ASMOP_ZERO, 0, isRegDead (A_IDX, ic) && ic->result->aop->regs[A_IDX] < 0);
-      else if (aopInReg (ic->result->aop, 2, A_IDX) || aopInReg (ic->result->aop, 2, B_IDX) || aopInReg (ic->result->aop, 2, C_IDX) || aopInReg (ic->result->aop, 2, D_IDX) || aopInReg (ic->result->aop, 2, E_IDX) || aopInReg (ic->result->aop, 2, H_IDX) || aopInReg (ic->result->aop, 2, L_IDX) || HAS_IYL_INST && (aopInReg (ic->result->aop, 2, IYH_IDX) || aopInReg (ic->result->aop, 2, IYL_IDX)))
+      // "|| HAS_IYL_INST && (aopInReg(...,IYH_IDX) || aopInReg(...,IYL_IDX))"
+      // dropped: HAS_IYL_INST is unconditionally 0 on this port (#24).
+      else if (aopInReg (ic->result->aop, 2, A_IDX) || aopInReg (ic->result->aop, 2, B_IDX) || aopInReg (ic->result->aop, 2, C_IDX) || aopInReg (ic->result->aop, 2, D_IDX) || aopInReg (ic->result->aop, 2, E_IDX) || aopInReg (ic->result->aop, 2, H_IDX) || aopInReg (ic->result->aop, 2, L_IDX))
         {
           if (!regalloc_dry_run)
             //emit2 ("ld %s, #((%s+%ld) >> 16)", aopGet (ic->result->aop, 2, false), sym->rname, (long)(operandLitValue (right)));
             emit2 ("ld %s, #0"); // TODO: fix when assembler does >> 16 for 24-bit addr! Distinguish obj addr vs. func addr?
-          if(aopInReg (ic->result->aop, 2, IYH_IDX) || aopInReg (ic->result->aop, 2, IYL_IDX))
-            cost2 (3, -1, -1, -1, 11, -1, -1, -1, -1, -1, -1, -1, -1, 2, 3);
-          else
-            cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
+          // "if(aopInReg(...,IYH_IDX) || aopInReg(...,IYL_IDX)) cost2(...); else" removed: always false (#24).
+          cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
         }
       else
         {
@@ -16281,7 +16281,12 @@ setupForMemcpy (const iCode *ic, const operand *to, const operand *from, const o
       if (from->aop->type != AOP_REG || from->aop->aopu.aop_reg[0]->rIdx != E_IDX && from->aop->aopu.aop_reg[0]->rIdx != D_IDX && from->aop->aopu.aop_reg[1]->rIdx != E_IDX && from->aop->aopu.aop_reg[1]->rIdx != D_IDX)
         {
           bool a_free = isRegDead (A_IDX, ic) && !aopInReg (from->aop, 0, A_IDX) && !aopInReg (from->aop, 1, A_IDX);
-          bool iy_free = isRegDead (IY_IDX, ic) && !aopInReg (from->aop, 0, IYL_IDX) && !aopInReg (from->aop, 1, IYH_IDX) && !aopInReg (from->aop, 0, IYL_IDX) && !aopInReg (from->aop, 1, IYH_IDX);
+          // iy_free (was "isRegDead(IY_IDX,ic) && !aopInReg(from->aop,0,
+          // IYL_IDX) && !aopInReg(from->aop,1,IYH_IDX) && ...") is always
+          // true: isRegDead(IY_IDX,ic) is always true, and every
+          // aopInReg(...,IYL_IDX/IYH_IDX) conjunct is always false, so its
+          // negation is always true (#24).
+          bool iy_free = true;
           genMove (ASMOP_DE, to->aop, a_free, from->aop->regs[L_IDX] < 0 && from->aop->regs[H_IDX] < 0, true, iy_free);
           genMove (ASMOP_HL, from->aop, isRegDead (A_IDX, ic), true, false, isRegDead (IY_IDX, ic));
         }
@@ -16289,7 +16294,10 @@ setupForMemcpy (const iCode *ic, const operand *to, const operand *from, const o
       else if (to->aop->type != AOP_REG || to->aop->aopu.aop_reg[0]->rIdx != L_IDX && to->aop->aopu.aop_reg[0]->rIdx != H_IDX && to->aop->aopu.aop_reg[1]->rIdx != L_IDX && to->aop->aopu.aop_reg[1]->rIdx != H_IDX)
         {
           bool a_free = isRegDead (A_IDX, ic) && !aopInReg (to->aop, 0, A_IDX) && !aopInReg (to->aop, 1, A_IDX);
-          bool iy_free = isRegDead (IY_IDX, ic) && !aopInReg (to->aop, 0, IYL_IDX) && !aopInReg (to->aop, 1, IYH_IDX) && !aopInReg (to->aop, 0, IYL_IDX) && !aopInReg (to->aop, 1, IYH_IDX);
+          // iy_free (was "isRegDead(IY_IDX,ic) && !aopInReg(to->aop,0,
+          // IYL_IDX) && !aopInReg(to->aop,1,IYH_IDX) && ...") is always
+          // true, same reasoning as the "from" case above (#24).
+          bool iy_free = true;
           genMove (ASMOP_HL, from->aop, a_free, true, to->aop->regs[E_IDX] < 0 && to->aop->regs[D_IDX] < 0, iy_free);
           genMove (ASMOP_DE, to->aop, isRegDead (A_IDX, ic), false, true, isRegDead (IY_IDX, ic));
         }
@@ -16812,14 +16820,14 @@ genBuiltInStrchr (const iCode *ic, int nParams, operand **pparams)
   if (SomethingReturned)
     aopOp (IC_RESULT (ic), ic, true, false);
 
-  if (getPairId (s->aop) != PAIR_INVALID && getPairId (s->aop) != PAIR_IY)
+  if (getPairId (s->aop) != PAIR_INVALID) // "&& getPairId(...) != PAIR_IY" dropped: getPairId() never returns PAIR_IY (#24).
     pair = getPairId (s->aop);
-  else if (SomethingReturned && getPairId (IC_RESULT (ic)->aop) != PAIR_INVALID && getPairId (IC_RESULT (ic)->aop) != PAIR_IY)
+  else if (SomethingReturned && getPairId (IC_RESULT (ic)->aop) != PAIR_INVALID) // "&& getPairId(...) != PAIR_IY" dropped: getPairId() never returns PAIR_IY (#24).
     pair = getPairId (IC_RESULT (ic)->aop);
   else
     pair = PAIR_HL;
 
-  if (c->aop->type == AOP_REG && c->aop->aopu.aop_reg[0]->rIdx != IYL_IDX && c->aop->aopu.aop_reg[0]->rIdx != IYH_IDX &&
+  if (c->aop->type == AOP_REG && // "&& rIdx != IYL_IDX && rIdx != IYH_IDX" dropped: always true (#24).
     c->aop->aopu.aop_reg[0]->rIdx != A_IDX &&
     !(pair == PAIR_HL && (c->aop->aopu.aop_reg[0]->rIdx == L_IDX || c->aop->aopu.aop_reg[0]->rIdx == H_IDX)) &&
     !(pair == PAIR_DE && (c->aop->aopu.aop_reg[0]->rIdx == E_IDX || c->aop->aopu.aop_reg[0]->rIdx == D_IDX)) &&
