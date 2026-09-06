@@ -310,7 +310,13 @@ static struct asmop *const ASMOP_L = &asmop_l;
 static struct asmop *const ASMOP_HL = &asmop_hl;
 static struct asmop *const ASMOP_DE = &asmop_de;
 static struct asmop *const ASMOP_BC = &asmop_bc;
-static struct asmop *const ASMOP_IY = &asmop_iy;
+/* ASMOP_IY (alias for asmop_iy) declaration removed: unused on this port
+   as of #24 (its last two call sites - genOr()'s two "ld (nn), rr, etc."
+   fast paths - had their ": ASMOP_IY" ternary fallbacks dropped as
+   unreachable, since aopInReg(...,IYL_IDX/IYH_IDX) is always false). The
+   underlying asmop_iy storage and its init_reg_asmop() call are left in
+   place - harmless, same as the ASMOP_JK/ASMOP_IYH/ASMOP_IYL precedents
+   (#23/#24) above. */
 /* ASMOP_JK (alias for asmop_jk) is unused on this port as of #23 (its only
    call site - "ex jk, hl", Rabbit 4000-only - was gated on the now-removed
    IS_R4K_NOTYET||IS_R5K_NOTYET||IS_R6K_NOTYET dead code). The underlying
@@ -11669,7 +11675,7 @@ genAnd (const iCode *ic, iCode *ifx)
 
   /* Make sure A is on the left to not overwrite it. */
   if (aopInReg (right->aop, 0, A_IDX) ||
-    !aopInReg (left->aop, 0, A_IDX) && isPair (right->aop) && (getPairId (right->aop) == PAIR_HL || getPairId (right->aop) == PAIR_IY))
+    !aopInReg (left->aop, 0, A_IDX) && isPair (right->aop) && getPairId (right->aop) == PAIR_HL) // "|| getPairId(...) == PAIR_IY" dropped: getPairId() never returns PAIR_IY (#24).
     {
       operand *tmp = right;
       right = left;
@@ -11759,7 +11765,7 @@ genAnd (const iCode *ic, iCode *ifx)
           /* Non-destructive and when exactly one bit per byte is set. */
           else if (isLiteralBit (bytelit) >= 0 &&
             (left->aop->type == AOP_STK || aopInReg (left->aop, offset, A_IDX) || left->aop->type == AOP_HL ||
-              left->aop->type == AOP_REG && !aopInReg (left->aop, offset, IYL_IDX) && !aopInReg (left->aop, offset, IYH_IDX)))
+              left->aop->type == AOP_REG)) // "&& !aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX)" dropped: always true (#24).
             {
               if (requiresHL (left->aop) && left->aop->type != AOP_REG)
                 _push (PAIR_HL);
@@ -11771,7 +11777,7 @@ genAnd (const iCode *ic, iCode *ifx)
             }
           // (IS_Z180||IS_EZ80||IS_Z80N)-gated "tst a, ..." arm removed
 
-          else if (!isRegDead (A_IDX, ic) && bytelit == 0x0ff && !aopInReg (left->aop, offset, A_IDX) && left->aop->type == AOP_REG && !aopInReg (left->aop, offset, IYL_IDX) && !aopInReg (left->aop, offset, IYH_IDX))
+          else if (!isRegDead (A_IDX, ic) && bytelit == 0x0ff && !aopInReg (left->aop, offset, A_IDX) && left->aop->type == AOP_REG) // "&& !aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX)" dropped: always true (#24).
             {
               emit3_o (A_RLC, left->aop, offset, 0, 0);
               emit3_o (A_RRC, left->aop, offset, 0, 0);
@@ -11793,7 +11799,7 @@ genAnd (const iCode *ic, iCode *ifx)
               else
                 {
                   bool next_ff = sizel > 1 && aopIsLitVal (right->aop, offset + 1, 1, 0xff) &&
-                    (left->aop->type == AOP_STK || left->aop->type == AOP_REG && (!aopInReg (left->aop, offset + 1, IYL_IDX) && !aopInReg (left->aop, offset + 1, IYH_IDX)));
+                    (left->aop->type == AOP_STK || left->aop->type == AOP_REG); // "&& (!aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX))" dropped: always true (#24).
                   if (bytelit != 0xffu)
                     emit3_o (A_AND, ASMOP_A, 0, right->aop, offset);
                   else if (!next_ff)
@@ -11803,7 +11809,7 @@ genAnd (const iCode *ic, iCode *ifx)
                       emit3_o (A_OR, ASMOP_A, 0, left->aop, ++offset);
                       sizel--;
                       next_ff = sizel > 1 && aopIsLitVal (right->aop, offset + 1, 1, 0xff) &&
-                        (left->aop->type == AOP_STK || left->aop->type == AOP_REG && (!aopInReg (left->aop, offset + 1, IYL_IDX) && !aopInReg (left->aop, offset + 1, IYH_IDX)));
+                        (left->aop->type == AOP_STK || left->aop->type == AOP_REG); // "&& (!aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX))" dropped: always true (#24).
                     }
                 }
               sizel--;
@@ -11881,7 +11887,7 @@ genAnd (const iCode *ic, iCode *ifx)
           bytelit = byteOfVal (right->aop->aopu.aop_lit, i);
 
           if (isLiteralBit (~bytelit & 0xffu) >= 0 && aopSame (result->aop, i, left->aop, i, 1) &&
-            (result->aop->type == AOP_STK || result->aop->type == AOP_DIR || result->aop->type == AOP_REG && !aopInReg (result->aop, i, IYL_IDX) && !aopInReg (result->aop, i, IYH_IDX)))
+            (result->aop->type == AOP_STK || result->aop->type == AOP_DIR || result->aop->type == AOP_REG)) // "&& !aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX)" dropped: always true (#24).
             {
               cheapMove (result->aop, i, left->aop, i, a_free);
               emit8080SetRes (result->aop, i, isLiteralBit (~bytelit & 0xffu), false, a_free);
@@ -11912,10 +11918,8 @@ genAnd (const iCode *ic, iCode *ifx)
         {
           if (requiresHL (left->aop) && left->aop->type != AOP_REG && !hl_free)
             _push (PAIR_HL);
-          if (aopInReg (left->aop, i, IYL_IDX) || aopInReg (left->aop, i, IYH_IDX))
-            UNIMPLEMENTED;
-          else
-            emit3_o (A_AND, ASMOP_A, 0, left->aop, i);
+          // "if (aopInReg(left->aop,i,IYL_IDX) || aopInReg(left->aop,i,IYH_IDX)) UNIMPLEMENTED; else" removed: always false.
+          emit3_o (A_AND, ASMOP_A, 0, left->aop, i);
           if (requiresHL (left->aop) && left->aop->type != AOP_REG && !hl_free)
             _pop (PAIR_HL);
         }
@@ -11930,12 +11934,12 @@ genAnd (const iCode *ic, iCode *ifx)
           if (requiresHL (right->aop) && right->aop->type != AOP_REG && !hl_free)
             _push (PAIR_HL);
 
-          if ((right->aop->type == AOP_SFR || (aopInReg (right->aop, i, IYL_IDX) || aopInReg (right->aop, i, IYH_IDX))) && hl_free)
+          if (right->aop->type == AOP_SFR && hl_free) // "|| (aopInReg(...,IYL_IDX) || aopInReg(...,IYH_IDX))" dropped from both arms below: always false (#24).
             {
               cheapMove (ASMOP_L, 0, left->aop, i, false);
               emit3 (A_AND, ASMOP_A, ASMOP_L);
             }
-          else if (right->aop->type == AOP_SFR || (aopInReg (right->aop, i, IYL_IDX) || aopInReg (right->aop, i, IYH_IDX)))
+          else if (right->aop->type == AOP_SFR)
             UNIMPLEMENTED;
           else
             emit3_o (A_AND, ASMOP_A, 0, right->aop, i);
@@ -12114,19 +12118,25 @@ genOr (const iCode * ic, iCode * ifx)
 
       if (left->aop->type == AOP_REG && right->aop->type == AOP_REG && // Try to use ld (nn), rr, etc.
         aopIsLitVal (left->aop, i, 1, 0x00) && aopIsLitVal (right->aop, i + 1, 1, 0x00) &&
-        (aopInReg (right->aop, i, C_IDX) && aopInReg (left->aop, i + 1, B_IDX) || aopInReg (right->aop, i, E_IDX) && aopInReg (left->aop, i + 1, D_IDX) || aopInReg (right->aop, i, L_IDX) && aopInReg (left->aop, i + 1, H_IDX) || aopInReg (right->aop, i, IYL_IDX) && aopInReg (left->aop, i + 1, IYH_IDX)))
+        (aopInReg (right->aop, i, C_IDX) && aopInReg (left->aop, i + 1, B_IDX) || aopInReg (right->aop, i, E_IDX) && aopInReg (left->aop, i + 1, D_IDX) || aopInReg (right->aop, i, L_IDX) && aopInReg (left->aop, i + 1, H_IDX))) // "|| aopInReg(...,IYL_IDX) && aopInReg(...,IYH_IDX)" dropped: always false (#24).
         {
-          asmop *source = aopInReg (right->aop, i, C_IDX) ? ASMOP_BC : aopInReg (right->aop, i, E_IDX) ? ASMOP_DE : aopInReg (right->aop, i, L_IDX) ? ASMOP_HL : ASMOP_IY;
+          // ": ASMOP_IY" ternary fallback dropped: aopInReg(right,i,L_IDX)
+          // is guaranteed true whenever this "if" is reached and neither
+          // C_IDX nor E_IDX matched (#24).
+          asmop *source = aopInReg (right->aop, i, C_IDX) ? ASMOP_BC : aopInReg (right->aop, i, E_IDX) ? ASMOP_DE : ASMOP_HL;
           genMove_o (result->aop, i, source, 0, 2, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic), true);
           i += 2;
           continue;
         }
       else if (left->aop->type == AOP_REG && right->aop->type == AOP_REG && // Try to use ld (nn), rr, etc.
         aopIsLitVal (left->aop, i + 1, 1, 0x00) && aopIsLitVal (right->aop, i, 1, 0x00) &&
-        (aopInReg (right->aop, i + 1, B_IDX) && aopInReg (left->aop, i, C_IDX) || aopInReg (right->aop, i + 1, D_IDX) && aopInReg (left->aop, i, E_IDX) || aopInReg (right->aop, i + 1, H_IDX) && aopInReg (left->aop, i, L_IDX) || aopInReg (right->aop, i + 1, IYH_IDX) && aopInReg (left->aop, i, IYL_IDX)) &&
+        (aopInReg (right->aop, i + 1, B_IDX) && aopInReg (left->aop, i, C_IDX) || aopInReg (right->aop, i + 1, D_IDX) && aopInReg (left->aop, i, E_IDX) || aopInReg (right->aop, i + 1, H_IDX) && aopInReg (left->aop, i, L_IDX)) && // "|| aopInReg(...,IYH_IDX) && aopInReg(...,IYL_IDX)" dropped: always false (#24).
         (result->aop->type == AOP_DIR ||result->aop->type == AOP_HL))
         {
-          asmop *source = aopInReg (right->aop, i + 1, B_IDX) ? ASMOP_BC : aopInReg (right->aop, i + 1, D_IDX) ? ASMOP_DE : aopInReg (right->aop, i + 1, H_IDX) ? ASMOP_HL : ASMOP_IY;
+          // ": ASMOP_IY" ternary fallback dropped: aopInReg(right,i+1,H_IDX)
+          // is guaranteed true whenever this "if" is reached and neither
+          // B_IDX nor D_IDX matched (#24).
+          asmop *source = aopInReg (right->aop, i + 1, B_IDX) ? ASMOP_BC : aopInReg (right->aop, i + 1, D_IDX) ? ASMOP_DE : ASMOP_HL;
           genMove_o (result->aop, i, source, 0, 2, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic), true);
           i += 2;
           continue;
@@ -12167,7 +12177,7 @@ genOr (const iCode * ic, iCode * ifx)
           int bytelit = byteOfVal (right->aop->aopu.aop_lit, i);
 
           if (isLiteralBit (bytelit) >= 0 && aopSame (result->aop, i, left->aop, i, 1) &&
-            (result->aop->type == AOP_STK || result->aop->type == AOP_DIR || result->aop->type == AOP_REG && !aopInReg (result->aop, i, IYL_IDX) && !aopInReg (result->aop, i, IYH_IDX)))
+            (result->aop->type == AOP_STK || result->aop->type == AOP_DIR || result->aop->type == AOP_REG)) // "&& !aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX)" dropped: always true (#24).
             {
               cheapMove (result->aop, i, left->aop, i, a_free);
               emit8080SetRes (result->aop, i, isLiteralBit (bytelit), true, a_free);
@@ -12195,20 +12205,18 @@ genOr (const iCode * ic, iCode * ifx)
           a_free = true;
         }
 
-      if (aopInReg (right->aop, i, A_IDX) || right->aop->type == AOP_SFR ||
-        (aopInReg (right->aop, i, IYL_IDX) || aopInReg (right->aop, i, IYH_IDX)))
+      if (aopInReg (right->aop, i, A_IDX) || right->aop->type == AOP_SFR) // "|| (aopInReg(...,IYL_IDX) || aopInReg(...,IYH_IDX))" dropped: always false (#24).
         {
           cheapMove (ASMOP_A, 0, right->aop, i, true);
 
           if (requiresHL (left->aop) && left->aop->type != AOP_REG && !hl_free)
             _push (PAIR_HL);
-          if ((left->aop->type == AOP_SFR || (aopInReg (right->aop, i, IYL_IDX) || aopInReg (right->aop, i, IYH_IDX))) && hl_free)
+          if (left->aop->type == AOP_SFR && hl_free) // "|| (aopInReg(...,IYL_IDX) || aopInReg(...,IYH_IDX))" dropped: always false (#24).
             {
               cheapMove (ASMOP_L, 0, left->aop, i, false);
               emit3 (A_OR, ASMOP_A, ASMOP_L);
             }
-          else if (left->aop->type == AOP_SFR || aopInReg (right->aop, i, A_IDX) ||
-            (aopInReg (right->aop, i, IYL_IDX) || aopInReg (right->aop, i, IYH_IDX)))
+          else if (left->aop->type == AOP_SFR || aopInReg (right->aop, i, A_IDX)) // "|| (aopInReg(...,IYL_IDX) || aopInReg(...,IYH_IDX))" dropped: always false (#24).
             UNIMPLEMENTED;
           else
             emit3_o (A_OR, ASMOP_A, 0, left->aop, i);
@@ -12690,7 +12698,7 @@ shiftL1Left2Result (operand *left, int offl, operand *result, int offr, unsigned
     }
 
   else if (shCount == 1 && !isRegDead (A_IDX, ic) &&
-    (left->aop->type == AOP_REG && (!aopInReg (left->aop, offl, IYL_IDX) && !aopInReg (left->aop, offl, IYH_IDX)) || left->aop->type == AOP_STK) &&
+    (left->aop->type == AOP_REG || left->aop->type == AOP_STK) && // "&& (!aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX))" dropped from the AOP_REG disjunct: always true (#24).
     (aopInReg (result->aop, offr, B_IDX) || aopInReg (result->aop, offr, C_IDX) || aopInReg (result->aop, offr, D_IDX) || aopInReg (result->aop, offr, E_IDX) || aopInReg (result->aop, offr, H_IDX) || aopInReg (result->aop, offr, L_IDX)))
     {
       if (!aopSame (result->aop, offr, left->aop, offl, 1))
