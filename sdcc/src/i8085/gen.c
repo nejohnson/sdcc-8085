@@ -13218,7 +13218,7 @@ genLeftShift (const iCode *ic)
   // both unconditionally dead in this file (IS_Z80N is unconditionally
   // false).
 
-  if (right->aop->type == AOP_REG && !bitVectBitValue (ic->rSurv, right->aop->aopu.aop_reg[0]->rIdx) && right->aop->aopu.aop_reg[0]->rIdx != IYL_IDX && (sameRegs (left->aop, result->aop) || left->aop->type != AOP_REG) &&
+  if (right->aop->type == AOP_REG && !bitVectBitValue (ic->rSurv, right->aop->aopu.aop_reg[0]->rIdx) && (sameRegs (left->aop, result->aop) || left->aop->type != AOP_REG) && // "&& rIdx != IYL_IDX" dropped: always true (#24).
     (result->aop->type != AOP_REG ||
     result->aop->aopu.aop_reg[0]->rIdx != right->aop->aopu.aop_reg[0]->rIdx &&
     !aopInReg (result->aop, 0, right->aop->aopu.aop_reg[0]->rIdx) && !aopInReg (result->aop, 1, right->aop->aopu.aop_reg[0]->rIdx) && !aopInReg (result->aop, 2, right->aop->aopu.aop_reg[0]->rIdx) && !aopInReg (result->aop, 3, right->aop->aopu.aop_reg[0]->rIdx)))
@@ -13694,7 +13694,7 @@ genRightShift (const iCode * ic)
   aopOp (left, ic, false, false);
     
   if (right->aop->type == AOP_REG && isRegDead (right->aop->aopu.aop_reg[0]->rIdx, ic) &&
-    right->aop->aopu.aop_reg[0]->rIdx != IYL_IDX && right->aop->aopu.aop_reg[0]->rIdx != IYH_IDX && (sameRegs (left->aop, result->aop) || left->aop->type != AOP_REG) &&
+    (sameRegs (left->aop, result->aop) || left->aop->type != AOP_REG) && // "&& rIdx != IYL_IDX && rIdx != IYH_IDX" dropped: always true (#24).
     (result->aop->type != AOP_REG || result->aop->regs[right->aop->aopu.aop_reg[0]->rIdx] < 0))
     countreg = right->aop->aopu.aop_reg[0]->rIdx;
   // This port has no djnz, so there is no reason to prefer b over an available a.
@@ -15214,7 +15214,7 @@ genIfx (iCode *ic, iCode *popIc)
       genIfxJump (ic, "nz");
       goto release;
     }
-  else if (IS_BOOL (operandType (cond)) && !aopInReg (cond->aop, 0, IYL_IDX) && !aopInReg (cond->aop, 0, IYH_IDX))
+  else if (IS_BOOL (operandType (cond))) // "&& !aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX)" dropped: always true (#24).
     {
       // "if (IS_8080LIKE) {...} else {bit 0, ...}" collapsed to the
 
