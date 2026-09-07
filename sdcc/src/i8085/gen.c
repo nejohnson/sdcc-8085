@@ -1691,15 +1691,11 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
     case A_INC:
     case A_DEC:
       wassert (!op2);
-      if (aopInReg (op1, offset1, IY_IDX))
-        cost2 (2, 1, -1, 1, 10, 7, 4, 4, -1, 4, -1, 2, 2, 2, 2);
-      else
-        cost2 (1, 1, 1,	1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
+      cost2 (1, 1, 1,	1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1); // "if (aopInReg(...,IY_IDX)) cost2(...); else" dropped: always false (#24).
       return;
     case A_ADD:
-      if (aopInReg (op1, offset1, IY_IDX) && op2->type == AOP_REG)
-        cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
-      else if (op2->type == AOP_LIT || op2->type == AOP_IMMD)
+      // "if (aopInReg(...,IY_IDX) && op2->type == AOP_REG) cost2(...); else" dropped: always false (#24).
+      if (op2->type == AOP_LIT || op2->type == AOP_IMMD)
         cost2 (-1, 3, -1, 4, -1, -1, -1, -1, -1, 6, -1, 4, 4, -1, -1);
       else
         cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3, 1, 1);
@@ -1742,10 +1738,7 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       return;
     case A_LD:
       if (op2->type == AOP_LIT || op2->type == AOP_IMMD)
-        if (aopInReg (op1, offset1, IY_IDX))
-          cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
-        else
-          cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
+        cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3); // "if (aopInReg(...,IY_IDX)) cost2(...); else" dropped: always false (#24).
       else
         wassertl (0, "Tried get cost for 16-bit ld with unknown right operand");
       return;
@@ -1755,10 +1748,7 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       return;
     case A_POP:
       wassert (!op2);
-      if (aopInReg (op1, offset1, IY_IDX))
-        cost2 (2, 1, -1, 2, 14, 12, 9, 9, -1, 10, -1, 5, 5, 4, 5);
-      else
-        cost2 (1, 1, 2, 1, 10, 9, 7, 7, 12, 10, 5, 4, 4, 3, 4);
+      cost2 (1, 1, 2, 1, 10, 9, 7, 7, 12, 10, 5, 4, 4, 3, 4); // "if (aopInReg(...,IY_IDX)) cost2(...); else" dropped: always false (#24).
       return;
     case A_PUSH:
       wassert (!op2);
@@ -1767,10 +1757,7 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       // pushing a literal/immediate 16-bit value directly is a Z80N/Rabbit
       // extension with no i8080/i8085 hardware equivalent (push only takes
       // a register pair on real hardware).
-      if (aopInReg (op1, offset1, IY_IDX))
-        cost2 (2, 1, -1, 2, 15, 13, 12, 13, -1, 8, -1, 4, 4, 4, 5);
-      else
-        cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4);
+      cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4); // "if (aopInReg(...,IY_IDX)) cost2(...); else" dropped: always false (#24).
       return;
     // "case A_RL:", "case A_RLC:", "case A_RR:", "case A_RRC:", and
     // "case A_SWAP:" removed: each was gated solely by a "wassert (IS_RAB);"
@@ -4287,13 +4274,9 @@ aopGet (asmop *aop, int offset, bool bit16)
         case AOP_REG:
           if (bit16)
             {
-              if (aopInReg (aop, offset, IY_IDX))
-                dbuf_append_str (&dbuf, "iy");
-              else
-                {
-                  dbuf_append_str (&dbuf, aop->aopu.aop_reg[offset + 1]->name);
-                  dbuf_append_str (&dbuf, aop->aopu.aop_reg[offset]->name);
-                }
+              // "if (aopInReg(...,IY_IDX)) dbuf_append_str(&dbuf, \"iy\"); else" dropped: always false (#24).
+              dbuf_append_str (&dbuf, aop->aopu.aop_reg[offset + 1]->name);
+              dbuf_append_str (&dbuf, aop->aopu.aop_reg[offset]->name);
             }
           else
             dbuf_append_str (&dbuf, aop->aopu.aop_reg[offset]->name);
@@ -5178,43 +5161,15 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
 
   // Now do the register shuffling.
 
-  // Try to use:
-  // Rabbits: ld hl, iy; ld iy, hl
-  // TLCS-90 ld rr, rr
-  // eZ80 lea rr, iy.
-  // All: push rr / pop iy
-  // All: push iy / pop rr
-  for (int i = 0; i + 1 < n; i++)
-    {
-      if (assigned[i] || assigned[i + 1])
-        continue;
-
-      for (int j = 0; j < n; j++)
-        {
-          if (!assigned[j] && i != j && i + 1 != j && !aopOnStack(result, roffset + i, 2) && !aopOnStack(source, soffset + i, 1) &&
-            (aopInReg (source, soffset + j, result->aopu.aop_reg[roffset + i]->rIdx) || aopInReg (source, soffset + j, result->aopu.aop_reg[roffset + i + 1]->rIdx)))
-            goto skip_byte_push_iy; // We can't write this one without overwriting the source.
-        }
-
-      // IS_RAB-gated "ld hl, iy / ld iy, hl", IS_TLCS90-gated "ld rr, rr",
-
-      if (aopInReg (result, roffset + i, IY_IDX) && getPairId_o (source, soffset + i) != PAIR_INVALID ||
-        getPairId_o (result, roffset + i) != PAIR_INVALID && aopInReg (source, soffset + i, IY_IDX))
-        {
-          _push (getPairId_o (source, soffset + i));
-          _pop (getPairId_o (result, roffset + i));
-        }
-      else
-        continue;
-
-      regsize -= 2;
-      size -= 2;
-      assigned[i] = true;
-      assigned[i + 1] = true;
-
-skip_byte_push_iy:
-        ;
-    }
+  // "Try to use: Rabbits: ld hl, iy; ld iy, hl / TLCS-90 ld rr, rr / eZ80
+  // lea rr, iy / All: push rr / pop iy / All: push iy / pop rr" loop
+  // removed: its only observable effect (the _push()/_pop() pair, and the
+  // assigned[]/regsize/size bookkeeping alongside it) lived entirely behind
+  // "aopInReg(result,...,IY_IDX) && ... || ... && aopInReg(source,...,
+  // IY_IDX)", which is always false (no IY hardware on i8080/i8085) -
+  // every iteration always fell through to "else continue", so the whole
+  // loop was already a complete no-op for this port; nothing else in this
+  // function depends on it having run (#24).
 
   // Try to use ex de, hl
   {
@@ -7261,7 +7216,7 @@ genCall (const iCode *ic)
           else
             cost2 (3, 3, 3, 3, 17, 16, 12, 13, 24, 14, 6, 6, 6, 5, 3);
         }
-      else if (!aopInReg (ic->left->aop, 0, IY_IDX) && (aopInReg (ic->left->aop, 0, HL_IDX) || hl_free))
+      else if (aopInReg (ic->left->aop, 0, HL_IDX) || hl_free) // "!aopInReg(...,IY_IDX) &&" dropped: always true (#24).
         {
           genMove (ASMOP_HL, ic->left->aop, a_free, hl_free, de_free, true);
           adjustStack (prestackadjust, a_not_parm, bc_not_parm, de_not_parm, false, false);
@@ -13368,12 +13323,11 @@ genLeftShift (const iCode *ic)
 
       if (size >= 2 && offset + 1 >= byteshift &&
         shiftop->type == AOP_REG &&
-        (aopInReg (shiftop, offset, HL_IDX) ||
-        !started && aopInReg (shiftop, offset, IY_IDX) ||
+        (aopInReg (shiftop, offset, HL_IDX) || // "!started && aopInReg(...,IY_IDX) ||" dropped: always false (#24).
         optimize.codeSize && !started && aopInReg (shiftop, offset, DE_IDX)))
         {
 
-          if (aopInReg (shiftop, offset, HL_IDX) || aopInReg (shiftop, offset, IY_IDX))
+          if (aopInReg (shiftop, offset, HL_IDX)) // "|| aopInReg(...,IY_IDX)" dropped: always false (#24).
             emit3w_o (started ? A_ADC : A_ADD, shiftop, offset, shiftop, offset);
           // (IS_RAB||(IS_R4K||IS_R5K||IS_R6K))-gated "rl shiftop" arm
 
@@ -16486,19 +16440,18 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
   if(n->aop->type != AOP_LIT || !(size = ulFromVal (n->aop->aopu.aop_lit)))
     goto done;
 
+  // "&& rIdx != IYH_IDX && rIdx != IYL_IDX" dropped from both of the below: always true (#24).
   direct_c = (c->aop->type == AOP_LIT || c->aop->type == AOP_REG &&
-              c->aop->aopu.aop_reg[0]->rIdx != H_IDX && c->aop->aopu.aop_reg[0]->rIdx != L_IDX &&
-              c->aop->aopu.aop_reg[0]->rIdx != IYH_IDX && c->aop->aopu.aop_reg[0]->rIdx != IYL_IDX);
+              c->aop->aopu.aop_reg[0]->rIdx != H_IDX && c->aop->aopu.aop_reg[0]->rIdx != L_IDX);
   direct_cl = (c->aop->type == AOP_LIT || c->aop->type == AOP_REG &&
               c->aop->aopu.aop_reg[0]->rIdx != H_IDX && c->aop->aopu.aop_reg[0]->rIdx != L_IDX &&
-              c->aop->aopu.aop_reg[0]->rIdx != IYH_IDX && c->aop->aopu.aop_reg[0]->rIdx != IYL_IDX &&
               c->aop->aopu.aop_reg[0]->rIdx != B_IDX);
 
   double_loop = (size > 255 || optimize.codeSpeed);
 
+  // "(aopInReg(...,IYL_IDX) || aopInReg(...,IYH_IDX)) ? ld_cost(...)+4 :" dropped: always false (#24).
   int sizecost_ld_a_caop =
     aopInReg (c->aop, 0, A_IDX) ? 0 :
-    (aopInReg (c->aop, 0, IYL_IDX) || aopInReg (c->aop, 0, IYH_IDX)) ? ld_cost (ASMOP_A, 0, ASMOP_L, 0, false) + 4 :
     ld_cost (ASMOP_A, 0, c->aop, 0, false);
   sizecost_direct = 3 + 2 * size - 1 + !direct_c * sizecost_ld_a_caop;
   sizecost_direct += (live_HL) * 2;
