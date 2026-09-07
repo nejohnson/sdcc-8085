@@ -6278,8 +6278,15 @@ restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand
         l_live = true;
     }
 
-  if (ix)
-    _pop (PAIR_IX);
+  // "if (ix) _pop (PAIR_IX);" removed: ix (this function's parameter) is
+  // always false - its one non-literal caller passes _G.stack.pushedIX,
+  // which can itself never become true now that push_ix (in
+  // _saveRegsForCall(), the only place that ever set it) is provably
+  // always false too - FUNC_ISDYNAMICC(ftype) can never be true for a
+  // function that reaches codegen on this port: main.c's
+  // _reset_regparm() already rejects __dynamicc with E_DYNAMICC_UNSUPPORTED
+  // during parsing, and SDCCmain.c exits on fatalError immediately after
+  // yyparse() returns, well before do_glue()/codegen ever runs (#24).
 
   // "if (iy) {...}" removed: iy (this function's parameter) is always
   // false - all 4 call sites pass either literal false or
@@ -6450,7 +6457,11 @@ _saveRegsForCall (const iCode *ic, bool saveHLifused, bool dontsaveIY)
       // own comment). dontsaveIY (this function's parameter) is now
       // unused - always passed false by all 4 callers already, left
       // declared rather than touching this function's signature.
-      const bool push_ix = FUNC_ISDYNAMICC (ftype);
+      // "push_ix" (was "FUNC_ISDYNAMICC (ftype)") and the "if (push_ix)
+      // {_push(PAIR_IX); _G.stack.pushedIX = true;}" arm it guarded are
+      // removed the same way: FUNC_ISDYNAMICC(ftype) can never be true for
+      // a function that reaches codegen on this port - see restoreRegs()'s
+      // "ix" comment for the full chain (#24).
 
       if (push_hl)
         {
@@ -6476,12 +6487,6 @@ _saveRegsForCall (const iCode *ic, bool saveHLifused, bool dontsaveIY)
               _G.stack.pushedDE = true;
             }
         }
-      if (push_ix)
-        {
-          _push (PAIR_IX);
-          _G.stack.pushedIX = true;
-        }
-
       if (!regalloc_dry_run)
         _G.saves.saved = true;
     }
@@ -7467,11 +7472,9 @@ genCall (const iCode *ic)
   /* if we need assign a result value */
   if (SomethingReturned && !bigreturn)
     {
-      if (_G.stack.pushedIX)
-        {
-          _pop (PAIR_IX);
-          _G.stack.pushedIX = false;
-        }
+      // "if (_G.stack.pushedIX) {_pop(PAIR_IX); _G.stack.pushedIX = false;}"
+      // removed: _G.stack.pushedIX can never become true - see
+      // _saveRegsForCall()'s "push_ix" comment (#24).
       //if (!jump)
         genMove (ic->result->aop, aopRet (ftype), true, true, true, true);
       freeAsmop (ic->result, 0);
