@@ -8941,19 +8941,26 @@ genPlus (iCode * ic)
       // through to the byte-wise path once carry propagation has started.
       else if (!maskedword && (!premoved || i) && leftop->size - i >= 2 && rightop->size - i >= 2 &&
         !started &&
-        (aopInReg (IC_RESULT (ic)->aop, i, HL_IDX) || aopInReg (IC_RESULT (ic)->aop, i, IY_IDX) && !started))
+        aopInReg (IC_RESULT (ic)->aop, i, HL_IDX)) // "|| aopInReg(...,IY_IDX) && !started" dropped: always false (#24).
         {
-          const bool iy = aopInReg (IC_RESULT (ic)->aop, i, IY_IDX);
+          // "const bool iy = aopInReg(IC_RESULT(ic)->aop, i, IY_IDX);"
+          // removed: always false (#24) - it gated 4 "iy ? IYL_IDX/
+          // IYH_IDX : L_IDX/H_IDX" ternaries below (all collapsed to
+          // their non-IY form), a "wassert(!iy);" (vacuously true,
+          // removed), an "iy ? \"add iy, %s\" : \"dad %s\"" ternary
+          // (collapsed to "dad %s"), and a "pair == PAIR_IY" cost check
+          // (also independently dead - pair is only ever assigned
+          // PAIR_DE/PAIR_BC/PAIR_INVALID in this block, never PAIR_IY).
           PAIR_ID pair = PAIR_INVALID;
 
-          if (aopInReg (leftop, i, iy ? IYL_IDX : L_IDX) && aopInReg (rightop, i + 1, iy ? IYH_IDX : H_IDX))
+          if (aopInReg (leftop, i, L_IDX) && aopInReg (rightop, i + 1, H_IDX))
             {
               if (aopInReg (leftop, i + 1, D_IDX) && aopInReg (rightop, i, E_IDX))
                 pair = PAIR_DE;
               else if (aopInReg (leftop, i + 1, B_IDX) && aopInReg (rightop, i, C_IDX))
                 pair = PAIR_BC;
             }
-          else if (aopInReg (leftop, i + 1, iy ? IYH_IDX : H_IDX) && aopInReg (rightop, i, iy ? IYL_IDX : L_IDX))
+          else if (aopInReg (leftop, i + 1, H_IDX) && aopInReg (rightop, i, L_IDX))
             {
               if (aopInReg (leftop, i, E_IDX) && aopInReg (rightop, i + 1, D_IDX))
                 pair = PAIR_DE;
@@ -8965,19 +8972,15 @@ genPlus (iCode * ic)
             {
               if (started)
                 {
-                  wassert (!iy);
                   /* route through emit3w so the 8080/8085 synthesises adc hl,rr */
                   emit3w (A_ADC, ASMOP_HL, pairAsmop (pair));
                   spillPair (PAIR_HL);
                 }
               else
                 {
-                  emit2 (iy ? "add iy, %s" : "dad %s", _pairs[pair].name);
+                  emit2 ("dad %s", _pairs[pair].name);
                   started = true;
-                  if (pair == PAIR_IY)
-                    cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
-                  else
-                    cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3 , 1, 1);
+                  cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3 , 1, 1);
                   spillPair (pair);
                 }
               i += 2;
