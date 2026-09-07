@@ -1,9 +1,9 @@
-/* Token-substitution table for the vendor ASxxxx assembler's Zilog-syntax
-   pseudo-ops (!area, !*hl, !mems, ...) used throughout gen.c's emit2()
-   calls. The replacement text below is deliberately still Zilog-flavored
-   (e.g. "ld a, (hl)"); gen.c's intelOperand()/emit_intel_move() machinery
-   translates the handful of forms that still reach real output (chiefly
-   "(hl)") to Intel syntax at the point of use - this table is not itself
+/* Token-substitution table for the vendor ASxxxx assembler's pseudo-ops
+   (!area, !*hl, !mems, ...) used throughout gen.c's emit2() calls. The
+   replacement text below is deliberately left as-is (e.g. "ld a, (hl)");
+   gen.c's intelOperand()/emit_intel_move() machinery translates the
+   handful of forms that still reach real output (chiefly "(hl)") to
+   Intel syntax at the point of use - this table is not itself
    Intel-aware, and isn't meant to be. */
 static const ASM_MAPPING _i8085_asm_mapping[] = {
     /* We want to prepend the _ */

@@ -14,43 +14,40 @@
 // 2d (dead accumulator-rotate result), 6b (dead 8-bit ALU result), and
 // 6c (dead comparison result).
 
-// common peephole 0a/158 (Zilog): removed a redundant self-load. Intel's
-// "mov %1, %1" is the same idea - copying a register into itself is
-// always a no-op (never affects flags), so it can simply be deleted
-// regardless of whether the result is used afterward.
+// common peephole 0a/158: "mov %1, %1" is always a no-op (copying a
+// register into itself, never affecting flags), so it can simply be
+// deleted regardless of whether the result is used afterward.
 replace restart {
 	mov	%1, %1
 } by {
 	; dead self-move %1, %1 removed
 } if notVolatile(%1)
 
-// common peephole 2b (Zilog: "add hl, %2"). dad's result (the new hl) and
-// its only flag effect (cy - see peep.c's surelyWritesFlag()) can both be
-// proven dead the same way the Zilog rule did; ac/n/p/s/z are not part of
-// dad's effect at all (8085 data sheet), so they are not queried here.
+// common peephole 2b: dad's result (the new hl) and its only flag effect
+// (cy - see peep.c's surelyWritesFlag()) can both be proven dead; ac/n/
+// p/s/z are not part of dad's effect at all (8085 data sheet), so they
+// are not queried here.
 replace restart {
 	dad	%1
 } by {
 	; dead dad %1 removed: hl result and carry both unused
 } if notUsed('hl'), notUsed('cf')
 
-// common peephole 2d (Zilog: same(%1 'rlca' 'rla' 'rrca' 'rra')). Intel's
-// accumulator-only rotates are rlc/rrc/ral/rar (see peep.c's isIntelM()-
-// adjacent comments on the operand-count discriminator from Zilog's
-// per-register CB-prefixed rlc/rrc of the same name - this rule's match
-// pattern has no operand slot at all, so it can never accidentally catch
-// that other, unrelated instruction). All four only ever affect cy.
+// common peephole 2d: the accumulator-only rotates rlc/rrc/ral/rar (bare
+// form, no operand slot, so this can never accidentally match a
+// per-register rotate of the same mnemonic elsewhere). All four only
+// ever affect cy.
 replace restart {
 	%1
 } by {
 	; dead %1 removed: accumulator result and carry both unused
 } if same(%1 'rlc' 'rrc' 'ral' 'rar'), notUsed('a'), notUsed('cf')
 
-// common peephole 6b (Zilog: "%1 a, %2" for add/adc/sub/sbc/and/or/xor).
-// Intel splits this one Zilog mnemonic family into a register/M form and
-// a separate immediate-mnemonic form (see gen.c's emit_A_ARITH8()), but
-// both are single-operand with an implicit accumulator destination, so
-// one match pattern covers both. cmp/cpi are deliberately excluded here -
+// common peephole 6b: add/adc/sub/sbb/ana/xra/ora (register/M form) and
+// adi/aci/sui/sbi/ani/ori/xri (immediate form) are both single-operand
+// with an implicit accumulator destination (see gen.c's
+// emit_A_ARITH8()), so one match pattern covers both. cmp/cpi are
+// deliberately excluded here -
 // they never write a at all, so their dead-result condition is different
 // (see the next rule) - and notUsed('af') covers both the accumulator
 // result and every flag these eight always redefine (peep.c's
@@ -61,9 +58,8 @@ replace restart {
 	; dead %1 %2 removed: accumulator result and flags unused
 } if same(%1 'add' 'adc' 'sub' 'sbb' 'ana' 'xra' 'ora' 'adi' 'aci' 'sui' 'sbi' 'ani' 'ori' 'xri'), notUsed('af')
 
-// common peephole 6c (Zilog: "cp a, %1"). cmp/cpi never write a - only
-// flags - so unlike the rule above this only needs notUsed('f'), not
-// notUsed('af').
+// common peephole 6c: cmp/cpi never write a - only flags - so unlike
+// the rule above this only needs notUsed('f'), not notUsed('af').
 replace restart {
 	%1	%2
 } by {
@@ -72,7 +68,7 @@ replace restart {
 
 // A note on notVolatile() used throughout the rest of this file: the
 // shared, cross-port notVolatileVariable() in SDCCpeeph.c recognizes
-// Zilog operand text ("(hl)", "(bc)", "(de)", ...) to decide whether an
+// indirect-addressing operand text ("(hl)", "(bc)", "(de)", ...) to decide whether an
 // operand denotes a possibly-volatile memory access; anything without
 // an underscore-prefixed symbol name that doesn't match one of those
 // literal substrings - which includes every Intel-syntax memory operand
@@ -95,22 +91,16 @@ replace restart {
 // peephole 22a: a value is moved into a register purely to feed the
 // very next 8-bit ALU op, and that register is never used again - fold
 // the move into the ALU op's operand directly. notSame(%2 'a') is
-// essential, not optional (found the hard way - an earlier draft of
-// this rule omitted it, matched real code, and was wrong): if %2 were
-// "a" itself, "%3 %2" is really "%3 a", a *self-referential* op whose
-// result depends on the value mov just wrote into a (e.g. "mov a, m" /
-// "ora a" - a self-or, always equal to whatever mov loaded, regardless
-// of a's previous contents). Folding that into "%3 %1" (e.g. "ora m")
-// instead computes old-a OP %1 - a completely different, wrong result,
-// since it now depends on a's *previous* value instead. Restricting to
-// notSame(%2 'a') is exactly the guard the original Zilog rule already
-// carried (notSame('a' %2)) for this same reason - lost in an earlier
-// draft's translation and restored here after the corpus scan below
-// caught a real instance of the bug. %2 is otherwise always a plain
-// register (never "m") by construction - it must be a valid mov
-// destination the *previous* line assigned it, and, since %3 %2
-// requires %2 to also be an arith8 operand, in practice always is one.
-// canAssign(%1 'b') (borrowed as-is from the original Zilog predicate)
+// essential, not optional: if %2 were "a" itself, "%3 %2" is really
+// "%3 a", a *self-referential* op whose result depends on the value mov
+// just wrote into a (e.g. "mov a, m" / "ora a" - a self-or, always equal
+// to whatever mov loaded, regardless of a's previous contents). Folding
+// that into "%3 %1" (e.g. "ora m") instead computes old-a OP %1 - a
+// completely different, wrong result, since it now depends on a's
+// *previous* value instead. %2 is otherwise always a plain register
+// (never "m") by construction - it must be a valid mov destination the
+// *previous* line assigned it, and, since %3 %2 requires %2 to also be
+// an arith8 operand, in practice always is one. canAssign(%1 'b')
 // confirms %1 itself is assignable into a plain register, i.e. a valid
 // arith8 register/M operand, before folding it into %1's place.
 replace restart {
@@ -253,14 +243,13 @@ replace restart {
 	; dead ldax %1 removed: accumulator result unused
 } if notUsed('a'), notVolatile
 
-// Group 6: push/pop. Ported from peeph.def's peephole 50a/50b - both
-// entirely dialect-neutral (push/pop are spelled identically in both
-// syntaxes, and neither rule's correctness depends on what's inside the
-// pushed/popped pair, only on the net stack-pointer and register
-// effect, which is unconditionally a no-op in the push/pop order and
-// conditionally so - notUsed(%1) - in the pop/push order). No
-// volatility guard needed: push/pop always address the stack via sp,
-// never a general (possibly memory-mapped) operand.
+// Group 6: push/pop. Ported from peeph.def's peephole 50a/50b - neither
+// rule's correctness depends on what's inside the pushed/popped pair,
+// only on the net stack-pointer and register effect, which is
+// unconditionally a no-op in the push/pop order and conditionally so -
+// notUsed(%1) - in the pop/push order. No volatility guard needed:
+// push/pop always address the stack via sp, never a general (possibly
+// memory-mapped) operand.
 replace restart {
 	pop	%1
 	push	%1
@@ -279,8 +268,7 @@ replace restart {
 // only covered the dead-result case). Ported from peeph.def's peephole
 // 119 and 120, both exploiting addition's commutativity to avoid a
 // redundant register copy or to fold two additions' constants together
-// at assemble time; both are already pure 8-bit-register-and-pair
-// operations in their Zilog form, so they translate directly.
+// at assemble time.
 replace restart {
 	mov	c, l
 	mov	b, h

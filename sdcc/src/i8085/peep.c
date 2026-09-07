@@ -30,25 +30,15 @@
 #include "SDCCpeeph.h"
 #include "gen.h"
 
-/* The instruction-pattern matching below (lineIsInst() against strings like
-   "ld", "jp", "ex", "rlca", ...) recognizes Zilog-syntax mnemonics, not the
-   Intel mnemonics gen.c emits (mov, jmp, xchg, ral, ...). This is
-   registered as the port's peephole-optimizer support (port->peep in
-   main.c) and is reached whenever peephole rules are applied, which is
-   unconditionally in a default build now: this port's own
-   src/i8085/peeph-i8085.def is the active rule set (options.nopeep = 0
-   in main.c's _setDefaultOptions()), so every function in this file runs
-   on every compile, not just under --peep-file.
-   The classifier functions below (mightRead/mightReadFlag/surelyWrites/
+/* This file's classifier functions (mightRead/mightReadFlag/surelyWrites/
    surelyWritesFlag/uncondJump/condJump/callSurelyWrites/i8085_canAssign/
-   i8085_instructionSize) recognize the actual Intel mnemonic set gen.c
-   emits - see the "Intel-mnemonic instruction classification" block below -
-   checked before any Zilog-syntax branch in the same function, so real
-   output is always resolved by the Intel-aware checks. The original
-   Zilog-syntax branches are left in place after them, unreachable for this
-   port's own output (gen.c never emits Zilog text) but still exercised by
-   the z80/z180/etc. ports that share this same lineage of logic in
-   src/z80/peep.c - not something to remove here. */
+   i8085_instructionSize) recognize this port's real mnemonic output (mov,
+   jmp, xchg, ral, ...), checked ahead of other branches (ld, jp, ex,
+   rlca, ...) inherited from this file's shared origin with other ports'
+   peep.c - those stay unreachable here but are exercised there, so leave
+   them in place. Peephole rules run unconditionally in a default build
+   (see main.c's _setDefaultOptions()), so every function here runs on
+   every compile. */
 #define NOTUSEDERROR() do {werror(E_INTERNAL_ERROR, __FILE__, __LINE__, "error in notUsed()");} while(0)
 
 #if 0
@@ -85,11 +75,9 @@ extern bool i8085_regs_preserved_in_calls_from_current_function[IYH_IDX + 1];
    (emit_A_ARITH8(), emit_A_LD(), asminstnames[], emit8080RotateByte() -
    all in gen.c) rather than each re-deriving it independently. ------ */
 
-/* Intel's "m" pseudo-operand: memory addressed indirectly via HL - the
-   Intel-syntax equivalent of Zilog's "(hl)" (see intelOperand()'s own
-   comment in gen.c, the one place that produces it). Using "m" always
-   reads h and l (to form the address); it never itself reads or writes
-   a register called "m" - there is no such CPU register. */
+/* Intel's "m" operand: HL-indirect memory addressing (see intelOperand()
+   in gen.c). Using it always reads h and l to form the address; there is
+   no register called "m". */
 static bool
 isIntelM (const char *op)
 {
@@ -103,13 +91,9 @@ isHOrL (const char *what)
 }
 
 /* The 8-bit accumulator-arithmetic mnemonics, register/M and immediate
-   forms, in the same order gen.c's emit_A_ARITH8() (gen.c:1926-1927)
-   uses: add/adc/sub/sbb/ana/xra/ora/cmp (register or M) and adi/aci/sui/
-   sbi/ani/xri/ori/cpi (immediate). Every one of the 16 reads a (always
-   one of the two implicit operands, per emit_A_ARITH8()'s own comment)
-   and, for anything but cmp/cpi (compare-only, result discarded except
-   into flags), also writes a. Returns the shared 0-7 index (same
-   meaning for either form) or -1 if pl is not one of these. */
+   forms: add/adc/sub/sbb/ana/xra/ora/cmp and adi/aci/sui/sbi/ani/xri/
+   ori/cpi. Every one reads a; all but cmp/cpi (compare-only) also write
+   it. Returns the shared 0-7 index, or -1 if pl is none of these. */
 static int
 intelArith8 (const lineNode *pl, bool *immediate, bool *writes_a)
 {
@@ -133,25 +117,12 @@ intelArith8 (const lineNode *pl, bool *immediate, bool *writes_a)
   return -1;
 }
 
-/* dad/inx/dcx name all four register pairs, and ldax/stax the two
-   memory-indirect ones (bc/de). gen.c emits both the traditional single-
-   letter Intel pair mnemonic ("b" for bc, "d" for de, "h" for hl - the
-   literal text a handful of call sites hardcode, e.g. adjustPair()'s
-   "inx %s"/"dcx %s" with pair="h") and the full two-letter pair name
-   ("bc"/"de"/"hl" - what _pairs[id].name and aopGet(...,true) render,
-   used by the majority of call sites) interchangeably for the exact same
-   operand - confirmed empirically (a straightforward global-pointer
-   store compiles to literal "lxi hl, #_g", not "lxi h, ..."), and
-   explained by this file's own A_ADD/dad comment: "aopGet(...,true)
-   already renders exactly the pair-name text inx/dcx need (same S_REG
-   synonym acceptance as dad's operand...)" - the target assembler
-   accepts both spellings as synonyms, and gen.c does not consistently
-   pick one. Recognizes either spelling and decodes it into the two 8-bit
-   register letters it names (both 0 for sp). Never ambiguous with a
-   plain 8-bit register operand ("b" meaning just B, e.g. for mov/add)
-   because this is only ever called from the dad/inx/dcx/ldax/stax-
-   specific checks below, never from the general 8-bit-register
-   dispatch. */
+/* dad/inx/dcx/ldax/stax accept either the single-letter ("b"/"d"/"h") or
+   two-letter ("bc"/"de"/"hl") spelling of a register pair - both are
+   emitted for the same operand and the target assembler treats them as
+   synonyms. Decodes either spelling into its two 8-bit register letters
+   (0/0 for sp). Only called from the dad/inx/dcx/ldax/stax-specific
+   checks below, so never ambiguous with a plain 8-bit register operand. */
 static bool
 intelPairOperand (const char *op, char *hi, char *lo, bool *is_sp)
 {
@@ -191,20 +162,12 @@ isPairReg (const char *what, char hi, char lo)
   return (strlen (what) == 1 && (what[0] == hi || what[0] == lo));
 }
 
-/* True for a fused Intel conditional-jump mnemonic (jz/jnz/jc/jnc/jm/jp/
-   jpe/jpo - condition baked into the mnemonic itself, single operand,
-   never a comma) - as opposed to Zilog's "jp"/"jr" (bare mnemonic, cc as
-   a separate comma-delimited operand). Writes the 2-3 letter condition
-   suffix (usable directly with mightReadFlagCondition(), which already
-   expects exactly this format) if cond is non-NULL. Never collides with
-   Zilog "jp"/"jr" text (different mnemonics), including the awkward case
-   of bare Intel "jp" (jump-if-sign-positive - one of the 8 real
-   conditions, single operand, no comma) vs. Zilog's own unconditional
-   "jp label" (also no comma): gen.c's emitJP() only ever emits bare
-   "jmp" for a real unconditional jump and reserves plain "jp" exclusively
-   for the sign-positive condition (see emitJP()'s own "j%s"/"jmp" split
-   in gen.c) - so for this port's actual output, "jp" with no comma is
-   never ambiguous, it is always the conditional form. */
+/* True for a fused conditional-jump mnemonic (jz/jnz/jc/jnc/jm/jp/jpe/
+   jpo - condition baked into the mnemonic, single operand, never a
+   comma). Writes the 2-3 letter condition suffix (the format
+   mightReadFlagCondition() expects) if cond is non-NULL. gen.c's
+   emitJP() only ever emits bare "jmp" for a real unconditional jump, so
+   a comma-less "jp" here is always the sign-positive condition. */
 static bool
 isIntelCondJump (const lineNode *pl, const char **cond)
 {
@@ -262,18 +225,13 @@ findLabel (const lineNode *pl)
   char *p;
   lineNode *cpl;
 
-  /* pchl (uncondJump() recognizes it as a real, live unconditional jump -
-     see its own comment) has no operand at all: the jump target is
-     whatever's in hl at runtime, never a label this function could ever
-     resolve. Every other jump uncondJump()/condJump() recognize always
-     has one (this file's Zilog-syntax jp/jr checks, and Intel's jmp/
-     j<cc>, all take a label operand) - pchl is the sole exception, so it
-     needs its own short-circuit here rather than reaching the "no
-     operand at all" sanity check below, which is a genuine internal-
-     error signal for every other caller and must stay one. Returning
-     NULL (not erroring) matches what every caller of findLabel() already
-     does with an unresolvable target - see scan4op()'s own tail-call
-     fallback, and, failing that, S4O_ABORT. */
+  /* pchl (a real, live unconditional jump - see uncondJump()) has no
+     operand: the target is whatever's in hl at runtime, never a
+     resolvable label. Short-circuit here rather than falling into the
+     "no operand at all" sanity check below, which is a genuine
+     internal-error signal for every other caller. Returning NULL (not
+     erroring) matches how every caller already handles an unresolvable
+     target. */
   if (lineIsInst (pl, "pchl"))
     return NULL;
 
@@ -390,18 +348,11 @@ mightReadFlagCondition(const char *cond, const char *what)
 static bool
 mightReadFlag(const lineNode *pl, const char *what)
 {
-  /* Real, live i8085/i8080 output: only the through-carry accumulator
-     rotates (ral/rar), the with-carry 8-bit arithmetic (adc/aci/sbb/sbi),
-     daa (the 8085 decimal-adjust algorithm reads ac and cy going in -
-     see the 8085 data sheet), cmc (complements the existing carry, so it
-     has to read it first), and the conditional jumps (each reads exactly
-     the one flag its condition tests) ever read a flag. Everything else
-     this port emits either never touches flags or only ever writes them
-     (checked directly against gen.c: mov/mvi/lxi/lda/sta/lhld/shld/ldax/
-     stax/xchg/xthl/sphl/pchl move data only; dad/inx/dcx/inr/dcr and the
-     rest of the 8-bit arithmetic family write flags without reading any;
-     rlc/rrc rotate without going through carry, so - unlike ral/rar -
-     they don't read it either). */
+  /* Only the through-carry rotates (ral/rar), with-carry arithmetic
+     (adc/aci/sbb/sbi), daa (reads ac and cy per the 8085 data sheet),
+     cmc (complements the existing carry), and conditional jumps (each
+     reads the one flag its condition tests) ever read a flag; everything
+     else either doesn't touch flags or only writes them. */
   {
     bool immediate, writes_a;
     int idx = intelArith8 (pl, &immediate, &writes_a);
@@ -554,24 +505,14 @@ mightRead(const lineNode *pl, const char *what)
   const char *larg = lineArg (pl, 0);
   const char *rarg = lineArg (pl, 1);
 
-  /* Real, live i8085/i8080 output - see the "Intel-mnemonic instruction
-     classification" block near the top of this file for the shared
-     helpers used below. Each of gen.c's mnemonics is checked against
-     exactly the registers it reads, per the 8085 data sheet and gen.c's
-     own emission code (emit_A_LD()/emit_A_ARITH8()/etc.): mov reads its
-     source; mvi/lxi/lda/lhld read nothing (their one non-implicit operand
-     is always a literal or address, never a register - "m" as mvi's
-     destination is the one exception, since forming that address still
-     needs h and l); sta/shld read the value they store (a, or h and l);
-     ldax/stax read the addressing pair (and stax also reads a, the value
-     it stores); xchg/xthl/sphl/pchl/dad read exactly the pair(s) named in
-     the 8085 data sheet's description of each; inx/dcx/dad read (and, for
-     inx/dcx, also write - see surelyWrites() below) their one pair
-     operand; inr/dcr read their one operand (again, "m" meaning h and l);
-     the 8-bit arithmetic family and cma/daa always read a (the implicit
-     operand), plus - register/M form only, never the immediate form -
-     the one explicit operand; cmc/stc/jmp/j<cc> read no register at all
-     (flag-only or control-flow-only). */
+  /* Each mnemonic is checked against exactly the registers it reads per
+     the 8085 data sheet: mov reads its source; mvi/lxi/lda/lhld read
+     nothing register-wise ("m" as mvi's destination still needs h/l to
+     form the address); sta/shld read the value they store; ldax/stax
+     read the addressing pair (stax also reads a); xchg/xthl/sphl/pchl/
+     dad read the pair(s) each names; inr/dcr read their one operand; the
+     arithmetic family and cma/daa always read a, plus the explicit
+     operand for the register/M form; cmc/stc/jmp/j<cc> read nothing. */
   {
     bool immediate, writes_a;
     int idx = intelArith8 (pl, &immediate, &writes_a);
@@ -827,33 +768,9 @@ mightRead(const lineNode *pl, const char *what)
   if(lineIsInst (pl, "cpd") || lineIsInst (pl, "cpdr") || lineIsInst (pl, "cpi") || lineIsInst (pl, "cpir"))
     return(strchr("abchl", *what));
 
-  /* Real, live i8085/i8080 in/out: single-operand, port address only -
-     the accumulator is implicit on both sides (gen.c's own comments at
-     the "in !mems"/"out %s" emission sites call this out explicitly:
-     "Intel's IN is single-operand (port only); the accumulator is
-     implicit, unlike Zilog's 'in a, (port)'"). out reads a (the value
-     being sent) and nothing else; in reads nothing at all (the value
-     comes from hardware, not a register) and writes a - see
-     surelyWrites() below. Zilog's "in r,(c)"/"out (c),r" (port
-     addressed via c, not a fixed immediate) has no 8080/8085 hardware
-     equivalent at all, so there is no second case to handle here the
-     way mightReadFlag()'s equivalent check needs one.
-     This replaces, rather than sits alongside, the two mnemonics'
-     previous Zilog-shaped checks: those assumed a comma always exists
-     in the line (finding the port operand via strchr(pl->line+4, ','),
-     then handing that pointer straight to strstr with no NULL check) -
-     true for Zilog's two-operand form, never true for Intel's real
-     single-operand one, so every real "in"/"out" line crashed the
-     compiler outright (SIGSEGV) the moment any peephole rule's
-     notUsed()-style scan walked through one - confirmed via gdb
-     (bug-3165.c and bug3379723.c, both __sfr port access, are what
-     surfaced it). Kept for real Zilog input this port never
-     produces, the old code would still crash even in Zilog's own
-     comma-shaped case if that comma-derived strstr ever found nothing
-     to match, an existing latent bug in the shared lineage this exact
-     mnemonic pair happened to expose here first - not preserved, since
-     this check now unconditionally intercepts both mnemonics before
-     the old code could ever run again regardless of dialect. */
+  /* in/out are single-operand (port address only); the accumulator is
+     implicit on both sides. out reads a; in reads nothing (the value
+     comes from hardware) and writes a - see surelyWrites() below. */
   if (lineIsInst (pl, "out"))
     return !strcmp (what, "a");
   if (lineIsInst (pl, "in"))
@@ -900,12 +817,9 @@ uncondJump(const lineNode *pl)
      needs its own handling here. */
   if (lineIsInst (pl, "jmp") || lineIsInst (pl, "pchl"))
     return TRUE;
-  /* Guard against Zilog's own bare "jp label" (unconditional - no comma)
-     below: gen.c's real, live "jp" is always the fused-mnemonic
-     conditional jump-if-sign-positive (isIntelCondJump() above), which
-     also never has a comma - see isIntelCondJump()'s own comment on why
-     these two same-spelled, opposite-meaning forms don't otherwise
-     collide. Must not treat that as unconditional here. */
+  /* gen.c's real "jp" is always the conditional jump-if-sign-positive
+     (isIntelCondJump() above), checked before the comma-less "jp"/"jr"
+     case below - never treat it as unconditional here. */
   if (isIntelCondJump (pl, NULL))
     return FALSE;
   if((lineIsInst (pl, "jp") || lineIsInst (pl, "jr")) &&
@@ -929,33 +843,14 @@ condJump(const lineNode *pl)
 static bool
 surelyWritesFlag(const lineNode *pl, const char *what)
 {
-  /* Real, live i8085/i8080 output, cross-checked against the 8085 data
-     sheet's flag-effect table for each of these:
-       - the 8-bit arithmetic family (add/adc/sub/sbb/ana/xra/ora/cmp and
-         their immediate forms) always redefines all five real flags
-         (s/z/ac/p/cy - "nf" does not exist on this hardware at all, so
-         it is included in the same "always" bucket: nothing ever reads
-         it either, per mightReadFlag() above, so what happens to it is
-         immaterial);
-       - dad only ever touches cy (s/z/ac/p are documented as
-         unaffected - unlike the 8-bit adds above, this is a real
-         asymmetry, not an oversight);
-       - inx/dcx touch no flags at all;
-       - inr/dcr touch every flag but cy (same rule as this file's
-         existing Zilog inc/dec case, just under Intel's split 8-bit
-         mnemonic);
-       - rlc/rrc/ral/rar (bare, accumulator forms only - the operand-less
-         form is what distinguishes them from Zilog's per-register
-         rlc/rrc, see mightRead()'s own comment) touch only cy;
-       - cmc/stc redefine cy (cmc conditionally on the old value, but
-         that is still a full redefinition for this predicate's purposes -
-         see this function's fail-safe comment at the bottom for what
-         "surely writes" means here); cma touches no flags at all (unlike
-         Z80's cpl, which sets h and n - 8085's cma is flag-free);
-       - daa redefines all five real flags, same bucket as the
-         arithmetic family above;
-       - jmp/j<cc>/mov/mvi/lxi/lda/sta/lhld/shld/ldax/stax/xchg/xthl/
-         sphl/pchl touch no flags at all. */
+  /* Cross-checked against the 8085 data sheet's flag-effect table: the
+     8-bit arithmetic family and daa always redefine all five real flags
+     (s/z/ac/p/cy - "nf" doesn't exist on this hardware, so nothing reads
+     it either); dad touches only cy; inx/dcx touch none; inr/dcr touch
+     every flag but cy; the bare accumulator rotates (rlc/rrc/ral/rar)
+     touch only cy; cmc/stc redefine cy, cma touches nothing (unlike
+     Z80's cpl); jmp/j<cc>/mov/mvi/lxi/lda/sta/lhld/shld/ldax/stax/xchg/
+     xthl/sphl/pchl touch no flags at all. */
   {
     bool immediate, writes_a;
     if (intelArith8 (pl, &immediate, &writes_a) >= 0 || lineIsInst (pl, "daa"))
@@ -989,16 +884,8 @@ surelyWritesFlag(const lineNode *pl, const char *what)
       return argCont(p, "i") || argCont(p, "r");
     }
 
-  /* Real, live i8085/i8080 in: single-operand (see mightRead()'s own
-     comment on this same mnemonic pair) and touches no flags at all on
-     real 8080/8085 hardware. Replaces, not just precedes, the old
-     Zilog-shaped check below it: that one assumed a comma always
-     exists in the line to find Zilog's "in r,(c)" port-via-c form (no
-     8080/8085 hardware equivalent - see mightRead()'s comment), and
-     crashed (NULL passed to strstr) on every real "in" line, the exact
-     same class of bug as mightRead()'s in/out fix, caught the same way
-     (gdb, bug-3165.c/bug3379723.c). This check now unconditionally
-     intercepts every "in" line before the old one could run again. */
+  /* Intel's in is single-operand and touches no flags on real 8080/8085
+     hardware (see mightRead()'s comment on this mnemonic pair). */
   if (lineIsInst (pl, "in"))
     return false;
 
@@ -1188,15 +1075,11 @@ surelyWrites (const lineNode *pl, const char *what)
   const char *larg = lineArg (pl, 0);
   const char *rarg = lineArg (pl, 1);
 
-  /* Real, live i8085/i8080 output - registers surely (re)written, mirror
-     of the read side in mightRead() above. "m" as a destination (mov/mvi
-     writing through hl, or the arithmetic family and inr/dcr targeting
-     "m" implicitly) writes memory, never the h/l registers themselves -
-     the opposite of mightRead()'s treatment, where using "m" at all
-     (read or write position) means reading h and l to form the address.
-     dad surely writes h and l (the sum), but never the source pair it
-     read; ldax/sta/shld/cmc/stc/pchl/jmp/j<cc> write no register at all
-     (sta/shld/pchl only affect memory or the program counter). */
+  /* Mirror of mightRead()'s read side. "m" as a destination writes
+     memory, never h/l themselves (the opposite of mightRead(), where "m"
+     always reads h/l to form the address). dad writes h and l (the sum)
+     but not the source pair; ldax/sta/shld/cmc/stc/pchl/jmp/j<cc> write
+     no register at all. */
   {
     bool immediate, writes_a;
     int idx = intelArith8 (pl, &immediate, &writes_a);
@@ -1306,15 +1189,8 @@ surelyWrites (const lineNode *pl, const char *what)
     return(!strcmp (what, "ix"));
   if (larg && lineIsInst (pl, "ld") && !strncmp (larg, "iy,", 3))
     return(!strcmp (what, "iy"));
-  /* Real, live i8085/i8080 in/out (see mightRead()'s own comment on
-     this mnemonic pair): in writes a (the value read from the port);
-     out writes no register at all (only a memory-mapped port, which
-     this predicate isn't asking about). Checked before the "ld"/"in"
-     combination below, which - unlike mightRead()'s and
-     surelyWritesFlag()'s equivalent Zilog-shaped in/out checks - reads
-     larg (already NULL-safe, not a raw strchr(pl->line+N, ',') offset)
-     and so was never a crash risk here, just silent on the one
-     question that actually matters for "in": whether it writes a. */
+  /* in writes a (the value read from the port); out writes no register
+     (see mightRead()'s comment on this mnemonic pair). */
   if (lineIsInst (pl, "out"))
     return false;
   if (lineIsInst (pl, "in"))
@@ -1648,19 +1524,12 @@ i8085_canAssign (const char *op1, const char *op2, const char *exotic)
 {
   const char *dst, *src;
 
-  /* op1/op2/exotic are literal operand text captured from matching a real
-     assembly line (they come straight from a rule file's %N variables),
-     so on this port they can be Intel-syntax text - in particular "m",
-     Intel's spelling of HL-indirect addressing (see isIntelM() and
-     intelOperand()'s own comment in gen.c). Every check below already
-     answers exactly the right question for HL-indirect addressing under
-     its Zilog spelling "(hl)"; normalize "m" to that here rather than
-     duplicate each check, since the two mean the same thing. This does
-     not extend to "(bc)"/"(de)"/"(hl+)"/"(hl-)" below - those spellings
-     are never produced by matching against Intel-syntax text (BC/DE-
-     indirect addressing is only ever expressed by the ldax/stax
-     mnemonic choice on this port, never as an operand token; "(hl+)"/
-     "(hl-)" are sm83-only). */
+  /* op1/op2/exotic come straight from a rule file's %N variables, so on
+     this port they can include "m", Intel's spelling of HL-indirect
+     addressing. Normalize it to "(hl)" here rather than duplicate every
+     check below. This doesn't extend to "(bc)"/"(de)"/"(hl+)"/"(hl-)" -
+     those are never produced by matching Intel-syntax text on this
+     port. */
   if (isIntelM (op1))
     op1 = "(hl)";
   if (isIntelM (op2))
@@ -1801,14 +1670,9 @@ int i8085_instructionSize (lineNode *pl)
   const char *op0start = lineArg (pl, 0);
   const char *op1start = lineArg (pl, 1);
 
-  /* Real, live i8085/i8080 output, byte counts straight from the 8085
-     data sheet's instruction set table: mvi and the arithmetic family's
-     immediate form are 2 bytes (one opcode byte plus one 8-bit
-     immediate); lxi/lda/sta/lhld/shld/jmp/j<cc> are 3 bytes (opcode plus
-     a 16-bit address/immediate); everything else in this port's live
-     mnemonic set - mov, ldax/stax, xchg/xthl/sphl/pchl, dad/inx/dcx,
-     inr/dcr, the arithmetic family's register/M form, rlc/rrc/ral/rar,
-     cmc/stc/cma, daa - is 1 byte. */
+  /* Byte counts from the 8085 data sheet: mvi and the arithmetic
+     family's immediate form are 2 bytes; lxi/lda/sta/lhld/shld/jmp/j<cc>
+     are 3; everything else in this port's mnemonic set is 1 byte. */
   {
     bool immediate, writes_a;
     int idx = intelArith8 (pl, &immediate, &writes_a);

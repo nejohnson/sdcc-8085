@@ -642,131 +642,49 @@ oclsExpense (struct memmap *oclass)
 }
 
 
-/* i8085 and i8080 both target vendor's (patched) as8085/aslink directly
-   rather than SDAS's sdasz80/sdldz80 (see asxxxx-integration-plan.md).
-   Neither port struct below points at anything SDAS-shaped. */
-
-/* The assembler invocation has no explicit output-.rel-filename positional
-   argument: vendor's as8085 takes just "[-options] file1 [file2...]" and
-   derives the output name from the input file automatically, which already
-   produces exactly the filename SDCC needs.
-
-   "as8085", not "asz80": both are built from the exact same asxxsrc
-   core sources (asdata/asdbg/asexpr/aslex/aslist/asmain/asmcro/asout/assubr/assym -
-   confirmed identical file list against asxmak/vs22/build/as8085/
-   as8085.vcxproj), differing only in the machine-specific files
-   (as8085/{i85mch,i85pst}.c vs asz80/{z80adr,z80mch,z80pst}.c) - i.e. only
-   in which mnemonics/encodings they accept, not in CLI flags or object
-   format. src/i8085/gen.c emits Intel mnemonics, which only as8085
-   understands (asz80 only understands Zilog syntax); as8085 is shared by
+/* i8085/i8080 target vendor's as8085/aslink directly rather than SDAS's
+   sdasz80/sdldz80 (see asxxxx-integration-plan.md); neither port struct
+   below points at SDAS. as8085 takes "[-options] file1 [file2...]" (no
+   explicit output filename - it derives one from the input), which
+   already produces exactly the .rel name SDCC needs. as8085 is shared by
    both i8080_port and i8085_port below (same vendor binary, same command
-   shape - only the ".8080"/".8085"/".8085x" CPU-mode directive
-   _genAssemblerStart() emits at the top of the generated .asm file, per
-   TARGET_IS_I8080/TARGET_IS_I8085, tells as8085 which instruction subset
-   to accept), hence the port-neutral "_i808x" name rather than "_i8085". */
+   shape - the ".8080"/".8085"/".8085x" directive _genAssemblerStart()
+   emits selects which instruction subset it accepts), hence the
+   port-neutral "_i808x" name rather than "_i8085". */
 static const char *_i808xVendorAsmCmd[] = {
   "as8085", "$l", "$3", "$1.asm", NULL
 };
 
-/* The linker side keeps using the "$1.lk" script SDCCmain.c's shared
-   linkEdit() writes (port->linker.needLinkerScript stays 1, below) rather
-   than hand-building the command line from this file's own macros: an
-   earlier attempt at the latter (see git history) got the crt0/library
-   search logic wrong - SDCCmain.c's version already correctly handles
-   --nostdlib, --no-std-crt0, -L/-l, and the port's own port->linker.libs
-   (all exercised by support/regression's own test harness), and
-   reimplementing that here duplicated it *incorrectly*. That shared code
-   path is otherwise fine for vendor's aslink too - -k/-l use the exact same
-   syntax on both sides - except for three spots that assume SDAS's dialect:
-
-   1. WRITE_SEG_LOC (in SDCCmain.c, shared by every TARGET_Z80_LIKE port)
-      always writes "-b AREA = addr" - sdldz80's own repurposed meaning of
-      -b ("area base address"), shared with every other z80-family
-      sub-target and with mcs51/hc08/etc via the very same linker binary
-      (see asxxxx-noice-linker-followup-report.md). Vendor's aslink instead
-      uses -a for "area base address" (-b is "bank base address" there).
-   2. The first two lines SDCCmain.c writes are "-mjwx" then
-      "-i <dstfile>" (SDAS extended syntax: a bare filename after -i
-      renames the output). Vendor's plain "-i" takes no such argument -
-      "-i <dstfile>" would misparse "<dstfile>" as an extra input file to
-      open; renaming the output requires "-i+<dstfile>" instead.
-   3. "-k <path>" lines (library search paths, one per -L/standard libdir)
-      never have a trailing path separator ("-k ../../device/lib/build/
-      i8085"). SDAS's own addfile() (linksrc/lklibr.c) inserts one itself
-      before appending the -l name if the path doesn't already end with
-      one; vendor's addfile() does not, so "-k ../../device/lib/build/
-      i8085" + "-l i8085.lib" silently concatenates into the single
-      bogus path "...i8085i8085.lib" (confirmed via strace: ENOENT, then
-      silent fallback to an unqualified open of "i8085.lib" that also
-      fails, then every symbol the library would have supplied - e.g.
-      __divuint - is reported merely as an *undefined global warning*,
-      not a fatal error, so this one is easy to miss without checking the
-      actual .rel/.ihx output).
-   4. "-l <path>/<name>" lines - a library spec that's itself a relative
-      path, not a bare name to search for (SDCCmain.c writes one of these
-      for support/regression's own per-case "fwk.lib", e.g.
-      "-l gen/i8085/fwk.lib") - get unconditionally prefixed with every
-      registered -k path and only that, same as any bare -l name (addfile(),
-      called once per (-k path, -l name) pair by addlib(), which is the
-      only caller). SDAS's own addfile() has a second chance built in for
-      exactly this case: if the -k-prefixed open fails, retry the -l value
-      alone as given; if *that* succeeds, re-derive path/libfil by
-      splitting it at its own last '/' (so a library found this way still
-      gets its *own* directory used to resolve the relative filenames
-      listed inside it, not whatever -k path happened to be registered).
-      Vendor's addfile() has neither half of that. Rather than the -k-line
-      fix above (a targeted one-line difference), a "-l <path>/<name>" line
-      is rewritten into the equivalent explicit pair "-k <path>/" +
-      "-l <name>" instead of trying to patch addfile() itself from the
-      outside - registering <path> as a real, ordinary -k entry gets both
-      the successful open *and* SDAS's path/libfil re-derivation for free,
-      since vendor's own addfile() already does the latter correctly for
-      any -k path that actually works.
-
-   All four of SDCCmain.c's own file-writing spots are out of bounds for
-   this change (only src/i8085/main.c and the hand-written .s files under
-   device/lib/i8085 and device/lib/i8085-undoc are meant to change) - so
-   _i808xVendorLinkCmd (used as port->linker.cmd,
-   below, shared by both i8080_port and i8085_port - aslink itself is
-   dialect-agnostic, it consumes .rel object files and never source syntax,
-   so nothing here depends on which of the two ports produced them)
-   doesn't invoke aslink directly. It first runs the four substitutions
-   above (sed, over the *already-correct* generated script - each pattern
-   only ever matches the exact lines it's meant to; everywhere else in the
-   file is already vendor-compatible as-is) into a sibling "$1.v" file,
-   then invokes vendor's aslink against that.
-
-   Two mechanical constraints on how fixes 3. and 4. themselves have to be
-   written, both hit and fixed the hard way:
-   - Both patterns need a literal space (matching "-k "/"-l " exactly, not
-     just "-k"/"-l", so they can't fire on some other flag that merely
-     starts with those two characters) - but this whole array gets
-     flattened by buildCmdLine() (SDCCutil.c) into one big string handed to
-     `sh -c` verbatim, with no quoting of its own, so an unquoted space
-     inside a single array element still splits into two separate shell
-     words once it gets there. Wrapping just these two elements in a
-     literal pair of double quotes (part of the C string itself, not
-     shell_escape()'d - nothing else here goes through a shell-escaping
-     step either) keeps each one word; double quotes were chosen
-     specifically because they don't treat backslash-paren (or, for 4.,
-     backslash-n) as special, so the sed group/newline syntax survives
-     inside them unchanged.
-   - An end-of-line anchor would normally belong at the end of fix 3.'s
-     pattern (plain greedy ".*[^/]" without one matches up to the *first*
-     '/' it can get away with, not the last, so on a multi-segment path
-     it's wrong - confirmed the hard way, it turned ".../build/i8085" into
-     ".../buildi8085/"). But the obvious anchor, a bare '$', can't be used
-     in any array element here: buildCmdLine() scans every element for '$'
-     itself, to substitute its own $1/$2/$3/$l/$L tokens, and asserts on
-     anything else it finds starting with '$'. Left unanchored instead
-     (relying on the greedy match naturally preferring the *longest*
-     possible extension, which happens to still land correctly on the
-     final '/' when one exists): the only case this gets wrong is a "-k"
-     path that already ends in '/', which would end up with two - doubled,
-     not dropped, so still a valid (if unusual-looking) path, and not a
-     case SDCCmain.c's own "-k %s\n" ever actually produces (confirmed:
-     libPathsSet/libDirsSet entries come straight from -L / the compiled-in
-     standard path, never with a trailing separator). */
+/* The linker side reuses the "$1.lk" script SDCCmain.c's shared
+   linkEdit() already writes (port->linker.needLinkerScript stays 1,
+   below) rather than hand-building the command line here - that shared
+   code correctly handles --nostdlib, --no-std-crt0, -L/-l and
+   port->linker.libs. It assumes SDAS's sdldz80 dialect in four spots
+   vendor's aslink doesn't share, so _i808xVendorLinkCmd sed-adapts the
+   generated script (into a sibling "$1.v" file) before invoking aslink:
+     1. "-b AREA = addr" (SDAS's repurposed -b) -> "-a AREA = addr"
+        (vendor's -a; vendor's -b means "bank base address" instead).
+     2. "-i <dstfile>" (SDAS's rename-output extension) -> "-i+<dstfile>"
+        (vendor's own syntax for the same thing).
+     3. "-k <path>" library search paths get a trailing "/" added:
+        vendor's addfile() (linksrc/lklibr.c), unlike SDAS's, doesn't add
+        one itself before appending the -l name, so the two otherwise
+        concatenate into one bogus path and every symbol the library
+        would supply is silently reported as an undefined-global
+        *warning*, not a fatal error.
+     4. "-l <path>/<name>" (a library spec that's itself a relative path)
+        is rewritten to the equivalent "-k <path>/" + "-l <name>" pair:
+        vendor's addfile() has no fallback for a bare relative -l value,
+        unlike SDAS's.
+   The sed patterns need a literal space in "-k "/"-l " (wrapped in C
+   string literals, not shell-escaped - buildCmdLine() flattens this
+   array into one string handed to `sh -c` verbatim) and can't use a '$'
+   end-of-line anchor (buildCmdLine() reserves '$' for its own $1/$2/$3/
+   $l/$L substitution and asserts on any other use) - fix 3's pattern is
+   deliberately left unanchored, relying on the greedy match to land on
+   the final '/' when one exists; SDCCmain.c's own -k lines never already
+   end in one, so the only edge case is a harmless doubled trailing
+   slash. */
 static const char *_i808xVendorLinkCmd[] = {
   "sed",
   "-e", "s/^-i/-i+/",

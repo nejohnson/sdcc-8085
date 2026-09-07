@@ -32,8 +32,6 @@ extern I8085_OPTS i8085_opts;
 
 #define IS_8080 (i8085_opts.sub == SUB_8080)
 #define IS_8085 (i8085_opts.sub == SUB_8085)
-/* Intel 8080/8085: a subset of the Z80 with no index registers, no relative
-   jumps, no alternate register set, and no CB/ED-prefix instructions. */
 #define IS_8080LIKE (IS_8080 || IS_8085)
 /* This port has no IY (or IX) hardware at all, so HAS_IYL_INST is
    permanently 0. Left as a named macro (rather than deleted outright)
