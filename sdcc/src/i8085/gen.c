@@ -13905,15 +13905,13 @@ _moveFrom_tpair_ (asmop * aop, int offset, PAIR_ID pair)
          flexible HL-indirect addressing). pair == PAIR_DE/PAIR_BC: ldax
          d/ldax b (Intel's dedicated A-via-BC/DE-pointer load - the only
          register-pairs, besides HL, that support memory-indirect
-         addressing on real 8080/8085 hardware at all). pair == PAIR_IY:
-         dead (no IY hardware on i8080/i8085), left as unmodified Zilog
-         text, matching this file's established practice elsewhere. */
+         addressing on real 8080/8085 hardware at all). This function's
+         one caller, genPointerGet(), never passes any other pair (traced
+         exhaustively, #25), so no further case is needed. */
       if (pair == PAIR_HL)
         emit2 ("mov a, m");
-      else if (pair == PAIR_DE || pair == PAIR_BC)
-        emit2 ("ldax %s", _pairs[pair].name);
       else
-        emit2 ("lda !mems", _pairs[pair].name);
+        emit2 ("ldax %s", _pairs[pair].name);
       if (pair == PAIR_HL)
         cost2 (1, 2, 1, 1, 7, 6, 5, 5, 8, 6, 2, 2, 2, 2, 2);
       else
@@ -13922,36 +13920,24 @@ _moveFrom_tpair_ (asmop * aop, int offset, PAIR_ID pair)
     }
 }
 
+/* pair/extrapair are this file's own local PAIR_IDs, always sourced from
+   genPointerGet() (offsetPair()'s only caller) - traced exhaustively
+   (#25): pair is only ever literal PAIR_HL/PAIR_DE or getPairId()-derived
+   (which never returns PAIR_IX/PAIR_IY either), and extrapair is only
+   ever isPairDead(PAIR_DE,ic) ? PAIR_DE : PAIR_BC. Neither can ever be
+   PAIR_IX/PAIR_IY here, so every dead-IX/IY branch this function used to
+   have (each already documented "left as unmodified Zilog text") is
+   removed below rather than merely guarded. */
 static void offsetPair (PAIR_ID pair, PAIR_ID extrapair, bool save_extrapair, int val)
 {
-
-  // them check, is only ever SUB_8080 or SUB_8085 anywhere in this port's
-  // code - see src/i8085/main.c, its only two assignment sites).
-  if (abs (val) >= (save_extrapair ? 6 : 4) && (pair == PAIR_HL || pair == PAIR_IX || pair == PAIR_IY))
+  if (abs (val) >= (save_extrapair ? 6 : 4) && pair == PAIR_HL)
     {
       if (save_extrapair)
         _push (extrapair);
-      /* extrapair (the scratch pair the offset gets loaded into) is never
-         IY (see below), so "lxi" is unconditionally correct for the load
-         regardless of which pair the "add"/"dad" below turns out to need.
-         The add itself: pair is PAIR_HL (live) or PAIR_IX/PAIR_IY (dead -
-         no IX/IY hardware on i8080/i8085, left as unmodified Zilog text
-         matching this file's established practice for dead-IX/IY sites
-         elsewhere) - only when pair == PAIR_HL does dad's single-operand,
-         implicit-destination form apply. */
       emit2 ("lxi %s, !immedword", _pairs[extrapair].name, (unsigned)val);
-      if (extrapair == PAIR_IY)
-        cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
-      else
-       	cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
-      if (pair == PAIR_HL)
-        emit2 ("dad %s", _pairs[extrapair].name);
-      else
-        emit2 ("add %s, %s", _pairs[pair].name, _pairs[extrapair].name);
-      if (pair == PAIR_HL)
-        cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3, 1, 1);
-      else
-        cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
+      cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
+      emit2 ("dad %s", _pairs[extrapair].name);
+      cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3, 1, 1);
       if (save_extrapair)
         _pop (extrapair);
     }
@@ -13959,26 +13945,15 @@ static void offsetPair (PAIR_ID pair, PAIR_ID extrapair, bool save_extrapair, in
     {
       while (val)
         {
-          /* This branch's own guard is "whatever the two branches above
-             did not already claim" - unlike them, it is not restricted to
-             pair == PAIR_HL/PAIR_IX/PAIR_IY: PAIR_DE reaches here directly
-             (confirmed live - not merely believed - via genPointerGet(),
-             the only caller of offsetPair(), setting "pair = PAIR_DE;" on
-             a real code path). inx/dcx support any of b/d/h/sp as their
-             single operand (same S_REG synonym acceptance already
-             confirmed for dad/inx/dcx elsewhere in this file), so both
-             PAIR_HL and PAIR_DE get the Intel translation here; PAIR_IX/
-             PAIR_IY (dead - no IX/IY hardware on i8080/i8085) are left as
-             unmodified Zilog text, matching this file's established
-             practice for other dead-IX/IY sites. */
-          if (pair == PAIR_IX || pair == PAIR_IY)
-            emit2 (val > 0 ? "inc %s" : "dec %s", _pairs[pair].name);
-          else
-            emit2 (val > 0 ? "inx %s" : "dcx %s", _pairs[pair].name);
-          if (pair == PAIR_IX || pair == PAIR_IY)
-            cost2 (2, 1, -1, 1, 10, 7, 4, 4, -1, 4, -1, 2, 2, 2, 2);
-          else
-            cost2 (1, 1, 1, 1 , 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
+          /* This branch's own guard is "whatever the previous branch did
+             not already claim" - PAIR_DE reaches here directly (confirmed
+             live via genPointerGet() setting "pair = PAIR_DE;" on a real
+             code path), same as PAIR_HL when abs(val) is below threshold.
+             inx/dcx support any of b/d/h/sp as their single operand (same
+             S_REG synonym acceptance already confirmed for dad/inx/dcx
+             elsewhere in this file). */
+          emit2 (val > 0 ? "inx %s" : "dcx %s", _pairs[pair].name);
+          cost2 (1, 1, 1, 1 , 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
           if (val > 0)
             val--;
           else
@@ -14333,10 +14308,9 @@ genPointerGet (const iCode *ic)
     }
 
 
-  bool noadjustptr = pair == PAIR_IY && rightval >= 0 && rightval + size < 128;
-
-  if (!noadjustptr)
-    offsetPair (pair, extrapair, !isPairDead (extrapair, ic), rightval);
+  // noadjustptr removed (#25): was "pair == PAIR_IY && ...", always false
+  // - pair is never PAIR_IY in this function (traced exhaustively).
+  offsetPair (pair, extrapair, !isPairDead (extrapair, ic), rightval);
 
   if (!bit_field && (pair == PAIR_HL
            || ((getPairId (left->aop) == PAIR_BC || getPairId (left->aop) == PAIR_DE)
@@ -14516,27 +14490,18 @@ genPointerGet (const iCode *ic)
             }
           else
             {
-              if (noadjustptr)
-                {
-                  emit2 ("ld a, %d(iy)", rightval + offset);
-                  cost2 (3, 3, -1, 3, 19, 14, 9, 10, -1, 10, -1, 5, 5, 4, 5);
-                }
+              /* Same pair == PAIR_HL/PAIR_DE/PAIR_BC dispatch as
+                 _moveFrom_tpair_()'s own copy of this pattern above in
+                 this file - see that comment (its dead PAIR_IY arm was
+                 removed there too, #25). */
+              if (pair == PAIR_HL)
+                emit2 ("mov a, m");
               else
-                {
-                  /* Same pair == PAIR_HL/PAIR_DE/PAIR_BC/PAIR_IY dispatch
-                     as _moveFrom_tpair_()'s own copy of this pattern
-                     above in this file - see that comment. */
-                  if (pair == PAIR_HL)
-                    emit2 ("mov a, m");
-                  else if (pair == PAIR_DE || pair == PAIR_BC)
-                    emit2 ("ldax %s", _pairs[pair].name);
-                  else
-                    emit2 ("lda !mems", _pairs[pair].name);
-                  if (pair == PAIR_HL)
-                    cost2 (1, 2, 1, 1, 7, 6, 5, 5, 8, 6, 2, 2, 2, 2, 2);
-                  else
-                    cost2 (1, 2, -1, -1, 7, 6, 6, 6, 8, 6, -1, -1, -1, 2, 2);
-                }
+                emit2 ("ldax %s", _pairs[pair].name);
+              if (pair == PAIR_HL)
+                cost2 (1, 2, 1, 1, 7, 6, 5, 5, 8, 6, 2, 2, 2, 2, 2);
+              else
+                cost2 (1, 2, -1, -1, 7, 6, 6, 6, 8, 6, -1, -1, -1, 2, 2);
               if (bit_field && blen <= 8)
                 {
                   genUnpackBits (result, offset, blen, bstr);
@@ -14545,14 +14510,14 @@ genPointerGet (const iCode *ic)
               else
                 cheapMove (result->aop, offset, ASMOP_A, 0, true);
             }
-          if (offset + 1 < size && !noadjustptr)
+          if (offset + 1 < size)
             {
               emit2 ("inx %s", _pairs[pair].name);
               cost2 (1, 1, 1, 1 , 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
               _G.pairs[pair].offset++;
             }
         }
-      if (!isPairDead (pair, ic) && !noadjustptr)
+      if (!isPairDead (pair, ic))
         offsetPair (pair, extrapair, true, -(rightval + last_offset));
       else if (rightval + last_offset)
         spillPair (pair);
@@ -14598,16 +14563,14 @@ genPackBits (PAIR_ID pair, operand *right, int roffset, int blen, int bstr, PAIR
       /* pair == PAIR_HL: mov a,m. pair == PAIR_DE/PAIR_BC: ldax d/ldax b
          (the only pairs besides HL with real memory-indirect addressing on
          8080/8085 hardware - see _moveFrom_tpair_()'s own copy of this
-         comment earlier in this file). Any other pair (IX/IY, dead - no
-         IX/IY hardware) falls through to the unmodified Zilog fallback,
-         matching this file's established practice elsewhere. */
+         comment earlier in this file). This function's caller(s) never
+         pass any other pair (traced exhaustively, #25), so no further
+         case is needed. */
       if (pair == PAIR_HL)
         emit2 ("mov a, m");
-      else if (pair == PAIR_DE || pair == PAIR_BC)
-        emit2 ("ldax %s", _pairs[pair].name);
       else
-        emit2 ("lda !mems", _pairs[pair].name);
-      regalloc_dry_run_cost += (pair == PAIR_IX || pair == PAIR_IY) ? 3 : 1;
+        emit2 ("ldax %s", _pairs[pair].name);
+      regalloc_dry_run_cost += 1;
       if ((mask | litval) != 0xff)
         {
           emit2 ("ani !immedbyte", mask);
@@ -14627,11 +14590,9 @@ genPackBits (PAIR_ID pair, operand *right, int roffset, int blen, int bstr, PAIR
          ASlink error, not a codegen-time text pattern). */
       if (pair == PAIR_HL)
         emit2 ("mov m, a");
-      else if (pair == PAIR_DE || pair == PAIR_BC)
-        emit2 ("stax %s", _pairs[pair].name);
       else
-        emit2 ("sta !mems", _pairs[pair].name);
-      regalloc_dry_run_cost += (pair == PAIR_IX || pair == PAIR_IY) ? 3 : 1;
+        emit2 ("stax %s", _pairs[pair].name);
+      regalloc_dry_run_cost += 1;
       return;
     }
   else
@@ -14666,16 +14627,14 @@ genPackBits (PAIR_ID pair, operand *right, int roffset, int blen, int bstr, PAIR
       /* pair == PAIR_HL: mov a,m. pair == PAIR_DE/PAIR_BC: ldax d/ldax b
          (the only pairs besides HL with real memory-indirect addressing on
          8080/8085 hardware - see _moveFrom_tpair_()'s own copy of this
-         comment earlier in this file). Any other pair (IX/IY, dead - no
-         IX/IY hardware) falls through to the unmodified Zilog fallback,
-         matching this file's established practice elsewhere. */
+         comment earlier in this file). This function's caller(s) never
+         pass any other pair (traced exhaustively, #25), so no further
+         case is needed. */
       if (pair == PAIR_HL)
         emit2 ("mov a, m");
-      else if (pair == PAIR_DE || pair == PAIR_BC)
-        emit2 ("ldax %s", _pairs[pair].name);
       else
-        emit2 ("lda !mems", _pairs[pair].name);
-      regalloc_dry_run_cost += (pair == PAIR_IX || pair == PAIR_IY) ? 3 : 1;
+        emit2 ("ldax %s", _pairs[pair].name);
+      regalloc_dry_run_cost += 1;
 
       emit2 ("ani !immedbyte", mask);
       cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2);
@@ -14685,11 +14644,9 @@ genPackBits (PAIR_ID pair, operand *right, int roffset, int blen, int bstr, PAIR
          see the comment on the sibling fix in the AOP_LIT arm above. */
       if (pair == PAIR_HL)
         emit2 ("mov m, a");
-      else if (pair == PAIR_DE || pair == PAIR_BC)
-        emit2 ("stax %s", _pairs[pair].name);
       else
-        emit2 ("sta !mems", _pairs[pair].name);
-      regalloc_dry_run_cost += (pair == PAIR_IX || pair == PAIR_IY) ? 3 : 1;
+        emit2 ("stax %s", _pairs[pair].name);
+      regalloc_dry_run_cost += 1;
       if (needPopExtra)
         _pop (extrapair);
       return;
@@ -15189,17 +15146,11 @@ genAddrOf (const iCode *ic)
           pushed_pair = true;
         }
 
-      /* pair is PAIR_BC/PAIR_DE/PAIR_HL (live - lxi) or PAIR_IY (dead -
-         no IY hardware on i8080/i8085, left as unmodified Zilog text,
-         matching this file's established practice). */
-      if (pair == PAIR_IY)
-        emit2 ("ld %s, !hashedstr+%ld", _pairs[pair].name, sym->rname, (long)(operandLitValue (right)));
-      else
-        emit2 ("lxi %s, !hashedstr+%ld", _pairs[pair].name, sym->rname, (long)(operandLitValue (right)));
-      if (pair == PAIR_IY)
-        cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
-      else
-        cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
+      // "pair == PAIR_IY" arms removed (#25): pair is only ever
+      // PAIR_BC/PAIR_DE/PAIR_HL here (getPairId() never returns PAIR_IY,
+      // and the PAIR_INVALID fallback above is PAIR_HL).
+      emit2 ("lxi %s, !hashedstr+%ld", _pairs[pair].name, sym->rname, (long)(operandLitValue (right)));
+      cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
       spillPair (pair);
     }
 
