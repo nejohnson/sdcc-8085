@@ -37,15 +37,15 @@
 #include "SDCCicode.h"
 #include "dbuf_string.h"
 
-/* Flags to turn off optimisations.
+/* Flags to turn off optimisations. DISABLE_PACK_ACC/DISABLE_PACK_HL/
+   DISABLE_PACK_IY removed (#25): none were ever referenced anywhere in
+   this port - only DISABLE_PACK_ASSIGN and DISABLE_PACK_ONE_USE are
+   actually read (as "!DISABLE_PACK_XXX" guards) below.
  */
 enum
 {
-  DISABLE_PACK_ACC = 0,
   DISABLE_PACK_ASSIGN = 0,
-  DISABLE_PACK_ONE_USE = 0,
-  DISABLE_PACK_HL = 0,
-  DISABLE_PACK_IY = 0
+  DISABLE_PACK_ONE_USE = 0
 };
 
 /* Flags to turn on debugging code.

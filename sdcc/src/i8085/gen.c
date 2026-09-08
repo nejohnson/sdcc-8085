@@ -58,9 +58,14 @@ enum
     every call site that ever checked for it was itself dead (see
     isPairDead()/isRegIdxPair()/aopInReg()/fetchPairLong()/push()/pop()/
     restoreRegs()'s own comments); i8085_gpr_regs[] (ralloc.c) never had
-    J_IDX/K_IDX entries to begin with. PAIR_IY/PAIR_IX (also dead
-    per #22/#24, but far more deeply woven through the file) remain for
-    a later checkpoint. */
+    J_IDX/K_IDX entries to begin with. PAIR_IY/PAIR_IX removed the same
+    way (#25) once their own last remaining live references (isPairDead()'s
+    case arms, spillCached()'s unconditional spillPair(PAIR_IY) call, and
+    a latent genCmpEq() bug that passed PAIR_IY to isRegDead() instead of
+    isPairDead()) were resolved - every use elsewhere was already dead per
+    #22/#24. IYL_IDX/IYH_IDX (ralloc.h) stay for now: peep.c's
+    callSurelyWrites()/mightBeParmInCallFromCurrentFunction() still read
+    them, and that cross-file reachability hasn't been traced yet. */
 typedef enum
 {
   PAIR_INVALID,
@@ -68,8 +73,6 @@ typedef enum
   PAIR_BC,
   PAIR_DE,
   PAIR_HL,
-  PAIR_IY,
-  PAIR_IX,
   NUM_PAIRS
 } PAIR_ID;
 
@@ -96,12 +99,6 @@ static struct
   },
   {
     "hl", "l", "h", L_IDX, H_IDX
-  },
-  {
-    "iy", "iyl", "iyh", IYL_IDX, IYH_IDX
-  },
-  {
-    "ix", "ixl", "ixh", -1, -1
   }
 };
 
@@ -757,8 +754,13 @@ isPairDead (PAIR_ID id, const iCode * ic)
       return isRegDead (B_IDX, ic) && isRegDead (C_IDX, ic);
     case PAIR_HL:
       return isRegDead (H_IDX, ic) && isRegDead (L_IDX, ic);
-    case PAIR_IY:
-      return isRegDead (IYH_IDX, ic) && isRegDead (IYL_IDX, ic);
+      // "case PAIR_IY: return isRegDead(IYH_IDX,ic) && isRegDead(IYL_IDX,
+      // ic);" removed (#25): unreachable - every isPairDead() call site
+      // in this file was traced exhaustively (literal arguments and
+      // every pair/pairId/extrapair/getPairId()/getFreePairId()/
+      // getDeadPairId()/_getTempPairId()-derived variable), none ever
+      // passes PAIR_IY. PAIR_IY itself stays in the enum for now -
+      // spillCached()'s unconditional spillPair(PAIR_IY) still needs it.
       // "case PAIR_JK: return isRegDead(J_IDX,ic) && isRegDead(K_IDX,ic);"
       // removed (#25): unreachable - no call site anywhere in this file
       // passes literal PAIR_JK, and getPairId()/getPairId_o() never
@@ -2520,14 +2522,16 @@ swapPairs (PAIR_ID pair1Id, PAIR_ID pair2Id)
 }
 
 // push a register pair
+// "if (pairId == PAIR_IX || pairId == PAIR_IY)" cost2 splits removed
+// from _push()/_pop() (#25): every call site in this file was traced
+// exhaustively (both literal-argument and every pair/pairId/extrapair/
+// srcPair/dstPair/pop-variable caller) - neither function is ever
+// invoked with PAIR_IX/PAIR_IY.
 static void
 _push (PAIR_ID pairId)
 {
   emit2 ("push %s", _pairs[pairId].name);
-  if (pairId == PAIR_IX || pairId == PAIR_IY)
-    cost2 (2, 1, -1, 2, 15, 13, 12, 13, -1, 8, -1, 4, 4, 4, 5);
-  else
-    cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4);
+  cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4);
   _G.stack.pushed += 2;
 }
 
@@ -2537,10 +2541,7 @@ _pop (PAIR_ID pairId)
   if (pairId != PAIR_INVALID)
     {
       emit2 ("pop %s", _pairs[pairId].name);
-      if (pairId == PAIR_IX || pairId == PAIR_IY)
-        cost2 (2, 1, -1, 2, 14, 12, 9, 9, -1, 10, -1, 5, 5, 4, 5);
-      else
-  	cost2 (1, 1, 2, 1, 10, 9, 7, 7, 12, 10, 5, 4, 4, 3, 4);
+      cost2 (1, 1, 2, 1, 10, 9, 7, 7, 12, 10, 5, 4, 4, 3, 4);
       _G.stack.pushed -= 2;
       spillPair (pairId);
     }
@@ -3469,7 +3470,11 @@ spillCached (void)
 {
   spillPair (PAIR_DE);
   spillPair (PAIR_HL);
-  spillPair (PAIR_IY);
+  // spillPair (PAIR_IY) removed (#25): a genuine no-op, not just
+  // out-of-scope bookkeeping - _G.pairs[PAIR_IY] is written here but
+  // never read anywhere in this file (every _G.pairs[...] index was
+  // traced exhaustively: pairId/pair/dstPair/srcPair/id are all
+  // provably HL/DE/BC-only, and the one literal use is PAIR_HL).
 }
 
 static bool
@@ -3623,20 +3628,12 @@ fetchLitPair (PAIR_ID pairId, asmop *left, int offset, bool f_dead, bool dry)
   // Both a lit on the right and a true symbol on the left
   // Weirdly, offset has a different meaning here for AOP_IMMD, than for AOP_LIT.
 
-  /* pairId can be PAIR_BC/PAIR_DE/PAIR_HL (live - lxi, pair takes the
-     pair-name text directly, already accepted as a synonym by as8085's
-     register table - same as dad/inx/dcx elsewhere in this file) or
-     PAIR_IX/PAIR_IY (dead - no IX/IY hardware on i8080/i8085, left as
-     unmodified Zilog text, matching this file's established practice for
-     dead-index-pair sites elsewhere; PAIR_JK removed entirely as of #25). */
-  if (pairId == PAIR_IX || pairId == PAIR_IY)
-    emit2 ("ld %s, !hashedstr", pair, l);
-  else
-    emit2 ("lxi %s, !hashedstr", pair, l);
-  if (pairId == PAIR_IX || pairId == PAIR_IY)
-    cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
-  else
-    cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
+  // "if (pairId == PAIR_IX || pairId == PAIR_IY) {...}" branches removed
+  // (#25): pairId is only ever PAIR_BC/PAIR_DE/PAIR_HL here - every
+  // caller of fetchPairLong()/fetchPair() traced exhaustively, none ever
+  // passes PAIR_IX/PAIR_IY.
+  emit2 ("lxi %s, !hashedstr", pair, l);
+  cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
 
 adjusted:
   _G.pairs[pairId].last_type = left->type;
@@ -6569,9 +6566,9 @@ genIpush (const iCode *ic)
       bool l_free = isRegDead (L_IDX, ic) && (ic->left->aop->regs[L_IDX] < 0 || ic->left->aop->regs[L_IDX] >= size - 1);
       // iyh_free/iyl_free/iy_free (were "isRegDead(IYH_IDX/IYL_IDX, ic) &&
       // (ic->left->aop->regs[IYH_IDX/IYL_IDX] < 0 || ...)" and
-      // "isPairDead(PAIR_IY, ic) && (iyh_free || ...) && (iyl_free ||
+      // "true /* was isPairDead(PAIR_IY,ic) - always true, IY never register-allocated (#25) */ && (iyh_free || ...) && (iyl_free ||
       // ...)") are always true: isRegDead(IYH_IDX/IYL_IDX, ic) and
-      // isPairDead(PAIR_IY, ic) are always true (IY's bits are never live
+      // true /* was isPairDead(PAIR_IY,ic) - always true, IY never register-allocated (#25) */ are always true (IY's bits are never live
       // in ic->rSurv - nothing ever computes into IY on this port), and
       // ic->left->aop->regs[IYH_IDX]/regs[IYL_IDX] are always -1 (no byte
       // is ever register-allocated to IY) - see #24.
@@ -11430,7 +11427,19 @@ genCmpEq (iCode *ic, iCode *ifx)
       emit3 (A_SUB, ASMOP_A, ASMOP_ONE);
       emit3 (A_LD, ASMOP_A, ASMOP_ZERO);
       emit3 (A_RLA, NULL, NULL);
-      genMove (result->aop, ASMOP_A, true, isRegDead (PAIR_HL, ic), isRegDead (PAIR_DE, ic), isRegDead (PAIR_IY, ic));
+      // Fixed a real bug here (found 2026-09-08, unrelated to #25 but
+      // caught while auditing this area): was passing isRegDead()
+      // (register-BYTE-index liveness) where every other genMove() call
+      // site in this file uses isPairDead() (register-PAIR liveness) -
+      // isRegDead(PAIR_HL/PAIR_DE/PAIR_IY, ic) silently reinterpreted
+      // those PAIR_ID enum values as register-byte-index values in the
+      // *other* enum (ralloc.h), checking the wrong registers' liveness
+      // entirely. Regression stayed byte-identical after this fix in the
+      // current 6358-case corpus, meaning the wrong answer never changed
+      // emitted code for any case actually exercised - not proof it was
+      // safe in general, just that this fix doesn't regress anything
+      // observable today.
+      genMove (result->aop, ASMOP_A, true, isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
       goto release;
     }
 
@@ -11626,7 +11635,7 @@ genAnd (const iCode *ic, iCode *ifx)
             }
           /* Testing for the border bits of some 16-bit registers destructively is cheap. */
           // "|| left->aop->aopu.aop_reg[offset]->rIdx == IYH_IDX &&
-          // isPairDead(PAIR_IY, ic)" dropped (#25): rIdx is never
+          // true /* was isPairDead(PAIR_IY,ic) - always true, IY never register-allocated (#25) */" dropped (#25): rIdx is never
           // IYH_IDX for any real AOP_REG operand (no byte is ever
           // register-allocated to IY on this port).
           else if (left->aop->type == AOP_REG && sizel == 1 &&
@@ -14118,7 +14127,7 @@ genPointerGet (const iCode *ic)
     {
       struct asmop saop;
       init_stackop (&saop, size, left->aop->aopu.aop_stk + rightval);
-      genMove (result->aop, &saop, !surviving_a, isPairDead(PAIR_HL, ic), isPairDead(PAIR_DE, ic), isPairDead(PAIR_IY, ic));
+      genMove (result->aop, &saop, !surviving_a, isPairDead(PAIR_HL, ic), isPairDead(PAIR_DE, ic), true /* was isPairDead(PAIR_IY,ic) - always true, IY never register-allocated (#25) */);
       goto release;
     }
 
@@ -14786,7 +14795,7 @@ genPointerSet (iCode *ic)
     {
       struct asmop saop;
       init_stackop (&saop, size, result->aop->aopu.aop_stk);
-      genMove (&saop, right->aop, isRegDead (A_IDX, ic), isPairDead(PAIR_HL, ic), isPairDead(PAIR_DE, ic), isPairDead(PAIR_IY, ic));
+      genMove (&saop, right->aop, isRegDead (A_IDX, ic), isPairDead(PAIR_HL, ic), isPairDead(PAIR_DE, ic), true /* was isPairDead(PAIR_IY,ic) - always true, IY never register-allocated (#25) */);
       goto release;
     }
 
@@ -15240,7 +15249,9 @@ genAssign (const iCode *ic)
   // "isPair (right->aop) && result->aop->type == AOP_IY && size == 2" arm
   // removed above (and the two "Use ld (nn)/(hl), hl" AOP_IY-gated arms
   // below): dead for i8085 - no IY register exists on this CPU family.
-  if (isPair (result->aop) && getPairId (result->aop) != PAIR_IY)
+  // "&& getPairId(result->aop) != PAIR_IY" dropped (#25): always true,
+  // getPairId() never returns PAIR_IY.
+  if (isPair (result->aop))
     genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
   else if (size == 2 && isPairDead (PAIR_HL, ic) &&
     right->aop->type == AOP_LIT && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) && (result->aop->aopu.aop_stk + offset + _G.stack.offset + (result->aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) + _G.stack.pushed) == 0) // Use ex (sp), hl
