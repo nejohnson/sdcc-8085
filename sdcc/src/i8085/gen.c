@@ -14017,7 +14017,6 @@ genPointerGet (const iCode *ic)
   bool pushed_pair = FALSE;
   bool pushed_a = FALSE;
   bool surviving_a = !isRegDead (A_IDX, ic);
-  bool rightval_in_range;
 
   left = IC_LEFT (ic);
   right = IC_RIGHT (ic);
@@ -14032,7 +14031,8 @@ genPointerGet (const iCode *ic)
 
   wassertl (IS_OP_LITERAL (ic->right), "GET_VALUE_AT_ADDRESS with non-literal right operand");
   rightval = (int)operandLitValue (right);
-  rightval_in_range = (rightval >= -128 && rightval + size - 1 < 127);
+  // rightval_in_range removed (#25): only read by the two now-removed
+  // dead IY-indexed-addressing blocks above.
 
   // Check if we need to read from __far.
   bool from_far;
@@ -14154,7 +14154,9 @@ genPointerGet (const iCode *ic)
     {
       // Just do it.
       wassert (!from_far);
-      if ((getPairId (left->aop) == PAIR_HL || getPairId (left->aop) == PAIR_IY) && result->aop->type == AOP_REG)
+      // "|| getPairId(left->aop) == PAIR_IY" dropped (#25): getPairId()
+      // never returns PAIR_IY.
+      if (getPairId (left->aop) == PAIR_HL && result->aop->type == AOP_REG)
         {
           if (!regalloc_dry_run)        // Todo: More exact cost.
             {
@@ -14173,20 +14175,15 @@ genPointerGet (const iCode *ic)
           if (surviving_a && !pushed_a)
             _push (PAIR_AF), pushed_a = true;
           /* Read A via whichever pair (this "else" is reached for
-             PAIR_BC/PAIR_DE unconditionally, or PAIR_HL/PAIR_IY when
-             result->aop isn't a plain register - see the sibling "if"
-             above). Same pair == PAIR_HL/PAIR_DE/PAIR_BC/PAIR_IY dispatch
-             as _moveFrom_tpair_()'s own copy of this pattern earlier in
-             this file. */
-          if (pair == PAIR_IY)
-            emit2 ("ld a, 0 (iy)", getPairName (left->aop));
-          else if (pair == PAIR_HL)
+             PAIR_BC/PAIR_DE unconditionally, or PAIR_HL when result->aop
+             isn't a plain register - see the sibling "if" above). The
+             "pair == PAIR_IY" arms this dispatch used to also have were
+             removed (#25): getPairId() never returns PAIR_IY. */
+          if (pair == PAIR_HL)
             emit2 ("mov a, m");
           else
             emit2 ("ldax %s", getPairName (left->aop));
-          if (pair == PAIR_IY)
-            cost2old (3, 19, 14, 9, 0, 10, 4, 5);
-          else if (pair == PAIR_HL)
+          if (pair == PAIR_HL)
             cost2 (1, 2, 1, 1, 7, 6, 5, 5, 8, 6, 2, 2, 2, 2, 2);
           else
             cost2 (1, 2, -1, -1, 7, 6, 6, 6, 8, 6, -1, -1, -1, 2, 2);
@@ -14196,43 +14193,14 @@ genPointerGet (const iCode *ic)
       goto release;
     }
 
-  if (!from_far && getPairId (left->aop) == PAIR_IY && !bit_field && rightval_in_range)
-    {
-      wassert (!from_far);
-
-      int offset = 0;
-
-      // IS_RAB-gated "ld hl, n (iy)" and (IS_EZ80||IS_TLCS90||
-
-      // enclosing "getPairId (left->aop) == PAIR_IY" check itself is
-      // left untouched: there is no IY at all on i8080/i8085, but that
-      // is a register-allocator invariant, not something derivable
-      // purely from a i8085_opts.sub macro.
-
-      if (!size)
-        goto release;
-
-      /* Just do it */
-      if (surviving_a && !pushed_a)
-        _push (PAIR_AF), pushed_a = true;
-
-      while (size--)
-        {
-          if (!regalloc_dry_run)
-            {
-              struct dbuf_s dbuf;
-
-              dbuf_init (&dbuf, 128);
-              dbuf_tprintf (&dbuf, "!*iyx", rightval + offset);
-              aopPut (result->aop, dbuf_c_str (&dbuf), offset);
-              dbuf_destroy (&dbuf);
-            }
-          cost2 (3, 3, -1, 3, 19, 14, 9, 10, -1, 10, -1, 5, 5, 4, 5); // Assume ld r, d(iy)
-          offset++;
-        }
-
-      goto release;
-    }
+  // "if (!from_far && getPairId(left->aop) == PAIR_IY && !bit_field &&
+  // rightval_in_range) {...}" removed entirely (#25): getPairId() never
+  // returns PAIR_IY, so this whole block (an IY-indexed-addressing
+  // fast path, "!*iyx" pseudo-op) was unreachable. A prior comment here
+  // ("the enclosing check itself is left untouched... not something
+  // derivable purely from a i8085_opts.sub macro") already recognized
+  // this but deferred the proof to the register-allocator invariant now
+  // established file-wide (#22/#24/#25).
 
   // Using ldir is cheapest for large memory-to-memory transfers.
   // sm83 doesn't have ldir. Rabbit 2000 to Rabbit 3000 (i.e. r2k and r2ka ports) have a wait-state bug breaking ldir between different types of memory.
@@ -14286,8 +14254,9 @@ genPointerGet (const iCode *ic)
 
   /* For now we always load into temp pair */
   /* if this is rematerializable */
-  if ((getPairId (left->aop) == PAIR_BC || getPairId (left->aop) == PAIR_DE) && result->aop->type == AOP_STK && !rightval
-      || getPairId (left->aop) == PAIR_IY && SPEC_BLEN (getSpec (operandType (result))) < 8 && rightval_in_range)
+  // "|| getPairId(left->aop) == PAIR_IY && ..." disjunct dropped (#25):
+  // getPairId() never returns PAIR_IY.
+  if ((getPairId (left->aop) == PAIR_BC || getPairId (left->aop) == PAIR_DE) && result->aop->type == AOP_STK && !rightval)
     pair = getPairId (left->aop);
   else
     {
@@ -14832,8 +14801,15 @@ genPointerSet (iCode *ic)
         {
           if (surviving_a && !pushed_a && !aopInReg (right->aop, 0, A_IDX))
             _push (PAIR_AF), pushed_a = TRUE;
+          // 4th genMove_o arg (iy_dead) simplified (#25): was
+          // "pairId != PAIR_IY && isPairDead(PAIR_IY,ic) && regs[IYL_IDX]
+          // < offset && regs[IYH_IDX] < offset" - pairId is never PAIR_IY
+          // in this function (only ever HL/DE/getPairId()-derived, and
+          // getPairId() never returns PAIR_IY), isPairDead(PAIR_IY,ic) is
+          // always true, and regs[IYL_IDX]/regs[IYH_IDX] are always -1
+          // (always < offset), so all four conjuncts are always true.
           genMove_o (ASMOP_A, 0, right->aop, 0, 1, true,
-            pairId != PAIR_HL && isPairDead (PAIR_HL, ic) && right->aop->regs[L_IDX] < offset && right->aop->regs[H_IDX] < offset, false, pairId != PAIR_IY && isPairDead (PAIR_IY, ic) && right->aop->regs[IYL_IDX] < offset && right->aop->regs[IYH_IDX] < offset, true);
+            pairId != PAIR_HL && isPairDead (PAIR_HL, ic) && right->aop->regs[L_IDX] < offset && right->aop->regs[H_IDX] < offset, false, true, true);
           /* isPtr(pair) was false above (the "if" this is the "else" of),
              so pair is not "hl"/"ix"/"iy" here - getPairName() (which
              produced it) only ever returns "bc"/"de"/"hl"/"iy", so pair
@@ -14863,30 +14839,11 @@ genPointerSet (iCode *ic)
 
   // IS_8080LIKE is always true, so !IS_8080LIKE is always false).
 
-  if (!to_far && getPairId (result->aop) == PAIR_IY && !bit_field)
-    {
-      /* Just do it */
-      while (size--)
-        {
-          if (canAssignToPtr3 (right->aop))
-            {
-              if (!regalloc_dry_run)
-                emit2 ("ld !*iyx, %s", offset, aopGet (right->aop, offset, FALSE));
-              if (right->aop->type == AOP_LIT)
-                cost2 (4, 4, -1, 4, 19, 15, 11, 12, -1, 12, -1, 6, 5, 5, 5); // ld d (iy), n
-              else
-                cost2 (3, 3, -1, 3, 19, 15, 10, 11, -1, 10, -1, 5, 4, 4, 5); // ld d (iy), r
-            }
-          else
-            {
-              cheapMove (ASMOP_A, 0, right->aop, offset, true);
-              emit2 ("ld !*iyx, a", offset);
-              cost2 (3, 3, -1, 3, 19, 15, 10, 11, -1, 10, -1, 5, 4, 4, 5); // ld d (iy), r
-            }
-          offset++;
-        }
-      goto release;
-    }
+  // "if (!to_far && getPairId(result->aop) == PAIR_IY && !bit_field)
+  // {...}" removed entirely (#25): getPairId() never returns PAIR_IY, so
+  // this whole block (another IY-indexed-addressing fast path, "!*iyx"
+  // pseudo-op) was unreachable, same reasoning as the analogous block
+  // removed above in this function.
   else if (!to_far && getPairId (result->aop) == PAIR_HL && !isPairDead (PAIR_HL, ic) && !bit_field)
     {
       while (offset < size)
@@ -14986,7 +14943,11 @@ genPointerSet (iCode *ic)
 
   /* if the operand is already in dptr
      then we do nothing else we move the value to dptr */
-  if (bit_field && getPairId (result->aop) != PAIR_INVALID && (getPairId (result->aop) != PAIR_IY || SPEC_BLEN (getSpec (operandType (result)->next)) < 8 || isPairDead (getPairId (result->aop), ic)))   /* Avoid destroying result by increments */
+  // "getPairId(result->aop) != PAIR_IY ||" dropped from the outer
+  // disjunction (#25): getPairId() never returns PAIR_IY, so this
+  // disjunct was always true, making the whole parenthesized group
+  // always true regardless of the other two disjuncts.
+  if (bit_field && getPairId (result->aop) != PAIR_INVALID)   /* Avoid destroying result by increments */
     pairId = getPairId (result->aop);
   else
     {
@@ -14995,11 +14956,14 @@ genPointerSet (iCode *ic)
           _push (pairId);
           pushed_pair = true;
         }
+      // 4th genMove arg (iy_dead) simplified (#25): regs[IYL_IDX]/
+      // regs[IYH_IDX] are always -1, so both "< 0" conjuncts (and the
+      // already-collapsed isPairDead(PAIR_IY,ic)) are always true.
       genMove (pairId == PAIR_HL ? ASMOP_HL : pairId == PAIR_DE ? ASMOP_DE : ASMOP_BC, result->aop,
         isRegDead(A_IDX, ic) && right->aop->regs[A_IDX] < 0,
         isPairDead (PAIR_HL, ic) && right->aop->regs[L_IDX] < 0 && right->aop->regs[H_IDX] < 0,
         isPairDead (PAIR_DE, ic) && right->aop->regs[E_IDX] < 0 && right->aop->regs[D_IDX] < 0,
-        isPairDead (PAIR_IY, ic) && right->aop->regs[IYL_IDX] < 0 && right->aop->regs[IYH_IDX] < 0);
+        true);
     }
 
   bool zero_a = false;
@@ -15041,7 +15005,10 @@ genPointerSet (iCode *ic)
         {
           bool hl_dead = pairId != PAIR_HL && isPairDead (PAIR_HL, ic) && right->aop->regs[L_IDX] < offset && right->aop->regs[H_IDX] < offset;
           bool de_dead = pairId != PAIR_DE && isPairDead (PAIR_DE, ic) && right->aop->regs[E_IDX] < offset && right->aop->regs[D_IDX] < offset;
-          bool iy_dead = pairId != PAIR_IY && isPairDead (PAIR_IY, ic) && right->aop->regs[IYL_IDX] < offset && right->aop->regs[IYH_IDX] < offset;
+          // iy_dead simplified (#25): pairId is never PAIR_IY in this
+          // function, isPairDead(PAIR_IY,ic) is always true, and
+          // regs[IYL_IDX]/regs[IYH_IDX] are always -1 (always < offset).
+          bool iy_dead = true;
           if (surviving_a && !pushed_a && (!aopInReg (right->aop, 0, A_IDX) || offset))
             _push (PAIR_AF), pushed_a = true;
           if (bit_field && blen < 8)
@@ -15328,10 +15295,10 @@ genAssign (const iCode *ic)
     right->aop->type == AOP_LIT && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) && (result->aop->aopu.aop_stk + offset + _G.stack.offset + (result->aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) + _G.stack.pushed) == 0) // Use ex (sp), hl
     {
       fetchPair (PAIR_HL, right->aop);
-      genMove (result->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic));
+      genMove (result->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true /* was isPairDead(PAIR_IY,ic) - always true, IY never register-allocated (#25) */);
     }
   else if (size == 2 && getPairId (right->aop) != PAIR_INVALID)
-    genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic));
+    genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true /* was isPairDead(PAIR_IY,ic) - always true, IY never register-allocated (#25) */);
   // "else if (getPairId (right->aop) == PAIR_IY && result->aop->type !=
   // AOP_REG) { ... }" (byte-by-byte assignment via "push iy"/"ex (sp),
   // iy"-family tricks) removed: dead for i8085 - getPairId() never
@@ -15478,7 +15445,7 @@ genAssign (const iCode *ic)
             }
         }
       if ((result->aop->type == AOP_REG || result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK || result->aop->type == AOP_HL) && (right->aop->type == AOP_REG || right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK || right->aop->type == AOP_LIT || right->aop->type == AOP_IMMD || right->aop->type == AOP_DIR || right->aop->type == AOP_HL))
-        genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic));
+        genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true /* was isPairDead(PAIR_IY,ic) - always true, IY never register-allocated (#25) */);
       else
         while (size--)
           {
@@ -15538,7 +15505,7 @@ genJumpTab (const iCode *ic)
       pushed_pair = true;
     }
 
-  genMove (pair == PAIR_DE ? ASMOP_DE : ASMOP_BC, jtcond->aop, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic));
+  genMove (pair == PAIR_DE ? ASMOP_DE : ASMOP_BC, jtcond->aop, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true /* was isPairDead(PAIR_IY,ic) - always true, IY never register-allocated (#25) */);
 
   if (!regalloc_dry_run)
     emit2 ("lxi h, !immed!tlabel", labelKey2num (jtab->key));
@@ -15611,7 +15578,7 @@ genCast (const iCode *ic)
     {
       if (!isRegDead (A_IDX, ic))
         _push (PAIR_AF), pushed_a = true;
-      genMove (result->aop, right->aop, true, isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic));
+      genMove (result->aop, right->aop, true, isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true /* was isPairDead(PAIR_IY,ic) - always true, IY never register-allocated (#25) */);
       if (result->aop->regs[A_IDX] >= 0 && result->aop->regs[A_IDX] != result->aop->size - 1)
         _push (PAIR_AF), pushed_a = true;
       cheapMove (ASMOP_A, 0, result->aop, result->aop->size - 1, true);
@@ -15650,7 +15617,7 @@ genCast (const iCode *ic)
   if (IS_BOOL (righttype) || !IS_SPEC (righttype) || SPEC_USIGN (righttype) || right->aop->type == AOP_CRY)
     {
 
-      genMove_o (result->aop, 0, right->aop, 0, right->aop->size, !surviving_a, isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic), true);
+      genMove_o (result->aop, 0, right->aop, 0, right->aop->size, !surviving_a, isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true /* was isPairDead(PAIR_IY,ic) - always true, IY never register-allocated (#25) */, true);
       surviving_a |= (result->aop->regs[A_IDX] >= 0 && result->aop->regs[A_IDX] < right->aop->size);
       bool hl_dead = isPairDead (PAIR_HL, ic) && (result->aop->regs[L_IDX] < 0 || result->aop->regs[L_IDX] >= right->aop->size) && (result->aop->regs[H_IDX] < 0 || result->aop->regs[H_IDX] >= right->aop->size);
       bool de_dead = isPairDead (PAIR_DE, ic) && (result->aop->regs[E_IDX] < 0 || result->aop->regs[E_IDX] >= right->aop->size) && (result->aop->regs[D_IDX] < 0 || result->aop->regs[D_IDX] >= right->aop->size);
@@ -15660,7 +15627,7 @@ genCast (const iCode *ic)
   else
     {
       bool maskedtopbyte = IS_BITINT (resulttype) && (SPEC_BITINTWIDTH (resulttype) % 8) && SPEC_USIGN (resulttype);
-      genMove_o (result->aop, 0, right->aop, 0, right->aop->size - 1, !surviving_a, isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), isPairDead (PAIR_IY, ic), true);
+      genMove_o (result->aop, 0, right->aop, 0, right->aop->size - 1, !surviving_a, isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true /* was isPairDead(PAIR_IY,ic) - always true, IY never register-allocated (#25) */, true);
       bool de_dead = isPairDead (PAIR_DE, ic) && (result->aop->regs[E_IDX] < 0 || result->aop->regs[E_IDX] >= right->aop->size) && (result->aop->regs[D_IDX] < 0 || result->aop->regs[D_IDX] >= right->aop->size);
       bool iy_dead = isPairDead (PAIR_DE, ic) && (result->aop->regs[IYL_IDX] < 0 || result->aop->regs[IYL_IDX] >= right->aop->size) && (result->aop->regs[IYH_IDX] < 0 || result->aop->regs[IYH_IDX] >= right->aop->size);
       bool hl_dead = isPairDead (PAIR_HL, ic) && (result->aop->regs[L_IDX] < 0 || result->aop->regs[L_IDX] >= right->aop->size) && (result->aop->regs[H_IDX] < 0 || result->aop->regs[H_IDX] >= right->aop->size);
