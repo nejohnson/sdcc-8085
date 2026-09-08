@@ -1044,17 +1044,11 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
           // In particular, Rabbit 6000 does not have it (but Rabbit 2000 and 3000 do), eZ80 does not have it (but Z80 and z180 do).
           if (op1->aopu.aop_reg[offset1]->rIdx == op2->aopu.aop_reg[offset2]->rIdx)
             werror (W_INTERNAL_ERROR, __FILE__, __LINE__, "ld r, r considered");
-          // eZ80 ld r, ir / ld ir, r / ld ir, ir - not reachable here: there
-          // is no IY/IX at all on this port, so HAS_IYL_INST is always
-          // false and this wassert(HAS_IYL_INST) can never pass.
-          if (op1->aopu.aop_reg[offset1]->rIdx == IYL_IDX || op1->aopu.aop_reg[offset1]->rIdx == IYH_IDX ||
-            op2->aopu.aop_reg[offset2]->rIdx == IYL_IDX || op2->aopu.aop_reg[offset2]->rIdx == IYH_IDX)
-            {
-              wassert (HAS_IYL_INST);
-              if (count)
-                cost2 (2, -1, -1, -1, 8, -1, -1, -1, -1, -1, -1, -1, -1, 2, 2);
-              return (2);
-            }
+          // "eZ80 ld r, ir / ld ir, r / ld ir, ir" branch removed (#25):
+          // doubly dead - rIdx can never be IYL_IDX/IYH_IDX for any real
+          // AOP_REG operand on this port (no byte is ever
+          // register-allocated to IY), and even if it somehow were,
+          // HAS_IYL_INST is a permanent 0 (see gen.h).
         case AOP_DUMMY:
           if (form_out)
             *form_out = LDF_MOV; // mov d, s (register/M <-> register/M)
@@ -1072,22 +1066,15 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
             }
         case AOP_IMMD:
         case AOP_LIT:
-          // ld ir, #n - dead for i8085, see the HAS_IYL_INST comment above.
-          if (op1->aopu.aop_reg[offset1]->rIdx == IYL_IDX || op1->aopu.aop_reg[offset1]->rIdx == IYH_IDX)
-            {
-              wassert (HAS_IYL_INST);
-              if (count)
-                cost2 (3, -1, -1, -1, 11, -1, -1, -1, -1, -1, -1, -1, -1, 2, 3); // ld ir, #n
-              return (3);
-            }
-          else
-            {
-              if (form_out)
-                *form_out = LDF_MVI; // mvi d, #n
-              if (count)
-                cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2); // ld r, #n
-              return (2);
-            }
+          // "ld ir, #n" branch removed (#25): doubly dead, same reasoning
+          // as the eZ80 ld r,ir branch removed above.
+          {
+            if (form_out)
+              *form_out = LDF_MVI; // mvi d, #n
+            if (count)
+              cost2 (2, 2, 2, 2, 7, 6, 4, 4, 8, 4, 2, 2, 2, 2, 2); // ld r, #n
+            return (2);
+          }
         case AOP_SFR:
           /* The actual "in a, (n)" was already emitted (as a side effect)
              by aopGet() rendering op2's operand text, before emit3_o() ever
@@ -1501,12 +1488,10 @@ op8_cost (const asmop *op, int offset)
   switch (op->type)
     {
     case AOP_REG:
-      if (op->aopu.aop_reg[offset]->rIdx == IYL_IDX || op->aopu.aop_reg[offset]->rIdx == IYH_IDX) // eZ80
-        {
-          wassert (HAS_IYL_INST);
-          cost (2, 2);
-          return;
-        }
+      // "if (rIdx == IYL_IDX || == IYH_IDX) {...}" removed (#25): doubly
+      // dead, same reasoning as the identical pattern in ld_cost_form()'s
+      // AOP_REG dispatch above - rIdx can never be IYL_IDX/IYH_IDX, and
+      // HAS_IYL_INST is a permanent 0 regardless.
     case AOP_DUMMY:
       cost2 (1, 2, 2, 2, 4, 4, 2, 2, 4, 4, 2, 2, 2, 1, 1);
       return;
@@ -1544,12 +1529,8 @@ incdec_cost (const asmop *op, int offset)
   switch (op->type)
     {
     case AOP_REG:
-      if (op->aopu.aop_reg[offset]->rIdx == IYL_IDX || op->aopu.aop_reg[offset]->rIdx == IYH_IDX) // eZ80, R800
-        {
-          wassert (HAS_IYL_INST);
-          cost (2, 2);
-          return;
-        }
+      // "if (rIdx == IYL_IDX || == IYH_IDX) {...}" removed (#25): doubly
+      // dead, same reasoning as op8_cost()'s identical pattern above.
     case AOP_DUMMY:
       cost2 (1, 1, 1, 1, 4, 4, 2, 2, 4, 2, 1, 1, 1, 1, 1);
       return;
