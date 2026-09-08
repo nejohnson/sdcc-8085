@@ -49,9 +49,13 @@ enum
   // These pairs are for internal use in code generation only.
   BC_IDX,
   DE_IDX,
-  HL_IDX,
-  IY_IDX
-  // JK_IDX removed along with K_IDX/J_IDX above (#25).
+  HL_IDX
+  // IY_IDX removed as of #25: its last caller, isRegDead(IY_IDX,ic), was
+  // collapsed to literal true throughout gen.c (always true - IY is
+  // never register-allocated), leaving no live reference anywhere.
+  // IYL_IDX/IYH_IDX above (still heavily referenced) and PAIR_IY (gen.c)
+  // remain for a later checkpoint. JK_IDX removed along with K_IDX/J_IDX
+  // above (#25).
 };
 
 enum

@@ -504,9 +504,12 @@ isRegIdxPair (short *rIdx)
     case HL_IDX:
       *rIdx = L_IDX;
       break;
-    case IY_IDX:
-      *rIdx = IYL_IDX;
-      break;
+      // "case IY_IDX: *rIdx = IYL_IDX; break;" removed (#25): unreachable -
+      // isRegDead(IY_IDX,ic), this function's last remaining IY_IDX
+      // caller, was itself just collapsed to literal true throughout the
+      // file (its result was always true anyway - IY is never
+      // register-allocated), so nothing calls this function with
+      // rIdx == IY_IDX any more.
       // "case JK_IDX: *rIdx = K_IDX; break;" removed (#25): unreachable -
       // none of this function's 3 callers (aopRegUsed/aopRegUsedRange/
       // isRegDead) is ever invoked with rIdx == JK_IDX anywhere in this
@@ -666,8 +669,10 @@ aopInReg (const asmop *aop, int offset, short rIdx)
       return (aopInReg (aop, offset, E_IDX) && aopInReg (aop, offset + 1, D_IDX));
     case HL_IDX:
       return (aopInReg (aop, offset, L_IDX) && aopInReg (aop, offset + 1, H_IDX));
-    case IY_IDX:
-      return (aopInReg (aop, offset, IYL_IDX) && aopInReg (aop, offset + 1, IYH_IDX));
+      // "case IY_IDX: return (...);" removed (#25): unreachable - no call
+      // site anywhere in this file passes rIdx == IY_IDX to aopInReg() any
+      // more (its handful of former callers were already dead per #24;
+      // isRegDead(IY_IDX,ic), a separate function, is unrelated to this one).
       // "case JK_IDX: return (...);" removed (#25): its only caller
       // (push()'s aopInReg(...,JK_IDX) check) was itself dead and is
       // removed too - see push()'s own comment.
@@ -6554,7 +6559,7 @@ genIpush (const iCode *ic)
     {
       if (isRegDead (BC_IDX, ic) && isRegDead (DE_IDX, ic))
         {
-          genMove_o (ASMOP_BCDE, 0, ic->left->aop, 0, 3, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), true, isRegDead (IY_IDX, ic), true);
+          genMove_o (ASMOP_BCDE, 0, ic->left->aop, 0, 3, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), true, true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */, true);
           emit3 (A_LD, ASMOP_B, ASMOP_ZERO);
 
             {
@@ -6833,7 +6838,7 @@ genPointerPush (const iCode *ic)
       swap_de = true;
     }
 
-  genMove (ASMOP_HL, IC_LEFT (ic)->aop, true, true, swap_de ? false : isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
+  genMove (ASMOP_HL, IC_LEFT (ic)->aop, true, true, swap_de ? false : isRegDead (DE_IDX, ic), true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */);
 
   int size = getSize (operandType (ic->left)->next);
   // "if (TARGET_IS_TLCS90 && ...) {add hl, !immed%d; ...}" removed:
@@ -8524,8 +8529,8 @@ genPlus (iCode * ic)
     (ic->right->aop->type == AOP_LIT || ic->right->aop->type == AOP_IMMD || ic->left->aop->type == AOP_IMMD && ic->right->aop->type == AOP_HL))
     {
       PAIR_ID extrapair = isPairDead (PAIR_DE, ic) ? PAIR_DE : PAIR_BC;
-      genMove (ASMOP_HL, ic->left->aop, isRegDead (A_IDX, ic), true, isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
-      genMove (extrapair == PAIR_DE ? ASMOP_DE : ASMOP_BC, ic->right->aop, isRegDead (A_IDX, ic), false, isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
+      genMove (ASMOP_HL, ic->left->aop, isRegDead (A_IDX, ic), true, isRegDead (DE_IDX, ic), true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */);
+      genMove (extrapair == PAIR_DE ? ASMOP_DE : ASMOP_BC, ic->right->aop, isRegDead (A_IDX, ic), false, isRegDead (DE_IDX, ic), true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */);
       emit2 ("dad %s", _pairs[extrapair].name);
       cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3 , 1, 1);
       spillPair (PAIR_HL);
@@ -9845,7 +9850,7 @@ genMinus (const iCode *ic, const iCode *ifx)
             UNIMPLEMENTED;
           cheapMove (ASMOP_A, 0, ic->left->aop, 0, true);
           emit3 (A_DEC, ASMOP_A, 0);
-          genMove_o (ic->result->aop, 0, ASMOP_A, 0, 1, true, isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic), false);
+          genMove_o (ic->result->aop, 0, ASMOP_A, 0, 1, true, isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */, false);
         }
       if (IC_TRUE (ifx))
         emitJP (IC_TRUE (ifx), "nz", 0.5f, true);
@@ -12039,7 +12044,7 @@ genOr (const iCode * ic, iCode * ifx)
           // is guaranteed true whenever this "if" is reached and neither
           // C_IDX nor E_IDX matched (#24).
           asmop *source = aopInReg (right->aop, i, C_IDX) ? ASMOP_BC : aopInReg (right->aop, i, E_IDX) ? ASMOP_DE : ASMOP_HL;
-          genMove_o (result->aop, i, source, 0, 2, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic), true);
+          genMove_o (result->aop, i, source, 0, 2, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */, true);
           i += 2;
           continue;
         }
@@ -12052,7 +12057,7 @@ genOr (const iCode * ic, iCode * ifx)
           // is guaranteed true whenever this "if" is reached and neither
           // B_IDX nor D_IDX matched (#24).
           asmop *source = aopInReg (right->aop, i + 1, B_IDX) ? ASMOP_BC : aopInReg (right->aop, i + 1, D_IDX) ? ASMOP_DE : ASMOP_HL;
-          genMove_o (result->aop, i, source, 0, 2, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic), true);
+          genMove_o (result->aop, i, source, 0, 2, isRegDead (A_IDX, ic), isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */, true);
           i += 2;
           continue;
         }
@@ -12926,7 +12931,7 @@ genRotW (const iCode *ic)
 
           if (size == 2 && aopInReg (left->aop, 0, HL_IDX) && isRegDead (HL_IDX, ic))
             rotaop = left->aop;
-          genMove (rotaop, left->aop, true, isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
+          genMove (rotaop, left->aop, true, isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */);
           cheapMove (ASMOP_A, 0, rotaop, size - 1, true);
           emit3 (A_RLA, 0, 0);
           if (requiresHL (rotaop) && rotaop->type != AOP_REG)
@@ -12943,7 +12948,7 @@ genRotW (const iCode *ic)
 
           for (int i = 0; i < size; i++)
             emit3_o (A_RL, rotaop, i, 0, 0);
-          genMove (result->aop, rotaop, true, isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), isRegDead (IY_IDX, ic));
+          genMove (result->aop, rotaop, true, isRegDead (HL_IDX, ic), isRegDead (DE_IDX, ic), true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */);
         }
       else
         {
@@ -14291,7 +14296,7 @@ genPointerGet (const iCode *ic)
       cost2 (1, 1, 1, 1, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
       spillPair (PAIR_HL);
       spillPair (PAIR_DE);
-      genMove (result->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, true, isRegDead (IY_IDX, ic));
+      genMove (result->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, true, true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */);
       goto release;
     }
 
@@ -16170,7 +16175,7 @@ setupForMemcpy (const iCode *ic, const operand *to, const operand *from, const o
 
       regMove (larray, oparray, 4 , false);
 
-      genMove (ASMOP_HL, from->aop, isRegDead (A_IDX, ic), true, false, isRegDead (IY_IDX, ic));
+      genMove (ASMOP_HL, from->aop, isRegDead (A_IDX, ic), true, false, true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */);
     }
   else if (from->aop->type == AOP_REG && count && count->aop->type == AOP_REG)
     {
@@ -16183,13 +16188,13 @@ setupForMemcpy (const iCode *ic, const operand *to, const operand *from, const o
 
       regMove (larray, oparray, 4 , false);
 
-      genMove (ASMOP_DE, to->aop, isRegDead (A_IDX, ic), false, true, isRegDead (IY_IDX, ic));
+      genMove (ASMOP_DE, to->aop, isRegDead (A_IDX, ic), false, true, true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */);
     }
   else if (count && count->aop->type == AOP_REG)
     {
       fetchPair (PAIR_BC, count->aop);
       fetchPair (PAIR_DE, to->aop);
-      genMove (ASMOP_HL, from->aop, isRegDead (A_IDX, ic), true, false, isRegDead (IY_IDX, ic));
+      genMove (ASMOP_HL, from->aop, isRegDead (A_IDX, ic), true, false, true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */);
     }
   else
     {
@@ -16204,7 +16209,7 @@ setupForMemcpy (const iCode *ic, const operand *to, const operand *from, const o
           // negation is always true (#24).
           bool iy_free = true;
           genMove (ASMOP_DE, to->aop, a_free, from->aop->regs[L_IDX] < 0 && from->aop->regs[H_IDX] < 0, true, iy_free);
-          genMove (ASMOP_HL, from->aop, isRegDead (A_IDX, ic), true, false, isRegDead (IY_IDX, ic));
+          genMove (ASMOP_HL, from->aop, isRegDead (A_IDX, ic), true, false, true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */);
         }
       /* HL is free. Write it first. */
       else if (to->aop->type != AOP_REG || to->aop->aopu.aop_reg[0]->rIdx != L_IDX && to->aop->aopu.aop_reg[0]->rIdx != H_IDX && to->aop->aopu.aop_reg[1]->rIdx != L_IDX && to->aop->aopu.aop_reg[1]->rIdx != H_IDX)
@@ -16215,7 +16220,7 @@ setupForMemcpy (const iCode *ic, const operand *to, const operand *from, const o
           // true, same reasoning as the "from" case above (#24).
           bool iy_free = true;
           genMove (ASMOP_HL, from->aop, a_free, true, to->aop->regs[E_IDX] < 0 && to->aop->regs[D_IDX] < 0, iy_free);
-          genMove (ASMOP_DE, to->aop, isRegDead (A_IDX, ic), false, true, isRegDead (IY_IDX, ic));
+          genMove (ASMOP_DE, to->aop, isRegDead (A_IDX, ic), false, true, true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */);
         }
       /* L is free, but H is not. */
       else if ((to->aop->type != AOP_REG || to->aop->aopu.aop_reg[0]->rIdx != L_IDX && to->aop->aopu.aop_reg[1]->rIdx != L_IDX) &&
