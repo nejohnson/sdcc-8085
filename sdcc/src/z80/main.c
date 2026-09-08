@@ -1085,14 +1085,31 @@ _getRegByName (const char *name)
 static void
 _z80_genAssemblerStart (FILE * of)
 {
-  /* .optsdcc is an sdas extension.  ASxxxx does not know it and stops with
-     a directive error rather than ignoring it, so it must not be emitted
-     for a port assembled by ASxxxx. */
-  if (!options.noOptsdccInAsm && !port->assembler.asxxxx)
+  /* The compatibility key:  a string every module in a link must agree
+     on, so that objects built for different calling conventions are
+     caught rather than linked into a program that misbehaves quietly.
+     The two assemblers spell the directive differently - sdas .optsdcc,
+     ASxxxx .abi - and neither accepts the other's, but the string that
+     follows is the same, and both write it as the same O record.  So an
+     object from one toolchain still compares correctly against one from
+     the other, which matters while both are in use.
+
+     The target name earns its place here:  a .rel file records nothing
+     about the CPU it was assembled for, so without it the linker will
+     take an object built for one target and one built for another and
+     produce a program from them. */
+  if (!options.noOptsdccInAsm)
     {
-      tfprintf (of, "\t!optsdcc -m%s", port->target);
-      fprintf (of, " sdcccall(%d)", options.sdcccall);
-      fprintf (of, "\n");
+      if (port->assembler.asxxxx)
+        {
+          fprintf (of, "\t.abi -m%s sdcccall(%d)\n", port->target, options.sdcccall);
+        }
+      else
+        {
+          tfprintf (of, "\t!optsdcc -m%s", port->target);
+          fprintf (of, " sdcccall(%d)", options.sdcccall);
+          fprintf (of, "\n");
+        }
     }
 
   if (TARGET_IS_Z80 && options.allow_undoc_inst)
