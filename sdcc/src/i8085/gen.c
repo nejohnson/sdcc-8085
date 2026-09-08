@@ -53,8 +53,14 @@ enum
   INT8MAX = 127
 };
 
-/** Enum covering all the possible register pairs.
- */
+/** Enum covering all the possible register pairs. PAIR_JK (the
+    Rabbit-only JK pair, no hardware on i8080/i8085) removed as of #25 -
+    every call site that ever checked for it was itself dead (see
+    isPairDead()/isRegIdxPair()/aopInReg()/fetchPairLong()/push()/pop()/
+    restoreRegs()'s own comments); i8085_gpr_regs[] (ralloc.c) never had
+    J_IDX/K_IDX entries to begin with. PAIR_IY/PAIR_IX (also dead
+    per #22/#24, but far more deeply woven through the file) remain for
+    a later checkpoint. */
 typedef enum
 {
   PAIR_INVALID,
@@ -63,7 +69,6 @@ typedef enum
   PAIR_DE,
   PAIR_HL,
   PAIR_IY,
-  PAIR_JK,
   PAIR_IX,
   NUM_PAIRS
 } PAIR_ID;
@@ -94,9 +99,6 @@ static struct
   },
   {
     "iy", "iyl", "iyh", IYL_IDX, IYH_IDX
-  },
-  {
-    "jk", "k", "j", K_IDX, J_IDX
   },
   {
     "ix", "ixl", "ixh", -1, -1
@@ -291,7 +293,7 @@ bool i8085_regs_preserved_in_calls_from_current_function[IYH_IDX + 1];
 
 static const char *aopGet (asmop *aop, int offset, bool bit16);
 
-static struct asmop asmop_a, asmop_b, asmop_c, asmop_d, asmop_e, asmop_h, asmop_l, asmop_iyh, asmop_iyl, asmop_hl, asmop_de, asmop_bc, asmop_iy, asmop_jk, asmop_ahl, asmop_aiy, asmop_ehl, asmop_lde, asmop_ebc, asmop_dehl, asmop_hlde, asmop_hlbc, asmop_debc, asmop_bcde, asmop_jkhl, asmop_zero, asmop_one, asmop_mone, asmop_fsign;
+static struct asmop asmop_a, asmop_b, asmop_c, asmop_d, asmop_e, asmop_h, asmop_l, asmop_iyh, asmop_iyl, asmop_hl, asmop_de, asmop_bc, asmop_iy, asmop_ahl, asmop_aiy, asmop_ehl, asmop_lde, asmop_ebc, asmop_dehl, asmop_hlde, asmop_hlbc, asmop_debc, asmop_bcde, asmop_zero, asmop_one, asmop_mone, asmop_fsign;
 static struct asmop *const ASMOP_A = &asmop_a;
 static struct asmop *const ASMOP_B = &asmop_b;
 static struct asmop *const ASMOP_C = &asmop_c;
@@ -317,12 +319,6 @@ static struct asmop *const ASMOP_BC = &asmop_bc;
    underlying asmop_iy storage and its init_reg_asmop() call are left in
    place - harmless, same as the ASMOP_JK/ASMOP_IYH/ASMOP_IYL precedents
    (#23/#24) above. */
-/* ASMOP_JK (alias for asmop_jk) is unused on this port as of #23 (its only
-   call site - "ex jk, hl", Rabbit 4000-only - was gated on the now-removed
-   IS_R4K_NOTYET||IS_R5K_NOTYET||IS_R6K_NOTYET dead code). The underlying
-   asmop_jk storage and its init_reg_asmop() call are left in place -
-   harmless, and it shares a declaration line with several still-used
-   asmop_* variables, same as the ASMOP_EBC/etc. group below. */
 static struct asmop *const ASMOP_EHL = &asmop_ehl;
 static struct asmop *const ASMOP_LDE = &asmop_lde;
 /* ASMOP_EBC/ASMOP_DEBC/ASMOP_AHL/ASMOP_AIY/ASMOP_HLBC (aliases for
@@ -333,7 +329,15 @@ static struct asmop *const ASMOP_LDE = &asmop_lde;
 static struct asmop *const ASMOP_DEHL = &asmop_dehl;
 static struct asmop *const ASMOP_HLDE = &asmop_hlde;
 static struct asmop *const ASMOP_BCDE = &asmop_bcde;
-static struct asmop *const ASMOP_JKHL = &asmop_jkhl;
+/* ASMOP_JK/ASMOP_JKHL (aliases for asmop_jk/asmop_jkhl) and the
+   underlying storage itself removed entirely: the Rabbit-only JK pair
+   has no hardware on i8080/i8085 (i8085_gpr_regs[] in ralloc.c has no
+   J_IDX/K_IDX entries - see #25), and unlike the IY family (kept for a
+   later checkpoint), every call site that ever referenced JK-family
+   registers/pairs was itself dead - see restoreRegs()'s and push()'s/
+   pop()'s own comments. J_IDX/K_IDX/JK_IDX/PAIR_JK are removed from
+   their enums too, so this storage cannot be reconstructed as it stood
+   without them; nothing is lost since nothing ever read it. */
 static struct asmop *const ASMOP_ZERO = &asmop_zero;
 static struct asmop *const ASMOP_ONE = &asmop_one;
 static struct asmop *const ASMOP_MONE = &asmop_mone;
@@ -376,7 +380,6 @@ i8085_init_asmops (void)
   init_reg_asmop(&asmop_de, (const signed char[]){E_IDX, D_IDX, -1});
   init_reg_asmop(&asmop_hl, (const signed char[]){L_IDX, H_IDX, -1});
   init_reg_asmop(&asmop_iy, (const signed char[]){IYL_IDX, IYH_IDX, -1});
-  init_reg_asmop(&asmop_jk, (const signed char[]){K_IDX, J_IDX, -1});
   init_reg_asmop(&asmop_ehl, (const signed char[]){L_IDX, H_IDX, E_IDX, -1});
   init_reg_asmop(&asmop_lde, (const signed char[]){E_IDX, D_IDX, L_IDX, -1});
   init_reg_asmop(&asmop_ebc, (const signed char[]){C_IDX, B_IDX, E_IDX, -1});
@@ -385,7 +388,6 @@ i8085_init_asmops (void)
   init_reg_asmop(&asmop_hlbc, (const signed char[]){C_IDX, B_IDX, L_IDX, H_IDX, -1});
   init_reg_asmop(&asmop_debc, (const signed char[]){C_IDX, B_IDX, E_IDX, D_IDX, -1});
   init_reg_asmop(&asmop_bcde, (const signed char[]){E_IDX, D_IDX, C_IDX, B_IDX, -1});
-  init_reg_asmop(&asmop_jkhl, (const signed char[]){L_IDX, H_IDX, K_IDX, J_IDX, -1});
   init_reg_asmop(&asmop_ahl, (const signed char[]){L_IDX, H_IDX, A_IDX, -1});
   init_reg_asmop(&asmop_aiy, (const signed char[]){IYL_IDX, IYH_IDX, A_IDX, -1});
 
@@ -505,9 +507,10 @@ isRegIdxPair (short *rIdx)
     case IY_IDX:
       *rIdx = IYL_IDX;
       break;
-    case JK_IDX:
-      *rIdx = K_IDX;
-      break;
+      // "case JK_IDX: *rIdx = K_IDX; break;" removed (#25): unreachable -
+      // none of this function's 3 callers (aopRegUsed/aopRegUsedRange/
+      // isRegDead) is ever invoked with rIdx == JK_IDX anywhere in this
+      // file, now that JK_IDX itself is gone from the enum.
     default:
       return false;
     }
@@ -665,8 +668,9 @@ aopInReg (const asmop *aop, int offset, short rIdx)
       return (aopInReg (aop, offset, L_IDX) && aopInReg (aop, offset + 1, H_IDX));
     case IY_IDX:
       return (aopInReg (aop, offset, IYL_IDX) && aopInReg (aop, offset + 1, IYH_IDX));
-    case JK_IDX:
-      return (aopInReg (aop, offset, K_IDX) && aopInReg (aop, offset + 1, J_IDX));
+      // "case JK_IDX: return (...);" removed (#25): its only caller
+      // (push()'s aopInReg(...,JK_IDX) check) was itself dead and is
+      // removed too - see push()'s own comment.
     default:
       return (aop->regs[rIdx] == offset);
     }
@@ -750,10 +754,12 @@ isPairDead (PAIR_ID id, const iCode * ic)
       return isRegDead (H_IDX, ic) && isRegDead (L_IDX, ic);
     case PAIR_IY:
       return isRegDead (IYH_IDX, ic) && isRegDead (IYL_IDX, ic);
-    case PAIR_JK:
-      return isRegDead (J_IDX, ic) && isRegDead (K_IDX, ic);
+      // "case PAIR_JK: return isRegDead(J_IDX,ic) && isRegDead(K_IDX,ic);"
+      // removed (#25): unreachable - no call site anywhere in this file
+      // passes literal PAIR_JK, and getPairId()/getPairId_o() never
+      // return it either, so isPairDead() is never invoked with it.
     default:
-      wassertl (0, "Only implemented for DE, BC, HL, IY and JK");
+      wassertl (0, "Only implemented for DE, BC, HL and IY");
       return FALSE;
     }
 }
@@ -3651,14 +3657,14 @@ fetchLitPair (PAIR_ID pairId, asmop *left, int offset, bool f_dead, bool dry)
   /* pairId can be PAIR_BC/PAIR_DE/PAIR_HL (live - lxi, pair takes the
      pair-name text directly, already accepted as a synonym by as8085's
      register table - same as dad/inx/dcx elsewhere in this file) or
-     PAIR_IX/PAIR_IY/PAIR_JK (dead - no IX/IY/JK hardware on i8080/i8085,
-     left as unmodified Zilog text, matching this file's established
-     practice for dead-index-pair sites elsewhere). */
-  if (pairId == PAIR_IX || pairId == PAIR_IY || pairId == PAIR_JK)
+     PAIR_IX/PAIR_IY (dead - no IX/IY hardware on i8080/i8085, left as
+     unmodified Zilog text, matching this file's established practice for
+     dead-index-pair sites elsewhere; PAIR_JK removed entirely as of #25). */
+  if (pairId == PAIR_IX || pairId == PAIR_IY)
     emit2 ("ld %s, !hashedstr", pair, l);
   else
     emit2 ("lxi %s, !hashedstr", pair, l);
-  if (pairId == PAIR_IX || pairId == PAIR_IY || pairId == PAIR_JK)
+  if (pairId == PAIR_IX || pairId == PAIR_IY)
     cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
   else
     cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
@@ -3689,20 +3695,11 @@ push (asmop *aop, int offset, int size)
       // IS_Z80N||IS_R4K||IS_R5K||IS_R6K-gated and IS_R4K||IS_R5K||IS_R6K-gated
       // (Rabbit/Z80N-only 32-bit-literal-push and bcde-pair-push) arms
 
-      // aopInReg(...,JK_IDX) arm right after is left alone: JK is a
-      // Rabbit-4000-family-only register pair not gated by an IS_* macro
-      // here, so it is dead only via the register-allocator's invariant
-      // (i8085_gpr_regs has no K_IDX/J_IDX), not provably so from this
-      // file alone - left for review, matching the IY-string-check
-      // precedent elsewhere in this pass.
-      if (size >= 4 && aopInReg (aop, offset + size - 4, HL_IDX) && aopInReg (aop, offset + size - 2, JK_IDX))
-        {
-          emit2 ("push jkhl");
-          cost2 (2, -1, -1, -1, -1, -1, 18, 19, -1, -1, -1, -1, -1, -1, -1);
-          _G.stack.pushed += 4;
-          size -= 4;
-        }
-      else if (size >= 2 && getPairId_o (aop, offset + size - 2) != PAIR_INVALID && getPairId_o (aop, offset + size - 2) != PAIR_JK)
+      // "if (size >= 4 && aopInReg(...,HL_IDX) && aopInReg(...,JK_IDX))
+      // {emit2("push jkhl"); ...}" removed (#25): aopInReg(...,JK_IDX) is
+      // always false (i8085_gpr_regs[] in ralloc.c has no K_IDX/J_IDX
+      // entries), so this arm could never fire.
+      if (size >= 2 && getPairId_o (aop, offset + size - 2) != PAIR_INVALID)
         {
           _push (getPairId_o (aop, offset + size - 2));
           size -= 2;
@@ -3749,14 +3746,10 @@ push (asmop *aop, int offset, int size)
 static void
 pop (const asmop *aop, int offset, int size)
 {
-  if (getPairId_o (aop, offset) == PAIR_JK)
-    {
-      /*emit3w (A_EX, ASMOP_JK, ASMOP_HL); BUG: ex jk, hl apparently doesn't work on hardware in mode 10!
-      _pop (PAIR_HL);
-      emit3w (A_EX, ASMOP_JK, ASMOP_HL);*/
-      UNIMPLEMENTED;
-    }
-  else if (size == 2 && getPairId_o (aop, offset) != PAIR_INVALID)
+  // "if (getPairId_o(aop, offset) == PAIR_JK) {...UNIMPLEMENTED;}" removed
+  // (#25): unreachable - getPairId_o() never returns PAIR_JK (see its own
+  // comment), and PAIR_JK no longer exists as an enum value regardless.
+  if (size == 2 && getPairId_o (aop, offset) != PAIR_INVALID)
     _pop (getPairId_o (aop, offset));
   else if (size == 4 && getPairId_o (aop, offset) == PAIR_DE && getPairId_o (aop, offset + 2) == PAIR_BC)
     {
@@ -4675,8 +4668,12 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
        each doing _push(PAIR_IY)/"xthl"/cheapMove-into-L-or-H/_pop(PAIR_IY)
        to fake up "ld reg, d(ix)"-style access via IY) was removed outright
        - none of its 6 arms' guard conditions could ever be true. */
-  if (to->type == AOP_REG && from->type == AOP_REG &&
-    !aopInReg (to, to_offset, J_IDX) && !aopInReg (to, to_offset, K_IDX) && !aopInReg (from, from_offset, J_IDX) && !aopInReg (from, from_offset, K_IDX))
+  // "&& !aopInReg(to,...,J_IDX) && !aopInReg(to,...,K_IDX) && !aopInReg(from,
+  // ...,J_IDX) && !aopInReg(from,...,K_IDX)" dropped (#25): all four are
+  // unconditionally true now that J_IDX/K_IDX are never register-allocated
+  // on this port (i8085_gpr_regs[] has no such entries - see #25's other
+  // comments in this file).
+  if (to->type == AOP_REG && from->type == AOP_REG)
     {
       if (to->aopu.aop_reg[to_offset] == from->aopu.aop_reg[from_offset])
         return;
@@ -4730,30 +4727,14 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
         }
     }
 
+  // "else if ((aopInReg(to,...,J_IDX) || aopInReg(to,...,K_IDX)) && ...)
+  // {...UNIMPLEMENTED;}" and its mirror-image from-side arm removed (#25):
+  // both guards were unconditionally false (same reasoning as above), so
+  // UNIMPLEMENTED could never actually fire - the commented-out "ex jk,
+  // hl" bodies they guarded were never reachable on this port regardless
+  // (JK has no hardware here at all).
   if (from->type == AOP_IY || to->type == AOP_IY) // dead for i8085 - no IY register exists on this CPU family.
     wassertl (0, "cheapMove: AOP_IY is dead for i8085 (no IY hardware)");
-  else if ((aopInReg (to, to_offset, J_IDX) || aopInReg (to, to_offset, K_IDX)) && // Only very few instructions can write jk. Use hl instead.
-    !aopInReg (from, from_offset, H_IDX) && !aopInReg (from, from_offset, L_IDX))
-    {
-      /*emit3w (A_EX, ASMOP_JK, ASMOP_HL); BUG: ex jk, hl apparently doesn't work on hardware in mode 10!
-      if (aopInReg (to, to_offset, J_IDX) && aopInReg (from, from_offset, K_IDX))
-        emit3 (A_LD, ASMOP_H, ASMOP_L);
-      else if (aopInReg (to, to_offset, K_IDX) && aopInReg (from, from_offset, J_IDX))
-        emit3 (A_LD, ASMOP_L, ASMOP_H);
-      else
-        cheapMove (ASMOP_HL, aopInReg (to, to_offset, J_IDX), from, from_offset, a_dead);
-      emit3w (A_EX, ASMOP_JK, ASMOP_HL);*/
-      UNIMPLEMENTED;
-    }
-  else if ((aopInReg (from, from_offset, J_IDX) || aopInReg (from, from_offset, K_IDX)) && // Only very few instructions can read jk. Use hl instead.
-    !aopInReg (to, to_offset, H_IDX) && !aopInReg (to, to_offset, L_IDX))
-    {
-      /*wassert (!aopInReg (to, to_offset, J_IDX) && !aopInReg (to, to_offset, K_IDX)); // Should have been handled above.
-      emit3w (A_EX, ASMOP_JK, ASMOP_HL); BUG: ex jk, hl apparently doesn't work on hardware in mode 10!
-      cheapMove (to, to_offset, ASMOP_HL, aopInReg (from, from_offset, J_IDX), a_dead);
-      emit3w (A_EX, ASMOP_JK, ASMOP_HL);*/
-      UNIMPLEMENTED;
-    }
   else if (!aopInReg (to, to_offset, A_IDX) && !aopInReg (from, from_offset, A_IDX) && // Go through a.
     (from->type == AOP_DIR || from->type == AOP_SFR || to->type == AOP_SFR ||
     (to->type == AOP_DIR || to->type == AOP_HL || to->type == AOP_EXSTK || to->type == AOP_STK) && (from->type == AOP_HL || from->type == AOP_EXSTK || from->type == AOP_STK) ||
@@ -5025,7 +5006,12 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
   // either (no byte is ever register-allocated to IY on this port,
   // the same fact behind aopInReg(...,IYL_IDX/IYH_IDX) always being
   // false - see #24).
-  jk_dead |= (result->regs[K_IDX] >= roffset && result->regs[K_IDX] < roffset + sizex && result->regs[J_IDX] >= roffset && result->regs[J_IDX] < roffset + sizex);
+  // "jk_dead |= (result->regs[K_IDX] ... regs[J_IDX] ...)" removed (#25):
+  // always a no-op, same reasoning as the removed iy_dead line above -
+  // result->regs[K_IDX]/regs[J_IDX] are always -1 (no byte is ever
+  // register-allocated to JK on this port), and jk_dead is itself always
+  // false at genCopy's one and only call site (genMove_o, see its own
+  // now-removed jk_dead_global computation).
 
   size = n;
   regsize = 0;
@@ -5154,8 +5140,9 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
         a_free = false;
       else if (aopInReg (operand, offset, L_IDX) || aopInReg (operand, offset, H_IDX))
         hl_free = false;
-      else if (aopInReg (operand, offset, K_IDX) || aopInReg (operand, offset, J_IDX))
-        jk_free = false;
+      // "else if (aopInReg(...,K_IDX) || aopInReg(...,J_IDX)) jk_free =
+      // false;" removed (#25): a no-op - jk_free is already false from
+      // "jk_free = jk_dead;" just above (jk_dead is always false).
     }
   genCopyStack (result, roffset, source, soffset, n, assigned, &size, a_free, hl_free, jk_free, false);
 
@@ -5307,8 +5294,9 @@ skip_byte:
         a_free = false;
       else if (aopInReg (result, roffset + i, L_IDX) || aopInReg (result, roffset + i, H_IDX))
         hl_free = false;
-      else if (aopInReg (result, roffset + i, K_IDX) || aopInReg (result, roffset + i, J_IDX))
-        jk_free = false;
+      // "else if (aopInReg(...,K_IDX) || aopInReg(...,J_IDX)) jk_free =
+      // false;" removed (#25): same reasoning as the identical removal
+      // above - a no-op, jk_free is already false.
     }
   genCopyStack (result, roffset, source, soffset, n, assigned, &size, a_free, hl_free, jk_free, false);
 
@@ -5437,7 +5425,10 @@ skip_byte:
     {
       a_free = a_dead && (result->regs[A_IDX] < 0 || result->regs[A_IDX] >= roffset + source->size);
       hl_free = hl_dead && (result->regs[L_IDX] < 0 || result->regs[L_IDX] >= roffset + source->size) && (result->regs[H_IDX] < 0 || result->regs[H_IDX] >= roffset + source->size);
-      jk_free = jk_dead && (result->regs[K_IDX] < 0 || result->regs[K_IDX] >= roffset + source->size) && (result->regs[J_IDX] < 0 || result->regs[J_IDX] >= roffset + source->size);
+      // Conjuncts on regs[K_IDX]/regs[J_IDX] dropped (#25): both always
+      // true (regs[K_IDX]/regs[J_IDX] are always -1, so "< 0" always
+      // holds) - collapses to just jk_dead.
+      jk_free = jk_dead;
       if (!a_free)
         _push (PAIR_AF);
       genCopyStack (result, roffset, source, soffset, n, assigned, &size, true, hl_free, jk_free, true);
@@ -5477,7 +5468,10 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
   // removed: always a no-op, same reasoning as genCopy's identical
   // computation above (see its comment).
   bool bc_dead_global = result->type == AOP_REG && result->regs[C_IDX] >= roffset && result->regs[C_IDX] < roffset + size && result->regs[B_IDX] >= roffset && result->regs[B_IDX] < roffset + size;
-  bool jk_dead_global = result->type == AOP_REG && result->regs[K_IDX] >= roffset && result->regs[K_IDX] < roffset + size && result->regs[J_IDX] >= roffset && result->regs[J_IDX] < roffset + size;
+  // "jk_dead_global = ... regs[K_IDX] ... regs[J_IDX] ..." removed (#25):
+  // always a no-op, same reasoning as iy_dead_global above - regs[K_IDX]/
+  // regs[J_IDX] are always -1, so this was always false anyway. genCopy's
+  // jk_dead parameter is passed literal false below instead.
 
   if (aopSame (result, roffset, source, soffset, size))
     return;
@@ -5491,7 +5485,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
         emit3 (A_XOR, ASMOP_A, ASMOP_A);
 
       else
-        genCopy (result, roffset, source, soffset, csize, a_dead_global, hl_dead_global, de_dead_global, iy_dead_global, jk_dead_global, f_dead);
+        genCopy (result, roffset, source, soffset, csize, a_dead_global, hl_dead_global, de_dead_global, iy_dead_global, false, f_dead);
       roffset += csize;
       size -= csize;
       bool a_dead = a_dead_global && result->regs[A_IDX] < roffset;
@@ -6227,7 +6221,7 @@ release:
 static void
 restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand *result, const iCode *const ic)
 {
-  bool a_live, b_live, c_live, d_live, e_live, h_live, l_live, j_live, k_live;
+  bool a_live, b_live, c_live, d_live, e_live, h_live, l_live;
   bool SomethingReturned;
 
   SomethingReturned = result && IS_ITEMP (result) && (OP_SYMBOL_CONST (result)->nRegs || OP_SYMBOL_CONST (result)->spildir)
@@ -6243,8 +6237,6 @@ restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand
       e_live = bitVectBitValue (rv, E_IDX);
       h_live = bitVectBitValue (rv, H_IDX);
       l_live = bitVectBitValue (rv, L_IDX);
-      j_live = bitVectBitValue (rv, J_IDX);
-      k_live = bitVectBitValue (rv, K_IDX);
       freeBitVect (rv);
     }
   else
@@ -6256,8 +6248,6 @@ restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand
       e_live = false;
       h_live = false;
       l_live = false;
-      j_live = false;
-      k_live = false;
     }
 
   if (ic)
@@ -6296,6 +6286,14 @@ restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand
   // true - IY is never register-allocated, see #22/#24). iyh_live/
   // iyl_live (only ever read inside this now-removed block) removed
   // along with it.
+
+  // "if (jk) {...pop(ASMOP_JKHL,...);...}" removed (#25): jk (this
+  // function's parameter) is always false - its one non-literal caller
+  // passes _G.stack.pushedJK, which is declared and reset but never once
+  // set true anywhere in this file (push_jk, the only place that would
+  // have set it in _saveRegsForCall(), was already removed - see its own
+  // comment there). j_live/k_live (only ever read inside this now-removed
+  // block) removed along with it.
 
   if (bc && de && !b_live && !c_live && !d_live && !e_live)
     pop (ASMOP_BCDE, 0, 4);
@@ -6358,14 +6356,7 @@ restoreRegs (bool ix, bool jk, bool iy, bool de, bool bc, bool hl, const operand
         }
     }
 
-  if (jk)
-    {
-      if (j_live || k_live || h_live || l_live)
-        wassert (0);
-      else
-        pop (ASMOP_JKHL, 0, 4);
-    }
-  else if (hl)
+  if (hl)
     {
       if (h_live && l_live)
         wassertl (0, "Shouldn't push HL if it's wiped out by the return");

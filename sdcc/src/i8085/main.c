@@ -539,10 +539,9 @@ _getRegByName (const char *name)
     return IYL_IDX;
   if (!strcmp (name, "iyh"))
     return IYH_IDX;
-  if (!strcmp (name, "k"))
-    return K_IDX;
-  if (!strcmp (name, "j"))
-    return J_IDX;
+  // "k"/"j" (K_IDX/J_IDX) removed as of #25: no JK hardware on i8080/
+  // i8085, so there is no such register - falls through to -1 below,
+  // same as any other unrecognized name.
   return -1;
 }
 

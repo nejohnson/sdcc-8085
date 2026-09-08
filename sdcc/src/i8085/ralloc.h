@@ -41,16 +41,17 @@ enum
   H_IDX,
   IYL_IDX, // iy register pair - not for sm83
   IYH_IDX,
-  K_IDX,   // jk register pair - only for r4k, r5k, r6k.
-  J_IDX,
+  // K_IDX/J_IDX (jk register pair - only for r4k, r5k, r6k) removed as of
+  // #25: no JK hardware on i8080/i8085, and every call site that ever
+  // checked for it was itself dead (see gen.c's own comments).
   CND_IDX,
 
   // These pairs are for internal use in code generation only.
   BC_IDX,
   DE_IDX,
   HL_IDX,
-  IY_IDX,
-  JK_IDX
+  IY_IDX
+  // JK_IDX removed along with K_IDX/J_IDX above (#25).
 };
 
 enum
