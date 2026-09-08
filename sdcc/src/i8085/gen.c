@@ -1162,14 +1162,10 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
                 }
               return (1);
             }
-          if (op2->aopu.aop_pairId == PAIR_IY || op2->aopu.aop_pairId == PAIR_IX) // dead for i8085 - no IX/IY.
-            {
-              if (form_out) // see the AOP_STK comment above for why this is gated
-                wassertl (0, "AOP_PAIRPTR(IX/IY) is dead for i8085 (no index registers)");
-              if (count)
-                cost2 (3, 3, 0, 3, 19, 14, 9, 10, 0, 10, 0, 5, 5, 4, 5); // ld r, d(iy)
-              return (3);
-            }
+          // "if (op2->aopu.aop_pairId == PAIR_IY || == PAIR_IX) {...}" removed
+          // (#25): aop_pairId is only ever set to PAIR_HL/PAIR_DE (its one
+          // construction site, newAsmop()'s AOP_PAIRPTR case, only ever
+          // stores one of those two - traced exhaustively, #24 checkpoint 1).
           if (op2->aopu.aop_pairId == PAIR_BC || op2->aopu.aop_pairId == PAIR_DE)
             {
               /* ldax b / ldax d only ever load into a; stax b / stax d only
@@ -1441,14 +1437,9 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
                 }
               return (1);
             }
-          else if (op1->aopu.aop_pairId == PAIR_IY || op1->aopu.aop_pairId == PAIR_IX) // dead for i8085 - no index registers.
-            {
-              if (form_out) // see the AOP_STK comment above for why this is gated
-                wassertl (0, "AOP_PAIRPTR(IX/IY) is dead for i8085 (no index registers)");
-              if (count)
-                cost2 (3, 3, -1, 3, 19, 15, 10, 11, -1, 10, -1, 5, 4, 4, 5); // ld d(ix), r
-              return (3);
-            }
+          // "else if (op1->aopu.aop_pairId == PAIR_IY || == PAIR_IX) {...}"
+          // removed (#25): aop_pairId is only ever PAIR_HL/PAIR_DE (see
+          // #24 checkpoint 1's exhaustive construction-site trace).
           else
             wassert (0);
           break;
@@ -1459,14 +1450,9 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
                 cost2 (2, 3, 2, 2, 10, 9, 7, 7, 12, 8, 3, 4, 3, 3, 3); // ld (hl), n
               return (2);
             }
-          else if (op1->aopu.aop_pairId == PAIR_IY || op1->aopu.aop_pairId == PAIR_IX) // dead for i8085 - no index registers.
-            {
-              if (form_out) // see the AOP_STK comment above for why this is gated
-                wassertl (0, "AOP_PAIRPTR(IX/IY) is dead for i8085 (no index registers)");
-              if (count)
-                 cost2 (4, 4, -1, 4, 19, 15, 11, 12, -1, 12, -1, 6, 5, 5, 5); // ld d(ix), n
-               return (4);
-            }
+          // "else if (op1->aopu.aop_pairId == PAIR_IY || == PAIR_IX) {...}"
+          // removed (#25): same reasoning as the AOP_REG arm above -
+          // aop_pairId is only ever PAIR_HL/PAIR_DE.
           else
             wassert (0);
           break;
@@ -2577,10 +2563,15 @@ _pop (PAIR_ID pairId)
 static void
 genMovePairPair (PAIR_ID srcPair, PAIR_ID dstPair)
 {
+  // "case PAIR_IX: case PAIR_IY:" (combined with PAIR_AF below) and the
+  // "if (srcPair == PAIR_IX || srcPair == PAIR_IY)" guard in the BC/DE/HL
+  // case removed (#25): this function's one call site (setupPair()'s
+  // AOP_PAIRPTR case) only ever passes PAIR_HL/PAIR_DE for both
+  // srcPair and dstPair (setupPair()'s own pairId is itself only ever
+  // HL/DE - #24 checkpoint 1), so IX/IY could never reach here either
+  // way. The PAIR_AF case is kept as-is (not this task's concern).
   switch (dstPair)
     {
-    case PAIR_IX:
-    case PAIR_IY:
     case PAIR_AF:
       _push (srcPair);
       _pop (dstPair);
@@ -2588,18 +2579,10 @@ genMovePairPair (PAIR_ID srcPair, PAIR_ID dstPair)
     case PAIR_BC:
     case PAIR_DE:
     case PAIR_HL:
-      if (srcPair == PAIR_IX || srcPair == PAIR_IY)
-        {
-          _push (srcPair);
-          _pop (dstPair);
-        }
-      else
-        {
-          emit2 ("mov %s, %s", _pairs[dstPair].l, _pairs[srcPair].l);
-          cost2 (1, 2, 2, 2, 4, 4, 2, 2, 4, 4, 2, 1, 2, 1, 1);
-          emit2 ("mov %s, %s", _pairs[dstPair].h, _pairs[srcPair].h);
-          cost2 (1, 2, 2, 2, 4, 4, 2, 2, 4, 4, 2, 1, 2, 1, 1);
-        }
+      emit2 ("mov %s, %s", _pairs[dstPair].l, _pairs[srcPair].l);
+      cost2 (1, 2, 2, 2, 4, 4, 2, 2, 4, 4, 2, 1, 2, 1, 1);
+      emit2 ("mov %s, %s", _pairs[dstPair].h, _pairs[srcPair].h);
+      cost2 (1, 2, 2, 2, 4, 4, 2, 2, 4, 4, 2, 1, 2, 1, 1);
       break;
     default:
       wassertl (0, "Tried to move a nonphysical pair");
@@ -4513,12 +4496,10 @@ aopPut (asmop *aop, const char *s, int offset)
       break;
 
     case AOP_PAIRPTR:
-      if (aop->aopu.aop_pairId == PAIR_IX || aop->aopu.aop_pairId == PAIR_IY) // dead for i8085 - no index registers.
-        {
-          setupPair (aop->aopu.aop_pairId, aop, offset);
-          wassertl (0, "aopPut: AOP_PAIRPTR(IX/IY) is dead for i8085 (no index registers)");
-        }
-      else if (aop->aopu.aop_pairId == PAIR_HL)
+      // "if (aop_pairId == PAIR_IX || == PAIR_IY) {...}" removed (#25):
+      // aop_pairId is only ever PAIR_HL/PAIR_DE (see #24 checkpoint 1's
+      // exhaustive construction-site trace).
+      if (aop->aopu.aop_pairId == PAIR_HL)
         {
           /* shiftIntoPair() (the only place that constructs an AOP_PAIRPTR)
              has its own PAIR_HL case - a real, reachable shape (see the
@@ -7050,21 +7031,15 @@ genCall (const iCode *ic)
 
         {
           /* pair is always PAIR_HL here (set just above and never
-             reassigned) - the "if (pair == PAIR_IY)" checks below are dead,
-             but left as-is rather than restructured around it. Since pair
-             is always HL here, "lxi h, ..." / "dad sp" is always correct -
-             same translation as the sibling "!ldahlsp"-derived
-             fixes elsewhere in this file. */
+             reassigned before this point), so "lxi h, ..." / "dad sp" is
+             always correct - same translation as the sibling
+             "!ldahlsp"-derived fixes elsewhere in this file. The
+             "if (pair == PAIR_IY)" cost2 splits this block used to have
+             were removed (#25): dead, pair is never PAIR_IY here. */
           emit2 ("lxi %s, !immedword", _pairs[pair].name, (unsigned)sp_offset);
-          if (pair == PAIR_IY)
-            cost2 (4, 3, -1, 3, 14, 12, 8, 8, -1, 6, -1, 3, 3, 4, 4);
-          else
-            cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
+          cost2 (3, 3, 3, 3, 10, 9, 6, 6, 12, 6, 3, 3, 3, 3, 3);
           emit2 ("dad sp");
-          if (pair == PAIR_IY)
-            cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
-          else
-            cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3 , 1, 1);
+          cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3 , 1, 1);
         }
       if (!hl_free)
         {
@@ -7083,11 +7058,10 @@ genCall (const iCode *ic)
             }
           _pop (PAIR_HL);
         }
+      // "if (pair == PAIR_IY)" cost2 split removed (#25): dead, pair is
+      // only ever PAIR_HL/PAIR_DE/PAIR_BC by this point (set above).
       emit2 ("push %s", _pairs[pair].name);
-      if (pair == PAIR_IY)
-        cost2 (2, 1, -1, 2, 15, 13, 12, 13, -1, 8, -1, 4, 4, 4, 5);
-      else
-        cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4);
+      cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4);
       if (!regalloc_dry_run)
         _G.stack.pushed += 2;
       freeAsmop (IC_RESULT (ic), 0);
@@ -11665,12 +11639,14 @@ genAnd (const iCode *ic, iCode *ifx)
               offset++;
             }
           /* Testing for the border bits of some 16-bit registers destructively is cheap. */
+          // "|| left->aop->aopu.aop_reg[offset]->rIdx == IYH_IDX &&
+          // isPairDead(PAIR_IY, ic)" dropped (#25): rIdx is never
+          // IYH_IDX for any real AOP_REG operand (no byte is ever
+          // register-allocated to IY on this port).
           else if (left->aop->type == AOP_REG && sizel == 1 &&
 
-            (isLiteralBit (bytelit) == 7 && (
-              left->aop->aopu.aop_reg[offset]->rIdx == H_IDX && isPairDead (PAIR_HL, ic) ||
-              left->aop->aopu.aop_reg[offset]->rIdx == IYH_IDX && isPairDead (PAIR_IY, ic)
-            )))
+            (isLiteralBit (bytelit) == 7 &&
+              left->aop->aopu.aop_reg[offset]->rIdx == H_IDX && isPairDead (PAIR_HL, ic)))
             {
               PAIR_ID pair;
               switch (left->aop->aopu.aop_reg[offset]->rIdx)
@@ -11683,29 +11659,18 @@ genAnd (const iCode *ic, iCode *ifx)
                 case D_IDX:
                   pair = PAIR_DE;
                   break;
-                case IYL_IDX:
-                case IYH_IDX:
-                  pair = PAIR_IY;
-                  break;
+                  // "case IYL_IDX: case IYH_IDX: pair = PAIR_IY; break;"
+                  // removed (#25): unreachable, same reasoning as above.
                 default:
                   pair = PAIR_INVALID;
                   wassertl (0, "Invalid pair");
                 }
-              if ((pair == PAIR_HL || pair == PAIR_IY) && isLiteralBit (bytelit) == 7)
+              if (pair == PAIR_HL && isLiteralBit (bytelit) == 7)
                 {
-                  /* Doubling ("hl += hl", equivalent to "hl <<= 1") -
-                     PAIR_HL is dad's single-operand, implicit-destination
-                     form; PAIR_IY is dead (no IY hardware on i8080/i8085)
-                     and left as unmodified Zilog text, matching this file's
-                     established practice for dead-IY sites elsewhere. */
-                  if (pair == PAIR_IY)
-                    emit2 ("add %s, %s", _pairs[pair].name, _pairs[pair].name);
-                  else
-                    emit2 ("dad %s", _pairs[pair].name);
-                  if (pair == PAIR_HL)
-                    cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3, 1, 1);
-                  else
-                    cost2 (2, 2, -1, 2, 15, 10, 4, 4, -1, 8, -1, 4, 3, 2, 2);
+                  /* Doubling ("hl += hl", equivalent to "hl <<= 1") - dad's
+                     single-operand, implicit-destination form. */
+                  emit2 ("dad %s", _pairs[pair].name);
+                  cost2 (1, 2, -1, 2, 11, 7, 2, 2, 8, 8, -1, 4, 3, 1, 1);
                 }
               // "else if (isLiteralBit (bytelit) == 7) {emit2 ("rl %s",
               jumpcond = "c";
