@@ -1,13 +1,29 @@
 // peeph-i8085.def - Intel-syntax peephole rules for the i8080/i8085 ports.
 //
 // This is the active default rule set (options.nopeep = 0 in main.c) -
-// every phase-1 rule group below landed incrementally, each
-// validated individually before being folded in (hand-reasoning against
-// the 8085 data sheet, a real-corpus scan with --peep-file to find
-// genuine firing instances, and a ucsim behavioral check), tracked as
-// project task #17. Phase-2 (control-flow rules - jp/jmp/call/ret,
-// needing real rework since this hardware has no jr/djnz) is a separate,
-// explicitly out-of-scope follow-on, not part of phase-1.
+// every rule group below landed incrementally, each validated
+// individually before being folded in (hand-reasoning against the 8085
+// data sheet, a real-corpus scan with --peep-file to find genuine
+// firing instances, and a ucsim behavioral check).
+//
+// Phase-1 (groups 1-7, task #17): dead-load/dead-result elimination and
+// straight-line arithmetic/move simplifications - none of it touches
+// control flow.
+//
+// Phase-2 (task #20, starting with group 8): control-flow rules -
+// jmp/call/ret. peeph.def's own z80-family equivalents split cleanly
+// into two classes once checked against this hardware: rules that
+// genuinely port (this hardware has jmp/j<cc>/call/ret/r<cc>, all
+// absolute, exactly like z80's jp/jp <cc>/call/ret/ret <cc> - only the
+// mnemonic spelling differs) are ported below, group by group. Rules
+// that convert an absolute jump to a *relative* one (peeph.def's 162/
+// 162a/163) or fold "dec b"/"jr nz" into djnz (peeph.def's 167) are not
+// deferred - they are permanently inapplicable, full stop: 8080/8085
+// has no relative jump and no djnz instruction at all, not even as an
+// undocumented opcode (unlike some of the actual undocumented
+// instructions this port's --allow-undocumented-instructions does
+// support), so there is no future version of this port that could ever
+// use them.
 //
 // Group 1: dead-load / dead-result elimination. Ported from peeph.def's
 // peephole 0a/158 (redundant self-move), 2b (dead 16-bit add result),
@@ -290,3 +306,19 @@ replace restart {
 	lxi	h, #%1 + %4
 	dad	%2
 } if notUsed('bc')
+
+// Group 8 (task #20, phase-2 begins): unused-label removal. Ported
+// directly from peeph.def's common peephole 159 - a label with zero
+// references left anywhere in the function is simply dead, regardless
+// of mnemonic syntax on either side of it, so this rule needs no
+// Intel-vs-Zilog adaptation at all. Placed last in the file (as
+// peeph.def's own comment on 159 says its ancestor should be: "opens
+// the code to further peephole optimization") so it can catch labels
+// any future phase-2 group above frees up (e.g. a jmp-to-ret rewrite
+// dropping a jump target's last remaining reference), not just labels
+// already unused before any rule in this file ever runs.
+replace restart {
+%1:
+} by {
+	; task #20 removed unused label %1
+} if labelRefCount(%1 0)
