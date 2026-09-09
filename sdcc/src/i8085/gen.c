@@ -63,9 +63,18 @@ enum
     case arms, spillCached()'s unconditional spillPair(PAIR_IY) call, and
     a latent genCmpEq() bug that passed PAIR_IY to isRegDead() instead of
     isPairDead()) were resolved - every use elsewhere was already dead per
-    #22/#24. IYL_IDX/IYH_IDX (ralloc.h) stay for now: peep.c's
-    callSurelyWrites()/mightBeParmInCallFromCurrentFunction() still read
-    them, and that cross-file reachability hasn't been traced yet. */
+    #22/#24. IYL_IDX/IYH_IDX (ralloc.h) removed the same way once peep.c's
+    callSurelyWrites()/mightBeParmInCallFromCurrentFunction() were traced
+    too - closing that required a real fix, not just a proof: main.c's
+    _getRegByName() still recognized "iyl"/"iyh", and SDCCy.c's
+    "__preserves_regs(...)" attribute parser accepts any name it
+    recognizes with no further validation, so user source really could
+    have set funcAttrs.preserved_regs[IYL_IDX/IYH_IDX] = true until that
+    was fixed too (see main.c's own comment). The whole IY/IX/JK
+    apparatus - both PAIR_ID and the register-byte-index enum, the
+    asmop_iyh/asmop_iyl/asmop_iy/asmop_aiy/asmop_jk/asmop_jkhl storage,
+    and every array sized to cover them - is now fully removed, not just
+    guarded. */
 typedef enum
 {
   PAIR_INVALID,
@@ -284,13 +293,19 @@ static struct
   } trace;
 } _G;
 
-bool i8085_regs_used_as_parms_in_calls_from_current_function[IYH_IDX + 1];
+// [H_IDX + 1] (was [IYH_IDX + 1], #25): shrunk once IYL_IDX/IYH_IDX were
+// removed from ralloc.h's register-index enum - neither array's IYL/IYH
+// slots were ever meaningfully read (their only writers index by a real
+// asmop's rIdx, never IYL_IDX/IYH_IDX, and genCall()'s copy from the
+// shared funcAttrs.preserved_regs[] can't set them either now that
+// main.c's _getRegByName() no longer recognizes "iyl"/"iyh").
+bool i8085_regs_used_as_parms_in_calls_from_current_function[H_IDX + 1];
 bool i8085_symmParm_in_calls_from_current_function;
-bool i8085_regs_preserved_in_calls_from_current_function[IYH_IDX + 1];
+bool i8085_regs_preserved_in_calls_from_current_function[H_IDX + 1];
 
 static const char *aopGet (asmop *aop, int offset, bool bit16);
 
-static struct asmop asmop_a, asmop_b, asmop_c, asmop_d, asmop_e, asmop_h, asmop_l, asmop_iyh, asmop_iyl, asmop_hl, asmop_de, asmop_bc, asmop_iy, asmop_ahl, asmop_aiy, asmop_ehl, asmop_lde, asmop_ebc, asmop_dehl, asmop_hlde, asmop_hlbc, asmop_debc, asmop_bcde, asmop_zero, asmop_one, asmop_mone, asmop_fsign;
+static struct asmop asmop_a, asmop_b, asmop_c, asmop_d, asmop_e, asmop_h, asmop_l, asmop_hl, asmop_de, asmop_bc, asmop_ahl, asmop_ehl, asmop_lde, asmop_ebc, asmop_dehl, asmop_hlde, asmop_hlbc, asmop_debc, asmop_bcde, asmop_zero, asmop_one, asmop_mone, asmop_fsign;
 static struct asmop *const ASMOP_A = &asmop_a;
 static struct asmop *const ASMOP_B = &asmop_b;
 static struct asmop *const ASMOP_C = &asmop_c;
@@ -298,31 +313,25 @@ static struct asmop *const ASMOP_D = &asmop_d;
 static struct asmop *const ASMOP_E = &asmop_e;
 static struct asmop *const ASMOP_H = &asmop_h;
 static struct asmop *const ASMOP_L = &asmop_l;
-/* ASMOP_IYH/ASMOP_IYL (aliases for asmop_iyh/asmop_iyl) declarations
-   removed: unused on this port as of #24 (their only call site,
-   commitPair()'s dead case PAIR_IY, was removed - id is never PAIR_IY
-   there, see the call-site trace above commitPair()'s first "if"). The
-   underlying asmop_iyh/asmop_iyl storage and its init_reg_asmop() calls
-   are left in place - harmless, and the structs themselves are still
-   referenced directly (not via these named aliases) by asmopregs[]
-   below, same as the ASMOP_JK precedent (#23) above. */
+/* ASMOP_IYH/ASMOP_IYL/ASMOP_IY (aliases for asmop_iyh/asmop_iyl/asmop_iy)
+   and the underlying storage itself removed entirely (#25) - unused on
+   this port since #24 (their aliases were already dropped then, same
+   reasoning as the ASMOP_JK/ASMOP_JKHL removal below: no IY hardware on
+   i8080/i8085, and IYL_IDX/IYH_IDX/PAIR_IY are gone from their enums now
+   too, so this storage cannot be reconstructed as it stood without them
+   regardless). asmopregs[] below (the one real remaining reference to
+   asmop_iyl/asmop_iyh) shrunk to match. */
 static struct asmop *const ASMOP_HL = &asmop_hl;
 static struct asmop *const ASMOP_DE = &asmop_de;
 static struct asmop *const ASMOP_BC = &asmop_bc;
-/* ASMOP_IY (alias for asmop_iy) declaration removed: unused on this port
-   as of #24 (its last two call sites - genOr()'s two "ld (nn), rr, etc."
-   fast paths - had their ": ASMOP_IY" ternary fallbacks dropped as
-   unreachable, since aopInReg(...,IYL_IDX/IYH_IDX) is always false). The
-   underlying asmop_iy storage and its init_reg_asmop() call are left in
-   place - harmless, same as the ASMOP_JK/ASMOP_IYH/ASMOP_IYL precedents
-   (#23/#24) above. */
 static struct asmop *const ASMOP_EHL = &asmop_ehl;
 static struct asmop *const ASMOP_LDE = &asmop_lde;
-/* ASMOP_EBC/ASMOP_DEBC/ASMOP_AHL/ASMOP_AIY/ASMOP_HLBC (aliases for
-   asmop_ebc/asmop_debc/asmop_ahl/asmop_aiy/asmop_hlbc) are unused on this
-   port. The underlying storage and their init_reg_asmop() calls are left
-   in place - harmless, and each shares a declaration line with several
-   still-used asmop_* variables. */
+/* ASMOP_EBC/ASMOP_DEBC/ASMOP_AHL/ASMOP_HLBC (aliases for
+   asmop_ebc/asmop_debc/asmop_ahl/asmop_hlbc) are unused on this port. The
+   underlying storage and their init_reg_asmop() calls are left in place
+   - harmless, and each shares a declaration line with several
+   still-used asmop_* variables. (ASMOP_AIY/asmop_aiy removed alongside
+   the rest of the IY apparatus above.) */
 static struct asmop *const ASMOP_DEHL = &asmop_dehl;
 static struct asmop *const ASMOP_HLDE = &asmop_hlde;
 static struct asmop *const ASMOP_BCDE = &asmop_bcde;
@@ -340,7 +349,11 @@ static struct asmop *const ASMOP_ONE = &asmop_one;
 static struct asmop *const ASMOP_MONE = &asmop_mone;
 static struct asmop *const ASMOP_FSIGN = &asmop_fsign;
 
-static asmop *asmopregs[] = { &asmop_a, &asmop_c, &asmop_b, &asmop_e, &asmop_d, &asmop_l, &asmop_h, &asmop_iyl, &asmop_iyh };
+// Trailing &asmop_iyl, &asmop_iyh entries removed (#25): regMove(), the
+// only indexer, never reaches index 7/8 - traced exhaustively, its
+// dst[]/src[] arguments are always real register indices (never
+// IYL_IDX/IYH_IDX, which no longer exist as enum values anyway).
+static asmop *asmopregs[] = { &asmop_a, &asmop_c, &asmop_b, &asmop_e, &asmop_d, &asmop_l, &asmop_h };
 
 // Init aop as a an asmop for data in registers, as given by the -1-terminated array regidx.
 static void
@@ -371,12 +384,9 @@ i8085_init_asmops (void)
   init_reg_asmop(&asmop_e, (const signed char[]){E_IDX, -1});
   init_reg_asmop(&asmop_h, (const signed char[]){H_IDX, -1});
   init_reg_asmop(&asmop_l, (const signed char[]){L_IDX, -1});
-  init_reg_asmop(&asmop_iyh, (const signed char[]){IYH_IDX, -1});
-  init_reg_asmop(&asmop_iyl, (const signed char[]){IYL_IDX, -1});
   init_reg_asmop(&asmop_bc, (const signed char[]){C_IDX, B_IDX, -1});
   init_reg_asmop(&asmop_de, (const signed char[]){E_IDX, D_IDX, -1});
   init_reg_asmop(&asmop_hl, (const signed char[]){L_IDX, H_IDX, -1});
-  init_reg_asmop(&asmop_iy, (const signed char[]){IYL_IDX, IYH_IDX, -1});
   init_reg_asmop(&asmop_ehl, (const signed char[]){L_IDX, H_IDX, E_IDX, -1});
   init_reg_asmop(&asmop_lde, (const signed char[]){E_IDX, D_IDX, L_IDX, -1});
   init_reg_asmop(&asmop_ebc, (const signed char[]){C_IDX, B_IDX, E_IDX, -1});
@@ -386,7 +396,6 @@ i8085_init_asmops (void)
   init_reg_asmop(&asmop_debc, (const signed char[]){C_IDX, B_IDX, E_IDX, D_IDX, -1});
   init_reg_asmop(&asmop_bcde, (const signed char[]){E_IDX, D_IDX, C_IDX, B_IDX, -1});
   init_reg_asmop(&asmop_ahl, (const signed char[]){L_IDX, H_IDX, A_IDX, -1});
-  init_reg_asmop(&asmop_aiy, (const signed char[]){IYL_IDX, IYH_IDX, A_IDX, -1});
 
   asmop_zero.type = AOP_LIT;
   asmop_zero.size = 1;
@@ -4669,9 +4678,13 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
      suggest the intent was to check whether *from* (the value being
      pushed) is a register pair, not *to* (the stack destination) - but
      since nobody has ever observed this executing, left exactly as
-     found rather than "corrected" to a guess about 20-year-old intent. */
+     found rather than "corrected" to a guess about 20-year-old intent.
+     The "|| aopInReg(to,...,IYH_IDX)" disjunct and the from-side IYH_IDX
+     checks below were dropped (#25) purely because IYH_IDX itself no
+     longer exists as an enum value - not an attempt to resolve this
+     block's own documented uncertainty, which stands as before. */
   if ((to->type == AOP_STK || to->type == AOP_EXSTK) && _G.omitFramePtr &&
-    (aopInReg (to, to_offset, A_IDX) || aopInReg (to, to_offset, B_IDX) || aopInReg (to, to_offset, D_IDX) || aopInReg (to, to_offset, H_IDX) || aopInReg (to, to_offset, IYH_IDX)))
+    (aopInReg (to, to_offset, A_IDX) || aopInReg (to, to_offset, B_IDX) || aopInReg (to, to_offset, D_IDX) || aopInReg (to, to_offset, H_IDX)))
     {
       int fp_offset = to->aopu.aop_stk + to_offset + (to->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
       int sp_offset = fp_offset + _G.stack.pushed + _G.stack.offset;
@@ -4680,11 +4693,8 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
         {
           emit2 ("inx sp");
           cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
-          emit2 ("push %s", aopInReg (from, from_offset, A_IDX) ? "af" : (aopInReg (from, from_offset, B_IDX) ? "bc" : (aopInReg (from, from_offset, D_IDX) ? "de" : (aopInReg (from, from_offset, H_IDX) ? "hl" : "iy"))));
-          if (aopInReg (from, from_offset, IYH_IDX))
-            cost2 (2, 1, -1, 2, 15, 13, 12, 13, -1, 8, -1, 4, 4, 4, 5);
-          else
-            cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4);
+          emit2 ("push %s", aopInReg (from, from_offset, A_IDX) ? "af" : (aopInReg (from, from_offset, B_IDX) ? "bc" : (aopInReg (from, from_offset, D_IDX) ? "de" : "hl")));
+          cost2 (1, 1, 2, 1, 11, 11, 10, 11, 16, 8, 4, 3, 3, 3, 4);
           emit2 ("inx sp");
           cost2 (1, 1, 1, 1, 6, 4, 2, 2, 8, 4, 2, 2, 2, 1, 1);
           return;
@@ -6021,14 +6031,20 @@ _castBoolean (const operand *right)
 static void
 regMove (const short *dst, const short *src, size_t n, bool preserve_a) // Todo: replace uses of this one by uses of genMove_o?
 {
-  bool assigned[9] = { FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE };
+  // assigned[]/"n <=" bound left generous at 7 (was 9, #25 - trimmed
+  // only because the old bound had no real justification either; this
+  // one is indexed by loop *position* in dst[]/src[], not by register
+  // index, so it only needs to cover the largest n any caller actually
+  // passes - 6, traced exhaustively across this function's 4 call
+  // sites - with a little headroom, not asmopregs[]'s own size).
+  bool assigned[7] = { FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE };
   int cached_byte = -1;
   size_t size = n;
   int ex[4] = {-1, -1, -1, -1};
   size_t i;
   bool pushed_a = FALSE;
 
-  wassert (n <= 9);
+  wassert (n <= 7);
 
   // Try to use ex de, hl
   if (size >= 4)
@@ -6968,7 +6984,7 @@ genCall (const iCode *ic)
   int prestackadjust = 0;
   bool tailjump = false;
 
-  for (i = 0; i < IYH_IDX + 1; i++)
+  for (i = 0; i < H_IDX + 1; i++)
     i8085_regs_preserved_in_calls_from_current_function[i] |= ftype->funcAttrs.preserved_regs[i];
 
   aopOp (ic->left, ic, false, false);
@@ -15583,7 +15599,14 @@ genCast (const iCode *ic)
       surviving_a |= (result->aop->regs[A_IDX] >= 0 && result->aop->regs[A_IDX] < right->aop->size);
       bool hl_dead = isPairDead (PAIR_HL, ic) && (result->aop->regs[L_IDX] < 0 || result->aop->regs[L_IDX] >= right->aop->size) && (result->aop->regs[H_IDX] < 0 || result->aop->regs[H_IDX] >= right->aop->size);
       bool de_dead = isPairDead (PAIR_DE, ic) && (result->aop->regs[E_IDX] < 0 || result->aop->regs[E_IDX] >= right->aop->size) && (result->aop->regs[D_IDX] < 0 || result->aop->regs[D_IDX] >= right->aop->size);
-      bool iy_dead = isPairDead (PAIR_DE, ic) && (result->aop->regs[IYL_IDX] < 0 || result->aop->regs[IYL_IDX] >= right->aop->size) && (result->aop->regs[IYH_IDX] < 0 || result->aop->regs[IYH_IDX] >= right->aop->size);
+      // Fixed a real bug here (found 2026-09-09, same class as the
+      // genCmpEq() one): was "isPairDead (PAIR_DE, ic) && ..." - a
+      // copy-paste of the de_dead line right above/below it, computing
+      // iy_dead as an exact copy of de_dead instead of the correct
+      // constant true (IY is always dead - never register-allocated on
+      // this port). regs[IYL_IDX]/regs[IYH_IDX] are also always -1, so
+      // both "< 0"/">=" conjuncts were always true regardless.
+      bool iy_dead = true;
       genMove_o (result->aop, right->aop->size, ASMOP_ZERO, 0, size, !surviving_a, hl_dead, de_dead, iy_dead, true);
     }
   else
@@ -15591,7 +15614,14 @@ genCast (const iCode *ic)
       bool maskedtopbyte = IS_BITINT (resulttype) && (SPEC_BITINTWIDTH (resulttype) % 8) && SPEC_USIGN (resulttype);
       genMove_o (result->aop, 0, right->aop, 0, right->aop->size - 1, !surviving_a, isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true /* was isPairDead(PAIR_IY,ic) - always true, IY never register-allocated (#25) */, true);
       bool de_dead = isPairDead (PAIR_DE, ic) && (result->aop->regs[E_IDX] < 0 || result->aop->regs[E_IDX] >= right->aop->size) && (result->aop->regs[D_IDX] < 0 || result->aop->regs[D_IDX] >= right->aop->size);
-      bool iy_dead = isPairDead (PAIR_DE, ic) && (result->aop->regs[IYL_IDX] < 0 || result->aop->regs[IYL_IDX] >= right->aop->size) && (result->aop->regs[IYH_IDX] < 0 || result->aop->regs[IYH_IDX] >= right->aop->size);
+      // Fixed a real bug here (found 2026-09-09, same class as the
+      // genCmpEq() one): was "isPairDead (PAIR_DE, ic) && ..." - a
+      // copy-paste of the de_dead line right above/below it, computing
+      // iy_dead as an exact copy of de_dead instead of the correct
+      // constant true (IY is always dead - never register-allocated on
+      // this port). regs[IYL_IDX]/regs[IYH_IDX] are also always -1, so
+      // both "< 0"/">=" conjuncts were always true regardless.
+      bool iy_dead = true;
       bool hl_dead = isPairDead (PAIR_HL, ic) && (result->aop->regs[L_IDX] < 0 || result->aop->regs[L_IDX] >= right->aop->size) && (result->aop->regs[H_IDX] < 0 || result->aop->regs[H_IDX] >= right->aop->size);
       if (result->aop->type == AOP_REG && right->aop->type == AOP_REG && // Overwritten last byte of right operand
         result->aop->regs[right->aop->aopu.aop_reg[right->aop->size - 1]->rIdx] >= 0 && result->aop->regs[right->aop->aopu.aop_reg[right->aop->size - 1]->rIdx] < right->aop->size - 1)
@@ -15649,9 +15679,13 @@ genReceive (const iCode *ic)
   
   wassert (currFunc && ic->argreg);
 
-  bool dead_regs[IYH_IDX + 1];
-  
-  for (int i = 0; i <= IYH_IDX; i++)
+  // [H_IDX + 1]/"<= H_IDX" (was [IYH_IDX + 1]/"<= IYH_IDX", #25): the
+  // IYL/IYH slots were computed but never read below - every real index
+  // into dead_regs[] comes from an actual asmop's rIdx, never IYL_IDX/
+  // IYH_IDX.
+  bool dead_regs[H_IDX + 1];
+
+  for (int i = 0; i <= H_IDX; i++)
     dead_regs[i] = isRegDead (i, ic);
 
   for(iCode *nic = ic->next; nic && nic->op == RECEIVE; nic = nic->next)
@@ -17101,9 +17135,9 @@ i8085_genCode (iCode * lic)
 
   initGenLineElement ();
 
-  memset(i8085_regs_used_as_parms_in_calls_from_current_function, 0, sizeof(bool) * (IYH_IDX + 1));
+  memset(i8085_regs_used_as_parms_in_calls_from_current_function, 0, sizeof(bool) * (H_IDX + 1));
   i8085_symmParm_in_calls_from_current_function = TRUE;
-  memset(i8085_regs_preserved_in_calls_from_current_function, 0, sizeof(bool) * (IYH_IDX + 1));
+  memset(i8085_regs_preserved_in_calls_from_current_function, 0, sizeof(bool) * (H_IDX + 1));
 
   /* if debug information required */
   if (options.debug && currFunc)

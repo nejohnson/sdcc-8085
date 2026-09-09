@@ -33,11 +33,10 @@ extern I8085_OPTS i8085_opts;
 #define IS_8080 (i8085_opts.sub == SUB_8080)
 #define IS_8085 (i8085_opts.sub == SUB_8085)
 #define IS_8080LIKE (IS_8080 || IS_8085)
-/* This port has no IY (or IX) hardware at all, so HAS_IYL_INST is
-   permanently 0. Left as a named macro (rather than deleted outright)
-   so its handful of call sites - each already documented as
-   unreachable, see their own comments - don't need editing. */
-#define HAS_IYL_INST 0
+/* HAS_IYL_INST removed (#25): its last live call sites (wassert(
+   HAS_IYL_INST) guards in gen.c's ld_cost_form()) were removed in an
+   earlier #25 checkpoint once the outer conditions they gated were
+   themselves proven dead - no reference of any kind remains. */
 
 /* The 8080/8085 have no IY (or IX) at all, so treat IY as permanently
    reserved: every "IY not usable" fallback then applies to them too. */

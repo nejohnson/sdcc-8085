@@ -63,9 +63,12 @@ static struct
   lineNode *head;
 } _G;
 
-extern bool i8085_regs_used_as_parms_in_calls_from_current_function[IYH_IDX + 1];
+// [H_IDX + 1] (was [IYH_IDX + 1], #25): shrunk once IYL_IDX/IYH_IDX were
+// removed from ralloc.h's register-index enum - neither array's IYL/IYH
+// slots were ever meaningfully read (see gen.c's own comments).
+extern bool i8085_regs_used_as_parms_in_calls_from_current_function[H_IDX + 1];
 extern bool i8085_symmParm_in_calls_from_current_function;
-extern bool i8085_regs_preserved_in_calls_from_current_function[IYH_IDX + 1];
+extern bool i8085_regs_preserved_in_calls_from_current_function[H_IDX + 1];
 
 /* ------------------------------------------------------------------
    Intel-mnemonic instruction classification (peephole rewrite
@@ -316,8 +319,11 @@ mightBeParmInCallFromCurrentFunction(const char *what)
     return TRUE;
   if (strchr(what, 'a') && i8085_regs_used_as_parms_in_calls_from_current_function[A_IDX])
     return true;
-  if (strstr(what, "iy") && (i8085_regs_used_as_parms_in_calls_from_current_function[IYL_IDX] || i8085_regs_used_as_parms_in_calls_from_current_function[IYH_IDX]))
-    return true;
+  // "if (strstr(what,"iy") && (...[IYL_IDX] || ...[IYH_IDX])) return
+  // true;" removed (#25): the array reads are always false regardless of
+  // what - i8085_regs_used_as_parms_in_calls_from_current_function's one
+  // writer (gen.c) only ever indexes it with a real asmop's rIdx, never
+  // IYL_IDX/IYH_IDX (no byte is ever register-allocated to IY).
 
   return false;
 }
@@ -1054,12 +1060,15 @@ callSurelyWrites (const lineNode *pl, const char *what)
     return !preserved_regs[L_IDX];
   if (!strcmp (what, "h"))
     return !preserved_regs[H_IDX];
-  if (!strcmp (what, "iyl"))
-    return !preserved_regs[IYL_IDX];
-  if (!strcmp (what, "iyh"))
-    return !preserved_regs[IYH_IDX];
-  if (!strcmp (what, "iy"))
-    return !preserved_regs[IYL_IDX] && !preserved_regs[IYH_IDX];
+  // preserved_regs[IYL_IDX]/[IYH_IDX] are always false now (#25):
+  // _getRegByName("iyl"/"iyh") returns -1, so SDCCy.c's
+  // "__preserves_regs(...)" attribute parser can never set either index
+  // for any function - collapsing these three returns to their constant
+  // result (whether "what" can actually be "iyl"/"iyh"/"iy" here hasn't
+  // been traced through the rest of the peephole framework, but it no
+  // longer matters: the answer is the same either way).
+  if (!strcmp (what, "iyl") || !strcmp (what, "iyh") || !strcmp (what, "iy"))
+    return true;
 
   return (false);
 }

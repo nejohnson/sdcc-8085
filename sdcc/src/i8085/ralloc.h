@@ -39,8 +39,21 @@ enum
   D_IDX,
   L_IDX,
   H_IDX,
-  IYL_IDX, // iy register pair - not for sm83
-  IYH_IDX,
+  // IYL_IDX/IYH_IDX (iy register pair - not for sm83) removed as of #25:
+  // every live reference (aopInReg()/isRegDead() checks throughout gen.c,
+  // the [IYH_IDX+1]-sized bookkeeping arrays, the asmop_iyh/asmop_iyl
+  // storage, and peep.c's callSurelyWrites()/
+  // mightBeParmInCallFromCurrentFunction() preserved_regs[]/parms[]
+  // reads) traced exhaustively and resolved - no IY hardware on
+  // i8080/i8085. Closing this required a real fix, not just a proof:
+  // main.c's _getRegByName() still recognized "iyl"/"iyh" as valid
+  // register names, and SDCCy.c's "__preserves_regs(...)" attribute
+  // parser accepts any name getRegByName() recognizes with no further
+  // validation - unlike every other IY-dead fact in this file (pure
+  // register-allocator invariants, immune to anything user code could
+  // write), user source really could have set
+  // funcAttrs.preserved_regs[IYL_IDX/IYH_IDX] = true via that attribute
+  // until _getRegByName() stopped recognizing those names too.
   // K_IDX/J_IDX (jk register pair - only for r4k, r5k, r6k) removed as of
   // #25: no JK hardware on i8080/i8085, and every call site that ever
   // checked for it was itself dead (see gen.c's own comments).
@@ -53,9 +66,7 @@ enum
   // IY_IDX removed as of #25: its last caller, isRegDead(IY_IDX,ic), was
   // collapsed to literal true throughout gen.c (always true - IY is
   // never register-allocated), leaving no live reference anywhere.
-  // IYL_IDX/IYH_IDX above (still heavily referenced) and PAIR_IY (gen.c)
-  // remain for a later checkpoint. JK_IDX removed along with K_IDX/J_IDX
-  // above (#25).
+  // JK_IDX removed along with K_IDX/J_IDX above (#25).
 };
 
 enum
