@@ -7208,11 +7208,10 @@ genCall (const iCode *ic)
             }
         }
 
-      // so !IY_RESERVED is always false).
-      else if (bc_not_parm && (ic->left->aop->regs[B_IDX] < 0 && ic->left->aop->regs[C_IDX] < 0 || de_free)) // Try bc, since it is the only 16-bit register guarateed to be free even for __z88dk_fastcall with --reserve-regs-iy
+      // bc is the only 16-bit register guaranteed to be free here, even for __z88dk_fastcall.
+      else if (bc_not_parm && (ic->left->aop->regs[B_IDX] < 0 && ic->left->aop->regs[C_IDX] < 0 || de_free)) // Try bc.
         {
           wassert (!prestackadjust);
-          wassert (IY_RESERVED);
           symbol *tlbl = 0;
           if (ic->left->aop->regs[B_IDX] >= 0 || ic->left->aop->regs[C_IDX] >= 0)
             {
@@ -7245,7 +7244,6 @@ genCall (const iCode *ic)
       else if (de_not_parm && (ic->left->aop->regs[D_IDX] < 0 && ic->left->aop->regs[E_IDX] < 0 || bc_free)) // Try de.
         {
           wassert (!prestackadjust);
-          wassert (IY_RESERVED);
           symbol *tlbl = 0;
           if (ic->left->aop->regs[D_IDX] >= 0 || ic->left->aop->regs[E_IDX] >= 0)
             {
@@ -7548,10 +7546,7 @@ genFunction (const iCode * ic)
       emit2 ("push bc");
       emit2 ("push de");
       /* Deliberately no "push iy"/"pop iy" here: i8080/i8085 have no IY
-         register at all. This is not the same thing as IY_RESERVED (which
-         only means the register allocator won't use IY, not that the
-         hardware lacks it) - do not add a push/pop iy pair back on the
-         strength of that macro. On real 8080/8085 silicon, the bytes for
+         register at all. On real 8080/8085 silicon, the bytes for
          "push iy"/"pop iy" (FD E5 / FD E1) are not a register-pair
          push/pop at all - 0xFD is the first byte of a genuine 3-byte
          conditional jump/call, so adding them back would corrupt every
@@ -14764,7 +14759,23 @@ genPointerSet (iCode *ic)
                       emit2 ("mov a, m");
                       s = "a";
                     }
-                  emit2 ("mov m, %s", s);
+                  /* s can be a literal here (canAssignToPtr3() above
+                     accepts AOP_IMMD/AOP_LIT, not just AOP_REG) - use
+                     emit_intel_move() rather than a bare "mov", or a
+                     literal right-hand side (e.g. "*p = 5;" with p held
+                     in the register-allocated HL pair) would wrongly
+                     emit "mov m, #0x05" (not a valid instruction: mov
+                     takes no immediate operand, only mvi does). Found
+                     via a regression failure while trying (and, for now,
+                     reverting - see main.c's _finaliseOptions()) to let
+                     ralloc2.cc's tree-decomposition allocator assign l/h
+                     to ordinary byte variables; kept regardless, since
+                     ralloc.c's older allocator (i8085_gpr_regs[], not
+                     gated by port->num_regs at all) can independently
+                     put a pointer symbol's bytes in l/h for symbols that
+                     still go through it, so this bug isn't only latent
+                     behind that other, still-open issue. */
+                  emit_intel_move ("m", s);
                 }
               else
                 emit2 ("ld !mems, %s", pair, aopGet (right->aop, 0, FALSE));

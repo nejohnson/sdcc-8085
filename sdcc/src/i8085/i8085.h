@@ -20,7 +20,6 @@ typedef struct
   {
     I808X_SUB sub;
     int calleeSavesBC;
-    int reserveIY;
     int noOmitFramePtr;
     int legacyBanking;
   }
@@ -38,7 +37,17 @@ extern I8085_OPTS i8085_opts;
    earlier #25 checkpoint once the outer conditions they gated were
    themselves proven dead - no reference of any kind remains. */
 
-/* The 8080/8085 have no IY (or IX) at all, so treat IY as permanently
-   reserved: every "IY not usable" fallback then applies to them too. */
-#define IY_RESERVED (i8085_opts.reserveIY || IS_8080LIKE)
+/* IY_RESERVED and the reserveIY option it was built on removed (#25):
+   the 8080/8085 have no IY at all - not a runtime choice, so there was
+   nothing for a "reserve it or not" option to control. reserveIY was
+   never assigned anywhere (--reserve-regs-iy was never even registered
+   in either port's OPTION table), making IY_RESERVED's definition
+   (i8085_opts.reserveIY || IS_8080LIKE) unconditionally true via the
+   IS_8080LIKE tautology alone. Its two call sites (gen.c's genCall(),
+   guarding the bc/de tail-call-via-register fallbacks) were wassert()s
+   that could never fire - removed along with the macro. Investigating
+   this also found a second, real bug of the same z80-lineage-copy
+   origin - see main.c's _finaliseOptions() for the num_regs arithmetic
+   mistake this uncovered, and why it's deliberately left unfixed for
+   now rather than "fixed" here alongside this cleanup. */
 

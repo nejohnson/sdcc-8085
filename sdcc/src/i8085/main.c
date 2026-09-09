@@ -39,7 +39,6 @@
 #define OPTION_CALLEE_SAVES_BC  "--callee-saves-bc"
 #define OPTION_ASM              "--asm="
 #define OPTION_NO_STD_CRT0      "--no-std-crt0"
-#define OPTION_RESERVE_IY       "--reserve-regs-iy"
 #define OPTION_FRAMEPOINTER     "--fno-omit-frame-pointer"
 #define OPTION_EMIT_EXTERNS     "--emit-externs"
 #define OPTION_LEGACY_BANKING   "--legacy-banking"
@@ -436,8 +435,21 @@ _finaliseOptions (void)
   port->mem.default_local_map = data;
   port->mem.default_globl_map = data;
 
-  /* There is no IY on i8080/i8085, so its 2 register slots are never
-     allocatable. */
+  /* port->num_regs deliberately left at its 7 literal (a, c, b, e, d, l, h)
+     rather than "fixed" to actually enable l/h for the tree-decomposition
+     allocator in SDCCralloc.hpp/ralloc2.cc: a prior attempt to do exactly
+     that (removing an erroneous "-= 2" that was landing num_regs on 5, not
+     7 - a copy-paste artifact from the z80 port, whose own IY-having sub-
+     targets start from num_regs=9 and legitimately decrement) surfaced a
+     broad, previously-latent bug surface in gen.c's shift/rotate code
+     generation - regression showed 100+ real failures (wrong 32-bit
+     rotate results, tinyaes, several hash/crypto cases) plus multiple
+     compiler crashes on coremark, all newly reachable only once l/h could
+     hold an ordinary allocator-assigned byte variable rather than just
+     the classic hl-pointer-pair. That bug-hunt is its own task, not a
+     follow-on to this one - see i8085.h's IY_RESERVED-removal comment for
+     the diagnostic trail. Left as num_regs=5 (l/h unusable by ralloc2)
+     until that follow-up task lands. */
   port->num_regs -= 2;
 
   _setValues ();
@@ -835,7 +847,11 @@ PORT i8080_port =
   false,                        // there is no __far, and thus no pointers into it.
   1,                            /* reset labelKey to 1 */
   1,                            /* globals & local statics allowed */
-  7,                            /* Number of registers handled in the tree-decomposition-based register allocator in SDCCralloc.hpp */
+  7,                            /* Number of registers (a, c, b, e, d, l, h - see ralloc2.cc's REG_* enum)
+                                    handled in the tree-decomposition-based register allocator in
+                                    SDCCralloc.hpp, before _finaliseOptions()'s "port->num_regs -= 2"
+                                    lands it on 5 (l/h currently excluded - see that decrement's own
+                                    comment for why it's deliberately still there, not a leftover). */
   PORT_MAGIC
 };
 
@@ -983,7 +999,11 @@ PORT i8085_port =
   false,                        // there is no __far, and thus no pointers into it.
   1,                            /* reset labelKey to 1 */
   1,                            /* globals & local statics allowed */
-  7,                            /* Number of registers handled in the tree-decomposition-based register allocator in SDCCralloc.hpp */
+  7,                            /* Number of registers (a, c, b, e, d, l, h - see ralloc2.cc's REG_* enum)
+                                    handled in the tree-decomposition-based register allocator in
+                                    SDCCralloc.hpp, before _finaliseOptions()'s "port->num_regs -= 2"
+                                    lands it on 5 (l/h currently excluded - see that decrement's own
+                                    comment for why it's deliberately still there, not a leftover). */
   PORT_MAGIC
 };
 
