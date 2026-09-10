@@ -332,7 +332,7 @@ replace restart {
 // is an immediate return can just return directly - one instruction
 // instead of two, and it may drop the target label's last remaining
 // reference (labelRefCountChange, needed so later rules - notably
-// Group 10's unused-label removal - see an accurate count afterward).
+// Group 11's unused-label removal - see an accurate count afterward).
 // Ported from peeph.def's common peephole 160.
 //
 // Deliberately NOT ported here: peephole 161's conditional counterpart
@@ -362,7 +362,87 @@ replace restart {
 	ret
 } if labelIsReturnOnly(%5), labelRefCountChange(%5 -1)
 
-// Group 10 (task #20, phase-2 begins): unused-label removal. Ported
+// Group 10 (task #20): a conditional jump straight to the following
+// instruction is always a no-op - taken, it lands on %5, which is
+// right here anyway; not taken, execution falls through to the same
+// place - so it can just be deleted. Holds regardless of the condition
+// tested (a conditional jump only ever reads flags, never sets them or
+// has any other side effect), and unlike Group 9's conditional-return
+// question this introduces no new mnemonic into the stream at all -
+// there is nothing here for peep.c's classifiers to recognize that
+// they do not already. Ported from peeph.def's common peephole 164,
+// which is likewise conditional-only. An unconditional-jmp variant was
+// tried too and pulled: it fired zero times across the whole 6358-case
+// regression corpus (as peeph.def's own scoping predicted - a bare
+// unconditional jump to its own immediately-following label does not
+// survive to the peephole stage on this port either), so per the
+// "genuine firing required" rule it is not carried as dead weight.
+// Condition set is genIfxJump()'s own complete list.
+replace restart {
+	jz	%5
+%5:
+} by {
+	; task #20 removed conditional jump to the next instruction
+%5:
+} if labelRefCountChange(%5 -1)
+
+replace restart {
+	jnz	%5
+%5:
+} by {
+	; task #20 removed conditional jump to the next instruction
+%5:
+} if labelRefCountChange(%5 -1)
+
+replace restart {
+	jc	%5
+%5:
+} by {
+	; task #20 removed conditional jump to the next instruction
+%5:
+} if labelRefCountChange(%5 -1)
+
+replace restart {
+	jnc	%5
+%5:
+} by {
+	; task #20 removed conditional jump to the next instruction
+%5:
+} if labelRefCountChange(%5 -1)
+
+replace restart {
+	jm	%5
+%5:
+} by {
+	; task #20 removed conditional jump to the next instruction
+%5:
+} if labelRefCountChange(%5 -1)
+
+replace restart {
+	jp	%5
+%5:
+} by {
+	; task #20 removed conditional jump to the next instruction
+%5:
+} if labelRefCountChange(%5 -1)
+
+replace restart {
+	jpo	%5
+%5:
+} by {
+	; task #20 removed conditional jump to the next instruction
+%5:
+} if labelRefCountChange(%5 -1)
+
+replace restart {
+	jpe	%5
+%5:
+} by {
+	; task #20 removed conditional jump to the next instruction
+%5:
+} if labelRefCountChange(%5 -1)
+
+// Group 11 (task #20, phase-2 begins): unused-label removal. Ported
 // directly from peeph.def's common peephole 159 - a label with zero
 // references left anywhere in the function is simply dead, regardless
 // of mnemonic syntax on either side of it, so this rule needs no
