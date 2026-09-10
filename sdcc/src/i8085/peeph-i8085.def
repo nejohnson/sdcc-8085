@@ -307,7 +307,28 @@ replace restart {
 	dad	%2
 } if notUsed('bc')
 
-// Group 8 (task #20, phase-2 begins): unused-label removal. Ported
+// Group 8 (task #20): call-then-return at the end of a function is a
+// tail call - the callee's own ret will return straight to whoever
+// called this function, so there is no need to return here first and
+// call again. Ported directly from peeph.def's common peephole 135;
+// call/ret/jmp are identical mnemonics and semantics on 8080/8085 (all
+// absolute, no relative-addressing distinction to worry about, unlike
+// the jp->jr rules this port can never port - see this file's header),
+// so only the Zilog "jp" -> Intel "jmp" mnemonic rename was needed.
+// symmParmStack() (SDCCpeeph.c, cross-port, already available) checks
+// that the callee itself pops its own parameters (K&R/__z88dk_fastcall-
+// style, not caller-pops-cdecl) - otherwise replacing call+ret with a
+// plain jmp would leave the caller's parameters permanently on the
+// stack once the callee returns.
+replace restart {
+	call	%1
+	ret
+} by {
+	; task #20 replaced call+ret at function end by a tail-call jmp
+	jmp	%1
+} if symmParmStack(%1)
+
+// Group 9 (task #20, phase-2 begins): unused-label removal. Ported
 // directly from peeph.def's common peephole 159 - a label with zero
 // references left anywhere in the function is simply dead, regardless
 // of mnemonic syntax on either side of it, so this rule needs no
