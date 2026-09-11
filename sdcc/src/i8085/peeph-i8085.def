@@ -328,38 +328,93 @@ replace restart {
 	jmp	%1
 } if symmParmStack(%1)
 
-// Group 9 (task #20): an unconditional jump whose only possible target
-// is an immediate return can just return directly - one instruction
-// instead of two, and it may drop the target label's last remaining
-// reference (labelRefCountChange, needed so later rules - notably
-// Group 11's unused-label removal - see an accurate count afterward).
-// Ported from peeph.def's common peephole 160.
+// Group 9 (task #20): a jump whose only possible target is an immediate
+// return can just return directly - one instruction instead of two,
+// and it may drop the target label's last remaining reference
+// (labelRefCountChange, needed so later rules - notably Group 11's
+// unused-label removal - see an accurate count afterward). Ported from
+// peeph.def's common peepholes 160 (unconditional) and 161
+// (conditional).
 //
-// Deliberately NOT ported here: peephole 161's conditional counterpart
-// (jz/jnz/jc/jnc/jm/jp/jpo/jpe -> rz/rnz/rc/rnc/rm/rp/rpo/rpe). Unlike
-// bare "ret" - already fully wired through every classifier in this
-// file (mightRead/mightReadFlag/etc.), since gen.c has always emitted
-// it - the 8 conditional-return mnemonics have never appeared in this
-// port's output before. A sanity check while drafting this group
-// (comparing --no-peep output against a real jz-to-return-only-label
-// case) surfaced "Warning: mightReadFlag unknown asm inst line: rnz" -
-// mightReadFlag()'s existing "ret" case checks for Zilog's two-token
-// "ret\t<cc>" form (dead syntax this port never emits, same as the
-// jp/jr-with-comma checks nearby), not Intel's fused rz/rnz/etc., and
-// there is no isIntelCondRet() counterpart to isIntelCondJump() (used
-// throughout this file, ~7 call sites) at all. A conditional return is
-// a genuine hybrid, not a drop-in analog of either bare ret or a
-// conditional jump: like a conditional jump it reads exactly the one
-// flag its condition tests and, if not taken, falls through; like ret
-// it also reads the return-value registers/sp when taken. Getting
-// every affected classifier right needs its own careful, dedicated
-// pass (own task, not squeezed into this checkpoint) - see the project
-// status memory doc.
+// As with Group 8, 9 separate rules rather than one parameterized
+// rule: Zilog's "jp %1, %5" carries the condition as its own operand
+// token, so a single %1-bound pattern covers every condition; Intel
+// fuses it into the mnemonic (jz/jnz/jc/jnc/jm/jp/jpo/jpe -> rz/rnz/
+// rc/rnc/rm/rp/rpo/rpe, no operand), leaving nothing to bind %1 to.
+// Condition set is genIfxJump()'s own complete list. Note "p"/"rp" is
+// "if sign positive" on Intel, unrelated to Zilog's unconditional "jp".
+//
+// The 8 conditional-return mnemonics had never appeared in this port's
+// output before these rules - gen.c never emits one. Landing them
+// required teaching peep.c's classifier apparatus about conditional
+// returns first (task #30): a new isIntelCondRet() helper plus
+// individually-reasoned handling in mightRead / mightReadFlag /
+// surelyWrites / surelyWritesFlag / i8085_instructionSize. A
+// conditional return is a genuine hybrid - reads its one condition
+// flag like a conditional jump, reads the return-value registers / sp
+// like a bare ret when taken, writes nothing on either path - so it is
+// not aliased to either existing case.
 replace restart {
 	jmp	%5
 } by {
 	; task #20 replaced jump to a return-only label by a direct ret
 	ret
+} if labelIsReturnOnly(%5), labelRefCountChange(%5 -1)
+
+replace restart {
+	jz	%5
+} by {
+	; task #20 replaced conditional jump to a return-only label by rz
+	rz
+} if labelIsReturnOnly(%5), labelRefCountChange(%5 -1)
+
+replace restart {
+	jnz	%5
+} by {
+	; task #20 replaced conditional jump to a return-only label by rnz
+	rnz
+} if labelIsReturnOnly(%5), labelRefCountChange(%5 -1)
+
+replace restart {
+	jc	%5
+} by {
+	; task #20 replaced conditional jump to a return-only label by rc
+	rc
+} if labelIsReturnOnly(%5), labelRefCountChange(%5 -1)
+
+replace restart {
+	jnc	%5
+} by {
+	; task #20 replaced conditional jump to a return-only label by rnc
+	rnc
+} if labelIsReturnOnly(%5), labelRefCountChange(%5 -1)
+
+replace restart {
+	jm	%5
+} by {
+	; task #20 replaced conditional jump to a return-only label by rm
+	rm
+} if labelIsReturnOnly(%5), labelRefCountChange(%5 -1)
+
+replace restart {
+	jp	%5
+} by {
+	; task #20 replaced conditional jump to a return-only label by rp
+	rp
+} if labelIsReturnOnly(%5), labelRefCountChange(%5 -1)
+
+replace restart {
+	jpo	%5
+} by {
+	; task #20 replaced conditional jump to a return-only label by rpo
+	rpo
+} if labelIsReturnOnly(%5), labelRefCountChange(%5 -1)
+
+replace restart {
+	jpe	%5
+} by {
+	; task #20 replaced conditional jump to a return-only label by rpe
+	rpe
 } if labelIsReturnOnly(%5), labelRefCountChange(%5 -1)
 
 // Group 10 (task #20): a conditional jump straight to the following

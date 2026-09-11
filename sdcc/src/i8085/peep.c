@@ -187,6 +187,34 @@ isIntelCondJump (const lineNode *pl, const char **cond)
   return false;
 }
 
+/* True for a fused conditional-return mnemonic (rz/rnz/rc/rnc/rm/rp/
+   rpe/rpo - condition baked into the mnemonic, no operand). Writes the
+   condition suffix (mightReadFlagCondition()'s format) if cond is
+   non-NULL. gen.c never emits a conditional return; these entered this
+   port's output only with peeph-i8085.def's jz->rz etc. rules (group
+   9's conditional half). A conditional return is a hybrid: like a
+   conditional jump it reads exactly the one flag its condition tests
+   and, not taken, falls through; like a bare ret it also reads the
+   return-value registers / sp when taken. It writes nothing (no
+   register, no flag) on either path - the classifiers below treat it
+   accordingly, each reasoned individually rather than aliased to
+   either isIntelCondJump() or bare "ret". */
+static bool
+isIntelCondRet (const lineNode *pl, const char **cond)
+{
+  static const char *const mnemonics[] = { "rz", "rnz", "rc", "rnc", "rm", "rp", "rpe", "rpo" };
+  static const char *const conds[] = { "z", "nz", "c", "nc", "m", "p", "pe", "po" };
+  int i;
+  for (i = 0; i < 8; i++)
+    if (lineIsInst (pl, mnemonics[i]))
+      {
+        if (cond)
+          *cond = conds[i];
+        return true;
+      }
+  return false;
+}
+
 /*-----------------------------------------------------------------*/
 /* univisitLines - clear "visited" flag in all lines               */
 /*-----------------------------------------------------------------*/
@@ -375,7 +403,7 @@ mightReadFlag(const lineNode *pl, const char *what)
     return false;
   {
     const char *cond;
-    if (isIntelCondJump (pl, &cond))
+    if (isIntelCondJump (pl, &cond) || isIntelCondRet (pl, &cond))
       return mightReadFlagCondition (cond, what);
   }
   if (lineIsInst (pl, "jmp") ||
@@ -615,7 +643,12 @@ mightRead(const lineNode *pl, const char *what)
   if(lineIsInst (pl, "reti") || lineIsInst (pl, "retn"))
     return(strcmp(what, "sp") == 0);
 
-  if(lineIsInst (pl, "ret")) // No IY on this port, so no separate IY-return-value case is needed here.
+  // A conditional return, on its taken path, reads exactly what a bare
+  // ret does (return value, sp, any register a subsequent call from
+  // this function might take as a parm); not taken, it reads none of
+  // them, but "might" is the conservative side. No IY on this port, so
+  // no separate IY-return-value case is needed here.
+  if(lineIsInst (pl, "ret") || isIntelCondRet (pl, NULL))
     return(i8085_IsReturned(what) || mightBeParmInCallFromCurrentFunction(what)) || strcmp(what, "sp") == 0;
 
   if (lineIsInst (pl, "ex") && larg && rarg)
@@ -974,6 +1007,16 @@ surelyWritesFlag(const lineNode *pl, const char *what)
   if(lineIsInst (pl, "pop"))
     return (argCont(pl->line + 4, "af"));
 
+  // A conditional return writes no flag: taken, it leaves (flags are
+  // the caller's concern); not taken, it falls through with flags
+  // untouched. So - unlike bare ret/call just below - it must not be
+  // treated as killing an earlier flag definition on the fall-through
+  // path. Checked before the "ret" line so lineIsInst(pl, "ret") can
+  // never see it anyway (rz/rnz/... do not start with "ret"), but
+  // explicit for the reader.
+  if(isIntelCondRet (pl, NULL))
+    return false;
+
   // according to calling convention caller has to save flags
   if(lineIsInst (pl, "ret") ||
      lineIsInst (pl, "call"))
@@ -1226,6 +1269,13 @@ surelyWrites (const lineNode *pl, const char *what)
   
   if (lineIsInst (pl, "call") && strchr(pl->line, ',') == 0)
     return (callSurelyWrites (pl, what));
+
+  /* A conditional return writes no register, and - taken or not - can
+     never be assumed to have overwritten one on the fall-through path
+     (mirror of the surelyWritesFlag() reasoning). The exact-match "ret"
+     below would not catch rz/rnz/... anyway; explicit for the reader. */
+  if(isIntelCondRet (pl, NULL))
+    return false;
 
   if(strcmp(pl->line, "ret") == 0)
     return true;
@@ -1851,7 +1901,9 @@ int i8085_instructionSize (lineNode *pl)
   if(lineIsInst (pl, "reti") || lineIsInst (pl, "retn"))
     return(2);
 
-  if(lineIsInst (pl, "ret") || lineIsInst (pl, "reti") || lineIsInst (pl, "rst"))
+  // rst and every conditional return (rz/rnz/rc/rnc/rm/rp/rpe/rpo) are
+  // single-byte opcodes on 8080/8085, same as bare ret.
+  if(lineIsInst (pl, "ret") || lineIsInst (pl, "reti") || lineIsInst (pl, "rst") || isIntelCondRet (pl, NULL))
     return(1);
 
   if(lineIsInst (pl, "call"))
