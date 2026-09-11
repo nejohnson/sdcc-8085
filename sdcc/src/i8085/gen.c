@@ -2674,16 +2674,29 @@ aopForSym (const iCode *ic, symbol *sym, bool result, bool requires_a)
         }
     }
 
-  if (IN_FARSPACE (space))
-    {
-      // __far was only ever supported on eZ80, Rabbits and TLCS-90 - none
-      // of which this port ever targets (see the port struct's own "there
-      // is no __far, and thus no pointers into it" fields), so IN_FARSPACE
-      // should never actually be true here.
-      wassert (0);
-      sym->aop = aop = newAsmop (AOP_FDIR);
-    }
-  else if (getSize (sym->type) == 1 && isRegDead(A_IDX, ic) && !isRegDead(HL_IDX, ic) &&
+  // "if (IN_FARSPACE (space)) {...; sym->aop = aop = newAsmop
+  // (AOP_FDIR);}" removed entirely (#28): IN_FARSPACE(space) is
+  // provably always false for this port, not just believed so - traced
+  // exhaustively, not merely trusting the wassert(0) this replaces.
+  // __far was only ever supported on eZ80, Rabbits and TLCS-90 (see the
+  // port struct's own "there is no __far, and thus no pointers into
+  // it" fields); TARGET_Z80_LIKE (which includes TARGET_I8080_LIKE) is
+  // true for this port, so the code/home/statsg/c_abs/x_abs maps'
+  // "!TARGET_Z80_LIKE"-gated farmap flag is always 0 for it; the
+  // xdata/xidata/xinit/xconst maps (unconditionally far, per
+  // SDCCmem.c's own allocMap() calls) have no segment name configured
+  // for this port and are unreachable anyway since the storage-class
+  // keywords that would select them ("__xdata", "__far") do not even
+  // parse here (confirmed directly: both produce a syntax error);
+  // _finaliseOptions() sets both default_local_map and
+  // default_globl_map to plain "data" (never far); and any genuinely
+  // stack-based symbol (sym->onStack) already returns via AOP_STK/
+  // AOP_EXSTK earlier in this same function, never reaching this
+  // check at all. AOP_FDIR is therefore never actually constructed
+  // anywhere in this port - every "->type == AOP_FDIR" comparison
+  // elsewhere in this file has been simplified away accordingly, and
+  // the enum value itself removed from gen.h.
+  if (getSize (sym->type) == 1 && isRegDead(A_IDX, ic) && !isRegDead(HL_IDX, ic) &&
     ((ic->op == '=' || ic->op == CAST) && !IS_OP_LITERAL (ic->right) && !OP_SYMBOL (ic->right)->remat ||
     ic->op == '!' && !isOperandEqual (ic->left, ic->result) ||
     result && !isOperandEqual (ic->left, ic->result) && !isOperandEqual (ic->right, ic->result)))
@@ -8162,9 +8175,10 @@ genPlusIncr (const iCode *ic)
     }
 
   /* if increment 16 bits in register */
+  // "ic->left->aop->type != AOP_FDIR &&" conjunct dropped (#28): always
+  // true, AOP_FDIR is never actually constructed on this port.
   if (!optimize.nosidechannels &&
     sameRegs (ic->left->aop, ic->result->aop) && size > 1 && icount == 1 &&
-    ic->left->aop->type != AOP_FDIR &&
     size >= 2) // Was "(size==2 && getPairId(...)!=PAIR_INVALID || size>=2 && ...IYL_IDX/IYH_IDX checks...)" - the IY checks are always true (aopInReg(...,IYL_IDX/IYH_IDX) always false), collapsing the whole disjunction to just "size >= 2".
     {
       int offset = 0;
@@ -9268,7 +9282,9 @@ genMinusDec (const iCode *ic, asmop *result, asmop *left, asmop *right)
     }
 
   /* if decrement 16 bits in register */
-  if (sameRegs (left, result) && left->type != AOP_FDIR && size == 2 && isPairDead (_getTempPairId (), ic) && !(requiresHL (left) && _getTempPairId () == PAIR_HL))
+  // "left->type != AOP_FDIR &&" conjunct dropped (#28): always true,
+  // AOP_FDIR is never actually constructed on this port.
+  if (sameRegs (left, result) && size == 2 && isPairDead (_getTempPairId (), ic) && !(requiresHL (left) && _getTempPairId () == PAIR_HL))
     {
       fetchPair (_getTempPairId (), left);
 
@@ -9626,7 +9642,9 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
   
       bool pushed_hl = false;
 
-      if (right->type == AOP_SFR || right->type == AOP_FDIR) // Right operand needs to go through a
+      // "|| right->type == AOP_FDIR" dropped (#28): always false,
+      // AOP_FDIR is never actually constructed on this port.
+      if (right->type == AOP_SFR) // Right operand needs to go through a
         {
           asmop *tmpaop;
 
@@ -10512,7 +10530,9 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
       /* Do a long subtract of right from left. */
       size = max (left->aop->size, right->aop->size);
 
-      if (right->aop->type == AOP_SFR || right->aop->type == AOP_FDIR)  /* Avoid overwriting A */
+      // "|| right->aop->type == AOP_FDIR" dropped (#28): always false,
+      // AOP_FDIR is never actually constructed on this port.
+      if (right->aop->type == AOP_SFR)  /* Avoid overwriting A */
         {
           bool save_a, save_b, save_bc;
           wassertl (size == 1, "Right side sfr in comparison with more than 8 bits.");
