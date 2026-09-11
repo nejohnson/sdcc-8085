@@ -39,8 +39,12 @@ extern "C"
 #define REG_D 4
 #define REG_L 5
 #define REG_H 6
-#define REG_IYL 7
-#define REG_IYH 8
+// REG_IYL(7)/REG_IYH(8) removed: no IY hardware on i8080/i8085, and
+// port->num_regs (currently 5, see main.c's _finaliseOptions() and
+// #29) never covers indices 7/8 regardless of that number's own open
+// question - operand_in_reg()'s own "r >= port->num_regs" bounds
+// check made every use of these two provably dead, traced and removed
+// at every site throughout this file.
 
 template <class G_t, class I_t>
 float default_operand_cost(const operand *o, const assignment &a, unsigned short int i, const G_t &G, const I_t &I)
@@ -93,8 +97,13 @@ float default_operand_cost(const operand *o, const assignment &a, unsigned short
                 c -= 0.4f;
               else if(byteregs[0] == REG_L)
                 c -= 0.1f;
-              else if(byteregs[0] == REG_IYH)
-                c += 0.1f;
+              // "else if(byteregs[0] == REG_IYH) c += 0.1f;" removed: no
+              // IY hardware on i8080/i8085 - byteregs[] only ever holds
+              // values from a.global[v], itself only ever assigned in
+              // [0, port->num_regs) or -1, and REG_IYH(8) is always
+              // outside that range (see ralloc2.cc's REG_IYL/REG_IYH
+              // definitions removed, and operand_in_reg()'s own explicit
+              // "r >= port->num_regs" bounds check just below).
             }
           // Spilt.
           else
@@ -216,8 +225,9 @@ assign_cost(const assignment &a, unsigned short int i, const G_t &G, const I_t &
 
       if(byteregs[0] == REG_A)
         c -= 0.4f;
-      else if(byteregs[0] == REG_IYH)
-        c += 0.1f;
+      // "else if(byteregs[0] == REG_IYH) c += 0.1f;" removed: same
+      // reasoning as default_operand_cost()'s identical pattern above -
+      // no IY hardware on this port, byteregs[] can never hold REG_IYH.
     }
 
   if(!size1)
@@ -247,8 +257,9 @@ assign_cost(const assignment &a, unsigned short int i, const G_t &G, const I_t &
 
       if(byteregs[0] == REG_A)
         c -= 0.4f;
-      else if(byteregs[0] == REG_IYH)
-        c += 0.1f;
+      // "else if(byteregs[0] == REG_IYH) c += 0.1f;" removed: same
+      // reasoning as default_operand_cost()'s identical pattern above -
+      // no IY hardware on this port, byteregs[] can never hold REG_IYH.
     }
 
   if(!size2)
@@ -511,7 +522,10 @@ static bool operand_is_pair(const operand *o, const assignment &a, unsigned shor
   if(oi3 != oi_end)
     return(false);
 
-  if(a.global[oi->second] != REG_C && a.global[oi->second] != REG_E && a.global[oi->second] != REG_L && a.global[oi->second] != REG_IYL)
+  // "&& a.global[oi->second] != REG_IYL" conjunct dropped: no IY
+  // hardware on this port, a.global[] can never hold REG_IYL - see
+  // default_operand_cost()'s identical reasoning above.
+  if(a.global[oi->second] != REG_C && a.global[oi->second] != REG_E && a.global[oi->second] != REG_L)
     return(false);
   if(a.global[oi->second] + 1 != a.global[oi2->second])
     return(false);
@@ -709,9 +723,13 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
     (getSize(operandType(IC_RESULT(ic))) == 2 && operand_is_pair(IC_RESULT(ic), a, i, G) || getSize(operandType(IC_RESULT(ic))) == 1 && operand_in_reg(result, ia, i, G) && operand_in_reg(result, ia, i, G)))
     return(true);
 
-  if(ic->op == '=' && POINTER_SET (ic) && // Any register can be assigned to (hl) and (iy), so we don't need to go through a then.
+  if(ic->op == '=' && POINTER_SET (ic) && // Any register can be assigned to (hl), so we don't need to go through a then.
     !(IS_BITVAR(getSpec(operandType (result))) || IS_BITVAR(getSpec(operandType (right)))) &&
-    (getSize(operandType(right)) == 1 || operand_is_pair(result, a, i, G) && (operand_in_reg(result, REG_L, ia, i, G) || operand_in_reg(result, REG_IYL, ia, i, G))))
+    // "|| operand_in_reg(result, REG_IYL, ia, i, G)" dropped: no IY
+    // hardware on this port, operand_in_reg() itself always returns
+    // false for REG_IYL/REG_IYH (see its own "r >= port->num_regs"
+    // bounds check).
+    (getSize(operandType(right)) == 1 || operand_is_pair(result, a, i, G) && operand_in_reg(result, REG_L, ia, i, G)))
     return(true);
 
   // Code generator mostly cannot handle variables that are only partially in A.
@@ -878,8 +896,11 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
      (operand_in_reg(result, REG_L, ia, i, G) && I[ia.registers[REG_L][1]].byte == 0 && operand_in_reg(result, REG_H, ia, i, G)))
     return(true); // Uses inc hl.
 
+  // "|| operand_in_reg(result, REG_IYL, ia, i, G) && operand_in_reg(result,
+  // REG_IYH, ia, i, G)" dropped: no IY hardware on this port,
+  // operand_in_reg() always returns false for REG_IYL/REG_IYH.
   if(ic->op == '+' && getSize(operandType(result)) == 2 && !IS_TRUE_SYMOP (result) &&
-    (result_only_HL || operand_in_reg(result, REG_IYL, ia, i, G) && operand_in_reg(result, REG_IYH, ia, i, G)) &&
+    result_only_HL &&
     (ia.registers[REG_C][1] < 0 && ia.registers[REG_B][1] < 0 || ia.registers[REG_E][1] < 0 && ia.registers[REG_D][1] < 0)) // Can use ld rr, (nn) instead of (hl).
     return(true);
 
@@ -936,9 +957,12 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
     return(true);
   if(POINTER_GET(ic) && input_in_L && input_in_H && (getSize(operandType(IC_RESULT(ic))) == 1 || !result_in_HL))
     return(true);
+  // First disjunct (was "operand_in_reg(result, REG_IYL,...) && ... &&
+  // operand_in_reg(result, REG_IYH,...)") dropped: no IY hardware on
+  // this port, operand_in_reg() always returns false for REG_IYL/
+  // REG_IYH.
   if(ic->op == ADDRESS_OF &&
-    (operand_in_reg(result, REG_IYL, ia, i, G) && ia.registers[REG_IYL][1] > 0 && I[ia.registers[REG_IYL][1]].byte == 0 && operand_in_reg(result, REG_IYH, ia, i, G) ||
-    !OP_SYMBOL_CONST (left)->onStack && operand_in_reg(result, REG_C, ia, i, G) && ia.registers[REG_C][1] > 0 && I[ia.registers[REG_C][1]].byte == 0 && operand_in_reg(result, REG_B, ia, i, G) ||
+    (!OP_SYMBOL_CONST (left)->onStack && operand_in_reg(result, REG_C, ia, i, G) && ia.registers[REG_C][1] > 0 && I[ia.registers[REG_C][1]].byte == 0 && operand_in_reg(result, REG_B, ia, i, G) ||
     !OP_SYMBOL_CONST (left)->onStack && operand_in_reg(result, REG_E, ia, i, G) && ia.registers[REG_E][1] > 0 && I[ia.registers[REG_E][1]].byte == 0 && operand_in_reg(result, REG_D, ia, i, G)))
     return(true);
 
@@ -969,12 +993,16 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
     return(true);
 
   if(ic->op == GET_VALUE_AT_ADDRESS && getSize(operandType(IC_RESULT(ic))) == 1 && !IS_BITVAR(getSpec(operandType(result))) &&
-    operand_is_pair(left, a, i, G) && // Use ld a, (dd) or ld r, 0 (iy).
-    IS_OP_LITERAL (right) && ulFromVal (OP_VALUE_CONST(right)) == 0) 
+    operand_is_pair(left, a, i, G) && // Use ld a, (dd).
+    IS_OP_LITERAL (right) && ulFromVal (OP_VALUE_CONST(right)) == 0)
     return(true);
 
-  if(ic->op == '=' && POINTER_SET(ic) && operand_in_reg(result, REG_IYL, ia, i, G) && I[ia.registers[REG_IYL][1]].byte == 0 && operand_in_reg(result, REG_IYH, ia, i, G)) // Uses ld 0 (iy), l etc
-    return(true);
+  // "if(ic->op == '=' && POINTER_SET(ic) && operand_in_reg(result,
+  // REG_IYL,...) && ... && operand_in_reg(result, REG_IYH,...))
+  // return(true);" removed entirely: no IY hardware on this port,
+  // operand_in_reg() always returns false for REG_IYL/REG_IYH, so this
+  // whole condition (which started with exactly that check) could
+  // never be true.
 
   if(ic->op == '=' && POINTER_SET(ic) && !result_only_HL) // loads result pointer into (hl) first.
     return(false);
@@ -1280,9 +1308,13 @@ static float rough_cost_estimate(const assignment &a, unsigned short int i, cons
       const symbol *const sym = (symbol *)(hTabItemWithKey(liveRanges, I[*v].v));
       if(a.global[*v] < 0 && IS_REGISTER(sym->type)) // When in doubt, try to honour register keyword.
         c += 32.0f;
-      if((I[*v].byte % 2) && (a.global[*v] == REG_L || a.global[*v] == REG_E || a.global[*v] == REG_C || a.global[*v] == REG_IYL)) // Try not to reverse bytes.
+      // "|| a.global[*v] == REG_IYL"/"|| a.global[*v] == REG_IYH" dropped
+      // from the two checks below: no IY hardware on this port,
+      // a.global[] (only ever assigned in [0, port->num_regs) or -1)
+      // can never hold REG_IYL(7)/REG_IYH(8).
+      if((I[*v].byte % 2) && (a.global[*v] == REG_L || a.global[*v] == REG_E || a.global[*v] == REG_C)) // Try not to reverse bytes.
         c += 8.0f;
-      if(!(I[*v].byte % 2) && I[*v].size > 1 && (a.global[*v] == REG_H || a.global[*v] == REG_D || a.global[*v] == REG_B || a.global[*v] == REG_IYH)) // Try not to reverse bytes.
+      if(!(I[*v].byte % 2) && I[*v].size > 1 && (a.global[*v] == REG_H || a.global[*v] == REG_D || a.global[*v] == REG_B)) // Try not to reverse bytes.
         c += 8.0f;
       if(I[*v].byte == 0 && I[*v].size > 1 || I[*v].byte == 2 && I[*v].size > 3)
         {
