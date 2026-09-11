@@ -885,8 +885,7 @@ emit2 (const char *szFormat, ...)
     }
 }
 
-// An absolute local jump within the function to the label target with (optional) condition, assuming
-// that the branch is taken with given probability, and possibly optimized into a relative (jr) jump later.
+// An absolute local jump within the function to the label target with (optional) condition.
 // If target is NULL, calculate costs only.
 static void
 emitJP (const symbol *target, const char *condition, float probability, bool target_in_jr_range)
@@ -904,20 +903,20 @@ emitJP (const symbol *target, const char *condition, float probability, bool tar
         }
     }
 
-  if (condition)
-    {
-      if (target_in_jr_range)
-        cost2 (2, 7 + 5 * probability);
-      else
-        cost2 (3, 10);
-    }
-  else
-    {
-      if (target_in_jr_range)
-        cost2 (2, 12);
-      else
-        cost2 (3, 10);
-    }
+  /* #21: this function's cost used to branch on target_in_jr_range,
+     modelling a hypothetical relative jump ("jr") this port can never
+     actually emit - task #20's own header comment already established
+     that 8080/8085 has no relative jump at all, not even undocumented.
+     Every real jump this port emits, conditional or not, is the
+     3-byte/10-state absolute form (jmp/j<cc> - confirmed flat 10
+     states for conditional jumps on real 8085/8080 hardware regardless
+     of taken/not-taken, unlike conditional call/return), so that is now
+     the only cost computed, unconditionally. probability/
+     target_in_jr_range remain accepted (many call sites still pass
+     them) but no longer affect the cost - simplifying their ~30 call
+     sites to drop the now-meaningless arguments is a separate,
+     mechanical follow-up, not done here. */
+  cost2 (3, 10);
 }
 
 static PAIR_ID
@@ -1097,7 +1096,7 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
             *form_out = (aopInReg (op1, 0, A_IDX) || op1type == AOP_DUMMY) ? LDF_NONE : LDF_MOV;
           if (count)
             {
-              cost2 (2, 11); // in a, (n)
+              cost2 (2, 10); // in a, (n)
               if (!aopInReg (op1, 0, A_IDX) && op1type != AOP_DUMMY)
                 cost2 (1, 4); // ld r, a
             }
@@ -1125,7 +1124,7 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
             cost2 (3, 19); // ld r, d(ix)
           return (3);
         case AOP_EXSTK: // Approximation. Don't really know if this is really exstk at this point, anyway.
-          cost2 (1, 11); // add hl, sp
+          cost2 (1, 10); // add hl, sp
         case AOP_HL:
           if (form_out)
             *form_out = LDF_MOV; // mov d, m
@@ -1238,7 +1237,7 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
         *form_out = LDF_OUT_SPECIAL;
       if (count)
         {
-          cost2 (2, 11); // out (n), a
+          cost2 (2, 10); // out (n), a
         }
       if (aopInReg (op1, 0, A_IDX))
         return (2);
@@ -1316,7 +1315,7 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
         case AOP_SFR:          /* 2 from in a, (...) */
           if (count)
             {
-              cost2 (2, 11); // in a, (n)
+              cost2 (2, 10); // in a, (n)
               cost2 (3, 19); // ld d(ix), a
             }
           return (5);
@@ -1328,7 +1327,7 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
             }
           return (6);
         case AOP_EXSTK: // Approximation. Don't really know if this is really exstk at this point, anyway.
-          cost2 (1, 11); // add hl, sp
+          cost2 (1, 10); // add hl, sp
         case AOP_HL:
           if (count)
             {
@@ -1389,12 +1388,12 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
         case AOP_SFR:
           if (count)
             {
-              cost2 (2, 11); // in a, (n)
+              cost2 (2, 10); // in a, (n)
               cost2 (1, 7); // ld (hl), a
             }
           return (6);
         case AOP_EXSTK: // Approximation. Don't really know if this is really exstk at this point, anyway.
-          cost2 (1, 11); // add hl, sp
+          cost2 (1, 10); // add hl, sp
         case AOP_HL:
           if (count)
             {
@@ -1510,7 +1509,7 @@ op8_cost (const asmop *op, int offset)
       cost2 (3, 19);
       return;
     case AOP_EXSTK: // Approximation. Don't really know if this is really exstk at this point, anyway.
-      cost2 (1, 11); // add hl, sp
+      cost2 (1, 10); // add hl, sp
     case AOP_HL:
       cost2 (3, 10); // ld hl, #nn
       cost2 (1, 7);
@@ -1545,10 +1544,10 @@ incdec_cost (const asmop *op, int offset)
       cost2 (3, 23);
       return;
     case AOP_EXSTK: // Approximation. Don't really know if this is really exstk at this point, anyway.
-      cost2 (1, 11); // add hl, sp
+      cost2 (1, 10); // add hl, sp
     case AOP_HL:
       cost2 (3, 10); // ld hl, #nn
-      cost2 (1, 11);
+      cost2 (1, 10);
       return;
     case AOP_IY: // dead for i8085 - no IY register exists on this CPU family.
       wassertl (0, "AOP_IY is dead for i8085 (no IY hardware)");
@@ -1556,7 +1555,7 @@ incdec_cost (const asmop *op, int offset)
     case AOP_PAIRPTR:
       if (op->aopu.aop_pairId == PAIR_HL)
         {
-          cost2 (1, 11);
+          cost2 (1, 10);
           return;
         }
       // dead for i8085 - aop_pairId is never PAIR_IY/PAIR_IX (no index registers).
@@ -1683,7 +1682,7 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       if (op2->type == AOP_LIT || op2->type == AOP_IMMD)
         cost2 (-1, -1);
       else
-        cost2 (1, 11);
+        cost2 (1, 10);
       return;
     // "case A_SUB:" removed: it was gated by "wassert (IS_R4K || IS_R5K ||
 
@@ -3751,7 +3750,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
           emit2 ("lxi h, !immed%d", spOffset(aop->aopu.aop_stk));
           cost2 (3, 10);
           emit2 ("dad sp");
-          cost2 (1, 11);
+          cost2 (1, 10);
           emit2 ("mov %s, l", _pairs[pairId].l);
           cost2 (1, 4);
           emit2 ("mov %s, h", _pairs[pairId].h);
@@ -3766,7 +3765,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
       emit2 ("lxi h, !immed%d", spOffset(aop->aopu.aop_stk));
       cost2 (3, 10);
       emit2 ("dad sp");
-      cost2 (1, 11);
+      cost2 (1, 10);
       if (pairId == PAIR_DE)
         emit3w (A_EX, ASMOP_DE, ASMOP_HL);
       spillPair (pairId); // TODO: setup pair info instead?
@@ -4007,7 +4006,7 @@ setupPairFromSP (PAIR_ID id, int offset)
       cost2 (3, 10);
       dbuf_destroy (&dbuf);
       emit2 ("dad sp");
-      cost2 (1, 11);
+      cost2 (1, 10);
     }
   else
     {
@@ -4021,7 +4020,7 @@ setupPairFromSP (PAIR_ID id, int offset)
 
       // this file).
       cost2 (3, 10);
-      cost2 (1, 11);
+      cost2 (1, 10);
     }
 
   // "if (id == PAIR_DE && !IS_SM83) {...} else if (id == PAIR_DE) {...}"
@@ -4228,7 +4227,7 @@ aopGet (asmop *aop, int offset, bool bit16)
                      implicit, unlike Zilog's "in a, (port)". Mirrors the OUT side's
                      already-fixed "out %s" case just below in aopPut(). */
                   emit2 ("in !mems", aop->aopu.aop_dir);
-                  cost2 (2, 11);
+                  cost2 (2, 10);
                 }
 
               dbuf_append_char (&dbuf, 'a');
@@ -4560,7 +4559,7 @@ poppairwithsavedreg (PAIR_ID pair, short survivingreg, short tempreg)
   emit2 ("lxi h, !immedword", 4 + isupperbyte);
   cost2 (3, 10);
   emit2 ("dad sp");
-  cost2 (1, 11);
+  cost2 (1, 10);
   emit2 ("mov m, %s", i8085_regs[survivingreg].name);
   cost2 (1, 7);
   _pop (PAIR_HL);
@@ -4606,7 +4605,7 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
       emit2 ("lxi h, !immed%d", spOffset(from->aopu.aop_stk));
       cost2 (3, 10);
       emit2 ("dad sp");
-      cost2 (1, 11);
+      cost2 (1, 10);
       if (!pushed_a)
         _pop (PAIR_AF);
       spillPair (PAIR_HL);
@@ -4757,7 +4756,7 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
       && id == PAIR_HL && !dont_destroy)
     {
       emit2 ("xthl");
-      cost2 (1, 19); // "1 + IS_RAB" simplified to "1" (IS_RAB unconditionally 0 in this file).
+      cost2 (1, 16); // "1 + IS_RAB" simplified to "1" (IS_RAB unconditionally 0 in this file).
       spillPair (id);
     }
   else if (!regalloc_dry_run && (aop->type == AOP_STK || aop->type == AOP_EXSTK) && !sp_offset)
@@ -5023,7 +5022,7 @@ genCopy (asmop *result, int roffset, asmop *source, int soffset, int sizex, bool
         !regalloc_dry_run) // Stack positions will change, so do not assume this is possible in the cost function.
         {
           emit2 ("xthl");
-          cost2 (1, 19);
+          cost2 (1, 16);
           spillPair (PAIR_HL);
           assigned[i] = true;
           assigned[i + 1] = true;
@@ -5512,7 +5511,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           emit2 ("lxi h, !immed%d", spOffset (source->aopu.aop_stk));
           cost2 (3, 10);
           emit2 ("dad sp");
-          cost2 (1, 11);
+          cost2 (1, 10);
           if (!f_dead)
             _pop (PAIR_AF);
           emit3w (A_EX, ASMOP_DE, ASMOP_HL);
@@ -5538,7 +5537,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
               emit2 ("lxi h, !immed%d", spOffset (source->aopu.aop_stk));
               cost2 (3, 10);
               emit2 ("dad sp");
-              cost2 (1, 11);
+              cost2 (1, 10);
               if (!f_dead)
                 _pop (PAIR_AF);
             }
@@ -5821,7 +5820,7 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
       emit2 ("lxi h, !immed%d", n);
       cost2 (3, 10);
       emit2 ("dad sp");
-      cost2 (1, 11);
+      cost2 (1, 10);
       emit2 ("sphl");
       cost2 (1, 6);
       spillPair (PAIR_HL);
@@ -5837,7 +5836,7 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
       emit2 ("lxi h, !immed%d", n);
       cost2 (3, 10);
       emit2 ("dad sp");
-      cost2 (1, 11);
+      cost2 (1, 10);
       emit2 ("sphl");
       cost2 (1, 6);
       emit3 (A_EX, ASMOP_DE, ASMOP_HL);
@@ -5854,7 +5853,7 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
       emit2 ("lxi h, !immed%d", n);
       cost2 (3, 10);
       emit2 ("dad sp");
-      cost2 (1, 11);
+      cost2 (1, 10);
       emit2 ("sphl");
       cost2 (1, 6);
       emit3 (A_LD, ASMOP_L, ASMOP_C);
@@ -6537,7 +6536,7 @@ genIpush (const iCode *ic)
           emit3w (A_PUSH, ASMOP_HL, 0);
           cheapMove (ASMOP_L, 0, IC_LEFT (ic)->aop, 0, false);
           emit2 ("xthl");
-          cost2 (1, 19);
+          cost2 (1, 16);
           spillPair (PAIR_HL);
         }
 
@@ -6672,7 +6671,7 @@ genIpush (const iCode *ic)
            genMove_o (ASMOP_HL, 0, IC_LEFT (ic)->aop, size - 2, 2, a_free, hl_free, de_free, true, true);
            _G.stack.pushed -= 2;
            emit2 ("xthl");
-           cost2 (1, 19);
+           cost2 (1, 16);
            spillPair (PAIR_HL);
            d = 2;
          }
@@ -6749,7 +6748,7 @@ genIpush (const iCode *ic)
           emit3w (A_PUSH, ASMOP_HL, 0);
           genMove_o (ASMOP_H, 0, ic->left->aop, size - 1, 1, a_free, h_free && l_free, d_free && e_free, iyh_free && iyl_free, true);
           emit2 ("xthl");
-          cost2 (1, 19);
+          cost2 (1, 16);
           spillPair (PAIR_HL);
           emit2 ("inx sp");
           cost2 (1, 6);
@@ -7034,7 +7033,7 @@ genCall (const iCode *ic)
           emit2 ("lxi %s, !immedword", _pairs[pair].name, (unsigned)sp_offset);
           cost2 (3, 10);
           emit2 ("dad sp");
-          cost2 (1, 11);
+          cost2 (1, 10);
         }
       if (!hl_free)
         {
@@ -7792,7 +7791,7 @@ genEndFunction (iCode *ic)
               emit2 ("lxi h, !immedword", 4u);
               cost2 (3, 10);
               emit2 ("dad sp");
-              cost2 (1, 11);
+              cost2 (1, 10);
               emit2 ("mov e, m");
               cost2 (1, 7);
               emit3w (A_INC, ASMOP_HL, 0);
@@ -7811,13 +7810,13 @@ genEndFunction (iCode *ic)
             {
               wassert (stackparmbytes != 1); // Avoid overwriting return address and hl.
               emit2 ("xthl");
-              cost2 (1, 19);
+              cost2 (1, 16);
               _push (PAIR_DE);
               emit3w (A_EX, ASMOP_DE, ASMOP_HL);
               emit2 ("lxi h, !immedword", (unsigned)(2 +  poststackadjust));
               cost2 (3, 10);
               emit2 ("dad sp");
-              cost2 (1, 11);
+              cost2 (1, 10);
               emit2 ("mov m, e");
               cost2 (1, 7);
               emit3w (A_INC, ASMOP_HL, 0);
@@ -7825,7 +7824,7 @@ genEndFunction (iCode *ic)
               cost2 (1, 7);
               _pop (PAIR_DE);
               emit2 ("xthl");
-              cost2 (1, 19);
+              cost2 (1, 16);
             }
 
           adjustStack (poststackadjust,
@@ -8139,7 +8138,7 @@ genPlusIncr (const iCode *ic)
                 {
                   fetchPair (freep, IC_RIGHT (ic)->aop);
                   emit2 ("dad %s", _pairs[freep].name);
-                  cost2 (1, 11);
+                  cost2 (1, 10);
                   return TRUE;
                 }
             }
@@ -8489,7 +8488,7 @@ genPlus (iCode * ic)
             genMove (raop, ic->right->aop, false, false, false, false);
           }
           emit2 ("dad %s", _pairs[pair].name);
-          cost2 (1, 11);
+          cost2 (1, 10);
           goto release;
         }
       else if (right == PAIR_HL && (isPairDead (PAIR_DE, ic) || isPairDead (PAIR_BC, ic)))
@@ -8502,7 +8501,7 @@ genPlus (iCode * ic)
             genMove (raop, leftop, false, false, false, false);
           }
           emit2 ("dad %s", _pairs[pair].name);
-          cost2 (1, 11);
+          cost2 (1, 10);
           goto release;
         }
       else
@@ -8517,7 +8516,7 @@ genPlus (iCode * ic)
       genMove (ASMOP_HL, ic->left->aop, isRegDead (A_IDX, ic), true, isRegDead (DE_IDX, ic), true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */);
       genMove (extrapair == PAIR_DE ? ASMOP_DE : ASMOP_BC, ic->right->aop, isRegDead (A_IDX, ic), false, isRegDead (DE_IDX, ic), true /* was isRegDead(IY_IDX,ic) - always true, IY never register-allocated (#25) */);
       emit2 ("dad %s", _pairs[extrapair].name);
-      cost2 (1, 11);
+      cost2 (1, 10);
       spillPair (PAIR_HL);
       goto release;
     }
@@ -8529,7 +8528,7 @@ genPlus (iCode * ic)
       PAIR_ID extrapair = isPairDead (PAIR_DE, ic) ? PAIR_DE : PAIR_BC;
       fetchPair (extrapair, getPairId (IC_LEFT (ic)->aop) == PAIR_HL ? IC_RIGHT (ic)->aop : IC_LEFT (ic)->aop);
       emit2 ("dad %s", _pairs[extrapair].name);
-      cost2 (1, 11);
+      cost2 (1, 10);
       spillPair (PAIR_HL);
       genMove (IC_RESULT (ic)->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic), true);
       goto release;
@@ -8823,7 +8822,7 @@ genPlus (iCode * ic)
           emit2 ("lxi h, !immed%d", spOffset (leftop->aopu.aop_stk) + (ulFromVal (rightop->aopu.aop_lit) & 0xffff));
           cost2 (3, 10);
           emit2 ("dad sp");
-          cost2 (1, 11);
+          cost2 (1, 10);
           spillPair (PAIR_HL);
           started = true;
           genMove_o (IC_RESULT (ic)->aop, 0, ASMOP_HL, 0, 2, true, true, de_dead, false, i + 2 == size);
@@ -8840,7 +8839,7 @@ genPlus (iCode * ic)
           genMove (pair == PAIR_BC ? ASMOP_BC : ASMOP_DE, rightop, a_dead, true, de_dead, false);
           genMove (ASMOP_HL, leftop, true, true, de_dead && pair != PAIR_DE, false);
           emit2 ("dad %s", _pairs[pair].name);
-          cost2 (1, 11);
+          cost2 (1, 10);
           spillPair (PAIR_HL);
           started = true;
           if (pair == PAIR_DE && !de_dead)
@@ -8893,7 +8892,7 @@ genPlus (iCode * ic)
                 {
                   emit2 ("dad %s", _pairs[pair].name);
                   started = true;
-                  cost2 (1, 11);
+                  cost2 (1, 10);
                   spillPair (pair);
                 }
               i += 2;
@@ -9043,7 +9042,7 @@ genPlus (iCode * ic)
           else
             {
               emit2 ("dad %s", _pairs[pair].name);
-              cost2 (1, 11);
+              cost2 (1, 10);
               started = true;
             }
           spillPair (PAIR_HL);
@@ -9068,7 +9067,7 @@ genPlus (iCode * ic)
           else
             {
               emit2 ("dad %s", _pairs[pair].name);
-              cost2 (1, 11);
+              cost2 (1, 10);
             }
           spillPair (PAIR_HL);
           started = true;
@@ -9083,7 +9082,7 @@ genPlus (iCode * ic)
           emit2 ("mvi %s, !immedbyte", _pairs[pair].l, (ulFromVal (IC_RIGHT (ic)->aop->aopu.aop_lit)) & 0xffu);
           cost2 (2, 7);
           emit2 ("dad %s", _pairs[pair].name);
-          cost2 (1, 11);
+          cost2 (1, 10);
           spillPair (PAIR_HL);
           started = true;
           i++;
@@ -10387,7 +10386,7 @@ genMult (iCode *ic)
               if (active)
                 {
                   emit2 ("dad %s", _pairs[pair].name);
-                  cost2 (1, 11);
+                  cost2 (1, 10);
                 }
               active = true;
             }
@@ -11672,7 +11671,7 @@ genAnd (const iCode *ic, iCode *ifx)
                   /* Doubling ("hl += hl", equivalent to "hl <<= 1") - dad's
                      single-operand, implicit-destination form. */
                   emit2 ("dad %s", _pairs[pair].name);
-                  cost2 (1, 11);
+                  cost2 (1, 10);
                 }
               // "else if (isLiteralBit (bytelit) == 7) {emit2 ("rl %s",
               jumpcond = "c";
@@ -12372,7 +12371,7 @@ emit8080Ldir (void)
       emit2 ("mov a, m");
       emit2 ("stax d");
     }
-  cost2 (2, 11);
+  cost2 (2, 14);
   emit3w (A_INC, ASMOP_HL, 0);
   emit3w (A_INC, ASMOP_DE, 0);
   emit3w (A_DEC, ASMOP_BC, 0);
@@ -12390,7 +12389,7 @@ emit8080Ldi (void)
       emit2 ("mov a, m");
       emit2 ("stax d");
     }
-  cost2 (2, 11);
+  cost2 (2, 14);
   emit3w (A_INC, ASMOP_HL, 0);
   emit3w (A_INC, ASMOP_DE, 0);
   emit3w (A_DEC, ASMOP_BC, 0);
@@ -12818,7 +12817,7 @@ genSwap (const iCode *ic)
           // this file).
           _pop (PAIR_HL);
           emit2 ("xthl");
-          cost2 (1, 19); // "1 + IS_RAB" simplified to "1" (IS_RAB unconditionally 0 in this file).
+          cost2 (1, 16); // "1 + IS_RAB" simplified to "1" (IS_RAB unconditionally 0 in this file).
           _push (PAIR_HL);
           break;
         }
@@ -13953,7 +13952,7 @@ static void offsetPair (PAIR_ID pair, PAIR_ID extrapair, bool save_extrapair, in
       emit2 ("lxi %s, !immedword", _pairs[extrapair].name, (unsigned)val);
       cost2 (3, 10);
       emit2 ("dad %s", _pairs[extrapair].name);
-      cost2 (1, 11);
+      cost2 (1, 10);
       if (save_extrapair)
         _pop (extrapair);
     }
@@ -14273,7 +14272,7 @@ genPointerGet (const iCode *ic)
           emit2 ("lxi h, !immed%d", rightval);
           cost2 (3, 10);
           emit2 ("dad %s", _pairs[getPairId (left->aop)].name);
-          cost2 (1, 11);
+          cost2 (1, 10);
           spillPair (pair);
           rightval = 0;
         }
@@ -14282,7 +14281,7 @@ genPointerGet (const iCode *ic)
           emit2 ("lxi h, !immed%d", spOffset (left->aop->aopu.aop_stk) + rightval);
           cost2 (3, 10);
           emit2 ("dad sp");
-          cost2 (1, 11);
+          cost2 (1, 10);
           spillPair (pair);
           rightval = 0;
         }
@@ -15496,9 +15495,9 @@ genJumpTab (const iCode *ic)
     emit2 ("lxi h, !immed!tlabel", labelKey2num (jtab->key));
   cost2 (3, 10);
   emit2 ("dad %s", _pairs[pair].name);
-  cost2 (1, 11);
+  cost2 (1, 10);
   emit2 ("dad %s", _pairs[pair].name);
-  cost2 (1, 11);
+  cost2 (1, 10);
   spillPair (PAIR_HL);
 
   // "if (IS_TLCS90||IS_EZ80) {ld hl, (hl)} else if (IS_RAB) {ld hl, 0(hl)}
