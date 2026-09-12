@@ -7625,15 +7625,18 @@ genFunction (const iCode * ic)
     }
   else if (sym->stack)
     {
-      if (!_G.omitFramePtr)
-        emit2 ((optimize.codeSize && !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h")) ? "!enters" : "!enter");
+      // "if (!_G.omitFramePtr) emit2(...\"!enters\"/\"!enter\"...);"
+      // removed (#35): _G.omitFramePtr is always true on this port (see
+      // ralloc2.cc's omit_frame_ptr(), "no index register at all") -
+      // the push-ix/ld-ix-#0/add-ix-sp frame-pointer prologue these two
+      // mapping.i entries expanded to was never actually emitted here.
       adjustStack (-sym->stack, !i8085_IsParmInCall (sym->type, "a"), !i8085_IsParmInCall (sym->type, "c") && !i8085_IsParmInCall (sym->type, "v"), !i8085_IsParmInCall (sym->type, "e") && !i8085_IsParmInCall (sym->type, "d"), !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h"), false);
       _G.stack.pushed = 0;
     }
-  else if (!_G.omitFramePtr)
-    {
-      emit2 ((optimize.codeSize && !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h")) ? "!enters" : "!enter"); // !enters might result in a function call to a helper function.
-    }
+  // "else if (!_G.omitFramePtr) {emit2(...\"!enters\"/\"!enter\"...);}"
+  // removed (#35): same reasoning - this whole branch never actually
+  // fired (it did nothing else, so removing it changes nothing
+  // observable for the case it used to cover).
 
   _G.stack.offset = sym->stack;
   
@@ -7697,24 +7700,19 @@ genEndFunction (iCode *ic)
 
 
   // false), making the whole arm unreachable.
-  if (!_G.omitFramePtr && sym->stack > (optimize.codeSize ? 2 : 1))
-    {
-      emit2 ("ld sp, ix");
-      cost2 (2, 10);
-    }
-  else
-    adjustStack (_G.stack.offset,
-      !aopRet (sym->type)  || aopRet (sym->type)->regs[A_IDX] < 0,
-      bc_free,
-      de_free,
-      hl_free,
-      iy_free);
+  // "if (!_G.omitFramePtr && ...) {emit2(\"ld sp, ix\"); ...} else"
+  // removed (#35): _G.omitFramePtr is always true on this port (see the
+  // prologue's equivalent removal, genBeginFunction() above), so this
+  // always took the adjustStack() path below regardless.
+  adjustStack (_G.stack.offset,
+    !aopRet (sym->type)  || aopRet (sym->type)->regs[A_IDX] < 0,
+    bc_free,
+    de_free,
+    hl_free,
+    iy_free);
 
-  if(!_G.omitFramePtr)
-    {
-      emit2 ("pop ix");
-      cost2 (2, 14);
-    }
+  // "if (!_G.omitFramePtr) {emit2(\"pop ix\"); ...}" removed (#35): same
+  // reasoning - never actually fired.
 
   wassertl(regalloc_dry_run || !(isFuncCalleeStackCleanup (sym->type) && (_G.calleeSaves.pushedDE || _G.calleeSaves.pushedBC)), "Unimplemented __z88dk_callee support for calle-saved bc/de on callee side");
   if (_G.calleeSaves.pushedBC)

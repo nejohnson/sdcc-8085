@@ -40,12 +40,14 @@ static const ASM_MAPPING _i8085_asm_mapping[] = {
        removed (#32): confirmed zero emit2() callers anywhere in gen.c -
        same "no index register" reasoning as "*ixx"/"*iyx" above. */
     { "mems", "(%s)" },
-    { "enter",
-      "push\tix\n"
-      "ld\tix, #0\n"
-      "add\tix, sp" },
-    { "enters",
-      "call\t___sdcc_enter_ix\n" },
+    /* "enter"/"enters" (push-ix/ld-ix-#0/add-ix-sp frame-pointer
+       prologue setup, inherited from z80) removed (#35): their two
+       emit2() call sites (genBeginFunction(), gen.c) were both gated by
+       "!_G.omitFramePtr" - and _G.omitFramePtr is always true on this
+       port (ralloc2.cc's omit_frame_ptr(), "no index register at all")
+       - so neither ever actually fired. Confirmed via grep: zero
+       remaining "!enter"/"!enters" mentions in gen.c beyond the
+       comments documenting this removal. */
     { "adjustsp", "lda sp,-%d(sp)" },
     { "here", "." },
     { "optsdcc", ".optsdcc" },
