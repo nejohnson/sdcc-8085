@@ -559,7 +559,10 @@ aopRegUsedRange (const asmop *aop, short rIdx, int minPos, int maxPos)
 static bool
 aopRS (const asmop *aop)
 {
-  return (aop->type == AOP_REG || aop->type == AOP_STK || aop->type == AOP_EXSTK);
+  // "aop->type == AOP_STK" disjunct removed (#34): AOP_STK is never
+  // actually constructed on this port (see aopForSym()'s/
+  // init_stackop()'s construction sites).
+  return (aop->type == AOP_REG || aop->type == AOP_EXSTK);
 }
 
 /*-----------------------------------------------------------------*/
@@ -689,7 +692,8 @@ aopInReg (const asmop *aop, int offset, short rIdx)
 static bool
 aopOnStack (const asmop *aop, int offset, int size)
 {
-  if (!(aop->type == AOP_STK || aop->type == AOP_EXSTK))
+  // "aop->type == AOP_STK ||" disjunct removed (#34): never constructed.
+  if (aop->type != AOP_EXSTK)
     return (false);
 
   if (offset + size > aop->size)
@@ -1295,7 +1299,9 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
           return (8);
         case AOP_SFR:          /* 2 from in a, (...) */
           return (9);
-        case AOP_STK:
+        // "case AOP_STK:" label removed (#34): op2 can never actually be
+        // AOP_STK (same proof as op1), and its cost here was already
+        // just a merge with AOP_HL's, so nothing distinguishing is lost.
         case AOP_HL:           /* 3 from ld hl, #... */
           return (10);
         case AOP_EXSTK:
@@ -1305,6 +1311,13 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
           wassert (0);
         }
     case AOP_STK:
+      // op1 == AOP_STK is dead for i8085 (omit_frame_ptr() always true -
+      // see this function's other AOP_STK entry, the op1==AOP_REG/
+      // op2==AOP_STK case above, for the full explanation). This whole
+      // case, not just one nested arm, is unreachable - gated the same
+      // way (only trips for emit_A_LD()'s real-emission callers).
+      if (form_out)
+        wassertl (0, "op1 == AOP_STK is dead for i8085 (omit_frame_ptr() always true)");
       switch (op2type)
         {
         case AOP_IMMD:
@@ -1379,6 +1392,12 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
             cost2 (2, 10); // ld (hl), n
           return (5);
         case AOP_STK:
+          // op2 == AOP_STK is dead for i8085, same as every other
+          // AOP_STK site in this function - kept (rather than merged
+          // into AOP_HL/AOP_EXSTK below) only because its cost here
+          // genuinely differs from theirs.
+          if (form_out)
+            wassertl (0, "op2 == AOP_STK is dead for i8085 (omit_frame_ptr() always true)");
           if (count)
             {
               cost2 (3, 19); // ld a, d(ix)
@@ -1506,6 +1525,7 @@ op8_cost (const asmop *op, int offset)
       cost2 (2, 7);
       return;
     case AOP_STK:
+      wassertl (0, "AOP_STK is dead for i8085 (omit_frame_ptr() always true)");
       cost2 (3, 19);
       return;
     case AOP_EXSTK: // Approximation. Don't really know if this is really exstk at this point, anyway.
@@ -1541,6 +1561,7 @@ incdec_cost (const asmop *op, int offset)
       cost2 (1, 4);
       return;
     case AOP_STK:
+      wassertl (0, "AOP_STK is dead for i8085 (omit_frame_ptr() always true)");
       cost2 (3, 23);
       return;
     case AOP_EXSTK: // Approximation. Don't really know if this is really exstk at this point, anyway.
@@ -1575,6 +1596,7 @@ bit8_cost (const asmop *op)
       cost2 (2, 8);
       return;
     case AOP_STK:
+      wassertl (0, "AOP_STK is dead for i8085 (omit_frame_ptr() always true)");
       cost2 (4, 23);
       return;
     case AOP_EXSTK: // Approximation. Don't really know if this is really exstk at this point, anyway.
@@ -1698,9 +1720,11 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       cost (1, 2);
       return;
     case A_CP:
+      // "else if (op2->type == AOP_STK) cost2(3,-1);" removed (#34):
+      // op2 can never actually be AOP_STK (never constructed on this
+      // port), and its cost here matched the LIT/IMMD branch's exactly,
+      // so nothing distinguishing is lost by dropping it outright.
       if (op2->type == AOP_LIT || op2->type == AOP_IMMD)
-        cost2 (3, -1);
-      else if (op2->type == AOP_STK)
         cost2 (3, -1);
       else
         cost2 (2, -1);
@@ -1755,7 +1779,13 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       if (op2->type == AOP_LIT || op2->type == AOP_IMMD)
         cost2 (-1, -1);
       else if (op2->type == AOP_STK)
-        cost2 (3, -1);
+        {
+          // op2 == AOP_STK is dead for i8085 (omit_frame_ptr() always
+          // true) - kept (rather than merged into the else branch
+          // below) only because its cost here genuinely differs.
+          wassertl (0, "AOP_STK is dead for i8085 (omit_frame_ptr() always true)");
+          cost2 (3, -1);
+        }
       else
         cost2 (2, -1);
       return;
@@ -2622,20 +2652,17 @@ aopForSym (const iCode *ic, symbol *sym, bool result, bool requires_a)
   /* Assign depending on the storage class */
   if (sym->onStack || sym->iaccess)
     {
-      /* The pointer that is used depends on how big the offset is.
-         Normally everything is AOP_STK, but for offsets of < -128 or
-         > 127 on the Z80 an extended stack pointer is used.
-       */
-      if (_G.omitFramePtr || sym->stack < INT8MIN || sym->stack > (int) (INT8MAX - getSize (sym->type)))
-        {
-          // emitDebug ("; AOP_EXSTK for %s, _G.omitFramePtr %d, sym->stack %d, size %d", sym->rname, (int) (_G.omitFramePtr), sym->stack, getSize (sym->type));
-          sym->aop = aop = newAsmop (AOP_EXSTK);
-        }
-      else
-        {
-          // emitDebug ("; AOP_STK for %s", sym->rname);
-          sym->aop = aop = newAsmop (AOP_STK);
-        }
+      /* On the Z80, a symbol's offset decided between framepointer-
+         relative addressing (AOP_STK, via IX with an 8-bit signed
+         displacement) and this port's only option, SP-computed-address
+         addressing (AOP_EXSTK) - but that choice belongs to
+         omit_frame_ptr() (ralloc2.cc), which unconditionally returns
+         true for i8080/i8085 ("no index register at all"), so
+         _G.omitFramePtr is always true here and AOP_STK's "else" branch
+         was never reachable - removed (#34), matching init_stackop()'s
+         identical construction site just below in this file. */
+      // emitDebug ("; AOP_EXSTK for %s, sym->stack %d, size %d", sym->rname, sym->stack, getSize (sym->type));
+      sym->aop = aop = newAsmop (AOP_EXSTK);
 
       memset (aop->regs, -1, sizeof(aop->regs));
       aop->size = getSize (sym->type);
@@ -2878,9 +2905,10 @@ sameRegs (const asmop *aop1, const asmop *aop2)
   if (aop1 == aop2)
     return TRUE;
 
+  // "aop1->type == AOP_STK && aop2->type == AOP_STK ||" disjunct
+  // removed (#34): never actually constructed on this port.
   if (!regalloc_dry_run && // Todo: Check if always enabling this even for dry runs tends to result in better code.
-    (aop1->type == AOP_STK && aop2->type == AOP_STK ||
-    aop1->type == AOP_EXSTK && aop2->type == AOP_EXSTK))
+    aop1->type == AOP_EXSTK && aop2->type == AOP_EXSTK)
     return (aop1->aopu.aop_stk == aop2->aopu.aop_stk);
 
   if (aop1->type != AOP_REG || aop2->type != AOP_REG)
@@ -3035,10 +3063,13 @@ aopOp (operand *op, const iCode *ic, bool result, bool requires_a)
           return;
         }
 
-      /* On-stack for dry run. */
+      /* On-stack for dry run. "_G.omitFramePtr ? AOP_EXSTK : AOP_STK"
+         simplified to unconditionally AOP_EXSTK (#34): _G.omitFramePtr
+         is always true on this port - see aopForSym()'s equivalent
+         construction site above for the full explanation. */
       if (sym->nRegs && regalloc_dry_run)
         {
-          sym->aop = op->aop = aop = newAsmop (_G.omitFramePtr ? AOP_EXSTK : AOP_STK);
+          sym->aop = op->aop = aop = newAsmop (AOP_EXSTK);
           aop->size = getSize (sym->type);
           if (!result)
             aop->valinfo = getOperandValinfo (ic, op, false);
@@ -3431,7 +3462,8 @@ aopGetLitWordLong (const asmop *aop, int offset, bool with_hash)
     break;
 
     case AOP_REG:
-    case AOP_STK:
+    // "case AOP_STK:" label removed (#34): never actually constructed
+    // on this port; was a harmless merge into this no-op bucket anyway.
     case AOP_DIR:
     case AOP_SFR:
     case AOP_STL:
@@ -3506,8 +3538,10 @@ requiresHL (const asmop *aop)
     case AOP_EXSTK:
     case AOP_STL:
       return true;
-    case AOP_STK:
-      return (_G.omitFramePtr);
+    // "case AOP_STK: return (_G.omitFramePtr);" removed (#34): never
+    // actually constructed on this port, and _G.omitFramePtr is always
+    // true regardless - this returned the same "true" as the group
+    // just above, so merging it in loses no distinguishing behavior.
     case AOP_REG:
     {
       int i;
@@ -3529,10 +3563,15 @@ requiresHL (const asmop *aop)
 static void
 updatePair (PAIR_ID pairId, int diff)
 {
+  // "_G.pairs[pairId].last_type == AOP_STK ||" disjunct removed (#34):
+  // last_type is only ever copied from a real asmop's ->type field (or
+  // set literally to AOP_INVALID/AOP_LIT/AOP_EXSTK), and no asmop's
+  // type is ever AOP_STK on this port - see aopForSym()'s/
+  // init_stackop()'s construction sites.
   if (_G.pairs[pairId].last_type == AOP_LIT)
     _G.pairs[pairId].value = (_G.pairs[pairId].value + (unsigned int)diff) & 0xffff;
   else if (_G.pairs[pairId].last_type == AOP_IMMD || _G.pairs[pairId].last_type == AOP_HL ||
-    _G.pairs[pairId].last_type == AOP_STK || _G.pairs[pairId].last_type == AOP_EXSTK)
+    _G.pairs[pairId].last_type == AOP_EXSTK)
     _G.pairs[pairId].offset += diff;
 }
 
@@ -3808,7 +3847,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
          SM83 is nearly twice as fast doing it byte by byte, but that's a byte bigger.
          Stack allocation can change after register allocation, so assume this optimization is not possible for the allocator's cost function (unless the stack location is for a parameter). */
       else if (aop->size - offset >= 2 &&
-               (aop->type == AOP_STK || aop->type == AOP_EXSTK) && (!regalloc_dry_run || aop->aopu.aop_stk > 0)
+               aop->type == AOP_EXSTK && (!regalloc_dry_run || aop->aopu.aop_stk > 0) // "aop->type == AOP_STK ||" removed (#34): never constructed.
                && (aop->aopu.aop_stk + offset + _G.stack.offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) +
                    _G.stack.pushed) == 2 && ic && getFreePairId (ic) != PAIR_INVALID && getFreePairId (ic) != pairId)
         {
@@ -3820,7 +3859,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
         }
       /* Todo: Use even cheaper ex hl, (sp) and ex iy, (sp) when possible. */
       else if (aop->size - offset >= 2 &&
-               (aop->type == AOP_STK || aop->type == AOP_EXSTK) && (!regalloc_dry_run || aop->aopu.aop_stk > 0)
+               (aop->type == AOP_EXSTK) && (!regalloc_dry_run || aop->aopu.aop_stk > 0)
                && (aop->aopu.aop_stk + offset + _G.stack.offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) +
                    _G.stack.pushed) == 0)
         {
@@ -4062,12 +4101,13 @@ static void pointPairToAop (PAIR_ID pairId, const asmop *aop, int offset)
 {
   switch (aop->type)
     {
-    case AOP_STK:
+    // "case AOP_STK:" label removed (#34): never actually constructed
+    // on this port; shared this same body with AOP_EXSTK anyway.
     case AOP_EXSTK:
       ;
       int abso = aop->aopu.aop_stk + offset + _G.stack.offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
 
-      if ((_G.pairs[pairId].last_type == AOP_STK || _G.pairs[pairId].last_type == AOP_EXSTK) && abs (_G.pairs[pairId].offset - abso) < (_G.preserveCarry ? 5 : 3))
+      if ((_G.pairs[pairId].last_type == AOP_EXSTK) && abs (_G.pairs[pairId].offset - abso) < (_G.preserveCarry ? 5 : 3))
         adjustPair (_pairs[pairId].name, &_G.pairs[pairId].offset, abso);
       else
         setupPairFromSP (pairId, abso + _G.stack.pushed);
@@ -4115,13 +4155,14 @@ setupPair (PAIR_ID pairId, asmop *aop, int offset)
       _G.pairs[pairId].offset = offset;
       break;
 
+    // "case AOP_STK:" label removed (#34): never actually constructed
+    // on this port; shared this same body with AOP_EXSTK anyway.
     case AOP_EXSTK:
-    case AOP_STK:
       {
         int abso = aop->aopu.aop_stk + offset + _G.stack.offset + (aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
   
         /* In some cases we can still inc or dec hl */
-        if ((_G.pairs[pairId].last_type == AOP_STK || _G.pairs[pairId].last_type == AOP_EXSTK) && abs (_G.pairs[pairId].offset - abso) <= 3)
+        if ((_G.pairs[pairId].last_type == AOP_EXSTK) && abs (_G.pairs[pairId].offset - abso) <= 3)
           adjustPair (_pairs[pairId].name, &_G.pairs[pairId].offset, abso);
         else
           setupPairFromSP (pairId, abso + _G.stack.pushed);
@@ -4691,7 +4732,7 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
      checks below were dropped (#25) purely because IYH_IDX itself no
      longer exists as an enum value - not an attempt to resolve this
      block's own documented uncertainty, which stands as before. */
-  if ((to->type == AOP_STK || to->type == AOP_EXSTK) && _G.omitFramePtr &&
+  if ((to->type == AOP_EXSTK) && _G.omitFramePtr &&
     (aopInReg (to, to_offset, A_IDX) || aopInReg (to, to_offset, B_IDX) || aopInReg (to, to_offset, D_IDX) || aopInReg (to, to_offset, H_IDX)))
     {
       int fp_offset = to->aopu.aop_stk + to_offset + (to->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
@@ -4719,7 +4760,7 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
     wassertl (0, "cheapMove: AOP_IY is dead for i8085 (no IY hardware)");
   else if (!aopInReg (to, to_offset, A_IDX) && !aopInReg (from, from_offset, A_IDX) && // Go through a.
     (from->type == AOP_DIR || from->type == AOP_SFR || to->type == AOP_SFR ||
-    (to->type == AOP_DIR || to->type == AOP_HL || to->type == AOP_EXSTK || to->type == AOP_STK) && (from->type == AOP_HL || from->type == AOP_EXSTK || from->type == AOP_STK) ||
+    (to->type == AOP_DIR || to->type == AOP_HL || to->type == AOP_EXSTK) && (from->type == AOP_HL || from->type == AOP_EXSTK) ||
     (to->type == AOP_HL || to->type == AOP_EXSTK) && (aopInReg(from, from_offset, L_IDX) || aopInReg(from, from_offset, H_IDX)) ||
     to->type == AOP_PAIRPTR && from->type == AOP_PAIRPTR ||
     to->type == AOP_PAIRPTR && to->aopu.aop_pairId == PAIR_DE && from->type == AOP_LIT ||
@@ -4765,14 +4806,14 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
      fact: id is never actually PAIR_IY here, not merely dead for lack of
      hardware. "id == PAIR_HL || id == PAIR_IY" simplified to "id ==
      PAIR_HL" accordingly. */
-  if (!regalloc_dry_run && (aop->type == AOP_STK || aop->type == AOP_EXSTK) && !sp_offset
+  if (!regalloc_dry_run && (aop->type == AOP_EXSTK) && !sp_offset
       && id == PAIR_HL && !dont_destroy)
     {
       emit2 ("xthl");
       cost2 (1, 16); // "1 + IS_RAB" simplified to "1" (IS_RAB unconditionally 0 in this file).
       spillPair (id);
     }
-  else if (!regalloc_dry_run && (aop->type == AOP_STK || aop->type == AOP_EXSTK) && !sp_offset)
+  else if (!regalloc_dry_run && (aop->type == AOP_EXSTK) && !sp_offset)
     {
       emit2 ("inx sp");
       cost2 (1, 6);
@@ -4912,27 +4953,13 @@ genCopyStack (asmop *result, int roffset, asmop *source, int soffset, int n, boo
           continue;
         }
 
-      // Better than having to push/pop af below. Still prefer a, if free, to avoid spilling cached values in hl.
-      /* AOP_STK is dead for i8085 (see this file's other AOP_STK-dead
-         comments) - this whole branch (both result->type and source->type
-         required to be AOP_STK) is unreachable, left as unmodified Zilog
-         text. */
-      if (!a_free && hl_free &&
-        (result->type == AOP_STK && result_fp_offset >= -128 && result_fp_offset <= 127) &&
-        (source->type == AOP_STK && source_fp_offset >= -128 && source_fp_offset <= 127))
-        {
-          if (!regalloc_dry_run)
-            emit2 ("ld l, %s", aopGet (source, soffset + i, false));
-          cost2 (3, 19);
-          spillPair (PAIR_HL);
-          if (!regalloc_dry_run)
-            emit2 ("ld %s, l", aopGet (result, roffset + i, false));
-          cost2 (3, 19);
-          assigned[i] = true;
-          (*size)--;
-          j++;
-          continue;
-        }
+      // "if (!a_free && hl_free && (result->type == AOP_STK && ...) &&
+      // (source->type == AOP_STK && ...)) {ld l, .../ld ..., l via
+      // AOP_STK's IX-displacement form}" removed (#34): both result and
+      // source would need to be AOP_STK simultaneously, and AOP_STK is
+      // never actually constructed on this port - 100% unreachable, same
+      // class of removal as the two dead IY-indexed-addressing blocks
+      // #25 checkpoint 5 removed from genPointerGet().
 
       if (a_free || really_do_it_now)
         {
@@ -5291,7 +5318,7 @@ skip_byte:
       // (IS_RAB||IS_TLCS90)-gated "ld hl/iy, (sp)" arm, and
       // (IS_RAB||IS_EZ80||IS_TLCS90)-gated "ld hl/iy/bc/de, ..." arm
 
-      else if (i + 1 < n && !assigned[i + 1] && (source->type == AOP_STK || source->type == AOP_EXSTK) &&
+      else if (i + 1 < n && !assigned[i + 1] && (source->type == AOP_EXSTK) &&
         !sp_offset && getPairId_o (result, roffset + i) != PAIR_INVALID &&
         !regalloc_dry_run) // Stack locations might change.
         {
@@ -5313,7 +5340,7 @@ skip_byte:
           size -= 2;
           i += 2;
         }
-      else if (i + 1 < n && !assigned[i + 1] && (source->type == AOP_STK || source->type == AOP_EXSTK) &&
+      else if (i + 1 < n && !assigned[i + 1] && (source->type == AOP_EXSTK) &&
         sp_offset == 2 && getPairId_o (result, roffset + i) != PAIR_INVALID &&
         (getPairId_o (result, roffset + i) != PAIR_HL && hl_free || getPairId_o (result, roffset + i) != PAIR_DE && de_free) &&
         (!regalloc_dry_run || source->aopu.aop_stk > 0) &&  // Stack locations might change, unless its a parameter.
@@ -5335,7 +5362,7 @@ skip_byte:
           i += 2;
         }
 
-      else if (i + 1 < n && !assigned[i + 1] && (source->type == AOP_STK || source->type == AOP_EXSTK) && requiresHL (source) &&
+      else if (i + 1 < n && !assigned[i + 1] && (source->type == AOP_EXSTK) && requiresHL (source) &&
         (aopInReg (result, roffset + i, HL_IDX) || aopInReg (result, roffset + i, H_IDX) && aopInReg (result, roffset + i + 1, L_IDX))) // Stack access might go through hl.
         {
           bool a_pushed = false;
@@ -5440,7 +5467,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
   if (aopSame (result, roffset, source, soffset, size))
     return;
 
-  if ((result->type == AOP_REG || result->type == AOP_STK || result->type == AOP_EXSTK) && (source->type == AOP_REG || source->type == AOP_STK || source->type == AOP_EXSTK))
+  if ((result->type == AOP_REG || result->type == AOP_EXSTK) && (source->type == AOP_REG || source->type == AOP_EXSTK))
     {
       int csize = size > source->size - soffset ? source->size - soffset : size;
       if (csize < 0)
@@ -5460,7 +5487,10 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
     }
 
   bool zeroed_a = false;
-  long value_hl = -1;
+  // value_hl removed (#34): its one and only read site (the dead
+  // "result->type == AOP_STK" block just below this function's
+  // AOP_STL-check) was itself removed as unreachable; these writes are
+  // now dead too - see the compiler's own -Wunused-but-set-variable.
 
   for (int i = 0; i < size;)
     {
@@ -5512,7 +5542,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
             _push (PAIR_HL);
           if (i + soffset > 1)
             UNIMPLEMENTED;
-          if ((_G.pairs[PAIR_HL].last_type == AOP_STK || _G.pairs[PAIR_HL].last_type == AOP_EXSTK) && abs (_G.pairs[PAIR_HL].offset - abso) < (f_dead ? 3 : 5))
+          if ((_G.pairs[PAIR_HL].last_type == AOP_EXSTK) && abs (_G.pairs[PAIR_HL].offset - abso) < (f_dead ? 3 : 5))
             adjustPair (_pairs[PAIR_HL].name, &_G.pairs[PAIR_HL].offset, abso);
           else
             {
@@ -5537,20 +5567,11 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           continue;
         }
 
-      /* result->type == AOP_STK is dead for i8085 (AOP_STK/IX-displacement
-         addressing is never constructed - see ralloc2.cc's omit_frame_ptr() -
-         AOP_EXSTK, HL-computed-address, is the only live stack-addressing
-         mode). Left as unmodified Zilog text, not translated, matching this
-         file's established practice for other confirmed-dead code. */
-      if (result->type == AOP_STK && i + 1 == size && value_hl >= 0 && (aopIsLitVal (source, soffset + i, 1, value_hl & 0xff) || aopIsLitVal (source, soffset + i, 1, (value_hl >> 8 )& 0xff)))
-        {
-          if (!regalloc_dry_run)
-            emit2 ("ld %s, %s", aopGet (result, roffset + i, false), aopIsLitVal (source, soffset + i, 1, value_hl & 0xff) ? "l" : "h");
-          cost2 (3, 19);
-          i++;
-          continue;
-        }
-      else if (i + 1 < size && getPairId_o(source, soffset + i) != PAIR_INVALID &&
+      // "if (result->type == AOP_STK && ...) {ld ..., l/h via IX-
+      // displacement}" removed (#34): result->type is never actually
+      // AOP_STK on this port (AOP_EXSTK, HL-computed-address, is the
+      // only live stack-addressing mode) - 100% unreachable.
+      if (i + 1 < size && getPairId_o(source, soffset + i) != PAIR_INVALID &&
         /* 8080/8085: only ld (nn),hl (SHLD) exists; ld (nn),de/bc are Z80
            ED-prefix ops, so let non-HL pairs fall through to a byte-wise store. */
         (getPairId_o(source, soffset + i) == PAIR_HL) &&
@@ -5600,7 +5621,6 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
         {
           genMove_o (ASMOP_HL, 0, source, soffset + i, 2, a_dead, true, false, f_dead);
           genMove_o (result, roffset + i, ASMOP_HL, 0, 2, a_dead, true, false, f_dead);
-          value_hl = -1;
           i += 2;
           continue;
         }
@@ -5636,10 +5656,7 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
                  (single operand) is unconditionally correct here. */
               emit2 ("lhld !mems", aopGetLitWordLong (source, soffset + i - upper, false));
               if (pair == PAIR_HL)
-                {
-                  cost2 (3, 16);
-                  value_hl = -1;
-                }
+                cost2 (3, 16);
               else
                 cost2 (4, 20);
               i++;
@@ -6994,7 +7011,7 @@ genCall (const iCode *ic)
       if (!hl_free)
         _push (PAIR_HL);
       aopOp (IC_RESULT (ic), ic, true, false);
-      wassert (IC_RESULT (ic)->aop->type == AOP_STK || IC_RESULT (ic)->aop->type == AOP_EXSTK);
+      wassert (IC_RESULT (ic)->aop->type == AOP_EXSTK);
       fp_offset =
         IC_RESULT (ic)->aop->aopu.aop_stk + (IC_RESULT (ic)->aop->aopu.aop_stk >
             0 ? _G.stack.param_offset : 0);
@@ -7350,7 +7367,7 @@ genCall (const iCode *ic)
       aopOp (ic->result, ic, true, false);
       int size = getSize (ftype->next);
       wassert (size);
-      wassert (ic->result->aop->type == AOP_STK || ic->result->aop->type == AOP_EXSTK);
+      wassert (ic->result->aop->type == AOP_EXSTK);
 
       pointPairToAop (PAIR_DE, ic->result->aop, 0);
       setupPairFromSP (PAIR_HL, ic->parmBytes);
@@ -8775,11 +8792,13 @@ genPlus (iCode * ic)
 
       const bool a_dead = isRegDead (A_IDX, ic) && leftop->regs[A_IDX] <= i && rightop->regs[A_IDX] <= i &&
         (ic->result->aop->regs[A_IDX] < 0 || ic->result->aop->regs[A_IDX] >= i);
-      const bool b_dead = isRegDead (B_IDX, ic) && leftop->regs[B_IDX] <= i && rightop->regs[B_IDX] <= i &&
-        (ic->result->aop->regs[B_IDX] < 0 || ic->result->aop->regs[B_IDX] >= i);
-      const bool c_dead = isRegDead (C_IDX, ic) && leftop->regs[C_IDX] <= i && rightop->regs[C_IDX] <= i &&
-        (ic->result->aop->regs[C_IDX] < 0 || ic->result->aop->regs[C_IDX] >= i);
-      const bool bc_dead = b_dead && c_dead;
+      // b_dead/c_dead/bc_dead removed (#34): only read by the two dead
+      // AOP_STK arms just removed above (both required leftop/
+      // ic->result to be AOP_STK, never constructed on this port) -
+      // b_dead/c_dead themselves had no other reader (only fed
+      // bc_dead's initializer), traced by hand since the compiler's own
+      // -Wunused-variable only flags a variable with zero references,
+      // not one whose sole consumer is itself now dead.
       const bool d_dead = isRegDead (D_IDX, ic) && leftop->regs[D_IDX] <= i && rightop->regs[D_IDX] <= i &&
         (ic->result->aop->regs[D_IDX] < 0 || ic->result->aop->regs[D_IDX] >= i);
       const bool e_dead = isRegDead (E_IDX, ic) && leftop->regs[E_IDX] <= i && rightop->regs[E_IDX] <= i &&
@@ -8987,17 +9006,10 @@ genPlus (iCode * ic)
           started = true;
           i += 2;
         }
-      else if (!maskedword && !started && i + 2 == size && hl_dead && leftop->type == AOP_STK && ic->result->aop->type == AOP_STK && (aopIsLitVal (rightop, i, 2, 1) || aopIsLitVal (rightop, i, 2, 2)))
-        {
-          genMove_o (ASMOP_HL, 0, leftop, i, 2, a_dead, true, false, false);
-          emit3w (A_INC, ASMOP_HL, 0);
-          if (aopIsLitVal (rightop, i, 2, 2))
-            emit3w (A_INC, ASMOP_HL, 0);
-          spillPair (PAIR_HL);
-          genMove_o (ic->result->aop, i, ASMOP_HL, 0, 2, a_dead, true, false, false);
-          started = true;
-          i += 2;
-        }
+      // "else if (... leftop->type == AOP_STK && ic->result->aop->type
+      // == AOP_STK && ...) {genMove_o via ASMOP_HL, inc hl once/twice}"
+      // removed (#34): needs both leftop and result to be AOP_STK
+      // simultaneously - never actually constructed on this port.
 
       // When adding a literal, the 16 bit addition results in smaller, faster code than two 8-bit additions.
       else if (!maskedword && (!premoved || i) && aopInReg (IC_RESULT (ic)->aop, i, HL_IDX) && aopInReg (leftop, i, HL_IDX) && (rightop->type == AOP_LIT && !aopIsLitVal (rightop, i, 1, 0) || rightop->type == AOP_IMMD))
@@ -9095,7 +9107,7 @@ genPlus (iCode * ic)
         (i < leftop->size &&
         leftop->type == AOP_REG && IC_RESULT (ic)->aop->type == AOP_REG &&
         leftop->aopu.aop_reg[i]->rIdx == IC_RESULT (ic)->aop->aopu.aop_reg[i]->rIdx || // "&& (rIdx != IYL_IDX && rIdx != IYH_IDX)" dropped: always true (#24).
-        leftop->type == AOP_STK && leftop == IC_RESULT (ic)->aop ||
+        // "leftop->type == AOP_STK && leftop == IC_RESULT (ic)->aop ||" dropped (#34): never constructed.
         leftop->type == AOP_PAIRPTR && leftop->aopu.aop_pairId == PAIR_HL))
         {
           if (!tlbl && !regalloc_dry_run)
@@ -9112,19 +9124,11 @@ genPlus (iCode * ic)
         }
       // Two (IS_RAB||IS_TLCS90||...)-gated "ex de, hl; adc/add hl, de"
 
-      else if (!maskedbyte && !premoved && !started && i + 1 < size &&
-        hl_dead && (bc_dead || de_dead) && ic->result->aop->type == AOP_STK && leftop->type == AOP_STK &&
-        (rightop->type == AOP_STK || (rightop->type == AOP_LIT || rightop->type == AOP_IMMD) && (aopOnStack (ic->result->aop, i, 2) || aopInReg (ic->result->aop, i, HL_IDX) || aopInReg (ic->result->aop, i, DE_IDX))))
-        {
-          asmop *rightpairaop = de_dead ? ASMOP_DE : ASMOP_BC; // Prefer de due to efficient load from hl via ex de, hl.
-          genMove_o (rightpairaop, 0, rightop, i, 2, false, true, false, !started);
-          genMove_o (ASMOP_HL, 0, leftop, i, 2, a_dead, true, false, !started);
-          emit3w (started ? A_ADC : A_ADD, ASMOP_HL, rightpairaop);
-          spillPair (PAIR_HL);
-          genMove_o (ic->result->aop, i, ASMOP_HL, 0, 2, a_dead, true, false, i + 2 < size);
-          started = true;
-          i += 2;
-        }
+      // "else if (... ic->result->aop->type == AOP_STK && leftop->type
+      // == AOP_STK && (rightop->type == AOP_STK || ...)) {genMove_o via
+      // ASMOP_HL/rightpairaop}" removed (#34): needs result and leftop
+      // to both be AOP_STK simultaneously - never actually constructed
+      // on this port.
       // (IS_RAB||IS_EZ80||IS_TLCS90)-gated "ld r, 0; adc/add hl, rr" arm
 
       else if (!maskedbyte && !premoved && !started && hl_dead2 &&
@@ -9592,14 +9596,16 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
   while (size)
     {
       bool maskedbyte = maskedtopbyte && (size == 1);
-      bool maskedword = maskedtopbyte && (size == 2);
+      // maskedword removed (#34): its only reader was the dead
+      // "left->type == AOP_STK && result->type == AOP_STK" block
+      // removed just below (both required AOP_STK, never constructed
+      // on this port). c_dead/b_dead/bc_dead and e_dead/d_dead/de_dead
+      // removed the same way - bc_dead/de_dead were that same dead
+      // block's other two guards, and c_dead/b_dead/e_dead/d_dead had
+      // no other reader (the compiler's own -Wunused-variable only
+      // flags a variable with zero references at all, not one whose
+      // sole consumer is itself now dead - traced by hand, not assumed).
       bool a_dead = isRegDead (A_IDX, ic) && (result->regs[A_IDX] < 0 || result->regs[A_IDX] >= offset) && left->regs[A_IDX] <= offset && right->regs[A_IDX] <= offset;
-      bool c_dead = !(!isRegDead (C_IDX, ic) || left->regs[C_IDX] > offset || right->regs[C_IDX] > offset || result->regs[C_IDX] >= 0 && result->regs[C_IDX] < offset);
-      bool b_dead = !(!isRegDead (B_IDX, ic) || left->regs[B_IDX] > offset || right->regs[B_IDX] > offset || result->regs[B_IDX] >= 0 && result->regs[B_IDX] < offset);
-      bool bc_dead = c_dead && b_dead;
-      bool e_dead = !(!isRegDead (E_IDX, ic) || left->regs[E_IDX] > offset || right->regs[E_IDX] > offset || result->regs[E_IDX] >= 0 && result->regs[E_IDX] < offset);
-      bool d_dead = !(!isRegDead (D_IDX, ic) || left->regs[D_IDX] > offset || right->regs[D_IDX] > offset || result->regs[D_IDX] >= 0 && result->regs[D_IDX] < offset);
-      bool de_dead = e_dead && d_dead;
       bool l_dead = !(!isRegDead (L_IDX, ic) || left->regs[L_IDX] > offset || right->regs[L_IDX] > offset || result->regs[L_IDX] >= 0 && result->regs[L_IDX] < offset);
       bool h_dead = !(!isRegDead (H_IDX, ic) || left->regs[H_IDX] > offset || right->regs[H_IDX] > offset || result->regs[H_IDX] >= 0 && result->regs[H_IDX] < offset);
       bool hl_dead = l_dead && h_dead;
@@ -9609,23 +9615,13 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
       // Two (!IS_SM83 && !IS_8080LIKE)-gated "sub/sbc hl, rr" arms removed
 
       // true, so !IS_8080LIKE is always false).
-      if (size == 2 && !offset && !maskedword && (aopIsLitVal (right, offset, 2, 0x0001) || aopIsLitVal (right, offset, 2, 0x0002)) &&
-        left->type == AOP_STK && result->type == AOP_STK && (bc_dead || de_dead || hl_dead))
-        {
-          asmop *decaop = bc_dead ? ASMOP_BC: de_dead ? ASMOP_DE : ASMOP_HL;
-          genMove (decaop, left, a_dead, hl_dead, de_dead);
-          emit3w (A_DEC, decaop, 0);
-          if (aopIsLitVal (right, offset, 2, 0x0002))
-            emit3w (A_DEC, decaop, 0);
-          genMove (result, decaop, a_dead, hl_dead, de_dead);
-          offset += 2;
-          size -= 2;
-          _G.preserveCarry = !!size;
-          continue;
-        }
-      else if (size == 1 && !offset && !maskedbyte && (aopIsLitVal (right, offset, 1, 0x01) || aopIsLitVal (right, offset, 1, 0x02)) &&
+      // "if (... left->type == AOP_STK && result->type == AOP_STK &&
+      // ...) {genMove via decaop, dec once/twice}" removed (#34): needs
+      // both left and result to be AOP_STK simultaneously - never
+      // actually constructed on this port.
+      if (size == 1 && !offset && !maskedbyte && (aopIsLitVal (right, offset, 1, 0x01) || aopIsLitVal (right, offset, 1, 0x02)) &&
         (result->type == AOP_REG && !aopInReg (left, offset, A_IDX) || // "&& (!aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX))" dropped: always true (#24).
-          (result->type == AOP_STK || result->type == AOP_HL || result->type == AOP_PAIRPTR && result->aopu.aop_pairId == PAIR_HL) && aopSame (left, 0, result, 0, 1)))
+          (result->type == AOP_HL || result->type == AOP_PAIRPTR && result->aopu.aop_pairId == PAIR_HL) && aopSame (left, 0, result, 0, 1))) // "result->type == AOP_STK ||" dropped (#34): never constructed.
         {
           cheapMove (result, 0, left, 0, a_dead);
           emit3 (A_DEC, result, 0);
@@ -10566,7 +10562,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
 
       // Preserve A if necessary
       if (ifx && size == 1 && !sign && aopInReg (left->aop, 0, A_IDX) && !isRegDead (A_IDX, ic) &&
-        (right->aop->type == AOP_LIT || right->aop->type == AOP_REG || right->aop->type == AOP_STK)) // "&& rIdx != IYL_IDX && rIdx != IYH_IDX" dropped from the AOP_REG disjunct: always true (#24).
+        (right->aop->type == AOP_LIT || right->aop->type == AOP_REG)) // "&& rIdx != IYL_IDX && rIdx != IYH_IDX" dropped from the AOP_REG disjunct: always true (#24).
         {
           emit3 (A_CP, ASMOP_A, right->aop);
           result_in_carry = true;
@@ -10593,7 +10589,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
           else
             {
               if (!(result->aop->type == AOP_CRY && result->aop->size) && ifx &&
-                (left->aop->type == AOP_REG || left->aop->type == AOP_STK))
+                (left->aop->type == AOP_REG))
                 {
                   emit8080Bit (left->aop, left->aop->size - 1, 7);
                   genIfxJump (ifx, "nz");
@@ -11060,7 +11056,7 @@ gencjneshort (operand *left, operand *right, symbol *lbl, const iCode *ic)
   if (left->aop->size == 1 && aopInReg (left->aop, 0, A_IDX) && !isRegDead (A_IDX, ic) &&
     (right->aop->type == AOP_LIT ||
     right->aop->type == AOP_REG || // "&& (rIdx != IYL_IDX && rIdx != IYH_IDX)" dropped: always true (#24).
-    right->aop->type == AOP_STK || right->aop->type == AOP_HL))
+    right->aop->type == AOP_HL))
     {
       bool pushed_hl = false;
       if(requiresHL (right->aop) && right->aop->type != AOP_REG && !isPairDead(PAIR_HL, ic))
@@ -11174,7 +11170,7 @@ gencjneshort (operand *left, operand *right, symbol *lbl, const iCode *ic)
               a_result = aopInReg (left->aop, 0, A_IDX);
             }
           else if (isRegDead (A_IDX, ic) && left->aop->regs[A_IDX] < offset && size >= 2 && byteOfVal (right->aop->aopu.aop_lit, offset) == 0xff &&
-            (left->aop->type == AOP_REG || left->aop->type == AOP_STK) && skipbyte != offset + 1 &&
+            (left->aop->type == AOP_REG) && skipbyte != offset + 1 &&
             byteOfVal (right->aop->aopu.aop_lit, offset) == byteOfVal (right->aop->aopu.aop_lit, offset + 1))
             {
               cheapMove (ASMOP_A, 0, left->aop, offset, true);
@@ -11233,7 +11229,7 @@ gencjneshort (operand *left, operand *right, symbol *lbl, const iCode *ic)
      pointed to by HL, IX or IY */
   else if (right->aop->type == AOP_REG ||
            right->aop->type == AOP_HL ||
-           right->aop->type == AOP_STK ||
+           // "right->aop->type == AOP_STK ||" dropped (#34): never constructed.
            right->aop->type == AOP_EXSTK ||
            right->aop->type == AOP_IMMD ||
            AOP_IS_PAIRPTR (right, PAIR_HL)) // "|| AOP_IS_PAIRPTR(right,PAIR_IX) || AOP_IS_PAIRPTR(right,PAIR_IY)" dropped: aop_pairId is never PAIR_IX/PAIR_IY (#24).
@@ -11658,7 +11654,7 @@ genAnd (const iCode *ic, iCode *ifx)
             }
           /* Non-destructive and when exactly one bit per byte is set. */
           else if (isLiteralBit (bytelit) >= 0 &&
-            (left->aop->type == AOP_STK || aopInReg (left->aop, offset, A_IDX) || left->aop->type == AOP_HL ||
+            (aopInReg (left->aop, offset, A_IDX) || left->aop->type == AOP_HL || // "left->aop->type == AOP_STK ||" dropped (#34): never constructed.
               left->aop->type == AOP_REG)) // "&& !aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX)" dropped: always true (#24).
             {
               if (requiresHL (left->aop) && left->aop->type != AOP_REG)
@@ -11693,7 +11689,7 @@ genAnd (const iCode *ic, iCode *ifx)
               else
                 {
                   bool next_ff = sizel > 1 && aopIsLitVal (right->aop, offset + 1, 1, 0xff) &&
-                    (left->aop->type == AOP_STK || left->aop->type == AOP_REG); // "&& (!aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX))" dropped: always true (#24).
+                    (left->aop->type == AOP_REG); // "&& (!aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX))" dropped: always true (#24).
                   if (bytelit != 0xffu)
                     emit3_o (A_AND, ASMOP_A, 0, right->aop, offset);
                   else if (!next_ff)
@@ -11703,7 +11699,7 @@ genAnd (const iCode *ic, iCode *ifx)
                       emit3_o (A_OR, ASMOP_A, 0, left->aop, ++offset);
                       sizel--;
                       next_ff = sizel > 1 && aopIsLitVal (right->aop, offset + 1, 1, 0xff) &&
-                        (left->aop->type == AOP_STK || left->aop->type == AOP_REG); // "&& (!aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX))" dropped: always true (#24).
+                        (left->aop->type == AOP_REG); // "&& (!aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX))" dropped: always true (#24).
                     }
                 }
               sizel--;
@@ -11781,7 +11777,7 @@ genAnd (const iCode *ic, iCode *ifx)
           bytelit = byteOfVal (right->aop->aopu.aop_lit, i);
 
           if (isLiteralBit (~bytelit & 0xffu) >= 0 && aopSame (result->aop, i, left->aop, i, 1) &&
-            (result->aop->type == AOP_STK || result->aop->type == AOP_DIR || result->aop->type == AOP_REG)) // "&& !aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX)" dropped: always true (#24).
+            (result->aop->type == AOP_DIR || result->aop->type == AOP_REG)) // "&& !aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX)" dropped: always true (#24).
             {
               cheapMove (result->aop, i, left->aop, i, a_free);
               emit8080SetRes (result->aop, i, isLiteralBit (~bytelit & 0xffu), false, a_free);
@@ -12067,7 +12063,7 @@ genOr (const iCode * ic, iCode * ifx)
           int bytelit = byteOfVal (right->aop->aopu.aop_lit, i);
 
           if (isLiteralBit (bytelit) >= 0 && aopSame (result->aop, i, left->aop, i, 1) &&
-            (result->aop->type == AOP_STK || result->aop->type == AOP_DIR || result->aop->type == AOP_REG)) // "&& !aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX)" dropped: always true (#24).
+            (result->aop->type == AOP_DIR || result->aop->type == AOP_REG)) // "&& !aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX)" dropped: always true (#24).
             {
               cheapMove (result->aop, i, left->aop, i, a_free);
               emit8080SetRes (result->aop, i, isLiteralBit (bytelit), true, a_free);
@@ -12588,7 +12584,7 @@ shiftL1Left2Result (operand *left, int offl, operand *result, int offr, unsigned
     }
 
   else if (shCount == 1 && !isRegDead (A_IDX, ic) &&
-    (left->aop->type == AOP_REG || left->aop->type == AOP_STK) && // "&& (!aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX))" dropped from the AOP_REG disjunct: always true (#24).
+    (left->aop->type == AOP_REG) && // "&& (!aopInReg(...,IYL_IDX) && !aopInReg(...,IYH_IDX))" dropped from the AOP_REG disjunct: always true (#24).
     (aopInReg (result->aop, offr, B_IDX) || aopInReg (result->aop, offr, C_IDX) || aopInReg (result->aop, offr, D_IDX) || aopInReg (result->aop, offr, E_IDX) || aopInReg (result->aop, offr, H_IDX) || aopInReg (result->aop, offr, L_IDX)))
     {
       if (!aopSame (result->aop, offr, left->aop, offl, 1))
@@ -12784,17 +12780,9 @@ genSwap (const iCode *ic)
 
 
 
-      if (operandsEqu (result, left) && left->aop->type == AOP_STK &&
-          spOffset (left->aop->aopu.aop_stk) == 0 && isPairDead (PAIR_HL, ic))
-        { /* result & left are top of stack and there are free register pairs */
-
-          // this file).
-          _pop (PAIR_HL);
-          emit2 ("xthl");
-          cost2 (1, 16); // "1 + IS_RAB" simplified to "1" (IS_RAB unconditionally 0 in this file).
-          _push (PAIR_HL);
-          break;
-        }
+      // "if (operandsEqu (result, left) && left->aop->type == AOP_STK &&
+      // ...) {pop hl; xthl; push hl}" removed (#34): left->aop->type is
+      // never actually AOP_STK on this port.
 
       /* --== generic implementations ==-- */
       if (!operandsEqu (result, left))
@@ -12884,7 +12872,7 @@ genRotW (const iCode *ic)
   wassert (s == 1 || s == lbits - 1);
 
 
-  if (left->aop->type == AOP_REG || result->aop->type == AOP_STK ||
+  if (left->aop->type == AOP_REG || // "result->aop->type == AOP_STK ||" dropped (#34): never constructed.
     result->aop->type == AOP_HL ||
     result->aop->type == AOP_EXSTK || result->aop->type == AOP_REG)
     {
@@ -13168,9 +13156,12 @@ genLeftShift (const iCode *ic)
   if (!shift_by_lit)
     cheapMove (asmopregs[countreg], 0, right->aop, 0, true);
 
+  // "|| (left->aop->type == AOP_STK && canAssignToPtr3(result->aop) ||
+  // result->aop->type == AOP_STK && canAssignToPtr3(left->aop))" dropped
+  // (#34): each conjunct needs a different aop to be AOP_STK, and
+  // neither is ever constructed on this port.
   bool save_a_inner = (countreg == A_IDX && !shift_by_lit) &&
-    !(left->aop->type == AOP_REG && result->aop->type != AOP_REG ||
-    (left->aop->type == AOP_STK && canAssignToPtr3 (result->aop) || result->aop->type == AOP_STK && canAssignToPtr3 (left->aop)));
+    !(left->aop->type == AOP_REG && result->aop->type != AOP_REG);
 
   shiftop = result->aop;
   if (result->aop->type != AOP_REG && left->aop->type == AOP_REG && result->aop->size == left->aop->size && left->aop->regs[countreg] < 0)
@@ -13184,7 +13175,9 @@ genLeftShift (const iCode *ic)
 
   /* now move the left to the result if they are not the
      same */
-  if (!aopSame (shiftop, 0, left->aop, 0, shiftop->size) || shiftop->type == AOP_REG || shiftop->type == AOP_STK && shiftcount >= 8 && (!optimize.codeSize || shiftcount % 8 == 0))
+  // "|| shiftop->type == AOP_STK && shiftcount >= 8 && (...)" dropped
+  // (#34): shiftop->type is never actually AOP_STK on this port.
+  if (!aopSame (shiftop, 0, left->aop, 0, shiftop->size) || shiftop->type == AOP_REG)
     {
       if (save_a_inner)
         _push (PAIR_AF);
@@ -13665,9 +13658,11 @@ genRightShift (const iCode * ic)
         size -= byteoffset;
       }
 
+      // "|| (left->aop->type == AOP_STK && canAssignToPtr3(result->aop)
+      // || result->aop->type == AOP_STK && canAssignToPtr3(left->aop))"
+      // dropped (#34): neither aop is ever actually AOP_STK on this port.
       bool save_a = (!isRegDead(A_IDX, ic) && !pushed_a) || (countreg == A_IDX && !shift_by_lit) &&
-            !(left->aop->type == AOP_REG && result->aop->type != AOP_REG ||
-            (left->aop->type == AOP_STK && canAssignToPtr3 (result->aop) || result->aop->type == AOP_STK && canAssignToPtr3 (left->aop)));
+            !(left->aop->type == AOP_REG && result->aop->type != AOP_REG);
 
       bool hl_dead = isRegDead (HL_IDX, ic) && (countreg != L_IDX && countreg != H_IDX || shift_by_lit);
       bool de_dead = isRegDead (DE_IDX, ic) && (countreg != E_IDX && countreg != D_IDX || shift_by_lit);
@@ -13961,10 +13956,12 @@ init_stackop (asmop *stackop, int size, long int stk_off)
   memset (stackop->regs, -1, sizeof(stackop->regs));
   stackop->aopu.aop_stk = stk_off;
 
-  if (_G.omitFramePtr || stk_off < INT8MIN || stk_off > (int) (INT8MAX - size))
-    stackop->type = AOP_EXSTK;
-  else
-    stackop->type = AOP_STK;
+  // "if (...) AOP_EXSTK; else AOP_STK;" simplified to unconditionally
+  // AOP_EXSTK (#34): _G.omitFramePtr is always true on this port - see
+  // aopForSym()'s equivalent construction site for the full
+  // explanation. This was the second (and last) real AOP_STK
+  // construction site in the file.
+  stackop->type = AOP_EXSTK;
 
   stackop->valinfo.anything = true;
 }
@@ -14220,10 +14217,11 @@ genPointerGet (const iCode *ic)
   /* if this is rematerializable */
   // "|| getPairId(left->aop) == PAIR_IY && ..." disjunct dropped (#25):
   // getPairId() never returns PAIR_IY.
-  if ((getPairId (left->aop) == PAIR_BC || getPairId (left->aop) == PAIR_DE) && result->aop->type == AOP_STK && !rightval)
-    pair = getPairId (left->aop);
-  else
-    {
+  // "if ((getPairId(left->aop) == PAIR_BC || == PAIR_DE) &&
+  // result->aop->type == AOP_STK && !rightval) pair = ...; else" removed
+  // (#34): result->aop->type is never actually AOP_STK on this port, so
+  // this always took the else branch below anyway.
+  {
       if (!isPairDead (pair, ic) && size > 1 && (getPairId (left->aop) != pair || rightval || bit_field || size > 2)) // For simple cases, restoring via dec is cheaper than push / pop.
         _push (pair), pushed_pair = TRUE;
       if (left->aop->type == AOP_IMMD)
@@ -14231,8 +14229,7 @@ genPointerGet (const iCode *ic)
           /* pair is PAIR_HL (this function's default) or PAIR_DE
              (reassigned earlier in this function - see the
              "requiresHL(result->aop) && ..." comment above; never
-             PAIR_IY here, since that case is caught by the sibling "if"
-             this "else" belongs to). Unlike lhld/shld (HL-only real
+             PAIR_IY - getPairId() never returns it). Unlike lhld/shld (HL-only real
              hardware instructions), lxi has no such restriction - any of
              b/d/h/sp works - so no dispatch/guard is needed here, unlike
              the lhld/shld-shaped sites elsewhere in this file. */
@@ -14301,16 +14298,17 @@ genPointerGet (const iCode *ic)
   // - pair is never PAIR_IY in this function (traced exhaustively).
   offsetPair (pair, extrapair, !isPairDead (extrapair, ic), rightval);
 
-  if (!bit_field && (pair == PAIR_HL
-           || ((getPairId (left->aop) == PAIR_BC || getPairId (left->aop) == PAIR_DE)
-               && result->aop->type == AOP_STK)))
+  // "|| ((getPairId(left->aop) == PAIR_BC || == PAIR_DE) &&
+  // result->aop->type == AOP_STK)" disjunct removed (#34): never
+  // actually constructed on this port.
+  if (!bit_field && pair == PAIR_HL)
     {
       size = result->aop->size;
       int offset = 0;
       int last_offset = 0;
 
       /* might use ld a,(hl) followed by ld d (iy),a */
-      if ((result->aop->type == AOP_EXSTK || result->aop->type == AOP_STK) && surviving_a && !pushed_a)
+      if ((result->aop->type == AOP_EXSTK) && surviving_a && !pushed_a)
         _push (PAIR_AF), pushed_a = TRUE;
 
       if (size >= 2 && pair == PAIR_HL && result->aop->type == AOP_REG)
@@ -14682,7 +14680,8 @@ genPointerSet (iCode *ic)
 
 
   // file, so its arm always runs.
-  pairId = (isRegOrLit (right->aop) || right->aop->type == AOP_STK) ? PAIR_HL : PAIR_DE;
+  // "|| right->aop->type == AOP_STK" dropped (#34): never constructed.
+  pairId = isRegOrLit (right->aop) ? PAIR_HL : PAIR_DE;
   if (isPair (result->aop) && isPairDead (getPairId (result->aop), ic) && !(size > 1 && sameRegs (result->aop, right->aop)))
     pairId = getPairId (result->aop);
 
@@ -15241,7 +15240,7 @@ genAssign (const iCode *ic)
   if (isPair (result->aop))
     genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic));
   else if (size == 2 && isPairDead (PAIR_HL, ic) &&
-    right->aop->type == AOP_LIT && (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) && (result->aop->aopu.aop_stk + offset + _G.stack.offset + (result->aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) + _G.stack.pushed) == 0) // Use ex (sp), hl
+    right->aop->type == AOP_LIT && (result->aop->type == AOP_EXSTK) && (result->aop->aopu.aop_stk + offset + _G.stack.offset + (result->aop->aopu.aop_stk > 0 ? _G.stack.param_offset : 0) + _G.stack.pushed) == 0) // Use ex (sp), hl
     {
       fetchPair (PAIR_HL, right->aop);
       genMove (result->aop, ASMOP_HL, isRegDead (A_IDX, ic), true, isPairDead (PAIR_DE, ic));
@@ -15289,14 +15288,14 @@ genAssign (const iCode *ic)
     {
       // ldir could overwrite if areas overlap.
       bool down = false;
-      if ((result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK) &&
-        (right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK))
+      if ((result->aop->type == AOP_EXSTK) &&
+        (right->aop->type == AOP_EXSTK))
           if (!regalloc_dry_run && result->aop->aopu.aop_stk > right->aop->aopu.aop_stk && result->aop->aopu.aop_stk < right->aop->aopu.aop_stk + size)
             down = true;
 
       if (!down &&
-          (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK || result->aop->type == AOP_DIR) &&
-          (right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK || right->aop->type == AOP_DIR) && size >= 2)
+          (result->aop->type == AOP_EXSTK || result->aop->type == AOP_DIR) &&
+          (right->aop->type == AOP_EXSTK || right->aop->type == AOP_DIR) && size >= 2)
         {
           // This estimation is only accurate, if neither operand is AOP_EXSTK, and we are optimizing for code size or targeting the Z80, Z180, eZ80, Z80N or Rabbit 3000A.
           int sizecost_n, sizecost_l, cyclecost_n, cyclecost_l;
@@ -15336,7 +15335,7 @@ genAssign (const iCode *ic)
               if (bc_alive)
                 _push (PAIR_BC);
 
-              if (result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK)
+              if (result->aop->type == AOP_EXSTK)
                 {
                   int fp_offset =
                     result->aop->aopu.aop_stk + offset + (result->aop->aopu.aop_stk >
@@ -15353,7 +15352,7 @@ genAssign (const iCode *ic)
               else
                 pointPairToAop (PAIR_DE, result->aop, 0);
 
-              if (right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK)
+              if (right->aop->type == AOP_EXSTK)
                 {
                   int fp_offset =
                     right->aop->aopu.aop_stk + offset + (right->aop->aopu.aop_stk >
@@ -15393,7 +15392,7 @@ genAssign (const iCode *ic)
               goto release;
             }
         }
-      if ((result->aop->type == AOP_REG || result->aop->type == AOP_STK || result->aop->type == AOP_EXSTK || result->aop->type == AOP_HL) && (right->aop->type == AOP_REG || right->aop->type == AOP_STK || right->aop->type == AOP_EXSTK || right->aop->type == AOP_LIT || right->aop->type == AOP_IMMD || right->aop->type == AOP_DIR || right->aop->type == AOP_HL))
+      if ((result->aop->type == AOP_REG || result->aop->type == AOP_EXSTK || result->aop->type == AOP_HL) && (right->aop->type == AOP_REG || right->aop->type == AOP_EXSTK || right->aop->type == AOP_LIT || right->aop->type == AOP_IMMD || right->aop->type == AOP_DIR || right->aop->type == AOP_HL))
         genMove (result->aop, right->aop, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic));
       else
         while (size--)
