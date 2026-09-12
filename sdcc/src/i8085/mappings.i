@@ -11,8 +11,12 @@ static const ASM_MAPPING _i8085_asm_mapping[] = {
     { "areacode", ".area _%s" },
     { "areadata", ".area _%s" },
     { "areahome", ".area _%s" },
-    { "*ixx", "%d (ix)" },
-    { "*iyx", "%d (iy)" },
+    /* "*ixx"/"*iyx" (IX/IY-indexed displacement addressing, inherited from
+       z80) removed (#32): confirmed zero emit2() callers anywhere in
+       gen.c - i8080/i8085 has no index registers at all, so nothing ever
+       emits "!*ixx"/"!*iyx". The only remaining mentions of "!*iyx" in
+       gen.c are two historical comments describing already-removed dead
+       fast paths. */
     { "*hl", "(hl)" },
     { "jphl", "jp (hl)" },
     { "di", "di" },
@@ -32,10 +36,9 @@ static const ASM_MAPPING _i8085_asm_mapping[] = {
     { "ldahlsp",
       "ld hl, #%d\n"
       "add\thl, sp" },
-    { "ldaspsp",
-      "ld iy,#%d\n"
-      "add\tiy,sp\n"
-      "ld\tsp,iy" },
+    /* "ldaspsp" (iy-relative stack-to-stack move, inherited from z80)
+       removed (#32): confirmed zero emit2() callers anywhere in gen.c -
+       same "no index register" reasoning as "*ixx"/"*iyx" above. */
     { "mems", "(%s)" },
     { "enter",
       "push\tix\n"
