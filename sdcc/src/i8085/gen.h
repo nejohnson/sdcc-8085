@@ -101,7 +101,9 @@ bool i8085_IsRegArg(struct sym_link *ftype, int i, const char *what);
 bool i8085_IsParmInCall(sym_link *ftype, const char *what);
 
 extern bool i8085_assignment_optimal;
-extern bool i8085_should_omit_frame_ptr;
+// i8085_should_omit_frame_ptr removed (#36): always true on this port
+// (no index register at all to use as a frame pointer) - see
+// ralloc2.cc's former omit_frame_ptr(), now removed along with it.
 
 #endif
 

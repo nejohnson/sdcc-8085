@@ -265,7 +265,10 @@ static struct
     int pushedDE;
   } calleeSaves;
 
-  bool omitFramePtr;
+  // omitFramePtr removed (#36): always true on this port (no index
+  // register at all to use as a frame pointer) - see
+  // i8085_should_omit_frame_ptr's removal (ralloc2.cc/gen.h) for the
+  // full chain. Every read site collapsed to the literal true/dropped.
   int frameId;
   int receiveOffset;
   bool flushStatics;
@@ -4732,7 +4735,9 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
      checks below were dropped (#25) purely because IYH_IDX itself no
      longer exists as an enum value - not an attempt to resolve this
      block's own documented uncertainty, which stands as before. */
-  if ((to->type == AOP_EXSTK) && _G.omitFramePtr &&
+  // "&& _G.omitFramePtr" dropped (#36): always true regardless - this
+  // whole block is already unreachable another way anyway (see above).
+  if ((to->type == AOP_EXSTK) &&
     (aopInReg (to, to_offset, A_IDX) || aopInReg (to, to_offset, B_IDX) || aopInReg (to, to_offset, D_IDX) || aopInReg (to, to_offset, H_IDX)))
     {
       int fp_offset = to->aopu.aop_stk + to_offset + (to->aopu.aop_stk > 0 ? _G.stack.param_offset : 0);
@@ -7062,8 +7067,7 @@ genCall (const iCode *ic)
     !_G.stack.pushedHL && !_G.stack.pushedBC && !_G.stack.pushedDE && !_G.stack.pushedIY && !_G.stack.pushedJK && !_G.stack.pushedIX && // If for some reason something got pushed, we don't have the return address in place.
     (!isFuncCalleeStackCleanup (currFunc->type) || !ic->parmEscapeAlive && ic->op == CALL && 0 /* todo: test and enable depending on optimization goal - as done for stm8 - for z80 and r3ka this will be slower and bigger than without tail call optimization, but it saves RAM */) &&
     !ic->localEscapeAlive &&
-    !IFFUNC_ISBANKEDCALL (dtype) && !IFFUNC_ISZ88DK_SHORTCALL (ftype) &&
-    _G.omitFramePtr)
+    !IFFUNC_ISBANKEDCALL (dtype) && !IFFUNC_ISZ88DK_SHORTCALL (ftype)) // "&& _G.omitFramePtr" dropped (#36): always true.
     {
       int limit = 16; // Avoid endless loops in the code putting us into an endless loop here.
 
@@ -7465,8 +7469,6 @@ resultRemat (const iCode * ic)
 static void
 genFunction (const iCode * ic)
 {
-  bool stackParm;
-
   symbol *sym = OP_SYMBOL (IC_LEFT (ic));
   sym_link *ftype;
 
@@ -7605,38 +7607,26 @@ genFunction (const iCode * ic)
       _G.stack.param_offset += bigreturn * 2;
     }
 
-  stackParm = FALSE;
-  for (sym = setFirstItem (istack->syms); sym; sym = setNextItem (istack->syms))
-    {
-      if (sym->_isparm && !IS_REGPARM (sym->etype))
-        {
-          stackParm = TRUE;
-          break;
-        }
-    }
   sym = OP_SYMBOL (IC_LEFT (ic));
 
-  _G.omitFramePtr = i8085_should_omit_frame_ptr;
-
-  if (!i8085_opts.noOmitFramePtr && !stackParm && !sym->stack)
+  // "stackParm" (was: does any parameter live on the stack) and the
+  // "!i8085_opts.noOmitFramePtr && !stackParm && !sym->stack"-gated
+  // "_G.omitFramePtr = true;" removed (#36) along with _G.omitFramePtr
+  // itself - see the AOP_STK/#34/#35 comments above for the full
+  // "always true regardless" chain. Real, pre-existing, user-visible
+  // consequence found while removing this: "--fno-omit-frame-pointer"
+  // (i8085_opts.noOmitFramePtr, main.c) only ever fed this one dead
+  // condition - the frame pointer is unconditionally omitted on this
+  // port regardless of the flag, so it has been a silent no-op all
+  // along, not something this removal changes. Left in place (not
+  // removed) pending Neil's call on whether to also retire the flag
+  // itself or warn on its use - out of scope for this variable-collapse
+  // checkpoint.
+  if (sym->stack)
     {
-      if (!regalloc_dry_run)
-        _G.omitFramePtr = true;
-    }
-  else if (sym->stack)
-    {
-      // "if (!_G.omitFramePtr) emit2(...\"!enters\"/\"!enter\"...);"
-      // removed (#35): _G.omitFramePtr is always true on this port (see
-      // ralloc2.cc's omit_frame_ptr(), "no index register at all") -
-      // the push-ix/ld-ix-#0/add-ix-sp frame-pointer prologue these two
-      // mapping.i entries expanded to was never actually emitted here.
       adjustStack (-sym->stack, !i8085_IsParmInCall (sym->type, "a"), !i8085_IsParmInCall (sym->type, "c") && !i8085_IsParmInCall (sym->type, "v"), !i8085_IsParmInCall (sym->type, "e") && !i8085_IsParmInCall (sym->type, "d"), !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h"), false);
       _G.stack.pushed = 0;
     }
-  // "else if (!_G.omitFramePtr) {emit2(...\"!enters\"/\"!enter\"...);}"
-  // removed (#35): same reasoning - this whole branch never actually
-  // fired (it did nothing else, so removing it changes nothing
-  // observable for the case it used to cover).
 
   _G.stack.offset = sym->stack;
   
@@ -7976,7 +7966,8 @@ genRet (const iCode *ic)
   else if (IC_LEFT (ic)->aop->type == AOP_LIT)
     {
       unsigned long long lit = ullFromVal (IC_LEFT (ic)->aop->aopu.aop_lit);
-      setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr ? 0 : 2));
+      // "+ (_G.omitFramePtr ? 0 : 2)" dropped (#36): always contributed 0.
+      setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed);
       /* "!ldahli" expansion - see the fuller comment on this same
          "mov a, m" / "inx h" pair, above in this file. */
       emit2 ("mov a, m");
@@ -8011,13 +8002,15 @@ genRet (const iCode *ic)
                   argsize++;
                 stackparmbytes += argsize;
               }
-          setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr ? 0 : 2) + stackparmbytes);
+          // "+ (_G.omitFramePtr ? 0 : 2)" dropped (#36): always contributed 0.
+          setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + stackparmbytes);
           emit3 (A_LD, ASMOP_C, ASMOP_L);
           emit3 (A_LD, ASMOP_B, ASMOP_H);
         }
       else
         {
-          setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed + (_G.omitFramePtr ? 0 : 2));
+          // "+ (_G.omitFramePtr ? 0 : 2)" dropped (#36): always contributed 0.
+      setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed);
           emit2 ("mov c, m");
           cost2 (1, 7);
           emit3w (A_INC, ASMOP_HL, 0);
@@ -17027,7 +17020,8 @@ i8085_dryICode (iCode * ic)
   regalloc_dry_run_cost_states = 0;
 
   initGenLineElement ();
-  _G.omitFramePtr = i8085_should_omit_frame_ptr;
+  // "_G.omitFramePtr = i8085_should_omit_frame_ptr;" removed (#36)
+  // along with both variables.
 
   genICode (ic);
 

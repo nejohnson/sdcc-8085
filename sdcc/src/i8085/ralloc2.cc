@@ -29,7 +29,11 @@ extern "C"
   #include "i8085.h"
   float i8085_dryICode (iCode * ic);
   bool i8085_assignment_optimal;
-  bool i8085_should_omit_frame_ptr;
+  // i8085_should_omit_frame_ptr removed (#36): its one writer,
+  // omit_frame_ptr() just below, was a bare "return(true);" - i8080/
+  // i8085 have no index register at all, so the frame pointer is
+  // always omitted on this port, unconditionally, not as a genuine
+  // per-function choice. Every reader collapsed to the literal true.
 }
 
 #define REG_A 0
@@ -566,7 +570,11 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
   if(SKIP_IC2(ic))
     return(true);
 
-  bool exstk = (i8085_should_omit_frame_ptr || (currFunc && currFunc->stack > 127));
+  // "bool exstk = (...);" removed (#36) - already entirely unused
+  // within this function (a pre-existing, unrelated dead local found
+  // while removing i8085_should_omit_frame_ptr, not caused by that
+  // removal: HLinst_ok below has its own identically-named, genuinely
+  // used local).
 
   //std::cout << "Ainst_ok at " << G[i].ic->key << ": A = (" << ia.registers[REG_A][0] << ", " << ia.registers[REG_A][1] << "), inst " << i << ", " << ic->key << "\n";
 
@@ -799,7 +807,11 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
 {
   const iCode *ic = G[i].ic;
 
-  bool exstk = (i8085_should_omit_frame_ptr || (currFunc && currFunc->stack > 127));
+  // "bool exstk = (...);" removed (#36): i8085_should_omit_frame_ptr is
+  // always true on this port, making exstk always true too regardless
+  // of currFunc->stack - every exstk-consuming expression below
+  // simplified accordingly (exstk && X -> X, exstk ? X : Y -> X,
+  // !exstk || X -> X, !exstk && ... -> whole condition always false).
 
   const i_assignment_t &ia = a.i_assignment;
 
@@ -859,10 +871,10 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
     return(true);
 
   if((ic->op == EQ_OP || ic->op == NE_OP) &&
-    (IS_VALOP(right) || operand_in_reg(right, ia, i, G) && !(exstk && operand_on_stack(ic->left, a, i, G)) && (!isOperandInDirSpace(ic->left) || getSize(operandType(ic->left)) == 1)))
+    (IS_VALOP(right) || operand_in_reg(right, ia, i, G) && !operand_on_stack(ic->left, a, i, G) && (!isOperandInDirSpace(ic->left) || getSize(operandType(ic->left)) == 1)))
     return(true);
 
-  if(IS_TRUE_SYMOP(left) && (!IS_PARM(left) || exstk) || IS_TRUE_SYMOP(right) && (!IS_PARM(right) || exstk))
+  if(IS_TRUE_SYMOP(left) || IS_TRUE_SYMOP(right))
     return(false);
 
   if(IS_TRUE_SYMOP(result) && getSize(operandType(IC_RESULT(ic))) > 2)
@@ -879,16 +891,15 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
   if(ic->op == '-' && getSize(operandType(result)) == 2 && IS_TRUE_SYMOP (left) && IS_TRUE_SYMOP (right) && result_only_HL)
     return(true);
 
-  if(exstk &&
-     (operand_on_stack(result, a, i, G) + operand_on_stack(left, a, i, G) + operand_on_stack(right, a, i, G) >= 2) &&
+  if((operand_on_stack(result, a, i, G) + operand_on_stack(left, a, i, G) + operand_on_stack(right, a, i, G) >= 2) &&
      (result && IS_SYMOP(result) && getSize(operandType(result)) >= 2 || !result_only_HL))
      // Todo: Make this more accurate to get better code when using --fomit-frame-pointer
     return(false);
-  if(exstk && (operand_on_stack(left, a, i, G) || operand_on_stack(right, a, i, G)) && (ic->op == '>' || ic->op == '<'))
+  if((operand_on_stack(left, a, i, G) || operand_on_stack(right, a, i, G)) && (ic->op == '>' || ic->op == '<'))
     return(false);
   if(ic->op == '+' && getSize(operandType(result)) >= 2 && input_in_HL &&
-     ((exstk ? operand_on_stack(left,  a, i, G) : IS_TRUE_SYMOP (left) ) && (ia.registers[REG_L][1] > 0 || ia.registers[REG_H][1] > 0) ||
-      (exstk ? operand_on_stack(right, a, i, G) : IS_TRUE_SYMOP (right)) && (ia.registers[REG_L][1] > 0 || ia.registers[REG_H][1] > 0) ))
+     (operand_on_stack(left,  a, i, G) && (ia.registers[REG_L][1] > 0 || ia.registers[REG_H][1] > 0) ||
+      operand_on_stack(right, a, i, G) && (ia.registers[REG_L][1] > 0 || ia.registers[REG_H][1] > 0) ))
     return(false);
 
   if(ic->op == '+' && getSize(operandType(result)) == 2 &&
@@ -913,7 +924,7 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
     return(true);
 
   if((ic->op == '+' || ic->op == '-' || ic->op == UNARYMINUS) && getSize(operandType(result)) >= 2 &&
-    (IS_TRUE_SYMOP (result) && !operand_on_stack(result, a, i, G) || (operand_on_stack(left, a, i, G) ? exstk : IS_TRUE_SYMOP (left)) || (operand_on_stack(right, a, i, G) ? exstk : IS_TRUE_SYMOP (right)))) // Might use (hl).
+    (IS_TRUE_SYMOP (result) && !operand_on_stack(result, a, i, G) || (operand_on_stack(left, a, i, G) || IS_TRUE_SYMOP (left)) || (operand_on_stack(right, a, i, G) || IS_TRUE_SYMOP (right)))) // Might use (hl).
     return(false);
 
   // HL overwritten by result.
@@ -925,20 +936,16 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
        ic->op == CAST))
     return(true);
 
-  if(!exstk && !isOperandInDirSpace(IC_LEFT(ic)) && !isOperandInDirSpace(IC_RIGHT(ic)) && !isOperandInDirSpace(IC_RESULT(ic)) &&
-    (ic->op == '-' ||
-    ic->op == UNARYMINUS ||
-    ic->op == '<' ||
-    ic->op == '>'))
-    return(true);
+  // "if(!exstk && ...) return(true);" removed (#36): exstk is always
+  // true on this port, so "!exstk && ..." was always false - this
+  // whole block never fired.
 
   if(ic->op == LEFT_OP && getSize(operandType(result)) <= 2 && IS_OP_LITERAL (right) && result_only_HL)
     return(true);
   if((ic->op == LEFT_OP || ic->op == RIGHT_OP) && (getSize(operandType(result)) <= 1 || !IS_TRUE_SYMOP(result)) &&
-     (!exstk ||
-      ((!operand_on_stack(left,  a, i, G) || !input_in_HL && result_only_HL) &&
-       (!operand_on_stack(right, a, i, G) || !input_in_HL && result_only_HL) &&
-       !operand_on_stack(result, a, i, G))))
+     ((!operand_on_stack(left,  a, i, G) || !input_in_HL && result_only_HL) &&
+      (!operand_on_stack(right, a, i, G) || !input_in_HL && result_only_HL) &&
+      !operand_on_stack(result, a, i, G)))
     return(true);
 
   if(result && IS_SYMOP(result) && isOperandInDirSpace(result) &&
@@ -969,7 +976,7 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
   if(ic->op == LEFT_OP && isOperandLiteral(IC_RIGHT(ic)))
     return(true);
 
-  if(exstk && !result_only_HL && (operand_on_stack(left, a, i, G) || operand_on_stack(right, a, i, G)) && ic->op == '+')
+  if(!result_only_HL && (operand_on_stack(left, a, i, G) || operand_on_stack(right, a, i, G)) && ic->op == '+')
     return(false);
 
   if((!POINTER_SET(ic) && !POINTER_GET(ic) && (
@@ -1022,7 +1029,7 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
   // Replaces former default drop here.
   if (ic->op == GET_VALUE_AT_ADDRESS || POINTER_SET(ic) || ic->op == ADDRESS_OF || ic->op == '*' || ic->op == JUMPTABLE) // Some operations always use hl. TODO: See if they can be changed to save / restore a hl in use or use hl only when free.
     return(false);
-  if(exstk && (operand_on_stack(result, a, i, G) || IS_TRUE_SYMOP (result) || operand_on_stack(left, a, i, G) || IS_TRUE_SYMOP (left) || operand_on_stack(right, a, i, G) || IS_TRUE_SYMOP (right))) // hl used as pointer to operand.
+  if(operand_on_stack(result, a, i, G) || IS_TRUE_SYMOP (result) || operand_on_stack(left, a, i, G) || IS_TRUE_SYMOP (left) || operand_on_stack(right, a, i, G) || IS_TRUE_SYMOP (right)) // hl used as pointer to operand.
     return(false);
 
   return(true);
@@ -1459,20 +1466,18 @@ static bool tree_dec_ralloc(T_t &T, G_t &G, const I_t &I, SI_t &SI)
   return(!assignment_optimal);
 }
 
-// i8080/i8085 have no index register at all, so there is no ix to use as a
-// frame pointer - the frame pointer is always omitted on this port.
-template <class G_t>
-static bool omit_frame_ptr(const G_t &G)
-{
-  return(true);
-}
+// omit_frame_ptr() removed (#36): was a bare "return(true);" template
+// function - i8080/i8085 have no index register at all, so there is
+// no ix to use as a frame pointer, and the frame pointer is always
+// omitted on this port unconditionally, not as a genuine per-function
+// choice. Its one caller (i8085_ralloc2_cc, below) removed too.
 
-// Adjust stack location when deciding to omit frame pointer.
+// Adjust stack location for the frame pointer this port always omits.
 // Only called from within this file (i8085_ralloc2_cc, below) - made
 // static so it can't collide with z80/ralloc2.cc's own move_parms.
 static void move_parms(void)
 {
-  if(!currFunc || !i8085_should_omit_frame_ptr)
+  if(!currFunc)
     return;
 
   for(value *val = FUNC_ARGS (currFunc->type); val; val = val->next)
@@ -1507,7 +1512,6 @@ iCode *i8085_ralloc2_cc(ebbIndex *ebbi)
   if (optimize.genconstprop)
     recomputeValinfos (ic, ebbi, "_3");
 
-  i8085_should_omit_frame_ptr = omit_frame_ptr(control_flow_graph);
   move_parms();
 
   if(options.dump_graphs)
