@@ -531,10 +531,12 @@ mightReadFlag(const lineNode *pl, const char *what)
 static bool
 mightRead(const lineNode *pl, const char *what)
 {
-  if(strcmp(what, "iyl") == 0 || strcmp(what, "iyh") == 0)
-    what = "iy";
-  if(strcmp(what, "ixl") == 0 || strcmp(what, "ixh") == 0)
-    what = "ix";
+  /* "iyl"/"iyh"/"ixl"/"ixh"/"iy"/"ix" normalization removed (#32): `what`
+     is always either a real 8080/8085 register name/flag or bound via a
+     rule's %N to a real matched operand - and this port's own gen.c
+     never emits any operand containing "ix"/"iy" (no index register
+     exists), nor does peeph-i8085.def contain either substring literally
+     - so `what` can never actually be any of these six strings here. */
 
   const char *larg = lineArg (pl, 0);
   const char *rarg = lineArg (pl, 1);
@@ -624,8 +626,12 @@ mightRead(const lineNode *pl, const char *what)
   if((strcmp(pl->line, "call\t___sdcc_call_hl") == 0 || larg && !strncmp (larg, "(hl)", 4)) && (strchr(what, 'h') != 0 || strchr(what, 'l') != 0))
     return true;
 
-  else if((strcmp(pl->line, "call\t___sdcc_call_iy") == 0 || larg && !strncmp (larg, "(iy)", 4)) && strstr(what, "iy") != 0)
-    return true;
+  // "call ___sdcc_call_iy" / "(iy)"-operand branch removed (#32): this
+  // port has no index registers, so it has no __sdcc_call_iy helper
+  // (device/lib/i8085 has __sdcc_call_hl only) and never emits "(iy)"
+  // addressing (gen.c's one "*iyx" mapping was itself removed as a
+  // zero-caller entry - see mappings.i) - pl->line can never match
+  // either alternative.
 
   if(strncmp(pl->line, "call\t___sdcc_bcall_", 19) == 0)
     if (strchr (what, pl->line[19]) != 0 || strchr (what, pl->line[20]) != 0 || strchr (what, pl->line[21]) != 0)
@@ -655,10 +661,9 @@ mightRead(const lineNode *pl, const char *what)
     {
       if (!strncmp (larg, "(sp)", 4) && !strncmp (rarg, "hl", 2))
         return(!strcmp (what, "h") || !strcmp (what, "l") || !strcmp (what, "sp"));
-      if (!strncmp (larg, "(sp)", 4) && !strncmp (rarg, "ix", 2))
-        return(!strcmp (what, "ix") || !strcmp (what, "sp"));
-      if (!strncmp (larg, "(sp)", 4) && !strncmp (rarg, "iy", 2))
-        return(!strcmp (what, "iy") || !strcmp (what, "sp"));
+      // "ex (sp), ix"/"ex (sp), iy" branches removed (#32): "ex" itself
+      // is never emitted by this port (only xchg/xthl), and even if it
+      // somehow were, no index register exists to be its rarg.
       if (!strncmp (larg, "af", 2) && !strncmp (rarg, "af'", 3))
         return(!strcmp (what, "a"));
       if (!strncmp (larg, "de", 2) && !strncmp (rarg, "hl", 2))
@@ -688,7 +693,9 @@ mightRead(const lineNode *pl, const char *what)
     lineIsInst (pl, "sbc") ||
     lineIsInst (pl, "xor")))
     {
-      if (!strncmp (larg, "a, a", 4) || !strncmp (larg, "hl, hl", 6) || !strncmp (larg, "iy, iy", 6))
+      // "iy, iy" disjunct removed (#32): no index register exists on
+      // this port, so no instruction can ever have iy as both operands.
+      if (!strncmp (larg, "a, a", 4) || !strncmp (larg, "hl, hl", 6))
         return(false);
     }
 
@@ -730,11 +737,11 @@ mightRead(const lineNode *pl, const char *what)
           if (!strcmp(what, "sp"))
             return(true);
         }
-      else if (larg[0] == 'i') // add ix/y, rr
-        {
-          if (!strncmp (larg, what, 2))
-            return(true);
-        }
+      // "add ix/y, rr" branch removed (#32): this port has no index
+      // register, so 16-bit add never takes an ix/iy first operand (the
+      // only real 16-bit add form is "dad", handled above via
+      // isHOrL(what) since it always targets hl - see emit3w_o()'s own
+      // comment on this in gen.c).
       return (argCont (rarg, what));
     }
 
@@ -984,11 +991,10 @@ surelyWritesFlag(const lineNode *pl, const char *what)
 
   if(lineIsInst (pl, "inc") || lineIsInst (pl, "dec"))
     {
-      // 8-bit inc affects all flags other than c.
+      // 8-bit inc affects all flags other than c. "(ix)"/"(iy)" disjuncts
+      // removed (#32): no such addressing exists on this port.
       if (strlen(pl->line + 4) == 1 || // 8-bit register
-        !strcmp(pl->line + 4, "(hl)") ||
-        !strcmp(pl->line + 6, "(ix)") ||
-        !strcmp(pl->line + 6, "(iy)"))
+        !strcmp(pl->line + 4, "(hl)"))
         return (!!strcmp(what, "cf"));
       return false; // 16-bit inc does not affect flags.
     }
@@ -1079,8 +1085,10 @@ callSurelyWrites (const lineNode *pl, const char *what)
   if (f && (strlen(what) == 2 && what[1] == 'f')) // Flags are never preserved across function calls.
     return(true);
 
-  if(!strcmp(what, "ix"))
-    return(false);
+  // "ix" early-return removed (#32): `what` can never literally be "ix"
+  // here - see mightRead()'s equivalent normalization-removal comment
+  // for the full argument (no index register exists, and no rule/matched
+  // operand text ever contains "ix"/"iy" on this port).
 
   if(f)
     preserved_regs = f->type->funcAttrs.preserved_regs;
@@ -1103,15 +1111,11 @@ callSurelyWrites (const lineNode *pl, const char *what)
     return !preserved_regs[L_IDX];
   if (!strcmp (what, "h"))
     return !preserved_regs[H_IDX];
-  // preserved_regs[IYL_IDX]/[IYH_IDX] are always false now (#25):
-  // _getRegByName("iyl"/"iyh") returns -1, so SDCCy.c's
-  // "__preserves_regs(...)" attribute parser can never set either index
-  // for any function - collapsing these three returns to their constant
-  // result (whether "what" can actually be "iyl"/"iyh"/"iy" here hasn't
-  // been traced through the rest of the peephole framework, but it no
-  // longer matters: the answer is the same either way).
-  if (!strcmp (what, "iyl") || !strcmp (what, "iyh") || !strcmp (what, "iy"))
-    return true;
+  // "iyl"/"iyh"/"iy" branch removed (#32): the #25-era comment here
+  // flagged that whether "what" can actually be one of these three
+  // hadn't been traced through the rest of the peephole framework - it
+  // now has (see mightRead()'s equivalent comment): `what` can never be
+  // "iyl"/"iyh"/"iy" for this port, so this branch never fires either.
 
   return (false);
 }
@@ -1119,10 +1123,9 @@ callSurelyWrites (const lineNode *pl, const char *what)
 static bool
 surelyWrites (const lineNode *pl, const char *what)
 {
-  if(strcmp(what, "iyl") == 0 || strcmp(what, "iyh") == 0)
-    what = "iy";
-  if(strcmp(what, "ixl") == 0 || strcmp(what, "ixh") == 0)
-    what = "ix";
+  // "iyl"/"iyh"/"ixl"/"ixh"/"iy"/"ix" normalization removed (#32): same
+  // proof as mightRead()'s equivalent removal - `what` can never
+  // actually be any of these six strings on this port.
 
   const char *larg = lineArg (pl, 0);
   const char *rarg = lineArg (pl, 1);
@@ -1237,10 +1240,8 @@ surelyWrites (const lineNode *pl, const char *what)
     return(what[0] == 'd' || what[0] == 'e');
   if (larg && lineIsInst (pl, "ld") && !strncmp (larg, "bc,", 3))
     return(what[0] == 'b' || what[0] == 'c');
-  if (larg && lineIsInst (pl, "ld") && !strncmp (larg, "ix,", 3))
-    return(!strcmp (what, "ix"));
-  if (larg && lineIsInst (pl, "ld") && !strncmp (larg, "iy,", 3))
-    return(!strcmp (what, "iy"));
+  // "ld ix,"/"ld iy," branches removed (#32): no index register exists
+  // on this port for either to ever target.
   /* in writes a (the value read from the port); out writes no register
      (see mightRead()'s comment on this mnemonic pair). */
   if (lineIsInst (pl, "out"))
@@ -1260,10 +1261,9 @@ surelyWrites (const lineNode *pl, const char *what)
 
   if (larg && lineIsInst (pl, "pop") && !strncmp (larg, "af", 2))
     return (what[0] == 'a');
-  else if (larg && lineIsInst (pl, "pop") && !strncmp (larg, "ix", 2))
-    return (!strcmp (what, "ix"));
-  else if (larg && lineIsInst (pl, "pop") && !strncmp (larg, "iy", 2))
-    return (!strcmp (what, "iy"));
+  // "pop ix"/"pop iy" branches removed (#32): no index register exists
+  // on this port to ever be popped ("pop ix" is itself unreachable dead
+  // code in gen.c, gated by the always-true omit_frame_ptr() chain).
   else if (larg && lineIsInst (pl, "pop"))
     return (strstr (larg, what));
   
@@ -1477,20 +1477,19 @@ isReg(const char *what)
   return FALSE;
 }
 
-/* 8-Bit reg only accessible by 16-bit and undocumented instructions */
-static bool
-isUReg(const char *what)
-{
-  if(strcmp(what, "iyl") == 0 || strcmp(what, "iyh") == 0)
-    return TRUE;
-  if(strcmp(what, "ixl") == 0 || strcmp(what, "ixh") == 0)
-    return TRUE;
-  return FALSE;
-}
+/* isUReg()/its "ixl"/"ixh"/"iyl"/"iyh" cases removed entirely (#32): the
+   only 8-bit regs "only accessible by 16-bit and undocumented
+   instructions" on real Z80 hardware were IX/IY's halves - this port has
+   no index register at all, so the whole notion is vacuous here, and
+   `what` can never be any of those four strings regardless (same proof
+   as mightRead()'s equivalent removal). i8085_notUsed()'s one caller
+   updated accordingly. */
 
 static bool
 isRegPair(const char *what)
 {
+  // "ix"/"iy" cases removed (#32): no index register exists on this
+  // port, and `what` can never be either string here regardless.
   if(strlen(what) != 2)
     return FALSE;
   if(strcmp(what, "bc") == 0)
@@ -1498,10 +1497,6 @@ isRegPair(const char *what)
   if(strcmp(what, "de") == 0)
     return TRUE;
   if(strcmp(what, "hl") == 0)
-    return TRUE;
-  if(strcmp(what, "ix") == 0)
-    return TRUE;
-  if(strcmp(what, "iy") == 0)
     return TRUE;
   return FALSE;
 }
@@ -1526,11 +1521,12 @@ i8085_notUsed (const char *what, lineNode *endPl, lineNode *head)
            i8085_notUsed("sf", endPl, head) && i8085_notUsed("pf", endPl, head) &&
            i8085_notUsed("nf", endPl, head) && i8085_notUsed("hf", endPl, head);
 
-  if(strcmp(what, "iy") == 0) // No IY register on this port to scan for, so it can never be proven unused.
-    return FALSE;
-
-  if(strcmp(what, "ix") == 0)
-    return(i8085_notUsed("ixl", endPl, head) && i8085_notUsed("ixh", endPl, head));
+  // "iy"/"ix" special cases removed (#32): `what` can never actually be
+  // either string here (same proof as mightRead()'s equivalent removal -
+  // no index register exists, and no rule/matched operand text ever
+  // contains "ix"/"iy" on this port), so these two branches, like
+  // isUReg() they depended on, are pure dead vestige, not a live "prove
+  // unused" path that was ever actually exercised.
 
   if(isRegPair(what))
     {
@@ -1546,8 +1542,8 @@ i8085_notUsed (const char *what, lineNode *endPl, lineNode *head)
   if(!strcmp(what, "vf") || !strcmp(what, "lf"))
     what = "pf";
 
-  // enable sp and flags
-  if(!isReg(what) && !isUReg(what) &&
+  // enable sp and flags. (isUReg() removed along with it - see above.)
+  if(!isReg(what) &&
      strcmp(what, "sp") && strcmp(what+1, "f"))
     return FALSE;
 
@@ -1594,22 +1590,15 @@ i8085_canAssign (const char *op1, const char *op2, const char *exotic)
   if (isIntelM (op2))
     op2 = "(hl)";
 
-  // Indexed accesses: One is the indexed one, the other one needs to be a reg or immediate.
-  if(exotic)
-  {
-    if(!strcmp(exotic, "ix") || !strcmp(exotic, "iy"))
-    {
-      if(isReg(op1))
-        return TRUE;
-    }
-    else if(!strcmp(op2, "ix") || !strcmp(op2, "iy"))
-    {
-      if(isReg(exotic) || exotic[0] == '#')
-        return TRUE;
-    }
-
-    return FALSE;
-  }
+  // "Indexed accesses" (exotic == "ix"/"iy") block removed (#32): exotic
+  // is only ever non-NULL when a canAssign() rule condition passes 3
+  // arguments, and this port's own peeph-i8085.def has exactly one real
+  // canAssign() call site, which passes 2 - so exotic is always NULL
+  // here in practice (this whole 3-argument form existed purely to
+  // support Z80-style ix/iy-indexed addressing checks, which this port
+  // has no use for at all: no index register exists). wassert kept
+  // minimal rather than added, to match this file's existing style of
+  // silent proof-by-comment for unreachable branches.
 
   // Everything else.
   dst = op1;
@@ -1653,9 +1642,13 @@ i8085_canAssign (const char *op1, const char *op2, const char *exotic)
   if(!strcmp(dst, "(hl)") && src[0] == '#')
     return true;
 
-  // Can load between hl / ix / iy and sp.
-  if(!strcmp(dst, "sp") && (!strcmp(src, "hl") || !strcmp(src, "ix") || !strcmp(src, "iy")) ||
-    (!strcmp(dst, "hl") || !strcmp(dst, "ix") || !strcmp(dst, "iy")) && !strcmp(src, "sp"))
+  // Can load between hl and sp. "ix"/"iy" disjuncts removed (#32): "ld
+  // sp, ix"/"ld ix, sp" are themselves unreachable dead code in gen.c
+  // (the frame-pointer setup/teardown they'd back is gated by the
+  // always-true omit_frame_ptr() chain), so no real matched operand
+  // text can ever be "ix"/"iy" here either.
+  if(!strcmp(dst, "sp") && !strcmp(src, "hl") ||
+    !strcmp(dst, "hl") && !strcmp(src, "sp"))
     return true;
 
   return false;
@@ -1670,10 +1663,10 @@ registerBaseName (const char *op)
     return "bc";
   if (!strcmp (op, "h") || !strcmp (op, "l") || !strcmp (op, "(hl)") || !strcmp (op, "(hl+)")  || !strcmp (op, "(hl-)"))
     return "hl";
-  if (!strcmp (op, "iyh") || !strcmp (op, "iyl") || strstr (op, "iy"))
-    return "iy";
-  if (!strcmp (op, "ixh") || !strcmp (op, "ixl") || strstr (op, "ix"))
-    return "ix";
+  // "iy"/"ix" cases removed (#32): `op` is always bound to real matched
+  // operand text (canJoinRegs()'s own %N-substituted regs[]), which can
+  // never contain either substring on this port - no index register
+  // exists, and peeph-i8085.def never mentions either literally.
   if (!strcmp (op, "a"))
     return "af";
   return op;
@@ -1700,8 +1693,10 @@ bool i8085_canJoinRegs (const char **regs, char dst[20])
       memcpy (&dst[0], regs[0], l1);
       memcpy (&dst[l1], regs[1], l2 + 1); //copy including \0
     }
-  if (!strcmp (dst, "ixhixl") || !strcmp (dst, "iyhiyl"))
-    dst[2] = '\0';
+  // "ixhixl"/"iyhiyl" special case removed (#32): dst is built purely by
+  // concatenating two real matched operand strings, which can never be
+  // "ixh"/"ixl"/"iyh"/"iyl" on this port - same proof as
+  // registerBaseName()'s equivalent removal just above.
   return isRegPair (dst);
 }
 
@@ -1756,11 +1751,10 @@ int i8085_instructionSize (lineNode *pl)
   /* All ld instructions */
   if(lineIsInst (pl, "ld"))
     {
-      // These 4 are the only cases of 4 byte long Z80 ld instructions.
-      if(!STRNCASECMP (op0start, "ix", 2) || !STRNCASECMP (op0start, "iy", 2))
-        return(4);
-      if((argCont (op0start, "(ix)") || argCont (op0start, "(iy)")) && op1start[0] == '#')
-        return(4);
+      // "These 4 are the only cases of 4 byte long Z80 ld instructions"
+      // reduced to the remaining 2 (#32): the ix/iy-operand and
+      // "(ix)"/"(iy)" + immediate cases removed - no index register
+      // exists on this port for either to ever match.
 
       if(op0start[0] == '('               && STRNCASECMP(op0start, "(bc)", 4) &&
          STRNCASECMP(op0start, "(de)", 4) && STRNCASECMP(op0start, "(hl" , 3) &&
@@ -1770,11 +1764,9 @@ int i8085_instructionSize (lineNode *pl)
          STRNCASECMP(op0start, "hl", 2)   && STRNCASECMP(op0start, "a", 1))
         return(4);
 
-      /* These 4 are the only remaining cases of 3 byte long ld instructions. */
-      if(argCont(op1start, "(ix)") || argCont(op1start, "(iy)"))
-        return(3);
-      if(argCont(op0start, "(ix)") || argCont(op0start, "(iy)"))
-        return(3);
+      /* These 4 are now the remaining 2 cases of 3 byte long ld
+         instructions (#32): the "(ix)"/"(iy)" operand cases removed -
+         no such addressing exists on this port. */
       if((op0start[0] == '(' && STRNCASECMP(op0start, "(bc)", 4) && STRNCASECMP(op0start, "(de)", 4) && STRNCASECMP(op0start, "(hl", 3)) ||
          (op1start[0] == '(' && STRNCASECMP(op1start, "(bc)", 4) && STRNCASECMP(op1start, "(de)", 4) && STRNCASECMP(op1start, "(hl", 3)))
         return(3);
@@ -1788,8 +1780,8 @@ int i8085_instructionSize (lineNode *pl)
       if(!STRNCASECMP(op0start, "i", 1) || !STRNCASECMP(op0start, "r", 1) ||
          !STRNCASECMP(op1start, "i", 1) || !STRNCASECMP(op1start, "r", 1))
         return(2);
-      if(!STRNCASECMP(op1start, "ix", 2) || !STRNCASECMP(op1start, "iy", 2))
-        return(2);
+      // "op1start is ix/iy" case removed (#32): no index register exists
+      // on this port for op1 to ever be one.
 
       /* All other ld instructions */
       return(1);
@@ -1805,16 +1797,17 @@ int i8085_instructionSize (lineNode *pl)
           werrorfl(pl->ic->filename, pl->ic->lineno, W_UNRECOGNIZED_ASM, __func__, 4, pl->line);
           return(4);
         }
-      if (argCont (op0start, "(sp)") && (!STRNCASECMP(op1start, "ix", 2) || !STRNCASECMP(op1start, "iy", 2)))
-        return(2);
+      // "ex (sp), ix/iy" 2-byte case removed (#32): no index register
+      // exists on this port for op1 to ever be one.
       return(1);
     }
 
   /* Push / pop */
   if(lineIsInst (pl, "push") || lineIsInst (pl, "pop"))
     {
-      if(!STRNCASECMP(op0start, "ix", 2) || !STRNCASECMP(op0start, "iy", 2))
-        return(2);
+      // ix/iy 2-byte case removed (#32): no index register exists on
+      // this port to ever be pushed/popped ("push ix"/"pop ix" are
+      // themselves unreachable dead code in gen.c).
       return(1);
     }
 
@@ -1828,16 +1821,16 @@ int i8085_instructionSize (lineNode *pl)
         return(1);
       return(2);
     }
-  if(lineIsInst (pl, "add") && (!STRNCASECMP(op0start, "ix", 2) || !STRNCASECMP(op0start, "iy", 2)))
-    return(2);
+  // "add ix/iy, rr" case removed (#32): no index register exists on
+  // this port - the only real 16-bit add is "dad", handled above.
 
   /* 8 bit arithmetic, two operands */
   if(op1start && op0start[0] == 'a' &&
      (lineIsInst (pl, "add") || lineIsInst (pl, "adc") || lineIsInst (pl, "sub") || lineIsInst (pl, "sbc") ||
       lineIsInst (pl, "cp")  || lineIsInst (pl, "and") || lineIsInst (pl, "or")  || lineIsInst (pl, "xor")))
     {
-      if(argCont(op1start, "(ix)") || argCont(op1start, "(iy)"))
-        return(3);
+      // "(ix)"/"(iy)" operand case removed (#32): no such addressing
+      // exists on this port.
       if(op1start[0] == '#')
         return(2);
       return(1);
@@ -1847,8 +1840,8 @@ int i8085_instructionSize (lineNode *pl)
      (lineIsInst (pl, "add") || lineIsInst (pl, "adc") || lineIsInst (pl, "sub") || lineIsInst (pl, "sbc") ||
       lineIsInst (pl, "cp")  || lineIsInst (pl, "and") || lineIsInst (pl, "or")  || lineIsInst (pl, "xor")))
     {
-      if(argCont(op0start, "(ix)") || argCont(op0start, "(iy)"))
-        return(3);
+      // "(ix)"/"(iy)" operand case removed (#32): no such addressing
+      // exists on this port.
       if(op0start[0] == '#')
         return(2);
       return(1);
@@ -1860,18 +1853,16 @@ int i8085_instructionSize (lineNode *pl)
   /* Increment / decrement */
   if(lineIsInst (pl, "inc") || lineIsInst (pl, "dec"))
     {
-      if(!STRNCASECMP(op0start, "ix", 2) || !STRNCASECMP(op0start, "iy", 2))
-        return(2);
-      if(argCont(op0start, "(ix)") || argCont(op0start, "(iy)"))
-        return(3);
+      // ix/iy and "(ix)"/"(iy)" cases removed (#32): no index register
+      // or such addressing exists on this port.
       return(1);
     }
 
   if(lineIsInst (pl, "rlc") || lineIsInst (pl, "rl")  || lineIsInst (pl, "rrc") || lineIsInst (pl, "rr") ||
      lineIsInst (pl, "sla") || lineIsInst (pl, "sra") || lineIsInst (pl, "srl"))
     {
-      if(argCont(op0start, "(ix)") || argCont(op0start, "(iy)"))
-        return(4);
+      // "(ix)"/"(iy)" 4-byte case removed (#32): no such addressing
+      // exists on this port.
       return(2);
     }
 
@@ -1881,8 +1872,8 @@ int i8085_instructionSize (lineNode *pl)
   /* Bit */
   if(lineIsInst (pl, "bit") || lineIsInst (pl, "set") || lineIsInst (pl, "res"))
     {
-      if(argCont(op1start, "(ix)") || argCont(op1start, "(iy)"))
-        return(4);
+      // "(ix)"/"(iy)" 4-byte case removed (#32): no such addressing
+      // exists on this port.
       return(2);
     }
 
@@ -1893,8 +1884,8 @@ int i8085_instructionSize (lineNode *pl)
     {
       if(!STRNCASECMP(op0start, "(hl)", 4))
         return(1);
-      if(!STRNCASECMP(op0start, "(ix)", 4) || !STRNCASECMP(op0start, "(iy)", 4))
-        return(2);
+      // "(ix)"/"(iy)" 2-byte case removed (#32): no such addressing
+      // exists on this port.
       return(3);
     }
 
