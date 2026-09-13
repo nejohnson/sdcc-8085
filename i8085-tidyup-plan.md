@@ -225,6 +225,29 @@ required building blocks of live composite macros (`IS_R2K`/`IS_R2KA`/
 (Neil's explicit forward-looking-scaffolding ruling from the
 clean-sweep phase).
 
+## Addendum (2026-09-13): a second wave of gen.c narration, and its cleanup
+
+Checkpoint 4 (below) closed item 5 for `gen.c` as it stood on
+2026-08-22 - but the enum-collapse work that followed (task #25,
+started 2026-09-08) and the whole further IX/IY/AOP_STK/AOP_FDIR/
+frame-pointer thread after it (tasks #20/#22/#24/#27/#28/#31-#36)
+necessarily re-narrated each of *their own* removals at the removal
+site as they landed, by design matching this same editorial
+philosophy's own convention of documenting proofs inline. By
+2026-09-12 that had reaccumulated to 171 raw `grep`-for-"(#NN)" hits in
+`gen.c` alone. Cleaned up in commit `8818d68c` (feat/i8085) - same
+triage as checkpoint 4 below (cut the pure narration, reword the rare
+comment with a genuine current-fact worth keeping, leave the
+established `AOP_STK`/`AOP_IY` wassertl-tripwire keepers alone) - down
+to 0 hits, plus 4 much older stray fragments in the same style found
+along the way. Net: 814 lines removed, 110 added. Full i8080+i8085+
+i8085-undoc regression, 0 failures, byte/tick-identical on all three
+ports (this checkpoint also happened to make a few genuinely dead
+function parameters removable - `restoreRegs()`'s ix/jk/iy,
+`_saveRegsForCall()`'s dontsaveIY - see that commit for detail; not a
+comment-only change in the strictest sense, but zero behavior change
+either way, confirmed by the identical regression numbers).
+
 ## Status: all 8 scope items complete
 
 Items 1-8 are all landed. The one explicit, deliberate exclusion is
