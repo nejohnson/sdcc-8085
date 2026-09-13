@@ -39,7 +39,7 @@ instead (adapt to what ASxxxx already does), not as a feature request.
 |---|---|---|---|
 | `i85pg1[0x11]` (LXI D marked illegal on 8085) | **ASxxxx** | **Done.** Landed on `master` in `nejohnson/asxxxx` as commit `1fbc20f`. Also extended `asz80/t80.asm` with a `.8085`-mode section covering all four `LD rp,nn` forms, closing the coverage gap that let this through. | Clean bug, no controversy expected |
 | Long comment-line lexer limit | **ASxxxx** | **Done.** Landed on `master` in `nejohnson/asxxxx` as commit `83a99c1`. Root cause: `asxxsrc/aslex.c`'s three `fgets()`/`fgetm()` calls in `nxtline()` passed `NINPUT` (380) instead of `NINPUT*2` (759, `ib[]`'s actual declared size - the doubling is pre-existing headroom for `.define` substitution growth) - a stale size argument, not a genuinely undersized buffer. Fix confirmed via binary-searched failure threshold: exactly 379/380 chars before the fix (matching `NINPUT` precisely), 759 chars after (matching `NINPUT*2-1`). Applies to every `asxxsrc`-based target, not just Z80. | Not SDCC-specific - any long input line trips it, on any target |
-| `.optsdcc` directive unrecognized | **SDCC** | **Done.** `_z80_genAssemblerStart` emits it as `;optsdcc` for i8085 only - i8080 unaffected, still gets the real directive (i8080 stays on `sdasz80` for now, not switched to vendor tools in this pass). | |
+| `.optsdcc` directive unrecognized | **SDCC** | **Done.** `_z80_genAssemblerStart` emits it as `;optsdcc` for i8085 only at this point - i8080 unaffected, still gets the real directive (i8080 stays on `sdasz80` for now, not switched to vendor tools in this pass). Superseded 2026-08-21 when i8080 moved to vendor tools too - see the 2026-09-13 addendum below. | |
 | `-a`/`-b` flag collision | **SDCC** | **Done, but needed more than the two mandated files could reach cleanly.** The `-b AREA = addr` line turned out to be written by shared code in `SDCCmain.c` (`WRITE_SEG_LOC`, gated on `TARGET_Z80_LIKE`, shared with z80/z180/rabbit/etc.) - not touchable without affecting other targets. Worked around within the `src/i8085/main.c`/`crt0.s` mandate: `i8085_port.linker.needLinkerScript = 0` skips that shared `.lk`-file-writing block entirely, and a new `linker.mcmd` macro builds vendor's actual command line (`-a` not `-b`) instead. Also found and handled: vendor's Intel Hex output flag needs `-i+"name"` syntax, not SDAS's `-i name`. | |
 | `s__<AREA>`/`l__<AREA>` symbol naming | **SDCC** | **Done**, subtler than expected. SDCC's area names already carry a leading underscore (`_DATA`), so vendor's `l_<area>` naturally comes out as `l__DATA` with zero changes needed - only `s_<area>_<n>`'s numeric instance suffix needed handling (`s__DATA` -> `s__DATA_1`), relying on `crt0.rel` always linking first and contributing an empty chunk (confirmed true). | |
 | Area-flags format divergence (`.rel` A-line) | **SDCC** | **Confirmed a non-issue** once both sides are vendor's own tools consistently - no `Conflicting flags in area` error. | Matches the hypothesis from the structural follow-up test |
@@ -316,3 +316,57 @@ branches (local + remote). Regenerated `patches/asxxxx/0003-*.patch` and
 `0004-*.patch` from the real merged commits. Ownership-triage table and
 this status log updated accordingly; UTF-8 item closed as investigated-
 not-pursued rather than left open.
+
+## Addendum (2026-09-13): i8080 turned out to be done too
+
+The stopping point above (2026-08-19) left `i8080` explicitly out of
+scope - "untouched, still on SDAS... a new, not-yet-opened piece of
+work." That held for all of two days: `0176906f` (2026-08-21, "i8085/
+i8080: migrate generated assembly from Zilog to Intel mnemonics")
+retargeted `i8080_port`'s assembler/linker to vendor's `as8085`/
+`aslink` alongside `i8085_port`, sharing the same `_i808xVendorAsmCmd`/
+`_i808xVendorLinkCmd` command macros in `src/i8085/main.c` - not as a
+restatement of this doc's mandate, but as a forced consequence of a
+different one: `i8080_port` shares `gen.c` with `i8085_port`, so once
+that file's `emit3`/`emit2` call sites switched to emitting Intel
+mnemonics, `i8080`'s output was Intel-syntax too, and leaving it on
+`sdasz80` (which understands the old Zilog dialect, not the new Intel
+one) would have been simply broken, not merely inconsistent - confirmed
+by the commit's own note that it caught exactly this failure mode via
+a real device-library build. `device/lib/i8080/{Makefile.in,crt0.s,
+heap.s}` and `support/regression/ports/i8080/spec.mk` were retargeted
+in the same commit, mirroring the `i8085`/`i8085-undoc` fixes this doc
+already tracks (`SAS` to `as8085`, `BANK=` annotations on `crt0.s`/
+`heap.s`, `-plosgffw`). `i8080.lib` is the same plain-text filename-
+list format as `i8085.lib` (confirmed: `file` reports `ASCII text`,
+not an `ar` archive).
+
+The UTF-8-identifier limitation this doc tracks as a documented,
+not-pursued gap (`tcc_83_utf8_in_identifiers`/`tst_p99-conformance`)
+was extended to `i8080` too, on the same footing as `i8085`/
+`i8085-undoc`: `881129bb` (2026-08-22) added both cases to the shared
+`EXCLUDE_ARCH_i8080` list in `support/regression/MakeList`, which all
+three ports' `EXCLUDE_*` lists already fold in - so `i8080`'s
+regression showing 0 failures (rather than i8085/i8085-undoc's 2) is
+the documented exclusion doing its job uniformly across all three
+ports, not a gap being silently masked.
+
+Independently re-verified this session (2026-09-13), from scratch,
+without assuming the commit messages above were still accurate:
+inspected `src/i8085/main.c` (`i8080_port`'s assembler/linker
+sub-structs), `device/lib/i8080/{Makefile.in,crt0.s,heap.s}` and
+`device/lib/build/i8080/i8080.lib`'s actual file format directly;
+ran `sdcc -mi8080 --verbose` on a small fixture and confirmed the real
+`as8085`/`aslink` invocations in the output; ran a full, clean
+`test-i8080` regression end to end (gen/results wiped first) - **0
+failures, 36366 tests, 6358 test cases, 8353867 bytes, 2619367548
+ticks, 0 abnormal stops** - byte- and tick-identical to `i8085`'s own
+baseline, exactly as expected for two ports sharing the same `gen.c`
+and the same vendor toolchain.
+
+**i8080 is fully on the vendor ASxxxx toolchain, has been since
+2026-08-21, and needs no further work here.** The "new, not-yet-opened
+piece of work" framing two days earlier in this doc was accurate when
+written and overtaken by events almost immediately after - left as-is
+above rather than edited, since it's an accurate record of what was
+true at that point in the timeline; this addendum is the correction.
