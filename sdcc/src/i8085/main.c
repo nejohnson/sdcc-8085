@@ -435,22 +435,24 @@ _finaliseOptions (void)
   port->mem.default_local_map = data;
   port->mem.default_globl_map = data;
 
-  /* port->num_regs deliberately left at its 7 literal (a, c, b, e, d, l, h)
-     rather than "fixed" to actually enable l/h for the tree-decomposition
-     allocator in SDCCralloc.hpp/ralloc2.cc: a prior attempt to do exactly
-     that (removing an erroneous "-= 2" that was landing num_regs on 5, not
-     7 - a copy-paste artifact from the z80 port, whose own IY-having sub-
-     targets start from num_regs=9 and legitimately decrement) surfaced a
-     broad, previously-latent bug surface in gen.c's shift/rotate code
-     generation - regression showed 100+ real failures (wrong 32-bit
-     rotate results, tinyaes, several hash/crypto cases) plus multiple
-     compiler crashes on coremark, all newly reachable only once l/h could
-     hold an ordinary allocator-assigned byte variable rather than just
-     the classic hl-pointer-pair. That bug-hunt is its own task, not a
-     follow-on to this one - see i8085.h's IY_RESERVED-removal comment for
-     the diagnostic trail. Left as num_regs=5 (l/h unusable by ralloc2)
-     until that follow-up task lands. */
-  port->num_regs -= 2;
+  /* port->num_regs stays at its 7 literal (a, c, b, e, d, l, h) - #29:
+     enable l/h for ralloc2.cc's tree-decomposition allocator, not just the
+     classic hl-pointer-pair. This is a live bug hunt, not a finished
+     change: letting ralloc2.cc assign l/h to ordinary byte variables
+     surfaces a broad latent bug surface in gen.c wherever code assumed
+     (true only at num_regs=5) that l/h could never hold a variable that
+     survives to be read again later. Bugs found and fixed so far (see git
+     history for the full trace of each): genLeftShift()'s and
+     genRightShift()'s missing HL save/restore around their memory-
+     addressing loops; emit3w_o()'s offset-blind getPairId() check (2
+     sites); genPointerSet()'s unsound "pair is never hl here" proof in
+     its size-1 exception path. Deliberately left crystallized at 7 (not
+     reverted between fixes) per Neil's direction - flip-flopping back to
+     5 to "safely" re-verify each fix in isolation was slowing the hunt
+     down for no real benefit once the pattern was established; the
+     regression suite itself is the safety net now. Not yet clean - see
+     the tracking notes (project memory / commit history) for the current
+     remaining failure list before assuming this is done. */
 
   _setValues ();
 }

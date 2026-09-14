@@ -2093,9 +2093,25 @@ emit3w_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
   float statecost;
 
   /* 8080/8085 have no adc/sbc hl,rr; synthesise them byte-wise, preserving A
-     if the current iCode still needs it. */
+     if the current iCode still needs it.
+
+     Use getPairId_o(op1, offset1), not getPairId(op1): op1 is HL here
+     whenever the 2-byte chunk *at offset1* is the L/H pair, not only when
+     op1 itself is a bare 2-byte operand. getPairId() alone checks
+     op1->size == 2 and always uses offset 0 (see its own definition) -
+     true for every call site that passes the ASMOP_HL singleton directly,
+     but false for genLeftShift()'s inner loop, which calls this with a
+     wider operand (shiftop) and a nonzero offset when shiftop's own upper
+     16-bit chunk happens to be register-allocated to L/H. Getting this
+     wrong doesn't miscompile silently - the fallthrough to the generic
+     path below emits raw asminstnames[] text ("add"/"adc", Zilog's 2-
+     operand mnemonic spelling) with no Intel dad/adc-synthesis translation
+     at all, which as8085 rejects outright ("add hl, hl" has no valid
+     Intel encoding). Confirmed via blake2s/lonesha256, both of which do
+     wide rotates whose upper chunk lands in L/H once ralloc2.cc's
+     tree-decomposition allocator can assign there. */
   if ((inst == A_ADC || inst == A_SBC) &&
-      op1 && getPairId (op1) == PAIR_HL && op2)
+      op1 && getPairId_o (op1, offset1) == PAIR_HL && op2)
     {
       const iCode *cic = genLine.lineElement.ic;
       emit8080AdcSbcHL (inst == A_SBC, op2, offset2, !cic || isRegDead (A_IDX, cic));
@@ -2103,17 +2119,17 @@ emit3w_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
     }
 
   /* 16-bit "add hl, rr" (the only 8080/8085-reachable word-level A_ADD form -
-     confirmed: every emit3w()/emit3w_o() A_ADD call site in this file passes
-     ASMOP_HL as op1; A_ADC/A_SBC are intercepted above, and no other
-     asminst reaches this function with a real hardware equivalent needing
-     special handling - see emit3wCost()'s own dead-case comments) has no
-     Intel 2-operand form at all: DAD implicitly targets HL and takes a
-     single register-pair operand. aopGet() on a register-pair asmop
-     already renders exactly the text DAD needs ("bc"/"de"/"hl"/"sp" - and
-     is8085/i85pst.c's S_REG table accepts those pair-name spellings as
-     synonyms for the single-letter b/d/h/sp forms DAD's own S_INX class
-     expects, so no further text translation is needed here). */
-  if (inst == A_ADD && op1 && getPairId (op1) == PAIR_HL && op2)
+     A_ADC/A_SBC are intercepted above, and no other asminst reaches this
+     function with a real hardware equivalent needing special handling -
+     see emit3wCost()'s own dead-case comments) has no Intel 2-operand form
+     at all: DAD implicitly targets HL and takes a single register-pair
+     operand. aopGet() on a register-pair asmop already renders exactly the
+     text DAD needs ("bc"/"de"/"hl"/"sp" - and is8085/i85pst.c's S_REG table
+     accepts those pair-name spellings as synonyms for the single-letter
+     b/d/h/sp forms DAD's own S_INX class expects, so no further text
+     translation is needed here). getPairId_o(op1, offset1), not
+     getPairId(op1) - same reasoning as the A_ADC/A_SBC check above. */
+  if (inst == A_ADD && op1 && getPairId_o (op1, offset1) == PAIR_HL && op2)
     {
       emit3wCost (inst, op1, offset1, op2, offset2);
       if (regalloc_dry_run)
@@ -12619,8 +12635,26 @@ genLeftShift (const iCode *ic)
      literal shift instead of looping (save_a_outer already preserves a live A). */
   bool unroll_8080 = shift_by_lit && shiftcount > 1 && countreg == A_IDX;
 
+  /* When shiftop is memory-resident, the byte-move body below (emit8080Lsh1,
+     via requiresHL()'s AOP_HL/AOP_EXSTK/AOP_STL operand types) recomputes an
+     HL-based address fresh on every byte, unconditionally repurposing L/H as
+     a scratch pointer. That's only safe when nothing else still needs L/H's
+     current content afterward - true by construction before num_regs could
+     ever put an ordinary live variable there, but not any more: left (or
+     whatever else is live-out of this icode) can now genuinely be
+     register-allocated into L/H itself and still be read again later (e.g.
+     rol(x,n) = (x<<n)|(x>>(32-n)), which reads x for both the left and the
+     right shift). Save/restore around the loop when that's the case, the
+     same pattern save_a_outer/save_a_inner already use for A. Found via
+     rotate_size_32_*: iTemp0's own L/H bytes were silently clobbered by
+     this loop addressing a spilled shift destination, corrupting the
+     subsequent genRightShift's read of the same iTemp0. */
+  bool save_hl_scratch = requiresHL (shiftop) && !isRegDead (HL_IDX, ic);
+
   if (shift_by_lit && !shiftcount)
     goto end;
+  if (save_hl_scratch)
+    _push (PAIR_HL);
   if (shift_by_lit && shiftcount > 1 && !unroll_8080)
     {
       emit2 ("mvi %s, !immedbyte", i8085_regs[countreg].name, (unsigned)shiftcount);
@@ -12712,6 +12746,9 @@ genLeftShift (const iCode *ic)
           emitJP (tlbl, "nz", 1.0f, true);
         }
     }
+
+  if (save_hl_scratch)
+    _pop (PAIR_HL);
 
 end:
   regalloc_dry_run_state_scale = 1.0f;
@@ -13091,6 +13128,16 @@ genRightShift (const iCode * ic)
      looping - this needs no counter at all. */
   bool unroll_8080 = shift_by_lit && shiftcount > 1 && countreg == A_IDX;
 
+  /* emitRsh2(), like genLeftShift()'s byte loop, recomputes an HL-based
+     address fresh for every byte it reads/writes when shiftop is memory-
+     resident (its emit3_o(A_LD,...) calls) - safe only when nothing else
+     still needs L/H's current content afterward. Same fix as genLeftShift
+     (#29): save/restore HL around the shift when that's not the case. See
+     genLeftShift()'s own comment on this for the full reasoning; found
+     here via lonesha256/sha3-256's wide right-rotations, the >>-half of
+     the same rol()/ror() shape that exposed genLeftShift's copy. */
+  bool save_hl_scratch = requiresHL (shiftop) && !isRegDead (HL_IDX, ic);
+
   if (!regalloc_dry_run)
     {
       tlbl = newiTempLabel (NULL);
@@ -13101,7 +13148,9 @@ genRightShift (const iCode * ic)
 
   if (shift_by_zero)
     goto end;
-  else if (unroll_8080)
+  if (save_hl_scratch)
+    _push (PAIR_HL);
+  if (unroll_8080)
     {
       /* preserve a live A across the unrolled shift (emitRsh2 clobbers it) */
       if (!isRegDead (A_IDX, ic) && !pushed_a)
@@ -13178,6 +13227,9 @@ genRightShift (const iCode * ic)
         }
       spillPairReg (i8085_regs[countreg].name);
     }
+
+  if (save_hl_scratch)
+    _pop (PAIR_HL);
 
 end:
   regalloc_dry_run_state_scale = 1.0f;
@@ -13401,9 +13453,16 @@ genPointerGet (const iCode *ic)
   /* 8085 undocumented LHLX: HL = (DE), a 16-bit load through a pointer in DE in
      a single byte - giving DE a genuine role as a second data pointer. Only for
      a plain 2-byte load (no offset, no bit-field) with the pointer already in
-     DE. Leaves DE (the pointer) intact and does not touch A. */
+     DE. Leaves DE (the pointer) intact and does not touch A. Also requires HL
+     itself to be dead first (see the sibling LDHI+LHLX site below in this
+     file, which already gets this right) - lhlx unconditionally overwrites
+     HL, so if some other still-live variable happens to be register-
+     allocated there (possible once num_regs lets ordinary variables use l/h,
+     not just the classic pointer-in-hl case), this clobbers it with no
+     save/restore. Found via structscope.c on i8085-undoc (#29). */
   if (IS_8085 && options.allow_undoc_inst && !from_far && !bit_field &&
-      getPairId (left->aop) == PAIR_DE && size == 2 && !rightval)
+      getPairId (left->aop) == PAIR_DE && size == 2 && !rightval &&
+      isPairDead (PAIR_HL, ic))
     {
       emit2 ("lhlx");
       cost2 (1, 10);
@@ -14034,9 +14093,18 @@ genPointerSet (iCode *ic)
 
   /* 8085 undocumented SHLX: (DE) = HL, a 16-bit store through a pointer in DE
      in a single byte. Only for a plain 2-byte store (no bit-field) with the
-     pointer already in DE; load the value into HL (never disturbing DE), shlx. */
+     pointer already in DE; load the value into HL (never disturbing DE), shlx.
+     Also requires HL itself to be dead first (see the sibling LDHI+LHLX site
+     in genPointerGet, which already gets this right) - genMove(ASMOP_HL,...)
+     unconditionally overwrites HL, so if some other still-live variable
+     happens to be register-allocated there, this clobbers it with no
+     save/restore. Found via structscope.c on i8085-undoc (#29): "s2.other =
+     &s1" took this path while &s1 (a different, still-live pointer value)
+     was sitting in l/h from an earlier statement, silently corrupting it
+     before the later statement that needed it read it back. */
   if (IS_8085 && options.allow_undoc_inst && !to_far && !bit_field &&
-      getPairId (result->aop) == PAIR_DE && size == 2)
+      getPairId (result->aop) == PAIR_DE && size == 2 &&
+      isPairDead (PAIR_HL, ic))
     {
       genMove (ASMOP_HL, right->aop, isRegDead (A_IDX, ic), true, false);
       emit2 ("shlx");
@@ -14110,15 +14178,24 @@ genPointerSet (iCode *ic)
           if (surviving_a && !pushed_a && !aopInReg (right->aop, 0, A_IDX))
             _push (PAIR_AF), pushed_a = TRUE;
           genMove_o (ASMOP_A, 0, right->aop, 0, 1, true, pairId != PAIR_HL && isPairDead (PAIR_HL, ic) && right->aop->regs[L_IDX] < offset && right->aop->regs[H_IDX] < offset, false, true);
-          /* isPtr(pair) was false above (the "if" this is the "else" of),
-             so pair is not "hl"/"ix"/"iy" here - getPairName() (which
-             produced it) only ever returns "bc"/"de"/"hl"/"iy", so pair
-             is "bc" or "de": stax, source always a (just moved there by
-             genMove_o() above) - "bc"/"de" are accepted directly by
-             as8085 as synonyms for stax's b/d operand (same S_REG-table
+          /* This is the "else" of "canAssignToPtr3(right->aop) &&
+             isPtr(pair)" above - reachable either because isPtr(pair) is
+             false (pair is "bc"/"de": stax, source always a, just moved
+             there by genMove_o() above - "bc"/"de" are accepted directly
+             by as8085 as synonyms for stax's b/d operand, same S_REG-table
              synonym acceptance already confirmed for dad/inx/dcx/push/pop
-             elsewhere in this file). */
-          emit2 ("stax %s", pair);
+             elsewhere in this file) OR because canAssignToPtr3(right->aop)
+             is false while pair is "hl" (right->aop stack-resident rather
+             than reg/lit, e.g. a spilled value; the pointer itself still
+             register-allocated to L/H) - stax has no HL form at all, so
+             that case needs the same "mov m, a" dispatch as the sibling
+             if-branch above, not stax. Missing this case emitted a
+             literal, invalid "stax hl" (found via tinyaes: a byte pointer
+             held in [l h], storing a stack-spilled value). */
+          if (!strcmp (pair, "hl"))
+            emit2 ("mov m, a");
+          else
+            emit2 ("stax %s", pair);
           cost2 (1, 7); // Assume ld (rr), a
         }
       goto release;
