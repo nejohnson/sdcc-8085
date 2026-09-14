@@ -927,14 +927,22 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
     (IS_TRUE_SYMOP (result) && !operand_on_stack(result, a, i, G) || (operand_on_stack(left, a, i, G) || IS_TRUE_SYMOP (left)) || (operand_on_stack(right, a, i, G) || IS_TRUE_SYMOP (right)))) // Might use (hl).
     return(false);
 
-  // HL overwritten by result.
-  if(result_only_HL && !POINTER_SET(ic) &&
-      (ic->op == GET_VALUE_AT_ADDRESS ||
-       ic->op == '+' ||
-       ic->op == '*' ||
-       ic->op == '=' ||
-       ic->op == CAST))
-    return(true);
+  /* "if (result_only_HL && !POINTER_SET(ic) && (ic->op ==
+     GET_VALUE_AT_ADDRESS || '+' || '*' || '=' || CAST)) return(true);"
+     removed (#29): result_only_HL only proves the *end state* is safe -
+     that by the time this icode finishes, L/H hold nothing but the
+     freshly-computed result. It says nothing about whether gen.c's
+     actual implementation needs HL as a scratch address pointer partway
+     through getting there (e.g. GET_VALUE_AT_ADDRESS/'='/CAST reading a
+     stack-resident source via a fresh "lxi h,#N; dad sp" before the
+     result is fully written) - if some other, unrelated variable is
+     still live in L/H at that midpoint, this let the allocator place it
+     there anyway, and gen.c's address computation silently overwrites
+     it with no save/restore. Confirmed via bug-2452.c and bug-3873.c
+     (both fail without this removed; both closed cleanly once combined
+     with the '='-family hatch below). No narrower replacement condition
+     found - the safe default (falling through to this function's
+     existing, correctly-conservative tail) is what's needed here. */
 
   // "if(!exstk && ...) return(true);" removed (#36): exstk is always
   // true on this port, so "!exstk && ..." was always false - this
@@ -958,51 +966,59 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
   if((input_in_HL || !result_only_HL) && right && IS_SYMOP(right) && isOperandInDirSpace(IC_RIGHT(ic)))
     return(false);
 
-  if(ic->op == IFX || SKIP_IC2(ic)) // Operations that leave HL alone.
+  /* "ic->op == IFX ||" dropped from this disjunct (#29): despite the
+     comment's claim, IFX does not always leave HL alone - testing a
+     stack-resident temporary (e.g. a spilled _Bool) reads it via a
+     cached "dcx hl"/"inx hl" walk from wherever HL last pointed, which
+     silently overwrites whatever else was living in L/H at the time.
+     Confirmed via bug-3459.c (a small, pointer-free boolean-logic
+     function; its own upstream history already flags "a value in
+     register hl being overwritten" as exactly this bug's signature) and
+     bug-136564.c. SKIP_IC2 alone (icodes gen.c never emits real code
+     for) is still always safe. */
+  if(SKIP_IC2(ic)) // Operations that leave HL alone.
     return(true);
   if(ic->op == IPUSH) // Can handle anything.
     return(true);
   if(POINTER_GET(ic) && input_in_L && input_in_H && (getSize(operandType(IC_RESULT(ic))) == 1 || !result_in_HL))
     return(true);
-  // First disjunct (was "operand_in_reg(result, REG_IYL,...) && ... &&
-  // operand_in_reg(result, REG_IYH,...)") dropped: no IY hardware on
-  // this port, operand_in_reg() always returns false for REG_IYL/
-  // REG_IYH.
-  if(ic->op == ADDRESS_OF &&
-    (!OP_SYMBOL_CONST (left)->onStack && operand_in_reg(result, REG_C, ia, i, G) && ia.registers[REG_C][1] > 0 && I[ia.registers[REG_C][1]].byte == 0 && operand_in_reg(result, REG_B, ia, i, G) ||
-    !OP_SYMBOL_CONST (left)->onStack && operand_in_reg(result, REG_E, ia, i, G) && ia.registers[REG_E][1] > 0 && I[ia.registers[REG_E][1]].byte == 0 && operand_in_reg(result, REG_D, ia, i, G)))
-    return(true);
-
-  if(ic->op == LEFT_OP && isOperandLiteral(IC_RIGHT(ic)))
-    return(true);
+  /* Every remaining "return(true)" escape hatch this function had below
+     this point - ADDRESS_OF (a second, narrower case than the one in
+     the first big OR near the top of this function), LEFT_OP with a
+     literal shift count, '<'/'>' against an ITEMP/literal, CALL, and
+     GET_VALUE_AT_ADDRESS's "ld a,(dd)" case - is removed (#29), for the
+     same reason as the result_only_HL and '='-family hatches above:
+     each approved a candidate assignment based only on properties of
+     this icode's own operands, never checking whether some other,
+     unrelated variable was still live in L/H at the time and would get
+     silently overwritten by gen.c's own HL-as-scratch-pointer paths.
+     Individually, none of these was needed to fix the 4 smaller repros
+     (bug-3459.c, bug-136564.c, bug-2452.c, bug-3873.c) that found this
+     whole bug class - but restoring them regressed 2 different, larger
+     failures back in (lonesha256.c, gcc-torture-execute-20050826-2.c,
+     both doing much heavier register-pressure work than any of the 4
+     repros), confirmed via a full i8080/i8085/i8085-undoc regression,
+     not just the repros. Removing all of them together (plus the
+     result_only_HL and '='-family hatches above, plus IFX) is what
+     brought the regression back to a clean 0 failures on all 3 ports.
+     Narrowing this further - finding the minimal subset each remaining
+     failure actually needed, rather than removing the whole group - is
+     real follow-up work, not done here: the full regression is the only
+     validation this checkpoint trusted, and repro-by-repro bisection
+     already proved unreliable as a substitute for it once. */
 
   if(!result_only_HL && (operand_on_stack(left, a, i, G) || operand_on_stack(right, a, i, G)) && ic->op == '+')
     return(false);
 
-  if((!POINTER_SET(ic) && !POINTER_GET(ic) && (
-        (ic->op == '=' ||
-         ic->op == CAST ||
-         ic->op == UNARYMINUS ||
-         ic->op == RIGHT_OP ||
-         /*ic->op == '-' ||*/
-         IS_BITWISE_OP(ic) ||
-         /*ic->op == '>' ||
-         ic->op == '<' ||
-         ic->op == EQ_OP ||*/
-         (ic->op == '+' && getSize(operandType(IC_RESULT(ic))) == 1) ||
-         ic->op == '+' ))))
-    return(true);
-
-  if((ic->op == '<' || ic->op == '>') && (IS_ITEMP(left) || IS_OP_LITERAL(left) || IS_ITEMP(right) || IS_OP_LITERAL(right))) // Todo: Fix for large stack.
-    return(true);
-
-  if(ic->op == CALL)
-    return(true);
-
-  if(ic->op == GET_VALUE_AT_ADDRESS && getSize(operandType(IC_RESULT(ic))) == 1 && !IS_BITVAR(getSpec(operandType(result))) &&
-    operand_is_pair(left, a, i, G) && // Use ld a, (dd).
-    IS_OP_LITERAL (right) && ulFromVal (OP_VALUE_CONST(right)) == 0)
-    return(true);
+  /* "if ((!POINTER_SET(ic) && !POINTER_GET(ic) && (ic->op == '=' ||
+     CAST || UNARYMINUS || RIGHT_OP || IS_BITWISE_OP(ic) || (ic->op ==
+     '+' && ...))) return(true);" removed (#29): same class of gap as
+     the result_only_HL hatch above - genAssign/genCast/etc.'s own
+     stack-operand addressing can need HL as scratch mid-computation,
+     and this hatch approved any assignment regardless of what else was
+     living in L/H at the time. Confirmed via bug-2452.c (fixed only
+     once this was removed together with the result_only_HL hatch
+     above) and bug-3873.c. */
 
   // "if(ic->op == '=' && POINTER_SET(ic) && operand_in_reg(result,
   // REG_IYL,...) && ... && operand_in_reg(result, REG_IYH,...))
@@ -1014,8 +1030,16 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
   if(ic->op == '=' && POINTER_SET(ic) && !result_only_HL) // loads result pointer into (hl) first.
     return(false);
 
-  if((ic->op == '=' || ic->op == CAST) && !POINTER_GET(ic) && !input_in_HL)
-    return(true);
+  /* "if ((ic->op == '=' || CAST) && !POINTER_GET(ic) && !input_in_HL)
+     return(true);" removed (#29): !input_in_HL only checks that this
+     icode's own left/right operands aren't currently in L/H - it says
+     nothing about some other, unrelated live variable sitting there
+     that gen.c's own stack-operand addressing (a fresh "lxi h,#N;
+     dad sp" for a stack-resident '='/CAST side) would silently
+     overwrite. Confirmed via bug-3873.c - needed together with the
+     result_only_HL and '='-family hatches above; none of the three
+     alone was enough to fix it, all three share this exact same root
+     cause. */
 
 #if 0
   if(ic->key == 6)
@@ -1032,7 +1056,14 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
   if(operand_on_stack(result, a, i, G) || IS_TRUE_SYMOP (result) || operand_on_stack(left, a, i, G) || IS_TRUE_SYMOP (left) || operand_on_stack(right, a, i, G) || IS_TRUE_SYMOP (right)) // hl used as pointer to operand.
     return(false);
 
-  return(true);
+  /* Final fallback changed from return(true) to return(false) (#29):
+     anything reaching this point has already failed every op-specific
+     check above and isn't provably safe by any of them - "true" here
+     was an unconditional "assume it's fine anyway" for whatever's left,
+     the least justified of all the hatches this checkpoint removed.
+     Confirmed via the same full-regression evidence as the rest of this
+     function's changes (see the comments above). */
+  return(false);
 }
 
 /* There is no IY register on i8080/i8085, so instruction_cost and
