@@ -16,27 +16,7 @@ Update this file whenever one of these is resolved (move it to a
 resolution) or a new one is found worth tracking here rather than only
 in a commit message.
 
-## 1. `--fno-omit-frame-pointer` is a silent no-op
-
-`i8085_opts.noOmitFramePtr` (set by this flag, registered in both the
-i8080 and i8085 `OPTION` tables in `main.c`) has had nothing reading it
-since Task #36 removed `_G.omitFramePtr`/`omit_frame_ptr()` - the frame
-pointer is unconditionally omitted on this port regardless of this
-flag, and always has been (the flag never did anything on i8085, #36
-just made that explicit by removing the dead machinery it used to
-feed). Anyone who has ever passed `--fno-omit-frame-pointer` on this
-port got silent non-behavior.
-
-**Needs a decision**, not further investigation: retire the flag
-entirely (clean, but a breaking CLI change for anyone relying on it
-being merely *accepted*), make it warn when passed (`options.no_std_crt0`-
-style diagnostic), or leave it documented-inert (add a one-line comment
-at its `OPTION_FRAMEPOINTER` registration in `main.c` noting it's
-accepted-and-ignored, so the next person doesn't have to rediscover
-this). No source comment currently flags this at all - it reads like a
-completely ordinary, functioning option.
-
-## 2. `cost2()`'s shrunk body duplicates the pre-existing `cost()` helper
+## 1. `cost2()`'s shrunk body duplicates the pre-existing `cost()` helper
 
 Since Task #21 part (a) (commit `a6401025`) shrunk `cost2()` to its two
 live parameters, its body is byte-for-byte identical to a separate,
@@ -47,7 +27,7 @@ mechanical shrink it was doing). Nothing currently forces a decision
 either way - unifying them is a pure duplicate-function cleanup
 whenever someone's next in that part of the file.
 
-## 3. PUSH/RST `cost2()` timing values are unverified
+## 2. PUSH/RST `cost2()` timing values are unverified
 
 Task #21's timing-accuracy pass (commit `b7c27a67`) fixed several
 confirmed Z80-inherited timing bugs, but explicitly left `PUSH`
@@ -70,7 +50,7 @@ of why this matters (a naive first pass at this exact task nearly
 "fixed" three values that were already correct for i8085 and only wrong
 for 8080).
 
-## 4. `HLinst_ok()`'s 9 removed hatches aren't minimized per-failure
+## 3. `HLinst_ok()`'s 9 removed hatches aren't minimized per-failure
 
 Task #29's `ralloc2.cc` fixes (commits `dd406145`, `93fdeabd`) removed 9
 separate escape hatches from `HLinst_ok()` together, as a group,
@@ -84,7 +64,7 @@ deferred follow-up work. Purely a tidiness/precision question, not a
 correctness one: the current state is proven correct (0 failures, 0
 abnormal stops, full 3-port regression), just not proven *minimal*.
 
-## 5. UTF-8-in-identifiers: documented gap, not a fix
+## 4. UTF-8-in-identifiers: documented gap, not a fix
 
 The vendor ASxxxx assembler's `ctype`/`ccase` tables don't cover the
 full byte range needed for UTF-8 continuation bytes in identifiers, so
@@ -119,3 +99,23 @@ was needed to expose it. Fixed by checking for `i8085` instead of `z80`.
 Re-verified with a full 3-port regression after the fix: 0 failures, 0
 abnormal stops, 36366 tests/6358 cases/port on i8085/i8085-undoc/i8080 -
 see git history for the full commit message.
+
+### `--fno-omit-frame-pointer` was a silent no-op (retired 2026-09-15, `339faaa`)
+
+Was item 1 on this list. The frame pointer is unconditionally omitted
+on this port (no index register to hold one), so the flag never did
+anything - it was silently accepted and ignored. Decided to retire it
+entirely rather than warn or leave it documented-inert, matching a
+direct precedent already in this codebase: `sm83` (Game Boy), the
+closest architectural cousin to this port (also IX/IY-less), already
+declines to register this same flag in its own `_sm83_options[]`
+table in `src/z80/main.c`, and `gen.c`'s real z80 frame-pointer check
+is explicitly gated `!IS_SM83` to skip it. Removed
+`OPTION_FRAMEPOINTER` and both its registrations from i8080/i8085's
+`OPTION` tables, plus the now-fully-dead `i8085_opts.noOmitFramePtr`
+field. Passing `--fno-omit-frame-pointer` now produces a normal
+"unknown compiler option ... ignored" warning instead of silent
+acceptance. Full 3-port regression after the change: 0 failures, 0
+abnormal stops, byte- and tick-identical to the pre-change baseline -
+pure option-plumbing removal, zero codegen impact, exactly as
+expected.
