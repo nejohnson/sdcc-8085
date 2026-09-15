@@ -98,3 +98,24 @@ source, plus redundant re-masking in `assym.c` and presumably
 `linksrc`'s equivalent symbol code, would need extending). Listed here
 only so it appears in one consolidated place alongside the other four -
 see that doc for the real detail if this is ever picked up.
+
+## Closed
+
+### `device/lib`'s model-i8080/i8085/i8085-undoc targets silently no-op'd (fixed 2026-09-15, `94b0db9`)
+
+Found doing a from-scratch build/regression validation on a freshly
+migrated machine. `device/lib/Makefile.in`'s `model-i8080`, `model-i8085`,
+and `model-i8085-undoc` targets each guarded their build with `if grep
+'^z80$$' $(top_builddir)/ports.build`, a leftover from when i8085/i8080
+lived inside the z80 port. Since the z80-purge fork-out gave i8085 its own
+top-level `ports.build` entry (`i8085`, registering both `i8080_port` and
+`i8085_port`), and this project's builds run with z80 disabled, that guard
+was always false - all three device-lib builds silently no-op'd with exit
+0 and no error, every time, on every machine this was ever built on since
+the fork-out. Never caught before because every prior session's build/lib/
+regression directory already had libraries left over from before the
+fork-out; a truly fresh machine with no pre-existing `device/lib/build/`
+was needed to expose it. Fixed by checking for `i8085` instead of `z80`.
+Re-verified with a full 3-port regression after the fix: 0 failures, 0
+abnormal stops, 36366 tests/6358 cases/port on i8085/i8085-undoc/i8080 -
+see git history for the full commit message.
