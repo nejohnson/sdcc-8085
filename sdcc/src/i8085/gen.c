@@ -7187,10 +7187,11 @@ genFunction (const iCode * ic)
 
   sym = OP_SYMBOL (IC_LEFT (ic));
 
-  // NOTE: "--fno-omit-frame-pointer" (i8085_opts.noOmitFramePtr, main.c)
-  // is a silent no-op on this port - the frame pointer is unconditionally
-  // omitted regardless of the flag (there is no index register to hold
-  // one), so nothing here ever checks it.
+  // The frame pointer is unconditionally omitted on this port - there is
+  // no index register to hold one - so nothing here ever checks for it.
+  // "--fno-omit-frame-pointer" is accordingly not registered as an option
+  // on this port at all (see main.c; sm83, the closest architectural
+  // precedent, makes the same call for the same reason).
   if (sym->stack)
     {
       adjustStack (-sym->stack, !i8085_IsParmInCall (sym->type, "a"), !i8085_IsParmInCall (sym->type, "c") && !i8085_IsParmInCall (sym->type, "v"), !i8085_IsParmInCall (sym->type, "e") && !i8085_IsParmInCall (sym->type, "d"), !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h"), false);

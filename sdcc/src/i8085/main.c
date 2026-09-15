@@ -39,7 +39,6 @@
 #define OPTION_CALLEE_SAVES_BC  "--callee-saves-bc"
 #define OPTION_ASM              "--asm="
 #define OPTION_NO_STD_CRT0      "--no-std-crt0"
-#define OPTION_FRAMEPOINTER     "--fno-omit-frame-pointer"
 #define OPTION_EMIT_EXTERNS     "--emit-externs"
 #define OPTION_LEGACY_BANKING   "--legacy-banking"
 #define OPTION_SDCCCALL         "--sdcccall"
@@ -65,7 +64,6 @@ static OPTION _i8080_options[] = {
   {0, OPTION_CONST_SEG,       &options.const_seg, "<name> use this name for the const segment", CLAT_STRING},
   {0, OPTION_DATA_SEG,        &options.data_seg, "<name> use this name for the data segment", CLAT_STRING},
   {0, OPTION_NO_STD_CRT0,     &options.no_std_crt0, "Do not link default crt0.rel"},
-  {0, OPTION_FRAMEPOINTER,    &i8085_opts.noOmitFramePtr, "Do not omit frame pointer"},
   {0, OPTION_EMIT_EXTERNS,    NULL, "Emit externs list in generated asm"},
   {0, OPTION_SDCCCALL,        &options.sdcccall, "Set ABI version for default calling convention", CLAT_INTEGER},
   {0, NULL}
@@ -78,7 +76,6 @@ static OPTION _i8085_options[] = {
   {0, OPTION_CONST_SEG,       &options.const_seg, "<name> use this name for the const segment", CLAT_STRING},
   {0, OPTION_DATA_SEG,        &options.data_seg, "<name> use this name for the data segment", CLAT_STRING},
   {0, OPTION_NO_STD_CRT0,     &options.no_std_crt0, "Do not link default crt0.rel"},
-  {0, OPTION_FRAMEPOINTER,    &i8085_opts.noOmitFramePtr, "Do not omit frame pointer"},
   {0, OPTION_EMIT_EXTERNS,    NULL, "Emit externs list in generated asm"},
   {0, OPTION_SDCCCALL,        &options.sdcccall, "Set ABI version for default calling convention", CLAT_INTEGER},
   {0, OPTION_ALLOW_UNDOC_INST,&options.allow_undoc_inst, "Allow use of undocumented 8085 instructions and flags"},

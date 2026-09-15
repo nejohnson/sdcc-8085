@@ -20,7 +20,6 @@ typedef struct
   {
     I808X_SUB sub;
     int calleeSavesBC;
-    int noOmitFramePtr;
     int legacyBanking;
   }
 I8085_OPTS;
