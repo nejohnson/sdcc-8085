@@ -27,30 +27,7 @@ mechanical shrink it was doing). Nothing currently forces a decision
 either way - unifying them is a pure duplicate-function cleanup
 whenever someone's next in that part of the file.
 
-## 2. PUSH/RST `cost2()` timing values are unverified
-
-Task #21's timing-accuracy pass (commit `b7c27a67`) fixed several
-confirmed Z80-inherited timing bugs, but explicitly left `PUSH`
-(`cost2(1,11)`, several sites) and `RST` alone: sources disagreed on
-the real i8085 value for `PUSH` (one source said 12, others said the
-inherited 11), and confidence wasn't high enough either way to touch
-it. Currently still running on the Z80-inherited `11`. Needs either a
-third, tie-breaking 8085-specific source, or a decision that the
-uncertainty is small enough not to matter.
-
-**Methodology reminder from that checkpoint, worth repeating for
-whoever picks this up**: 8080 and 8085 genuinely differ on several
-instruction timings (`MOV r,r'`, `INR`/`DCR`, `INX`/`DCX` all differ),
-and this port's `cost2()` table has no per-sub-target differentiation -
-a single shared table serves both `SUB_8080`/`SUB_8085`. Do not trust a
-single source (especially an 8080-only datasheet) for an i8085 value;
-seek 2+ independent 8085-specific sources before changing anything
-here. See `feedback_8085_vs_8080_timing_data` for the fuller write-up
-of why this matters (a naive first pass at this exact task nearly
-"fixed" three values that were already correct for i8085 and only wrong
-for 8080).
-
-## 3. `HLinst_ok()`'s 9 removed hatches aren't minimized per-failure
+## 2. `HLinst_ok()`'s 9 removed hatches aren't minimized per-failure
 
 Task #29's `ralloc2.cc` fixes (commits `dd406145`, `93fdeabd`) removed 9
 separate escape hatches from `HLinst_ok()` together, as a group,
@@ -64,7 +41,7 @@ deferred follow-up work. Purely a tidiness/precision question, not a
 correctness one: the current state is proven correct (0 failures, 0
 abnormal stops, full 3-port regression), just not proven *minimal*.
 
-## 4. UTF-8-in-identifiers: documented gap, not a fix
+## 3. UTF-8-in-identifiers: documented gap, not a fix
 
 The vendor ASxxxx assembler's `ctype`/`ccase` tables don't cover the
 full byte range needed for UTF-8 continuation bytes in identifiers, so
@@ -119,3 +96,39 @@ acceptance. Full 3-port regression after the change: 0 failures, 0
 abnormal stops, byte- and tick-identical to the pre-change baseline -
 pure option-plumbing removal, zero codegen impact, exactly as
 expected.
+
+### PUSH/RST `cost2()` timing values were wrong (fixed 2026-09-16, `ea32c0c`)
+
+Was item 2 on this list. Task #21 had left `PUSH`/`RST` on the
+Z80-inherited `cost2(1,11)`, uncertain whether the real 8085 value was
+11 or 12. Cross-checked multiple independent 8085-specific instruction-
+timing references (not 8080 or Z80 datasheets - real 8085 sources
+only, per this list's own methodology reminder, formerly here):
+all converge on **12 T-states / 3 machine cycles** (Opcode Fetch,
+Memory Write, Memory Write) for both `PUSH rp` and `RST n` on genuine
+8085 hardware - the opcode-fetch cycle for these two specific
+instructions is internally extended to 6 T-states rather than the
+base 4 used by simpler one-byte instructions. No source found
+supports 11 for real 8085; that value was purely the uncorrected
+Z80-inherited one. Updated all 13 genuine PUSH/RST `cost2(1,11)` call
+sites to `cost2(1,12)`, leaving the one coincidentally-identical site
+(`ADD HL,SP`, unrelated) alone. Full 3-port regression: 0 failures, 0
+abnormal stops - tick counts rose as expected (real cost increased);
+byte counts shifted slightly too, since `cost2()`'s state argument
+also feeds the register allocator's dry-run cost comparisons between
+candidate codegen shapes - not a regression, the expected signal for
+a genuine cost-model correction (unlike the byte-identical signal
+expected of pure dead-code removal).
+
+**The 8080/8085-differ methodology reminder this item used to carry
+is still generally relevant** for anyone touching `cost2()` again:
+8080 and 8085 genuinely differ on several instruction timings (`MOV
+r,r'`, `INR`/`DCR`, `INX`/`DCX` all differ), and this port's `cost2()`
+table has no per-sub-target differentiation - a single shared table
+serves both `SUB_8080`/`SUB_8085`. Do not trust a single source
+(especially an 8080-only datasheet) for an i8085 value; seek 2+
+independent 8085-specific sources before changing anything here. See
+`feedback_8085_vs_8080_timing_data` for the fuller write-up of why
+this matters (a naive first pass at a past version of this exact task
+nearly "fixed" three values that were already correct for i8085 and
+only wrong for 8080).
