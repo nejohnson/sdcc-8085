@@ -980,7 +980,23 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
     return(true);
   if(ic->op == IPUSH) // Can handle anything.
     return(true);
-  if(POINTER_GET(ic) && input_in_L && input_in_H && (getSize(operandType(IC_RESULT(ic))) == 1 || !result_in_HL))
+  /* Narrowed (#29): for a size>1 result, "!result_in_HL" alone only proves
+     the result itself isn't ALSO claiming L/H - it says nothing about
+     whether gen.c's own genPointerGet() needs HL as scratch to GET there.
+     A size>1 result that lives on the stack forces exactly that: gen.c
+     (requiresHL(result->aop) && size > 1 && result->aop->type != AOP_REG)
+     evicts the pointer straight from HL into DE so HL is free for a fresh
+     "lxi h,#N; dad sp" addressing the stack-resident result - which
+     silently overwrites whatever the pointer's *nominal* home (L/H) still
+     claims to hold once the operand aopGet()s it back out of DE, and the
+     allocator's own liveness bag has no idea L/H's contents changed.
+     Confirmed via t950809_min4.c (isolated from
+     gcc-torture-execute-950809-1.c): a pointer temp with a live range
+     spanning both a GET_VALUE_AT_ADDRESS read and a later POINTER_SET
+     write through it, register-allocated to l/h across that whole range,
+     got silently clobbered by exactly this addressing dance. */
+  if(POINTER_GET(ic) && input_in_L && input_in_H &&
+     (getSize(operandType(IC_RESULT(ic))) == 1 || !result_in_HL && !operand_on_stack(result, a, i, G)))
     return(true);
   /* Every remaining "return(true)" escape hatch this function had below
      this point - ADDRESS_OF (a second, narrower case than the one in
