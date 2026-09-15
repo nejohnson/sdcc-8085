@@ -2118,6 +2118,24 @@ emit3w_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
       return;
     }
 
+  /* Reachability traced end to end (#21-adjacent finding): every current
+     A_ADC/A_SBC call site in this file was checked, not assumed. Most pass
+     the ASMOP_HL singleton directly (offset 0), trivially satisfying the
+     block above. genLeftShift()'s inner loop - the one call site with a
+     varying op1/offset1 (shiftop, a possibly-wide operand) - only reaches
+     its own emit3w_o(A_ADC, shiftop, offset, ...) call from inside an
+     "if (aopInReg (shiftop, offset, HL_IDX))" guard, which is exactly the
+     same condition as "getPairId_o(shiftop, offset) == PAIR_HL" (both walk
+     down to op1's registers at [offset]/[offset+1] being L_IDX/H_IDX) - so
+     that call is provably safe too. Confirmed dead, not just believed dead:
+     turn a future violation into a loud, immediate tripwire here rather
+     than letting it fall through to the generic path below, which would
+     silently emit invalid text ("adc bc, bc") with no valid Intel encoding
+     at all for a 16-bit adc/sbc through any pair but HL - caught only much
+     later, by the external assembler rejecting the output. */
+  if (inst == A_ADC || inst == A_SBC)
+    wassertl (0, "emit3w_o: 16-bit adc/sbc only exist on 8080/8085 through HL (synthesised above via emit8080AdcSbcHL()) - every real call site was traced and confirmed to always resolve to PAIR_HL here; reaching this point means some new call site broke that invariant, not something safe to fall through on");
+
   /* 16-bit "add hl, rr" (the only 8080/8085-reachable word-level A_ADD form -
      A_ADC/A_SBC are intercepted above, and no other asminst reaches this
      function with a real hardware equivalent needing special handling -
