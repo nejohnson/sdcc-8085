@@ -1637,7 +1637,7 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       wassert (!op2);
       // Push only takes a register pair on real 8080/8085 hardware -
       // there is no push-immediate instruction.
-      cost2 (1, 11);
+      cost2 (1, 12);
       return;
     // "case A_RL:", "case A_RLC:", "case A_RR:", "case A_RRC:", and
     // "case A_SWAP:" removed: each was gated solely by a "wassert (IS_RAB);"
@@ -2004,7 +2004,7 @@ emit8080AdcSbcHL (bool sub, asmop *op2, int offset2, bool a_dead)
      carry-out IS the result (genCmp) or the flags matter (shifts), A is dead. */
   if (!a_dead)
     {
-      cost2 (1, 11); /* push af */
+      cost2 (1, 12); /* push af */
       cost2 (1, 10);   /* pop af  */
     }
   if (regalloc_dry_run)
@@ -2450,7 +2450,7 @@ static void
 _push (PAIR_ID pairId)
 {
   emit2 ("push %s", _pairs[pairId].name);
-  cost2 (1, 11);
+  cost2 (1, 12);
   _G.stack.pushed += 2;
 }
 
@@ -4496,7 +4496,7 @@ cheapMove (asmop *to, int to_offset, asmop *from, int from_offset, bool a_dead)
           emit2 ("inx sp");
           cost2 (1, 6);
           emit2 ("push %s", aopInReg (from, from_offset, A_IDX) ? "af" : (aopInReg (from, from_offset, B_IDX) ? "bc" : (aopInReg (from, from_offset, D_IDX) ? "de" : "hl")));
-          cost2 (1, 11);
+          cost2 (1, 12);
           emit2 ("inx sp");
           cost2 (1, 6);
           return;
@@ -4567,7 +4567,7 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
       emit2 ("inx sp");
       cost2 (1, 6);
       emit2 ("push %s", _pairs[id].name);
-      cost2 (1, 11); // id == PAIR_IY dead (see comment above); its cost2 arm dropped.
+      cost2 (1, 12); // id == PAIR_IY dead (see comment above); its cost2 arm dropped.
     }
 
   /* PENDING: Verify this. */
@@ -5532,7 +5532,7 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
       else if (n <= -2 && optimize.codeSize)
         {
           emit2 ("push af");
-          cost2 (1, 11);
+          cost2 (1, 12);
           n += 2;
         }
       else if (n >= 2 && bc_free && optimize.codeSize)
@@ -6136,7 +6136,7 @@ genIpush (const iCode *ic)
           cost2 (1, 6);
           cheapMove (ASMOP_A, 0, IC_LEFT (ic)->aop, 0, true);
           emit2 ("push af");
-          cost2 (1, 11);
+          cost2 (1, 12);
           emit2 ("inx sp");
           cost2 (1, 6);
         }
@@ -6271,7 +6271,7 @@ genIpush (const iCode *ic)
        else if (aopInReg (IC_LEFT (ic)->aop, size - 1, A_IDX))
          {
            emit2 ("push af");
-           cost2 (1, 11);
+           cost2 (1, 12);
            emit2 ("inx sp");
            cost2 (1, 6);
            d = 1;
@@ -6301,7 +6301,7 @@ genIpush (const iCode *ic)
          {
            genMove_o (ASMOP_A, 0, IC_LEFT (ic)->aop, size - 1, 1, a_free, h_free && l_free, d_free && e_free, true);
            emit2 ("push af");
-           cost2 (1, 11);
+           cost2 (1, 12);
            emit2 ("inx sp");
            cost2 (1, 6);
            d = 1;
@@ -6450,7 +6450,7 @@ genPointerPush (const iCode *ic)
           emit2 ("mov a, m");
           cost2 (1, 7);
           emit2 ("push af");
-          cost2 (1, 11);
+          cost2 (1, 12);
           emit2 ("inx sp");
           cost2 (1, 6);
           if (!regalloc_dry_run)
@@ -6638,7 +6638,7 @@ genCall (const iCode *ic)
           _pop (PAIR_HL);
         }
       emit2 ("push %s", _pairs[pair].name);
-      cost2 (1, 11);
+      cost2 (1, 12);
       if (!regalloc_dry_run)
         _G.stack.pushed += 2;
       freeAsmop (IC_RESULT (ic), 0);
@@ -6751,7 +6751,7 @@ genCall (const iCode *ic)
           adjustStack (prestackadjust, a_free, bc_free, de_free, hl_free, false);
           if (!regalloc_dry_run)
             emit2 ("rst %s", aopGet (ic->left->aop, 0, false));
-            cost2 (1, 11);
+            cost2 (1, 12);
         }
       else if (isLitWord (ic->left->aop))
         {
@@ -6921,7 +6921,7 @@ genCall (const iCode *ic)
               int rst = ftype->funcAttrs.z88dk_shortcall_rst;
               int value = ftype->funcAttrs.z88dk_shortcall_val;
               emit2 ("rst !immedbyte", (unsigned)rst);
-              cost2 (1, 11);
+              cost2 (1, 12);
               if (value < 256)
                 emit2 ("defb !immedbyte\n", (unsigned)value);
               else
