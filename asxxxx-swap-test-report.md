@@ -1,5 +1,20 @@
 # ASxxxx realignment: end-to-end build-and-swap test results
 
+> **All three problems this report flags as open follow-on work - the
+> area-flags conflict, the `-a`/`-b` CLI collision, and the
+> `s_`/`l_`-vs-`s__`/`l__` symbol-naming mismatch - were subsequently
+> resolved; see `asxxxx-integration-plan.md`, which is an explicit
+> follow-up to this report and documents each fix (`i8085.linker.mcmd`
+> for the CLI collision, `s__DATA_1`-style suffixing relying on
+> `crt0.rel` linking first for the symbol-naming one). i8085/i8080 link
+> via vendor's own `aslink` end-to-end today, not `sdldz80` - this
+> report is a snapshot of the investigation that found what needed
+> fixing, not a description of the current, working state. Flagged as a
+> discoverability gap 2026-09-15 (a peer Claude session reading this
+> report cold reasonably read it as contradicting `device/lib/i8085/
+> Makefile.in`'s current "links via vendor's own aslink now" comment -
+> it doesn't; this note is the missing forward pointer).**
+
 > The concrete next step flagged at the end of
 > `asxxxx-noice-linker-followup-report.md`: take real SDCC-generated
 > z80/8080/8085 `.asm` output, assemble it with vendored `asz80` instead
