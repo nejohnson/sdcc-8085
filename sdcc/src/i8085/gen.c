@@ -41,7 +41,7 @@ enum
   DISABLE_DEBUG = 0
 };
 
-#define UNIMPLEMENTED do {wassertl (regalloc_dry_run, "Unimplemented"); cost (4000, 4000.0f);} while(0)
+#define UNIMPLEMENTED do {wassertl (regalloc_dry_run, "Unimplemented"); cost2 (4000, 4000.0f);} while(0)
 
 #undef DEBUG_DRY_COST
 
@@ -402,13 +402,6 @@ static unsigned long regalloc_dry_run_cost_bytes;
 static float regalloc_dry_run_cost_states;
 static float regalloc_dry_run_state_scale = 1.0f;
 
-static void
-cost (unsigned int bytes, float states)
-{
-  regalloc_dry_run_cost_bytes += bytes;
-  regalloc_dry_run_cost_states += states * regalloc_dry_run_state_scale;
-}
-
 static void // Count costs for register allocator.
 /* Originally a 15-argument signature (used_bytes/used_states plus 13
    per-instruction timing columns for other Zilog-family sub-targets -
@@ -420,10 +413,13 @@ static void // Count costs for register allocator.
    task also retired cost2old() (a thin 8-argument wrapper forwarding
    into this function with placeholder values for the same 13 dead
    columns, made fully redundant by this shrink) into direct cost2()
-   calls. Whether the two live numbers themselves (passed at each call
-   site) are accurate for real 8080/8085 hardware, as opposed to
-   inherited Z80 timings, remains a separate, still-open question -
-   also task #21, not addressed by this shrink. */
+   calls. Once shrunk, this became byte-for-byte identical (bar an
+   int-vs-unsigned-int bytes parameter and this function's extra
+   wassert()) to a separate, already-existing helper named cost() -
+   that duplication is now resolved too: cost()'s 3 call sites and the
+   UNIMPLEMENTED macro were repointed here and cost() itself deleted,
+   so this is once again the single, sole cost-accounting function in
+   this file. */
 cost2 (int used_bytes, float used_states)
 {
   int bytes = used_bytes;
@@ -1596,7 +1592,7 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       cost2 (2, 15);
       return;
     case A_BOOL:
-      cost (1, 2);
+      cost2 (1, 2);
       return;
     case A_CP:
       if (op2->type == AOP_LIT || op2->type == AOP_IMMD)
@@ -1617,7 +1613,7 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       if (aopInReg (op1, offset1, DE_IDX))
         cost2 (1, 4);
       else // Rabbit 4000 ex bc, hl and ex jk, hl.
-        cost (2, 4);
+        cost2 (2, 4);
       return;
     case A_LD:
       if (op2->type == AOP_LIT || op2->type == AOP_IMMD)
@@ -1627,7 +1623,7 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       return;
     case A_NEG:
       wassert (!op2);
-      cost (2, 4);
+      cost2 (2, 4);
       return;
     case A_POP:
       wassert (!op2);
