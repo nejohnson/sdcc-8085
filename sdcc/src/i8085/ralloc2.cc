@@ -998,30 +998,47 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
   if(POINTER_GET(ic) && input_in_L && input_in_H &&
      (getSize(operandType(IC_RESULT(ic))) == 1 || !result_in_HL && !operand_on_stack(result, a, i, G)))
     return(true);
-  /* Every remaining "return(true)" escape hatch this function had below
-     this point - ADDRESS_OF (a second, narrower case than the one in
-     the first big OR near the top of this function), LEFT_OP with a
-     literal shift count, '<'/'>' against an ITEMP/literal, CALL, and
-     GET_VALUE_AT_ADDRESS's "ld a,(dd)" case - is removed (#29), for the
-     same reason as the result_only_HL and '='-family hatches above:
-     each approved a candidate assignment based only on properties of
-     this icode's own operands, never checking whether some other,
-     unrelated variable was still live in L/H at the time and would get
-     silently overwritten by gen.c's own HL-as-scratch-pointer paths.
-     Individually, none of these was needed to fix the 4 smaller repros
-     (bug-3459.c, bug-136564.c, bug-2452.c, bug-3873.c) that found this
-     whole bug class - but restoring them regressed 2 different, larger
-     failures back in (lonesha256.c, gcc-torture-execute-20050826-2.c,
-     both doing much heavier register-pressure work than any of the 4
-     repros), confirmed via a full i8080/i8085/i8085-undoc regression,
-     not just the repros. Removing all of them together (plus the
-     result_only_HL and '='-family hatches above, plus IFX) is what
-     brought the regression back to a clean 0 failures on all 3 ports.
-     Narrowing this further - finding the minimal subset each remaining
-     failure actually needed, rather than removing the whole group - is
-     real follow-up work, not done here: the full regression is the only
-     validation this checkpoint trusted, and repro-by-repro bisection
-     already proved unreliable as a substitute for it once. */
+  /* Minimization pass (2026-09-16): of the 5 hatches dd406145 removed
+     together in this spot, 2 - this ADDRESS_OF case and the CALL case
+     just below - turn out to have been provably unreachable dead code
+     the entire time, both before AND after their removal, so restoring
+     them changes nothing. Proof: this function's very first real check
+     (the "some iCodes, code generation can handle anything" block,
+     ~line 863, inherited unchanged from upstream SDCC, predates this
+     project) already unconditionally returns true for *any* ic->op ==
+     ADDRESS_OF or ic->op == CALL icode, and nothing between there and
+     here can skip past it. So neither of these two ever had a chance to
+     fire in the removed version either - dd406145's own commit message
+     crediting their removal (alongside LEFT_OP/'<'/'>' -ITEMP/
+     GET_VALUE_AT_ADDRESS-ld-a-dd) for fixing lonesha256.c/gcc-torture-
+     execute-20050826-2.c was an artifact of removing all 5 as one
+     block, not evidence either of these two specifically mattered.
+     Verified, not just reasoned: restoring both produced a full 3-port
+     regression byte- and tick-identical to the all-9-removed baseline -
+     exactly the expected signal for genuinely dead code, not just "0
+     failures". Restored below. */
+  if(ic->op == ADDRESS_OF &&
+    (!OP_SYMBOL_CONST (left)->onStack && operand_in_reg(result, REG_C, ia, i, G) && ia.registers[REG_C][1] > 0 && I[ia.registers[REG_C][1]].byte == 0 && operand_in_reg(result, REG_B, ia, i, G) ||
+    !OP_SYMBOL_CONST (left)->onStack && operand_in_reg(result, REG_E, ia, i, G) && ia.registers[REG_E][1] > 0 && I[ia.registers[REG_E][1]].byte == 0 && operand_in_reg(result, REG_D, ia, i, G)))
+    return(true);
+
+  if(ic->op == CALL)
+    return(true);
+
+  /* The 3 hatches from that same original block of 5 that remain
+     removed - LEFT_OP with a literal shift count, '<'/'>' against an
+     ITEMP/literal, and GET_VALUE_AT_ADDRESS's "ld a,(dd)" case - are
+     NOT provably dead the same way: no earlier unconditional check
+     covers ic->op == LEFT_OP, '<'/'>', or GET_VALUE_AT_ADDRESS, so
+     these remain genuine, still-open minimization candidates. Each
+     approved a candidate assignment based only on properties of this
+     icode's own operands, never checking whether some other, unrelated
+     variable was still live in L/H at the time and would get silently
+     overwritten by gen.c's own HL-as-scratch-pointer paths - the same
+     class of gap as the result_only_HL and '='-family hatches above.
+     Whether each is individually necessary (vs. safe to also restore,
+     like ADDRESS_OF/CALL turned out to be) is untested as of this
+     note - see i8085-open-items.md. */
 
   if(!result_only_HL && (operand_on_stack(left, a, i, G) || operand_on_stack(right, a, i, G)) && ic->op == '+')
     return(false);
