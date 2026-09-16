@@ -1483,7 +1483,7 @@ bit8_cost (const asmop *op)
       cost2 (4, 23);
       return;
     case AOP_EXSTK: // Approximation. Don't really know if this is really exstk at this point, anyway.
-      cost2 (1, 11); // add hl, sp
+      cost2 (1, 10); // add hl, sp
     case AOP_HL:
       cost2 (3, 10); // ld hl, #nn
       cost2 (2, 15);
