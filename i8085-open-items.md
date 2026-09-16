@@ -56,6 +56,64 @@ source, plus redundant re-masking in `assym.c` and presumably
 only so it appears in one consolidated place alongside the other four -
 see that doc for the real detail if this is ever picked up.
 
+## 4. Documentation gloss pass: residual Zilog lineage, mnemonic audit, copyright headers
+
+Added 2026-09-16 per Neil's direct request. Three related sub-tasks,
+bundled as one pass since they're all "read the files with fresh eyes
+looking for leftovers" work rather than behavioral changes:
+
+1. **Sweep for residual Z80/Rabbit/SM83/TLCS90/EZ80/R800/PDK/MOS6502
+   (and any other Zilog-family sub-target) lineage, plus IX/IY
+   mentions**, across `sdcc/src/i8085/` (comments, docstrings,
+   variable/function names) and this repo's own top-level `.md` docs.
+   Per [[project_i8085_z80_purge_directive]], this means the full
+   lineage, not just the literal string "z80" - Neil's own spot-check
+   suggests what remains is mostly comment-only at this point (code
+   itself was already proven z80/IY/IX-free by Task #24/#25's
+   exhaustive grep sweeps), which is the good case, but needs a real
+   pass to confirm, not just Neil's sampling.
+2. **Audit sweep for remaining Zilog mnemonics** - two distinct
+   things to check, not one: (a) any *valid-on-8085* instruction still
+   referenced/emitted in Zilog syntax rather than Intel syntax
+   (shouldn't exist post-migration - `intel-mnemonic-migration-plan.md`
+   covers that work - but verify, don't assume), and (b) any
+   genuinely Z80-*specific*, invalid-on-8085 mnemonic (`ld`, `jr`,
+   `djnz`, `ex af,af'`, `exx`, any CB/ED-prefixed op, `ixh`/`ixl`/
+   `iyh`/`iyl`, `in a,(c)`-style, 16-bit `adc`/`sbc hl,rr`, etc.) still
+   present *anywhere* - dead code, peephole rules
+   (`peeph-i8085.def`), comments, or (most importantly, since this
+   would be a real bug, not a cleanliness question) anywhere actually
+   *reachable* in codegen. (b) reaching real, emittable code would be
+   a correctness bug worth its own fix, not just a doc-gloss note -
+   escalate immediately if found, don't just log it here.
+3. **Add copyright notices to files this project has substantively
+   changed.** Spot-checked 2026-09-16: `gen.c`/`main.c`/`peep.c`/
+   `ralloc2.cc` already carry pre-existing upstream SDCC copyright
+   blocks (Sandeep Dutta, Jean-Louis Vern, Michael Hope, Philipp Klaus
+   Krause, Sebastian Riedel) with no line for this project's own
+   authorship; `ralloc.c`/`support.c`/`i8085.h` have no copyright
+   block at all (`i8085.h` in particular is presumably wholly new,
+   created during the z80-purge fork-out). Commit authorship for this
+   project uses `neilj@ieee.org` (masterclass doc §2) - that's the
+   natural attribution line to add. "Files we have touched" needs an
+   operational definition before starting - `git diff --stat
+   main...feat/i8085` (or the equivalent against the pristine
+   upstream baseline) against `sdcc/src/i8085/` and its close
+   neighbors (`device/lib/i8085*`, `device/lib/i8080`,
+   `support/regression/ports/i8085*`, `sim/ucsim/src/sims/i8085.src/`,
+   `vendor/asxxxx`) is the unambiguous, git-derivable reading, not
+   "files touched this session" (too narrow) or "everyone's vague
+   memory of what changed" (unreliable).
+
+Not started as of this note - purely a documentation/comment-hygiene
+pass (except the escalation clause in item 2b, which is a correctness
+question in disguise). Low priority, not blocking, but real: worth
+doing before any eventual upstream conversation (explicitly off the
+table for now, see [[project_i8085_z80_purge_directive]] and
+[[project_upstream_reception]], but this kind of gloss is exactly what
+would matter if that ever changed) and generally good hygiene for
+anyone reading this code cold.
+
 ## Closed
 
 ### `device/lib`'s model-i8080/i8085/i8085-undoc targets silently no-op'd (fixed 2026-09-15, `94b0db9`)
