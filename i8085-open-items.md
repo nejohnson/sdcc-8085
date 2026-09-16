@@ -16,18 +16,7 @@ Update this file whenever one of these is resolved (move it to a
 resolution) or a new one is found worth tracking here rather than only
 in a commit message.
 
-## 1. `cost2()`'s shrunk body duplicates the pre-existing `cost()` helper
-
-Since Task #21 part (a) (commit `a6401025`) shrunk `cost2()` to its two
-live parameters, its body is byte-for-byte identical to a separate,
-already-used helper named `cost()` (gen.c, 4 call sites + the
-`UNIMPLEMENTED` macro). Flagged as a unification candidate at the time,
-deliberately not folded into that checkpoint (unrelated to the
-mechanical shrink it was doing). Nothing currently forces a decision
-either way - unifying them is a pure duplicate-function cleanup
-whenever someone's next in that part of the file.
-
-## 2. `HLinst_ok()`'s 9 removed hatches aren't minimized per-failure
+## 1. `HLinst_ok()`'s 9 removed hatches aren't minimized per-failure
 
 Task #29's `ralloc2.cc` fixes (commits `dd406145`, `93fdeabd`) removed 9
 separate escape hatches from `HLinst_ok()` together, as a group,
@@ -41,7 +30,7 @@ deferred follow-up work. Purely a tidiness/precision question, not a
 correctness one: the current state is proven correct (0 failures, 0
 abnormal stops, full 3-port regression), just not proven *minimal*.
 
-## 3. UTF-8-in-identifiers: documented gap, not a fix
+## 2. UTF-8-in-identifiers: documented gap, not a fix
 
 The vendor ASxxxx assembler's `ctype`/`ccase` tables don't cover the
 full byte range needed for UTF-8 continuation bytes in identifiers, so
@@ -56,7 +45,7 @@ source, plus redundant re-masking in `assym.c` and presumably
 only so it appears in one consolidated place alongside the other four -
 see that doc for the real detail if this is ever picked up.
 
-## 4. Documentation gloss pass: residual Zilog lineage, mnemonic audit, copyright headers
+## 3. Documentation gloss pass: residual Zilog lineage, mnemonic audit, copyright headers
 
 Added 2026-09-16 per Neil's direct request. Three related sub-tasks,
 bundled as one pass since they're all "read the files with fresh eyes
@@ -190,3 +179,31 @@ independent 8085-specific sources before changing anything here. See
 this matters (a naive first pass at a past version of this exact task
 nearly "fixed" three values that were already correct for i8085 and
 only wrong for 8080).
+
+### `bit8_cost()`'s `AOP_EXSTK` "add hl, sp" leftover was wrong too (fixed 2026-09-16, `4323145`)
+
+Found incidentally while re-verifying which `cost2(1,11)` sites were
+genuinely PUSH/RST for the fix above - not a previously-tracked item,
+first surfaces here. Task #21's earlier DAD-timing pass (`b7c27a67`)
+had fixed 5 of 6 "add hl, sp"-commented `cost2()` sites to the correct
+8085 DAD value (`cost2(1,10)`, 10 T-states) but missed a 6th:
+`bit8_cost()`'s `AOP_EXSTK` case (gen.c ~1486), still sitting at the
+old Z80-inherited `cost2(1,11)`. Fixed. Full 3-port regression: 0
+failures, 0 abnormal stops, byte/tick-identical to baseline - this
+`AOP_EXSTK` path isn't exercised by the current test corpus, so no
+visible size/tick effect, but the value is now correct for when it is
+reached.
+
+### `cost2()`'s shrunk body duplicated the pre-existing `cost()` helper (fixed 2026-09-16, `87b4531`)
+
+Was item 1 on this list. Since Task #21 part (a) shrunk `cost2()` to
+its two live parameters, its accumulation body became byte-for-byte
+identical to a separate, pre-existing helper named `cost()` (bar an
+int-vs-unsigned-int bytes parameter and `cost2()`'s extra sanity
+`wassert()`). Repointed `cost()`'s 3 direct call sites and the
+`UNIMPLEMENTED` macro to `cost2()` instead, then deleted `cost()`
+entirely - `cost2()` is now the sole cost-accounting function in the
+file. Full 3-port regression: 0 failures, 0 abnormal stops, byte- and
+tick-identical to the pre-change baseline - exactly the expected
+signal for a pure duplicate-function removal with zero behavioral
+difference.
