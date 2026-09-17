@@ -31,63 +31,56 @@ source, plus redundant re-masking in `assym.c` and presumably
 only so it appears in one consolidated place alongside the other four -
 see that doc for the real detail if this is ever picked up.
 
-## 2. Documentation gloss pass: residual Zilog lineage, mnemonic audit, copyright headers
+## 2. `i8085_instructionSize()`'s `"ld"`-mnemonic branch may be dead code
 
-Added 2026-09-16 per Neil's direct request. Three related sub-tasks,
-bundled as one pass since they're all "read the files with fresh eyes
-looking for leftovers" work rather than behavioral changes:
+Found 2026-09-16 during the doc-gloss pass's Zilog-mnemonic audit
+(below). `peep.c`'s `i8085_instructionSize()` still has a substantial
+`if(lineIsInst(pl, "ld")) {...}` branch checking for the Zilog "ld"
+mnemonic (with sub-logic for 3- and 4-byte `ld` forms, already reduced
+from 4 cases to 2 by a past `#32` cleanup). Since this port emits Intel
+syntax exclusively (`mov`/`mvi`/`lxi`/etc.), "ld" should never appear
+in real generated output. Verified empirically across the *entire*
+regression corpus: `grep -rlE '^\s+ld\s' ` against every generated
+`.asm` file for all three ports (i8085/i8085-undoc/i8080, ~17000 files
+each, the full 6358-test-case corpus) returns **zero matches** - along
+with zero matches for every other genuinely-invalid Z80-only mnemonic/
+addressing form checked the same way (`jr`, `djnz`, `exx`, `bit`/`set`/
+`res`, `ldir`/`lddr`/`cpir`/`cpdr`/`otir`/`otdr`/`indr`/`outdr`, `ixh`/
+`ixl`/`iyh`/`iyl`, `(ix`/`(iy`, `reti`/`retn`, `im`, word-level `adc`/
+`sbc hl`, `in a,(c)`/`out (c),`, `ex af`) - so **no correctness bug
+here**, just possibly-dead documentation/handling code.
 
-1. **Sweep for residual Z80/Rabbit/SM83/TLCS90/EZ80/R800/PDK/MOS6502
-   (and any other Zilog-family sub-target) lineage, plus IX/IY
-   mentions**, across `sdcc/src/i8085/` (comments, docstrings,
-   variable/function names) and this repo's own top-level `.md` docs.
-   Per [[project_i8085_z80_purge_directive]], this means the full
-   lineage, not just the literal string "z80" - Neil's own spot-check
-   suggests what remains is mostly comment-only at this point (code
-   itself was already proven z80/IY/IX-free by Task #24/#25's
-   exhaustive grep sweeps), which is the good case, but needs a real
-   pass to confirm, not just Neil's sampling.
-2. **Audit sweep for remaining Zilog mnemonics** - two distinct
-   things to check, not one: (a) any *valid-on-8085* instruction still
-   referenced/emitted in Zilog syntax rather than Intel syntax
-   (shouldn't exist post-migration - `intel-mnemonic-migration-plan.md`
-   covers that work - but verify, don't assume), and (b) any
-   genuinely Z80-*specific*, invalid-on-8085 mnemonic (`ld`, `jr`,
-   `djnz`, `ex af,af'`, `exx`, any CB/ED-prefixed op, `ixh`/`ixl`/
-   `iyh`/`iyl`, `in a,(c)`-style, 16-bit `adc`/`sbc hl,rr`, etc.) still
-   present *anywhere* - dead code, peephole rules
-   (`peeph-i8085.def`), comments, or (most importantly, since this
-   would be a real bug, not a cleanliness question) anywhere actually
-   *reachable* in codegen. (b) reaching real, emittable code would be
-   a correctness bug worth its own fix, not just a doc-gloss note -
-   escalate immediately if found, don't just log it here.
-3. **Add copyright notices to files this project has substantively
-   changed.** Spot-checked 2026-09-16: `gen.c`/`main.c`/`peep.c`/
-   `ralloc2.cc` already carry pre-existing upstream SDCC copyright
-   blocks (Sandeep Dutta, Jean-Louis Vern, Michael Hope, Philipp Klaus
-   Krause, Sebastian Riedel) with no line for this project's own
-   authorship; `ralloc.c`/`support.c`/`i8085.h` have no copyright
-   block at all (`i8085.h` in particular is presumably wholly new,
-   created during the z80-purge fork-out). Commit authorship for this
-   project uses `neilj@ieee.org` (masterclass doc §2) - that's the
-   natural attribution line to add. "Files we have touched" needs an
-   operational definition before starting - `git diff --stat
-   main...feat/i8085` (or the equivalent against the pristine
-   upstream baseline) against `sdcc/src/i8085/` and its close
-   neighbors (`device/lib/i8085*`, `device/lib/i8080`,
-   `support/regression/ports/i8085*`, `sim/ucsim/src/sims/i8085.src/`,
-   `vendor/asxxxx`) is the unambiguous, git-derivable reading, not
-   "files touched this session" (too narrow) or "everyone's vague
-   memory of what changed" (unreliable).
+Not removed in this pass: unlike the code this port's `gen.c` emits,
+`i8085_instructionSize()` may also process **user-written inline
+assembly** (`__asm ... __endasm`), which isn't restricted to what the
+compiler itself would emit - a user could in principle write Zilog-
+syntax "ld" by hand, and whether `i8085_instructionSize()` ever
+actually gets called on such a line before the vendor assembler itself
+would reject it (as8085 has no "ld" mnemonic) is unverified. Needs the
+same reachability-tracing discipline as Task #22/#24's IX/IY dead-code
+work before removing, not a doc-pass-level change - deliberately left
+as a tracked candidate, not fixed here.
 
-Not started as of this note - purely a documentation/comment-hygiene
-pass (except the escalation clause in item 2b, which is a correctness
-question in disguise). Low priority, not blocking, but real: worth
-doing before any eventual upstream conversation (explicitly off the
-table for now, see [[project_i8085_z80_purge_directive]] and
-[[project_upstream_reception]], but this kind of gloss is exactly what
-would matter if that ever changed) and generally good hygiene for
-anyone reading this code cold.
+## 3. A cost-estimation heuristic in `gen.c` still uses Z80/Z80N cost-model constants
+
+Found 2026-09-16 during the same audit. `gen.c`'s 16-bit-load-via-stack
+cost estimation (~line 14680-14706, inside the pointer-set/get
+dispatch) explicitly labels its own numbers "Z80, Z180, Z80N" (e.g.
+`sizecost_n = 6 * size; // Use 8-Bit loads: Z80, Z180, Z80N.`,
+`cyclecost_n = 38 * size; // Z80, Z80N`) - literally reusing the
+Z80 cost model's cycle/byte counts for this specific heuristic, not
+8085-specific derived values. The surrounding comment is accurate (not
+stale) about *why*: `IS_EZ80`/`IS_RAB`/`IS_Z180`-specific variants of
+this same cost cascade were already proven unreachable and simplified
+away, leaving only the generic Z80/Z80N branch - consistent with this
+port's documented general approach (`cost2()` "reuses the z80 columns
+for IS_8080LIKE", per `gen.c`'s own architecture notes). Not a bug,
+not urgent, but this specific heuristic hasn't been through the kind
+of 8085-specific timing-accuracy verification the PUSH/RST/DAD
+`cost2()` values just went through (see the closed items below) - a
+plausible next candidate if further timing-accuracy work is ever
+picked up. Purely a dry-run cost-estimation input (affects allocator
+choices, not correctness), so low priority.
 
 ## Closed
 
@@ -248,3 +241,57 @@ all-9-removed baseline (i8080/i8085: 8198291->8196012 bytes,
 needed its own full i8085+i8085-undoc regression (~35 min each at
 `-j4`) to verify - the full suite remains the only validation this
 kind of change trusts, exactly as the original #29 investigation found.
+
+### Documentation gloss pass (done 2026-09-16, `7082ddd` + `56eaf0d`)
+
+Per Neil's direct request. Three sub-tasks:
+
+1. **Residual Zilog-family lineage sweep** across `sdcc/src/i8085/`
+   (103 grep hits for z80/zilog/rabbit/etc., reviewed individually)
+   and this repo's top-level `.md` docs. Verdict: the vast majority of
+   the 103 hits are legitimate, necessary technical documentation -
+   explaining *why* a Zilog-only instruction/addressing mode doesn't
+   exist on 8080/8085, or documenting removed dead code's real origin
+   - not the "wrong lens" comparative framing Task #26's earlier
+   comment scrub already purged. No further code-comment changes made
+   in `src/i8085/` itself. One specifically-checked identifier,
+   `ralloc2.cc`'s `wassert (TARGET_Z80_LIKE)`, is correct as-is: a
+   shared upstream frontend macro (`port.h`) that explicitly folds in
+   `TARGET_I8080_LIKE` by design (this port genuinely is
+   frontend-level "Z80-like" for memory-model purposes, even though
+   codegen itself was purged of Z80 instructions) - out of scope to
+   rename regardless, since it's shared across dozens of frontend
+   files. **README.md, however, had genuinely false (not just stale)
+   technical claims** - it still described the toolchain as SDCC's own
+   `sdasz80`/`sdldz80` and the compiler as "8080/8085 as Z80
+   sub-targets", both incorrect since the vendor-toolchain migration
+   and the z80-purge fork-out. Fixed (`56eaf0d`): toolchain description,
+   assembler/linker table rows, the "Z80 backend: 0 regressions" badge
+   (now moot - no shared code left to regress), and the "gating Z80
+   backend" framing - while keeping the honest origin story and
+   crediting ASxxxx/Alan Baldwin in acknowledgments.
+2. **Zilog-mnemonic audit.** (a) No leftover valid-on-8085 Zilog-syntax
+   emission found - the Intel-mnemonic migration held. (b) No
+   genuinely-invalid Z80-only mnemonic reaches real generated output
+   *anywhere*: verified empirically across the entire regression
+   corpus (~17000 `.asm` files per port x3 ports, the full 6358-test-
+   case corpus) for every Z80-only mnemonic/addressing form (`ld`,
+   `jr`, `djnz`, `exx`, CB-prefix ops, ED-prefix ops, `ixh`/`ixl`/
+   `iyh`/`iyl`, `(ix`/`(iy`, `reti`/`retn`, `im`, word-level `adc`/`sbc
+   hl`, Z80 `in`/`out` forms, `ex af`) - zero matches, all patterns, all
+   ports. No correctness bug to escalate. Did surface 2 new, non-
+   urgent tracked candidates from this same search - see items 2 and 3
+   above (not fixed here - each needs its own reachability-tracing
+   pass, out of scope for a doc-gloss pass).
+3. **Copyright notices** (`7082ddd`): added "Copyright (C) 2026, Neil
+   Johnson <neil.johnson71@gmail.com>" to 33 files this project
+   substantively wrote or changed - all 13 non-Makefile files in
+   `src/i8085/`, all 6 device/lib `.s` files across i8085/i8085-undoc/
+   i8080 (18 edits), and the 2 genuinely-modified `sim/ucsim` files
+   (real DSUB/JX5/JNX5/LDHI bug fixes, not cosmetic). Added alongside,
+   never replacing, existing copyright holders. Deliberately skipped
+   `Makefile.in` files and `support/regression/ports/*/{support.c,
+   spec.mk,uCsim.cmd}`, matching this project's own established
+   convention (verified: no other SDCC port's equivalent files carry a
+   copyright header either). Verified: full rebuild (compiler, ucsim,
+   all three device libs) clean after the comment-only additions.
