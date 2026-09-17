@@ -55,42 +55,61 @@ formula, which the current `sizecost_l` doesn't even attempt (it has
 no `* size` term at all, unlike `cyclecost_l` - a separate, pre-
 existing structural gap noticed but not investigated further here).
 
-## 3. Documentation gloss pass round 2: comment noise standard was applied too loosely
+## 3. Broken/dangling comment fragments unrelated to Zilog-lineage grep
 
-Added 2026-09-17, per Neil's direct review of the actual source after
-the round-1 gloss pass (commit `e0cd824`) claimed item "residual
-Zilog lineage" done. It wasn't, by the standard Neil actually wants
-applied - see [[feedback_comment_noise_standard]] for the full
-correction. Round 1 judged most of the 103 z80/zilog grep hits in
-`src/i8085/` as legitimate necessary documentation (explaining *why*
-a Zilog-only instruction doesn't exist on 8080/8085, or citing real
-current cross-file facts like "vendor's as8085, not sdasz80") and left
-them in place. Neil's own direct read disagreed, citing concrete
-examples: `gen.c:147`'s long narrative comment block explaining
-historical migration rationale (git history covers this, not source
-comments), and the `A_CCF`/`A_CPL`/etc. mnemonic table's "Zilog's ccf
--> Intel's cmc, same operation"-style comments (noise for a reader who
-only cares about the Intel mnemonic). Also flagged: "SM83" alone still
-has many hits, evidence the sweep wasn't thorough.
-
-**The corrected standard:** comments should describe only *current*
-8080/8085 behavior. No comparisons to what Z80/SM83/Rabbit/TLCS90/
-eZ80/Z80N/R800 do or did, no "how we got here" migration narrative,
-even when accurate - git history and this repo's own planning docs
-(`intel-mnemonic-migration-plan.md` etc.) already preserve that story
-for anyone who wants it. Real, current, actionable cross-file facts
-about *this* port's own toolchain/build (e.g. "vendor's as8085, not
-sdasz80") stay; anything that spends its words explaining another
-processor's behavior for comparison doesn't.
-
-Not started as of this note - queued explicitly for "once the current
-task is complete" (the `genAssign` cost-heuristic work above). Needs a
-genuinely more aggressive re-sweep of `src/i8085/`'s comments against
-this corrected standard, not just re-running the same grep with a
-stricter eye - see the memory note for the full worked examples and
-how to apply the line.
+Found 2026-09-17 as a side effect of the round-2 gloss pass (below):
+`gen.c` (and possibly a few other files - `peep.c`, `ralloc2.cc`,
+`main.c`, `gen.h` were mentioned as plausible but not confirmed) has a
+separate population of broken/dangling comment fragments tied to
+`IS_8080LIKE`-related dead-code-removal narrative - half-deleted
+multi-line comments left as incoherent orphaned lines (e.g. one
+observed shape: `if (IS_8080LIKE) ... else {setupPair (PAIR_IY, ...);
+push iy; pop\n// ...}` collapsed into two non-connecting comment
+fragments). These don't contain any z80/zilog/rabbit/sm83/etc keyword,
+so they're outside the grep pattern the round-2 pass swept with, and
+were deliberately left untouched there rather than fixed opportunistically
+out of scope. Rough estimate ~25 candidate lines across the tree
+(`grep -nE '^\s*//\s*"[^"]*$|^\s*//\s*\('` was suggested as a possible
+starting search, not verified). Not started - worth its own pass if
+picked up, same "broken, not just noisy" bar as the round-2 fixes that
+happened to also match the Zilog grep.
 
 ## Closed
+
+### Documentation gloss pass round 2 (done 2026-09-17, `a4065bb`)
+
+Was item 3 on this list. Neil's direct review of round 1 (`e0cd824`)
+found it too loose - see [[feedback_comment_noise_standard]] for the
+full correction with worked examples. Corrected standard applied:
+comments describe only *current* 8080/8085 behavior, no Z80/SM83/
+Rabbit/TLCS90/eZ80/Z80N/R800/etc. comparisons or migration narrative
+even when accurate. Delegated to a subagent (full standard + concrete
+flagged examples in the brief, e.g. `gen.c:147`'s narrative block and
+the `A_CCF`/etc. mnemonic-table comments); it needed two passes (hit
+its turn limit mid-file, resumed cleanly) to sweep all of
+`sdcc/src/i8085/`. Two categories fixed: broken/dangling comment
+fragments left over from earlier dead-code-removal passes (deleted
+rather than reconstructed - the content was migration narrative
+anyway), and complete-but-noisy comparison comments (rewritten to
+state only the current fact, e.g. `wassertl` messages naming eZ80/
+Rabbits/TLCS-90 trimmed to "not supported on this target"). Correctly
+left alone, not stripped by fiat: the `cyclecost_n`/`cyclecost_l`
+comment block in `genAssign` (its Z80 comparison is load-bearing
+reasoning for item 2 above, not decorative), `TARGET_Z80_LIKE`
+(`ralloc2.cc:1213`, already-confirmed correct shared-frontend macro
+usage), and the "vendor's as8085, not sdasz80/sdldz80" toolchain facts
+in `main.c` (6 sites - real, current, actionable facts about this
+port's own build, the explicit example of what should stay). Final
+grep down from ~150 hits to exactly 10, all pre-approved.
+
+10 files touched (gen.c the bulk - 586 lines changed, net -364 lines;
+9 smaller files). Verified: full 3-port regression (i8080/i8085/
+i8085-undoc), 0 failures, 0 abnormal stops, byte- and tick-identical
+to the pre-change baseline - exactly expected for a comment-only pass.
+Surfaced a new, narrower follow-up (item 3 above): a separate
+population of broken comment fragments tied to `IS_8080LIKE`
+dead-code-removal narrative, outside this pass's Zilog-keyword grep,
+deliberately left untouched as out of scope.
 
 ### `i8085_instructionSize()` was entirely unreachable (removed 2026-09-17, `6747b80`)
 
