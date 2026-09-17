@@ -9,18 +9,18 @@ Real, honest-to-goodness **C for the Intel 8085 and 8080** — the 8-bit CPUs th
   <img alt="targets" src="https://img.shields.io/badge/targets-i8085%20%7C%20i8080-orange">
   <img alt="regression" src="https://img.shields.io/badge/i8085%20%2B%20i8080%20regression-0%20failures%20%7C%200%20abnormal%20stops-brightgreen">
   <img alt="undocumented" src="https://img.shields.io/badge/undocumented%20instructions-exploited-purple">
-  <img alt="z80" src="https://img.shields.io/badge/z80%20backend-0%20regressions-brightgreen">
+  <img alt="backend" src="https://img.shields.io/badge/backend-independent%20(src%2Fi8085)-brightgreen">
 </p>
 
 ---
 
 ## 🌟 Why this is exciting
 
-The 8085 has **no index registers, no relative jumps, no alternate register set, and none of the Z80's CB/ED instruction groups** — just `DAD` for 16-bit math and a handful of accumulator rotates. Getting a modern optimizing C compiler to produce **correct, working code** on a CPU this spare is a genuinely fun engineering problem, and it's done here by *gating* SDCC's battle-tested Z80 backend down to the 8080/8085 subset rather than writing a new compiler from scratch.
+The 8085 has **no index registers, no relative jumps, no alternate register set, and none of the CB/ED-prefix instruction groups** its z80 cousin has — just `DAD` for 16-bit math and a handful of accumulator rotates. Getting a modern optimizing C compiler to produce **correct, working code** on a CPU this spare is a genuinely fun engineering problem. This port started life gated down from SDCC's Z80 backend rather than written from scratch, then went further: `src/i8085/` is now its own independent backend directory with its own code generator, register allocator, and toolchain wiring — no shared source with `src/z80/` remains.
 
 - 🎯 **Two targets:** `-mi8085` (8085 + documented set) and `-mi8080` (the strict 8080 baseline).
 - ✅ **Rock-solid:** the **entire SDCC regression suite passes for both `-mi8085` and `-mi8080` — 0 failures *and* 0 abnormal stops** (value, compile, link, *and* run-to-completion).
-- 🛡️ **Good neighbour:** the shared Z80 backend stays at **0 regressions** — verified from clean trees.
+- 🏗️ **Independent backend:** its own `src/i8085/` directory, own code generator and register allocator - no shared code with `src/z80/` to regress.
 - 🧪 **Fully simulated:** cycle-accurate testing on the bundled `ucsim_i8085` simulator.
 - 🔓 **Undocumented goodies — now put to work:** the code generator actively *emits* the 8085's secret instructions for measurably smaller, faster code (opt-in, see below).
 
@@ -56,7 +56,7 @@ sdcc -mi8085 --allow-undocumented-instructions hello.c
 sdcc -mi8085 -S hello.c
 ```
 
-The toolchain reuses SDCC's `sdasz80` assembler and `sdldz80` linker (emitting a `.8085` / `.8080` CPU directive), and links against a runtime library hand-tuned for the subset.
+The toolchain uses the vendor ASxxxx suite's `as8085` assembler and `aslink` linker directly (Intel-mnemonic syntax, emitting a `.8085` / `.8085x` / `.8080` CPU directive), and links against a runtime library hand-tuned for the subset.
 
 ---
 
@@ -64,9 +64,9 @@ The toolchain reuses SDCC's `sdasz80` assembler and `sdldz80` linker (emitting a
 
 | Piece | Status |
 |------|--------|
-| 🧠 **Compiler** — 8080/8085 as Z80 sub-targets (`-mi8085`, `-mi8080`) | ✅ |
-| 🛠️ **Assembler** — `sdasz80` with `.8080` / `.8085` / `.8085x` directives | ✅ |
-| 🔗 **Linker** — `sdldz80` | ✅ |
+| 🧠 **Compiler** — independent `src/i8085/` backend (`-mi8085`, `-mi8080`) | ✅ |
+| 🛠️ **Assembler** — vendor ASxxxx's `as8085` with `.8080` / `.8085` / `.8085x` directives | ✅ |
+| 🔗 **Linker** — vendor ASxxxx's `aslink` | ✅ |
 | 📚 **Runtime library** — mul/div/shift/mem/atomics ported to the subset | ✅ |
 | 🖥️ **Simulator** — `ucsim_i8085` for regression testing | ✅ |
 | 🧾 **Documentation & ChangeLog** — `sdccman` port section + entry | ✅ |
@@ -106,7 +106,7 @@ As of **v0.2.0**, the code generator actively emits **`DSUB`, `ARHL`, `RDEL`, `L
 
 ## 🙏 Built on giants
 
-This work stands on the shoulders of the **[SDCC](https://sdcc.sourceforge.net/)** project — its Z80 backend, assembler, linker, and the `ucsim` simulator made targeting the 8085/8080 a matter of careful subsetting rather than starting over. And, of course, on **Federico Faggin, Masatoshi Shima**, and the Intel teams who gave us the 8080 (1974) and 8085 (1976) in the first place. 🎩
+This work stands on the shoulders of the **[SDCC](https://sdcc.sourceforge.net/)** project — its Z80 backend (the starting point this port was originally gated down from, before going independent) and the `ucsim` simulator made targeting the 8085/8080 a matter of careful subsetting rather than starting over. The toolchain itself comes from Alan Baldwin's **ASxxxx** cross-assembler suite. And, of course, on **Federico Faggin, Masatoshi Shima**, and the Intel teams who gave us the 8080 (1974) and 8085 (1976) in the first place. 🎩
 
 ---
 
