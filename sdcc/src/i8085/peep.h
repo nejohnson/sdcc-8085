@@ -29,5 +29,4 @@ bool i8085_canAssign (const char *dst, const char *src, const char *exotic);
 bool i8085_symmParmStack (const char *name);
 bool i8085_canJoinRegs (const char **regs, char dst[20]);
 bool i8085_canSplitReg (const char *reg, char dst[][16], int nDst);
-int i8085_instructionSize(lineNode *node);
 

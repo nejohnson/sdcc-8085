@@ -746,7 +746,7 @@ PORT i8080_port =
   },
   {                             /* Peephole optimizer */
     _i8085_defaultRules,
-    i8085_instructionSize,
+    NULL,                       /* getSize - always unreachable, see peep.c's removal comment for i8085_instructionSize */
     NULL,
     NULL,
     NULL,
@@ -898,7 +898,7 @@ PORT i8085_port =
   },
   {                             /* Peephole optimizer */
     _i8085_defaultRules,
-    i8085_instructionSize,
+    NULL,                       /* getSize - always unreachable, see peep.c's removal comment for i8085_instructionSize */
     NULL,
     NULL,
     NULL,

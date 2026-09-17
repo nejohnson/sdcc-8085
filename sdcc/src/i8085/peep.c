@@ -32,8 +32,8 @@
 #include "gen.h"
 
 /* This file's classifier functions (mightRead/mightReadFlag/surelyWrites/
-   surelyWritesFlag/uncondJump/condJump/callSurelyWrites/i8085_canAssign/
-   i8085_instructionSize) recognize this port's real mnemonic output (mov,
+   surelyWritesFlag/uncondJump/condJump/callSurelyWrites/i8085_canAssign)
+   recognize this port's real mnemonic output (mov,
    jmp, xchg, ral, ...), checked ahead of other branches (ld, jp, ex,
    rlca, ...) inherited from this file's shared origin with other ports'
    peep.c - those stay unreachable here but are exercised there, so leave
@@ -1720,243 +1720,31 @@ bool i8085_canSplitReg (const char *reg, char dst[][16], int nDst)
   return TRUE;
 }
 
-int i8085_instructionSize (lineNode *pl)
-{
-  const char *op0start = lineArg (pl, 0);
-  const char *op1start = lineArg (pl, 1);
-
-  /* Byte counts from the 8085 data sheet: mvi and the arithmetic
-     family's immediate form are 2 bytes; lxi/lda/sta/lhld/shld/jmp/j<cc>
-     are 3; everything else in this port's mnemonic set is 1 byte. */
-  {
-    bool immediate, writes_a;
-    int idx = intelArith8 (pl, &immediate, &writes_a);
-    if (idx >= 0)
-      return immediate ? 2 : 1;
-  }
-  if (lineIsInst (pl, "mvi"))
-    return 2;
-  if (lineIsInst (pl, "lxi") || lineIsInst (pl, "lda") || lineIsInst (pl, "sta") ||
-      lineIsInst (pl, "lhld") || lineIsInst (pl, "shld") ||
-      lineIsInst (pl, "jmp") || isIntelCondJump (pl, NULL))
-    return 3;
-  if (lineIsInst (pl, "mov") || lineIsInst (pl, "ldax") || lineIsInst (pl, "stax") ||
-      lineIsInst (pl, "xchg") || lineIsInst (pl, "xthl") || lineIsInst (pl, "sphl") || lineIsInst (pl, "pchl") ||
-      lineIsInst (pl, "dad") || lineIsInst (pl, "inx") || lineIsInst (pl, "dcx") ||
-      lineIsInst (pl, "inr") || lineIsInst (pl, "dcr") ||
-      (lineIsInst (pl, "rlc") && !lineArg (pl, 0)) || (lineIsInst (pl, "rrc") && !lineArg (pl, 0)) ||
-      lineIsInst (pl, "ral") || lineIsInst (pl, "rar") ||
-      lineIsInst (pl, "cmc") || lineIsInst (pl, "stc") || lineIsInst (pl, "cma") || lineIsInst (pl, "daa"))
-    return 1;
-
-  /* All ld instructions */
-  if(lineIsInst (pl, "ld"))
-    {
-      // "These 4 are the only cases of 4 byte long Z80 ld instructions"
-      // reduced to the remaining 2 (#32): the ix/iy-operand and
-      // "(ix)"/"(iy)" + immediate cases removed - no index register
-      // exists on this port for either to ever match.
-
-      if(op0start[0] == '('               && STRNCASECMP(op0start, "(bc)", 4) &&
-         STRNCASECMP(op0start, "(de)", 4) && STRNCASECMP(op0start, "(hl" , 3) &&
-         STRNCASECMP(op1start, "hl", 2)   && STRNCASECMP(op1start, "a", 1) ||
-         op1start[0] == '('               && STRNCASECMP(op1start, "(bc)", 4) &&
-         STRNCASECMP(op0start, "(de)", 4) && STRNCASECMP(op1start, "(hl" , 3) &&
-         STRNCASECMP(op0start, "hl", 2)   && STRNCASECMP(op0start, "a", 1))
-        return(4);
-
-      /* These 4 are now the remaining 2 cases of 3 byte long ld
-         instructions (#32): the "(ix)"/"(iy)" operand cases removed -
-         no such addressing exists on this port. */
-      if((op0start[0] == '(' && STRNCASECMP(op0start, "(bc)", 4) && STRNCASECMP(op0start, "(de)", 4) && STRNCASECMP(op0start, "(hl", 3)) ||
-         (op1start[0] == '(' && STRNCASECMP(op1start, "(bc)", 4) && STRNCASECMP(op1start, "(de)", 4) && STRNCASECMP(op1start, "(hl", 3)))
-        return(3);
-      if(op1start[0] == '#' &&
-         (!STRNCASECMP(op0start, "bc", 2) || !STRNCASECMP(op0start, "de", 2) || !STRNCASECMP(op0start, "hl", 2) || !STRNCASECMP(op0start, "sp", 2)))
-        return(3);
-
-      /* These 3 are the only remaining cases of 2 byte long ld instructions. */
-      if(op1start[0] == '#')
-        return(2);
-      if(!STRNCASECMP(op0start, "i", 1) || !STRNCASECMP(op0start, "r", 1) ||
-         !STRNCASECMP(op1start, "i", 1) || !STRNCASECMP(op1start, "r", 1))
-        return(2);
-      // "op1start is ix/iy" case removed (#32): no index register exists
-      // on this port for op1 to ever be one.
-
-      /* All other ld instructions */
-      return(1);
-    }
-
-  /* Exchange */
-  if(lineIsInst (pl, "exx"))
-    return(1);
-  if(lineIsInst (pl, "ex"))
-    {
-      if(!op1start)
-        {
-          werrorfl(pl->ic->filename, pl->ic->lineno, W_UNRECOGNIZED_ASM, __func__, 4, pl->line);
-          return(4);
-        }
-      // "ex (sp), ix/iy" 2-byte case removed (#32): no index register
-      // exists on this port for op1 to ever be one.
-      return(1);
-    }
-
-  /* Push / pop */
-  if(lineIsInst (pl, "push") || lineIsInst (pl, "pop"))
-    {
-      // ix/iy 2-byte case removed (#32): no index register exists on
-      // this port to ever be pushed/popped ("push ix"/"pop ix" are
-      // themselves unreachable dead code in gen.c).
-      return(1);
-    }
-
-  /* 16 bit add / subtract / and / or */
-  if((lineIsInst (pl, "add") || lineIsInst (pl, "adc") || lineIsInst (pl, "sbc")) &&
-     !STRNCASECMP (op0start, "hl", 2))
-    {
-      if(lineIsInst (pl, "cp") && STRNCASECMP (op0start, "de", 2)) // cp hl, #d
-        return(3);
-      if(lineIsInst (pl, "add") || lineIsInst (pl, "and") || lineIsInst (pl, "or"))
-        return(1);
-      return(2);
-    }
-  // "add ix/iy, rr" case removed (#32): no index register exists on
-  // this port - the only real 16-bit add is "dad", handled above.
-
-  /* 8 bit arithmetic, two operands */
-  if(op1start && op0start[0] == 'a' &&
-     (lineIsInst (pl, "add") || lineIsInst (pl, "adc") || lineIsInst (pl, "sub") || lineIsInst (pl, "sbc") ||
-      lineIsInst (pl, "cp")  || lineIsInst (pl, "and") || lineIsInst (pl, "or")  || lineIsInst (pl, "xor")))
-    {
-      // "(ix)"/"(iy)" operand case removed (#32): no such addressing
-      // exists on this port.
-      if(op1start[0] == '#')
-        return(2);
-      return(1);
-    }
-  /* 8 bit arithmetic, shorthand for a */
-  if(!op1start &&
-     (lineIsInst (pl, "add") || lineIsInst (pl, "adc") || lineIsInst (pl, "sub") || lineIsInst (pl, "sbc") ||
-      lineIsInst (pl, "cp")  || lineIsInst (pl, "and") || lineIsInst (pl, "or")  || lineIsInst (pl, "xor")))
-    {
-      // "(ix)"/"(iy)" operand case removed (#32): no such addressing
-      // exists on this port.
-      if(op0start[0] == '#')
-        return(2);
-      return(1);
-    }
-
-  if(lineIsInst (pl, "rlca") || lineIsInst (pl, "rla") || lineIsInst (pl, "rrca") || lineIsInst (pl, "rra"))
-    return(1);
-
-  /* Increment / decrement */
-  if(lineIsInst (pl, "inc") || lineIsInst (pl, "dec"))
-    {
-      // ix/iy and "(ix)"/"(iy)" cases removed (#32): no index register
-      // or such addressing exists on this port.
-      return(1);
-    }
-
-  if(lineIsInst (pl, "rlc") || lineIsInst (pl, "rl")  || lineIsInst (pl, "rrc") || lineIsInst (pl, "rr") ||
-     lineIsInst (pl, "sla") || lineIsInst (pl, "sra") || lineIsInst (pl, "srl"))
-    {
-      // "(ix)"/"(iy)" 4-byte case removed (#32): no such addressing
-      // exists on this port.
-      return(2);
-    }
-
-  if(lineIsInst (pl, "rld") || lineIsInst (pl, "rrd"))
-    return(2);
-
-  /* Bit */
-  if(lineIsInst (pl, "bit") || lineIsInst (pl, "set") || lineIsInst (pl, "res"))
-    {
-      // "(ix)"/"(iy)" 4-byte case removed (#32): no such addressing
-      // exists on this port.
-      return(2);
-    }
-
-  if(lineIsInst (pl, "jr") || lineIsInst (pl, "djnz"))
-    return(2);
-
-  if(lineIsInst (pl, "jp"))
-    {
-      if(!STRNCASECMP(op0start, "(hl)", 4))
-        return(1);
-      // "(ix)"/"(iy)" 2-byte case removed (#32): no such addressing
-      // exists on this port.
-      return(3);
-    }
-
-  if(lineIsInst (pl, "reti") || lineIsInst (pl, "retn"))
-    return(2);
-
-  // rst and every conditional return (rz/rnz/rc/rnc/rm/rp/rpe/rpo) are
-  // single-byte opcodes on 8080/8085, same as bare ret.
-  if(lineIsInst (pl, "ret") || lineIsInst (pl, "reti") || lineIsInst (pl, "rst") || isIntelCondRet (pl, NULL))
-    return(1);
-
-  if(lineIsInst (pl, "call"))
-    return(3);
-
-  if(lineIsInst (pl, "ldi") || lineIsInst (pl, "ldd") || lineIsInst (pl, "cpi") || lineIsInst (pl, "cpd"))
-    return(2);
-
-  if(lineIsInst (pl, "neg"))
-    return(2);
-
-  if(lineIsInst (pl, "daa") || lineIsInst (pl, "cpl")  || lineIsInst (pl, "ccf") || lineIsInst (pl, "scf") ||
-     lineIsInst (pl, "nop") || lineIsInst (pl, "halt") || lineIsInst (pl,  "ei") || lineIsInst (pl, "di"))
-    return(1);
-
-  if(lineIsInst (pl, "im"))
-    return(2);
-
-  if(lineIsInst (pl, "in") || lineIsInst (pl, "out") || lineIsInst (pl, "ot") ||
-     lineIsInst (pl, "ini") || lineIsInst (pl, "inir") || lineIsInst (pl, "ind") ||
-     lineIsInst (pl, "indr") || lineIsInst (pl, "outi") || lineIsInst (pl, "otir") ||
-     lineIsInst (pl, "outd") || lineIsInst (pl, "otdr"))
-    {
-      return(2);
-    }
-
-  if(lineIsInst (pl, "lddr") || lineIsInst (pl, "ldir") || lineIsInst (pl, "cpir") || lineIsInst (pl, "cpdr"))
-    return(2);
-
-  if(lineIsInst (pl, ".db") || lineIsInst (pl, ".byte"))
-    {
-      int i, j;
-      for(i = 1, j = 0; pl->line[j]; i += pl->line[j] == ',', j++);
-      return(i);
-    }
-
-  if(lineIsInst (pl, ".dw") || lineIsInst (pl, ".word"))
-    {
-      int i, j;
-      for(i = 1, j = 0; pl->line[j]; i += pl->line[j] == ',', j++);
-      return(i * 2);
-    }
-  
-  /* 8085 undocumented instructions */
-  if(lineIsInst (pl, "dsub") || lineIsInst (pl, "arhl") || lineIsInst (pl, "rdel") ||
-     lineIsInst (pl, "rstv") || lineIsInst (pl, "shlx") || lineIsInst (pl, "lhlx"))
-    return 1;
-  if(lineIsInst (pl, "ldhi") || lineIsInst (pl, "ldsi"))
-    return 2;
-  if(lineIsInst (pl, "jx5") || lineIsInst (pl, "jnx5"))
-    return 3;
-
-  /* If the instruction is unrecognized, we shouldn't try to optimize.  */
-  /* For all we know it might be some .ds or similar possibly long line */
-  /* Return a large value to discourage optimization.                   */
-  if (pl->ic)
-    werrorfl(pl->ic->filename, pl->ic->lineno, W_UNRECOGNIZED_ASM, __func__, 999, pl->line);
-  else
-    werrorfl("unknown", 0, W_UNRECOGNIZED_ASM, __func__, 999, pl->line);
-  return(999);
-}
+/* i8085_instructionSize() removed entirely (found 2026-09-16, tracked
+   as i8085-open-items.md item 2 pending removal): traced its full
+   reachability chain, not just guessed. It was this port's
+   port->peep.getSize callback - the sole caller in the entire shared
+   frontend is SDCCpeeph.c's interpretLine(), itself only called from
+   pcDistance(), itself only called from the FBYNAME condition
+   functions labelInRange()/labelJTInRange() (relative/short-jump-
+   range checks - "for mcs51 the jump can be -127 to +127 bytes, for
+   Z80 -126 to +129 bytes"). Those two are dispatched purely by name,
+   parsed directly out of a peephole rule's own condition clause
+   (callFuncByName(pr->cond, ...)) - never called implicitly. This
+   port's complete, exclusive rule set (peeph-i8085.def, confirmed via
+   its own header as "the active default rule set") never names either
+   condition - grep confirms zero references. So the whole call chain,
+   and this function with it, was unreachable regardless of input,
+   including from user-written inline assembly (the one theoretical
+   path considered and ruled out - i8085 has no relative/short jump to
+   range-check against in the first place, which is exactly why no
+   rule here would ever need this). Verified empirically too: a clean
+   rebuild + full 3-port regression after removal came back byte- and
+   tick-identical to the pre-removal baseline. Both PORT struct
+   `peep.getSize` fields (main.c) now point to NULL - the shared
+   frontend already handles that gracefully (falls back to a
+   pessimistic worst-case distance estimate), and did so unconditionally
+   here anyway since this path was never reached. */
 
 bool i8085_symmParmStack (const char *name)
 {
