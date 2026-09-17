@@ -1,5 +1,6 @@
 /** @file i8085.h
     Common definitions for the i8080/i8085 port.
+    Copyright (C) 2026, Neil Johnson <neil.johnson71@gmail.com>
 */
 #include "common.h"
 #include "ralloc.h"

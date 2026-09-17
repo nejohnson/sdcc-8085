@@ -4,6 +4,7 @@
   Michael Hope <michaelh@juju.net.nz> 2001
   Copyright (C) 2021, Sebastian 'basxto' Riedel <sdcc@basxto.de>
   Copyright (v) 2025, Philipp Klaus Krause philipp@colecovision.eu
+  Copyright (C) 2026, Neil Johnson <neil.johnson71@gmail.com>
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the

@@ -1,6 +1,8 @@
 ;--------------------------------------------------------------------------
 ;  __builtin_memcpy.s - the compiler's __builtin_memcpy for the Intel 8080/8085.
 ;
+;  Copyright (C) 2026, Neil Johnson <neil.johnson71@gmail.com>
+;
 ;  The z80 family declares __builtin_memcpy as a compiler __builtin__ (see
 ;  src/z80/main.c). On the z80 it is always expanded inline (ldir), so no call
 ;  to ___builtin_memcpy is ever emitted and no library symbol is needed. The

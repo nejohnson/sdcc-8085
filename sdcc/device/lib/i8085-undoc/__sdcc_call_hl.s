@@ -1,6 +1,8 @@
 ;--------------------------------------------------------------------------
 ;  __sdcc_call_hl.s - indirect call through HL for the Intel 8080/8085.
 ;
+;  Copyright (C) 2026, Neil Johnson <neil.johnson71@gmail.com>
+;
 ;  The z80 port keeps this in device/lib/z80/__sdcc_call_hl.s, but that module
 ;  is built with .optsdcc -mz80 and is not part of the 8080/8085 library. The
 ;  body is a single PCHL, which is valid on the 8080/8085, so we just

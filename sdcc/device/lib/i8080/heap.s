@@ -2,6 +2,7 @@
 ;  heap.s
 ;
 ;  Copyright (C) 2001, Michael Hope
+;  Copyright (C) 2026, Neil Johnson <neil.johnson71@gmail.com>
 ;
 ;  This library is free software; you can redistribute it and/or modify it
 ;  under the terms of the GNU General Public License as published by the

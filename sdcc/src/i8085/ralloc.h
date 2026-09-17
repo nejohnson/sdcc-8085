@@ -3,6 +3,7 @@
   SDCCralloc.h - header file register allocation
 
                 Written By -  Sandeep Dutta . sandeep.dutta@usa.net (1998)
+  Copyright (C) 2026, Neil Johnson <neil.johnson71@gmail.com>
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the

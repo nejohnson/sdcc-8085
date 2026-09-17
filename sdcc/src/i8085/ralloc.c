@@ -1,5 +1,6 @@
 /** @name i8080/i8085 Register allocation functions.
     @author Michael Hope
+    Copyright (C) 2026, Neil Johnson <neil.johnson71@gmail.com>
 
     Note: much of this is ripped straight from Sandeep's mcs51 code.
 

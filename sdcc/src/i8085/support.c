@@ -1,4 +1,5 @@
 /** @file support.c
+    Copyright (C) 2026, Neil Johnson <neil.johnson71@gmail.com>
  */
 #include "i8085.h"
 #include <math.h>

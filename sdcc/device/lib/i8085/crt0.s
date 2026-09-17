@@ -2,7 +2,7 @@
 ;  crt0.s - Generic crt0.s for the Intel 8080/8085
 ;
 ;  Copyright (C) 2000, Michael Hope
-;  Intel 8080/8085 adaptation, 2026
+;  Copyright (C) 2026, Neil Johnson <neil.johnson71@gmail.com>
 ;
 ;  This library is free software; you can redistribute it and/or modify it
 ;  under the terms of the GNU General Public License as published by the

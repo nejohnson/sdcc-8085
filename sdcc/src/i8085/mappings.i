@@ -1,4 +1,6 @@
-/* Token-substitution table for the vendor ASxxxx assembler's pseudo-ops
+/* Copyright (C) 2026, Neil Johnson <neil.johnson71@gmail.com>
+
+   Token-substitution table for the vendor ASxxxx assembler's pseudo-ops
    (!area, !*hl, !mems, ...) used throughout gen.c's emit2() calls. The
    replacement text below is deliberately left as-is (e.g. "ld a, (hl)");
    gen.c's intelOperand()/emit_intel_move() machinery translates the

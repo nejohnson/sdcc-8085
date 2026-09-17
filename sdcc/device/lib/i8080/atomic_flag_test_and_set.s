@@ -8,7 +8,7 @@
 ;  old state is bit 0 and setting it just stores 0xff. Pointer argument in HL
 ;  (sdcccall(1)), _Bool result (old value) in a.
 ;
-;  Copyright (C) 2026
+;  Copyright (C) 2026, Neil Johnson <neil.johnson71@gmail.com>
 ;
 ;  This library is free software; you can redistribute it and/or modify it
 ;  under the terms of the GNU General Public License as published by the

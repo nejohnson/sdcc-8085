@@ -1,5 +1,6 @@
 /** @file support.h
     Support functions for the i8080/i8085 port.
+    Copyright (C) 2026, Neil Johnson <neil.johnson71@gmail.com>
 */
 #ifndef I8085_SUPPORT_INCLUDE
 #define I8085_SUPPORT_INCLUDE

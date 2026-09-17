@@ -2,7 +2,8 @@
  * Simulator of microcontrollers (ialu.cc)
  *
  * Copyright (C) 2022 Drotos Daniel
- * 
+ * Copyright (C) 2026 Neil Johnson <neil.johnson71@gmail.com>
+ *
  * To contact author send email to dr.dkdb@gmail.com
  *
  */

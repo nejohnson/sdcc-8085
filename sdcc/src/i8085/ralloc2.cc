@@ -1,6 +1,7 @@
 // Philipp Klaus Krause, philipp@informatik.uni-frankfurt.de, pkk@spth.de, 2010 - 2011
 //
 // (c) 2010-2012 Goethe-Universität Frankfurt
+// (c) 2026 Neil Johnson <neil.johnson71@gmail.com>
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the
