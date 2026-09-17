@@ -16,21 +16,7 @@ Update this file whenever one of these is resolved (move it to a
 resolution) or a new one is found worth tracking here rather than only
 in a commit message.
 
-## 1. `HLinst_ok()`'s 9 removed hatches aren't minimized per-failure
-
-Task #29's `ralloc2.cc` fixes (commits `dd406145`, `93fdeabd`) removed 9
-separate escape hatches from `HLinst_ok()` together, as a group,
-because repro-by-repro bisection proved unreliable as a substitute for
-the full 3-port regression (a 4-hatch minimal set that satisfied 4 hand
--picked repros actually regressed 2 larger, unrelated tests the repros
-never exercised). All 9 stay removed together, verified only as a
-whole. Finding the *minimal* subset each specific historical failure
-actually needed - rather than all 9 removed unconditionally - is real,
-deferred follow-up work. Purely a tidiness/precision question, not a
-correctness one: the current state is proven correct (0 failures, 0
-abnormal stops, full 3-port regression), just not proven *minimal*.
-
-## 2. UTF-8-in-identifiers: documented gap, not a fix
+## 1. UTF-8-in-identifiers: documented gap, not a fix
 
 The vendor ASxxxx assembler's `ctype`/`ccase` tables don't cover the
 full byte range needed for UTF-8 continuation bytes in identifiers, so
@@ -45,7 +31,7 @@ source, plus redundant re-masking in `assym.c` and presumably
 only so it appears in one consolidated place alongside the other four -
 see that doc for the real detail if this is ever picked up.
 
-## 3. Documentation gloss pass: residual Zilog lineage, mnemonic audit, copyright headers
+## 2. Documentation gloss pass: residual Zilog lineage, mnemonic audit, copyright headers
 
 Added 2026-09-16 per Neil's direct request. Three related sub-tasks,
 bundled as one pass since they're all "read the files with fresh eyes
@@ -207,3 +193,58 @@ file. Full 3-port regression: 0 failures, 0 abnormal stops, byte- and
 tick-identical to the pre-change baseline - exactly the expected
 signal for a pure duplicate-function removal with zero behavioral
 difference.
+
+### `HLinst_ok()`'s 9 removed hatches, minimized (fixed 2026-09-16/17, `e28f9ad` + `8d9957c`)
+
+Was item 1 on this list. Task #29's `ralloc2.cc` fixes (`dd406145`,
+`93fdeabd`) had removed 9 escape hatches together as a group, verified
+only as a whole - repro-by-repro bisection had already proven
+unreliable as a substitute for the full regression once, so no attempt
+was made at the time to find which of the 9 were actually necessary
+vs. safe to restore. This pass tested all 9 individually, restoring
+each alone against the current best-known state and reverting on any
+regression:
+
+- **2 were provably dead code before they were ever removed**
+  (`ADDRESS_OF`'s narrower second case, `CALL`) - both gated by opcodes
+  an earlier, still-present unconditional check (inherited unchanged
+  from upstream SDCC, predates this project) already approves
+  unconditionally. Verified empirically too: restoring both produced a
+  full 3-port regression byte- and tick-identical to baseline, not just
+  "0 failures" - the expected signal for genuinely dead code.
+- **2 more were safe AND genuinely improved code quality when
+  restored** (`LEFT_OP` with a literal shift count; `<`/`>` against an
+  ITEMP/literal) - 0 failures, and measurably smaller/faster output
+  each time. Their removal had been an unnecessarily conservative
+  over-restriction.
+- **1 was safe for correctness but made code *worse* when restored**
+  (`GET_VALUE_AT_ADDRESS`'s "ld a,(dd)" case) - counterintuitive, since
+  more valid register-assignment options should in principle only let
+  the allocator find equal-or-cheaper solutions; suggests the tree-
+  decomposition search isn't a perfect global optimum, or the dry-run
+  cost model doesn't perfectly track real output size here. Per Neil's
+  explicit call: kept removed, since restoring it doesn't serve this
+  pass's actual goal.
+- **4 confirmed genuinely necessary**, not just asserted from the
+  original repro-based bisection: `IFX` (154 failures restored alone -
+  `bug-3459`, `gte_loop-ivopts-2`, 2 gcc-torture cases), the
+  `result_only_HL` group (5 failures - `bug-3873`), the `=`-family
+  group (25-26 failures AND a genuine abnormal stop -
+  `gcc-torture-execute-loop-3c.c` hangs), and `=`/CAST-`!input_in_HL`
+  (6 failures - `bug-2712`, `bug-3873`).
+
+Interesting side finding: several tests the original bisection tied to
+one specific hatch (`bug-2452`, `bug-136564`) no longer fail when that
+hatch alone is restored, now that `LEFT_OP`/`<`/`>` are back in the
+mix - hatches interact, so this isn't a contradiction of the original
+findings, just evidence the failure surface shifts as other hatches
+change.
+
+Final state: 4 of the original 9 restored, 5 confirmed necessary and
+permanently removed. Closing full 3-port regression: 0 failures, 0
+abnormal stops, and a genuine net improvement over the original
+all-9-removed baseline (i8080/i8085: 8198291->8196012 bytes,
+2680822032->2663791074 ticks). Each of the 7 non-dead-code candidates
+needed its own full i8085+i8085-undoc regression (~35 min each at
+`-j4`) to verify - the full suite remains the only validation this
+kind of change trusts, exactly as the original #29 investigation found.
