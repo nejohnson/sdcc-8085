@@ -14681,27 +14681,45 @@ genAssign (const iCode *ic)
           (result->aop->type == AOP_EXSTK || result->aop->type == AOP_DIR) &&
           (right->aop->type == AOP_EXSTK || right->aop->type == AOP_DIR) && size >= 2)
         {
-          // This estimation is only accurate, if neither operand is AOP_EXSTK, and we are optimizing for code size or targeting the Z80, Z180, eZ80, Z80N or Rabbit 3000A.
+          // This estimation is only accurate if neither operand is AOP_EXSTK.
           int sizecost_n, sizecost_l, cyclecost_n, cyclecost_l;
           const bool hl_alive = !isPairDead (PAIR_HL, ic);
           const bool de_alive = !isPairDead (PAIR_DE, ic);
           const bool bc_alive = !isPairDead (PAIR_BC, ic);
           bool l_better;
 
-          // Simplified below: IS_EZ80, IS_RAB, and IS_Z180 are all
-
-          // these three cost cascades (16-bit-load size/cycle costs for
-          // eZ80/Rabbit, and eZ80/Z180/Rabbit cyclecost_l variants) is
-          // unreachable, leaving only the generic Z80/Z80N cost model.
-          sizecost_n = 6 * size; // Use 8-Bit loads: Z80, Z180, Z80N.
+          /* n-path cost, traced 2026-09-17 against this port's actual
+             cheapMove() for the case this estimate's own accuracy claim
+             above is scoped to (both operands AOP_DIR): that path always
+             goes through A - "lda addr" (3 bytes, 13 states) then
+             "sta addr" (3 bytes, 13 states), both fixed, undisputed 8085
+             timings. sizecost_n's byte count (6/size unit) was already
+             right; cyclecost_n's state count was still the inherited Z80
+             value (38) - fixed to 26 (13+13), the real 8085 total. */
+          sizecost_n = 6 * size;
 
           sizecost_l = 13 + hl_alive * 2 + de_alive * 2 + bc_alive * 2 -
             (right->aop->type == AOP_DIR) -
             (result->aop->type == AOP_DIR) * 2;
 
-          cyclecost_n = 38 * size; // Z80, Z80N
+          cyclecost_n = 26 * size;
 
-          cyclecost_l = 21 * size + 51 + hl_alive * 21 + de_alive * 21 + bc_alive * 21 - // Z80
+          /* l-path cost NOT re-derived (2026-09-17): unlike cyclecost_n
+             above, this couldn't be traced with the same confidence.
+             cyclecost_l's "21 * size" term structurally matches a
+             per-iteration cost for the hand-rolled emit8080Ldir() loop -
+             but that loop exists only because 8080/8085 have no hardware
+             block-move instruction. Z80 has one (LDIR), so a genuine Z80
+             cost model would never have needed this loop shape at all,
+             which casts real doubt on whether "21" was ever modeling
+             *this* 8080/8085-specific code path, as opposed to being a
+             generic Z80-family byte-copy estimate inherited unexamined
+             when emit8080Ldi()/emit8080Ldir() were added. Rewriting these
+             two constants with confidence would mean guessing what they
+             were for, not correcting a known-right shape's wrong numbers
+             - left as-is pending someone actually working out what this
+             estimate is supposed to represent on this port. */
+          cyclecost_l = 21 * size + 51 + hl_alive * 21 + de_alive * 21 + bc_alive * 21 -
               (right->aop->type == AOP_DIR) * 11 -
               (result->aop->type == AOP_DIR) * 15;
 
