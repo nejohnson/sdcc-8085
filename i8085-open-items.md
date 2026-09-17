@@ -31,58 +31,108 @@ source, plus redundant re-masking in `assym.c` and presumably
 only so it appears in one consolidated place alongside the other four -
 see that doc for the real detail if this is ever picked up.
 
-## 2. `i8085_instructionSize()`'s `"ld"`-mnemonic branch may be dead code
+## 2. `genAssign`'s l-path cost (`cyclecost_l`/`sizecost_l`) - unclear what it's even modeling
 
-Found 2026-09-16 during the doc-gloss pass's Zilog-mnemonic audit
-(below). `peep.c`'s `i8085_instructionSize()` still has a substantial
-`if(lineIsInst(pl, "ld")) {...}` branch checking for the Zilog "ld"
-mnemonic (with sub-logic for 3- and 4-byte `ld` forms, already reduced
-from 4 cases to 2 by a past `#32` cleanup). Since this port emits Intel
-syntax exclusively (`mov`/`mvi`/`lxi`/etc.), "ld" should never appear
-in real generated output. Verified empirically across the *entire*
-regression corpus: `grep -rlE '^\s+ld\s' ` against every generated
-`.asm` file for all three ports (i8085/i8085-undoc/i8080, ~17000 files
-each, the full 6358-test-case corpus) returns **zero matches** - along
-with zero matches for every other genuinely-invalid Z80-only mnemonic/
-addressing form checked the same way (`jr`, `djnz`, `exx`, `bit`/`set`/
-`res`, `ldir`/`lddr`/`cpir`/`cpdr`/`otir`/`otdr`/`indr`/`outdr`, `ixh`/
-`ixl`/`iyh`/`iyl`, `(ix`/`(iy`, `reti`/`retn`, `im`, word-level `adc`/
-`sbc hl`, `in a,(c)`/`out (c),`, `ex af`) - so **no correctness bug
-here**, just possibly-dead documentation/handling code.
+Residual from item 3's 2026-09-16 finding (n-path half fixed 2026-09-17,
+commit `6b9a763` - see the closed entry below). `cyclecost_l`'s
+`21 * size` term structurally matches a per-iteration cost for the
+hand-rolled `emit8080Ldir()` loop this port uses (no hardware block-
+move instruction on 8080/8085) - but Z80 has real hardware `LDIR`, so a
+genuine Z80 cost model would never have needed this loop shape at all.
+That casts real doubt on whether "21" was ever modeling *this*
+8080/8085-specific code path, as opposed to being a generic Z80-family
+byte-copy estimate inherited unexamined when `emit8080Ldi()`/
+`emit8080Ldir()` were added for this port. Unlike the n-path fix,
+re-deriving this with confidence would mean guessing what the numbers
+were originally for, not correcting a known-right shape's wrong
+values - a materially different, riskier kind of change. Left alone,
+reasoning documented inline in `gen.c`. Purely a dry-run cost-
+estimation input (affects which of two already-correct codegen shapes
+`genAssign` picks, never correctness), so still low priority - pending
+someone actually tracing `emit8080Ldi()`/`emit8080Ldir()`'s real
+per-iteration cost in enough depth to derive a properly `size`-scaled
+formula, which the current `sizecost_l` doesn't even attempt (it has
+no `* size` term at all, unlike `cyclecost_l` - a separate, pre-
+existing structural gap noticed but not investigated further here).
 
-Not removed in this pass: unlike the code this port's `gen.c` emits,
-`i8085_instructionSize()` may also process **user-written inline
-assembly** (`__asm ... __endasm`), which isn't restricted to what the
-compiler itself would emit - a user could in principle write Zilog-
-syntax "ld" by hand, and whether `i8085_instructionSize()` ever
-actually gets called on such a line before the vendor assembler itself
-would reject it (as8085 has no "ld" mnemonic) is unverified. Needs the
-same reachability-tracing discipline as Task #22/#24's IX/IY dead-code
-work before removing, not a doc-pass-level change - deliberately left
-as a tracked candidate, not fixed here.
+## 3. Documentation gloss pass round 2: comment noise standard was applied too loosely
 
-## 3. A cost-estimation heuristic in `gen.c` still uses Z80/Z80N cost-model constants
+Added 2026-09-17, per Neil's direct review of the actual source after
+the round-1 gloss pass (commit `e0cd824`) claimed item "residual
+Zilog lineage" done. It wasn't, by the standard Neil actually wants
+applied - see [[feedback_comment_noise_standard]] for the full
+correction. Round 1 judged most of the 103 z80/zilog grep hits in
+`src/i8085/` as legitimate necessary documentation (explaining *why*
+a Zilog-only instruction doesn't exist on 8080/8085, or citing real
+current cross-file facts like "vendor's as8085, not sdasz80") and left
+them in place. Neil's own direct read disagreed, citing concrete
+examples: `gen.c:147`'s long narrative comment block explaining
+historical migration rationale (git history covers this, not source
+comments), and the `A_CCF`/`A_CPL`/etc. mnemonic table's "Zilog's ccf
+-> Intel's cmc, same operation"-style comments (noise for a reader who
+only cares about the Intel mnemonic). Also flagged: "SM83" alone still
+has many hits, evidence the sweep wasn't thorough.
 
-Found 2026-09-16 during the same audit. `gen.c`'s 16-bit-load-via-stack
-cost estimation (~line 14680-14706, inside the pointer-set/get
-dispatch) explicitly labels its own numbers "Z80, Z180, Z80N" (e.g.
-`sizecost_n = 6 * size; // Use 8-Bit loads: Z80, Z180, Z80N.`,
-`cyclecost_n = 38 * size; // Z80, Z80N`) - literally reusing the
-Z80 cost model's cycle/byte counts for this specific heuristic, not
-8085-specific derived values. The surrounding comment is accurate (not
-stale) about *why*: `IS_EZ80`/`IS_RAB`/`IS_Z180`-specific variants of
-this same cost cascade were already proven unreachable and simplified
-away, leaving only the generic Z80/Z80N branch - consistent with this
-port's documented general approach (`cost2()` "reuses the z80 columns
-for IS_8080LIKE", per `gen.c`'s own architecture notes). Not a bug,
-not urgent, but this specific heuristic hasn't been through the kind
-of 8085-specific timing-accuracy verification the PUSH/RST/DAD
-`cost2()` values just went through (see the closed items below) - a
-plausible next candidate if further timing-accuracy work is ever
-picked up. Purely a dry-run cost-estimation input (affects allocator
-choices, not correctness), so low priority.
+**The corrected standard:** comments should describe only *current*
+8080/8085 behavior. No comparisons to what Z80/SM83/Rabbit/TLCS90/
+eZ80/Z80N/R800 do or did, no "how we got here" migration narrative,
+even when accurate - git history and this repo's own planning docs
+(`intel-mnemonic-migration-plan.md` etc.) already preserve that story
+for anyone who wants it. Real, current, actionable cross-file facts
+about *this* port's own toolchain/build (e.g. "vendor's as8085, not
+sdasz80") stay; anything that spends its words explaining another
+processor's behavior for comparison doesn't.
+
+Not started as of this note - queued explicitly for "once the current
+task is complete" (the `genAssign` cost-heuristic work above). Needs a
+genuinely more aggressive re-sweep of `src/i8085/`'s comments against
+this corrected standard, not just re-running the same grep with a
+stricter eye - see the memory note for the full worked examples and
+how to apply the line.
 
 ## Closed
+
+### `i8085_instructionSize()` was entirely unreachable (removed 2026-09-17, `6747b80`)
+
+Was item 2 on this list, opened during the round-1 doc-gloss pass
+(which had only confirmed the `"ld"`-mnemonic branch specifically was
+empirically dead across the regression corpus, leaving open whether
+the whole function might still be reachable via user inline asm).
+Traced the complete call chain by code, not just corpus-grepping:
+`port->peep.getSize` (only ever `i8085_instructionSize`) has exactly
+one caller anywhere in the shared frontend - `SDCCpeeph.c`'s
+`interpretLine()` - itself only called from `pcDistance()` - itself
+only called from the `labelInRange`/`labelJTInRange` FBYNAME condition
+functions (relative/short-jump-range checks). Those two are dispatched
+purely by name, parsed directly out of a peephole rule's own condition
+clause (`callFuncByName(pr->cond, ...)`) - never called implicitly.
+`peeph-i8085.def`, this port's complete and exclusive rule set, never
+names either condition. So the entire chain - including the "ld"
+branch's inline-asm concern - was unreachable for any input
+whatsoever: i8085/i8080 have no relative/short jump to range-check
+against in the first place, which is exactly why no rule here would
+ever need this machinery. Removed the 237-line function entirely, its
+declaration, and repointed both `PORT` struct `getSize` fields to
+`NULL`. Verified: i8085+i8085-undoc regression, 0 failures, 0 abnormal
+stops, byte- and tick-identical to the pre-removal baseline.
+
+### `genAssign`'s n-path `cyclecost_n` was still the Z80 value (fixed 2026-09-17, `6b9a763`)
+
+Half of item 3 on this list (the other half, the l-path, remains open
+- see item 2 above). Traced the n-path (byte-copy loop, taken when
+`result` is `AOP_DIR`) through `cheapMove()` for the case this
+estimate's own accuracy comment is scoped to (both operands
+`AOP_DIR`): that path always goes through A - `lda addr` (3 bytes, 13
+T-states) then `sta addr` (3 bytes, 13 T-states), both fixed,
+undisputed 8085 timings with no Z80-vs-8085 ambiguity.
+`sizecost_n`'s byte count (6/size unit) was already correct;
+`cyclecost_n`'s state count (38/size unit, the inherited Z80 value)
+was not - fixed to 26 (13+13). Verified: i8085+i8085-undoc regression,
+0 failures, 0 abnormal stops; bytes shifted up slightly on i8085
+(8196012->8201484), ticks down slightly (2663791074->2663784739) - the
+`l_better` decision now correctly favors the cheaper-in-cycles path
+more often under this build's default speed-optimization goal, exactly
+the expected signature of a genuine cost-model correction.
 
 ### `device/lib`'s model-i8080/i8085/i8085-undoc targets silently no-op'd (fixed 2026-09-15, `94b0db9`)
 
