@@ -55,26 +55,46 @@ formula, which the current `sizecost_l` doesn't even attempt (it has
 no `* size` term at all, unlike `cyclecost_l` - a separate, pre-
 existing structural gap noticed but not investigated further here).
 
-## 3. Broken/dangling comment fragments unrelated to Zilog-lineage grep
+## 3. Remaining `PAIR_IY`/`PAIR_IX`-style underscore-joined comment mentions
 
-Found 2026-09-17 as a side effect of the round-2 gloss pass (below):
-`gen.c` (and possibly a few other files - `peep.c`, `ralloc2.cc`,
-`main.c`, `gen.h` were mentioned as plausible but not confirmed) has a
-separate population of broken/dangling comment fragments tied to
-`IS_8080LIKE`-related dead-code-removal narrative - half-deleted
-multi-line comments left as incoherent orphaned lines (e.g. one
-observed shape: `if (IS_8080LIKE) ... else {setupPair (PAIR_IY, ...);
-push iy; pop\n// ...}` collapsed into two non-connecting comment
-fragments). These don't contain any z80/zilog/rabbit/sm83/etc keyword,
-so they're outside the grep pattern the round-2 pass swept with, and
-were deliberately left untouched there rather than fixed opportunistically
-out of scope. Rough estimate ~25 candidate lines across the tree
-(`grep -nE '^\s*//\s*"[^"]*$|^\s*//\s*\('` was suggested as a possible
-starting search, not verified). Not started - worth its own pass if
-picked up, same "broken, not just noisy" bar as the round-2 fixes that
-happened to also match the Zilog grep.
+Found 2026-09-17 during the ix/iy comment sweep (the pass that also
+fixed the `symmParmStack`/`isPtr`/`IsReturned`/`IsRegArg` dead-code
+sites - see the closed round-2 gloss entry and commit history around
+that date). The `\biy\b`/`\bix\b` word-boundary grep this pass used,
+plus a subagent's follow-up sweep, missed ~25+ mentions where "iy"/"ix"
+appears joined to another identifier by an underscore rather than as a
+standalone word (e.g. symbol/constant names embedding `_iy`/`_ix`
+rather than the bare register mnemonic). Not yet swept. Neil confirmed
+2026-09-17: sweep these too, once the current pending work (the
+ix/iy/dead-code fixes above) lands and is regression-verified.
 
 ## Closed
+
+### Broken/dangling comment fragments + more dead ix/iy code, fixed (2026-09-17, `f7666c5`)
+
+Was item 3 on this list. Swept `gen.c`, `peep.c`, `gen.h`, `i8085.h`
+for the `IS_8080LIKE`-dead-code-removal comment fragments this item
+described, plus several genuinely dead ix/iy-related code paths found
+along the way (not just comments): `gen.c`'s `isPtr()` had unreachable
+"ix"/"iy" checks (both call sites proven to only ever pass "hl");
+`i8085_IsReturned()`/`i8085_IsRegArg()` had dead "iy"-special-case
+branches (`peeph-i8085.def` never references iy/ix/iyl/iyh/ixl/ixh
+anywhere); `peep.c`'s `i8085_symmParmStack()` had a dead
+`"___sdcc_enter_ix"`-named-function special case. Also fixed 3 broken/
+dangling comment fragments (`shiftIntoPair`'s PAIR_DE case, a garbled
+`no_mlt` reference, a compound break in `unpackMaskA`), 4 CB-prefix/
+ED-prefix comments rewritten to drop Z80 opcode-encoding framing, and
+2 stale IY-related comments in `gen.h`/`i8085.h`. Verified: full
+3-port regression, 0 failures, 0 abnormal stops, 36366 tests/6358
+cases per port; i8085/i8080 byte- and tick-identical to baseline
+(8201484 bytes/2663784739 ticks), i8085-undoc likewise unchanged
+(8186322 bytes/2591684279 ticks) - exactly expected for dead-code
+removal plus comment-only fixes.
+
+This pass surfaced item 3 above (the underscore-joined `PAIR_IY`/
+`PAIR_IX` mentions neither the original word-boundary grep nor a
+subagent's follow-up sweep caught) as a separate, still-open
+follow-up.
 
 ### Documentation gloss pass round 2 (done 2026-09-17, `a4065bb`)
 
