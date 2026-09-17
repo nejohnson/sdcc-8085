@@ -44,12 +44,7 @@ extern "C"
 #define REG_D 4
 #define REG_L 5
 #define REG_H 6
-// REG_IYL(7)/REG_IYH(8) removed: no IY hardware on i8080/i8085, and
-// port->num_regs (currently 5, see main.c's _finaliseOptions() and
-// #29) never covers indices 7/8 regardless of that number's own open
-// question - operand_in_reg()'s own "r >= port->num_regs" bounds
-// check made every use of these two provably dead, traced and removed
-// at every site throughout this file.
+// No REG_IYL/REG_IYH: there is no IY hardware on i8080/i8085.
 
 template <class G_t, class I_t>
 float default_operand_cost(const operand *o, const assignment &a, unsigned short int i, const G_t &G, const I_t &I)
@@ -102,13 +97,6 @@ float default_operand_cost(const operand *o, const assignment &a, unsigned short
                 c -= 0.4f;
               else if(byteregs[0] == REG_L)
                 c -= 0.1f;
-              // "else if(byteregs[0] == REG_IYH) c += 0.1f;" removed: no
-              // IY hardware on i8080/i8085 - byteregs[] only ever holds
-              // values from a.global[v], itself only ever assigned in
-              // [0, port->num_regs) or -1, and REG_IYH(8) is always
-              // outside that range (see ralloc2.cc's REG_IYL/REG_IYH
-              // definitions removed, and operand_in_reg()'s own explicit
-              // "r >= port->num_regs" bounds check just below).
             }
           // Spilt.
           else
@@ -230,9 +218,6 @@ assign_cost(const assignment &a, unsigned short int i, const G_t &G, const I_t &
 
       if(byteregs[0] == REG_A)
         c -= 0.4f;
-      // "else if(byteregs[0] == REG_IYH) c += 0.1f;" removed: same
-      // reasoning as default_operand_cost()'s identical pattern above -
-      // no IY hardware on this port, byteregs[] can never hold REG_IYH.
     }
 
   if(!size1)
@@ -262,9 +247,6 @@ assign_cost(const assignment &a, unsigned short int i, const G_t &G, const I_t &
 
       if(byteregs[0] == REG_A)
         c -= 0.4f;
-      // "else if(byteregs[0] == REG_IYH) c += 0.1f;" removed: same
-      // reasoning as default_operand_cost()'s identical pattern above -
-      // no IY hardware on this port, byteregs[] can never hold REG_IYH.
     }
 
   if(!size2)
@@ -527,9 +509,6 @@ static bool operand_is_pair(const operand *o, const assignment &a, unsigned shor
   if(oi3 != oi_end)
     return(false);
 
-  // "&& a.global[oi->second] != REG_IYL" conjunct dropped: no IY
-  // hardware on this port, a.global[] can never hold REG_IYL - see
-  // default_operand_cost()'s identical reasoning above.
   if(a.global[oi->second] != REG_C && a.global[oi->second] != REG_E && a.global[oi->second] != REG_L)
     return(false);
   if(a.global[oi->second] + 1 != a.global[oi2->second])
@@ -734,10 +713,6 @@ static bool Ainst_ok(const assignment &a, unsigned short int i, const G_t &G, co
 
   if(ic->op == '=' && POINTER_SET (ic) && // Any register can be assigned to (hl), so we don't need to go through a then.
     !(IS_BITVAR(getSpec(operandType (result))) || IS_BITVAR(getSpec(operandType (right)))) &&
-    // "|| operand_in_reg(result, REG_IYL, ia, i, G)" dropped: no IY
-    // hardware on this port, operand_in_reg() itself always returns
-    // false for REG_IYL/REG_IYH (see its own "r >= port->num_regs"
-    // bounds check).
     (getSize(operandType(right)) == 1 || operand_is_pair(result, a, i, G) && operand_in_reg(result, REG_L, ia, i, G)))
     return(true);
 
@@ -908,9 +883,6 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
      (operand_in_reg(result, REG_L, ia, i, G) && I[ia.registers[REG_L][1]].byte == 0 && operand_in_reg(result, REG_H, ia, i, G)))
     return(true); // Uses inc hl.
 
-  // "|| operand_in_reg(result, REG_IYL, ia, i, G) && operand_in_reg(result,
-  // REG_IYH, ia, i, G)" dropped: no IY hardware on this port,
-  // operand_in_reg() always returns false for REG_IYL/REG_IYH.
   if(ic->op == '+' && getSize(operandType(result)) == 2 && !IS_TRUE_SYMOP (result) &&
     result_only_HL &&
     (ia.registers[REG_C][1] < 0 && ia.registers[REG_B][1] < 0 || ia.registers[REG_E][1] < 0 && ia.registers[REG_D][1] < 0)) // Can use ld rr, (nn) instead of (hl).
@@ -1085,13 +1057,6 @@ static bool HLinst_ok(const assignment &a, unsigned short int i, const G_t &G, c
      stack-operand addressing can need HL as scratch mid-computation,
      and this hatch approved any assignment regardless of what else was
      living in L/H at the time. */
-
-  // "if(ic->op == '=' && POINTER_SET(ic) && operand_in_reg(result,
-  // REG_IYL,...) && ... && operand_in_reg(result, REG_IYH,...))
-  // return(true);" removed entirely: no IY hardware on this port,
-  // operand_in_reg() always returns false for REG_IYL/REG_IYH, so this
-  // whole condition (which started with exactly that check) could
-  // never be true.
 
   if(ic->op == '=' && POINTER_SET(ic) && !result_only_HL) // loads result pointer into (hl) first.
     return(false);
@@ -1410,10 +1375,6 @@ static float rough_cost_estimate(const assignment &a, unsigned short int i, cons
       const symbol *const sym = (symbol *)(hTabItemWithKey(liveRanges, I[*v].v));
       if(a.global[*v] < 0 && IS_REGISTER(sym->type)) // When in doubt, try to honour register keyword.
         c += 32.0f;
-      // "|| a.global[*v] == REG_IYL"/"|| a.global[*v] == REG_IYH" dropped
-      // from the two checks below: no IY hardware on this port,
-      // a.global[] (only ever assigned in [0, port->num_regs) or -1)
-      // can never hold REG_IYL(7)/REG_IYH(8).
       if((I[*v].byte % 2) && (a.global[*v] == REG_L || a.global[*v] == REG_E || a.global[*v] == REG_C)) // Try not to reverse bytes.
         c += 8.0f;
       if(!(I[*v].byte % 2) && I[*v].size > 1 && (a.global[*v] == REG_H || a.global[*v] == REG_D || a.global[*v] == REG_B)) // Try not to reverse bytes.
@@ -1561,11 +1522,9 @@ static bool tree_dec_ralloc(T_t &T, G_t &G, const I_t &I, SI_t &SI)
   return(!assignment_optimal);
 }
 
-// omit_frame_ptr() removed (#36): was a bare "return(true);" template
-// function - i8080/i8085 have no index register at all, so there is
-// no ix to use as a frame pointer, and the frame pointer is always
-// omitted on this port unconditionally, not as a genuine per-function
-// choice. Its one caller (i8085_ralloc2_cc, below) removed too.
+// i8080/i8085 have no index register, so there is no way to implement a
+// hardware frame pointer; the frame pointer is always omitted on this
+// port unconditionally, not as a per-function choice.
 
 // Adjust stack location for the frame pointer this port always omits.
 // Only called from within this file (i8085_ralloc2_cc, below).

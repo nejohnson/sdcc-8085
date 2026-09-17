@@ -45,11 +45,11 @@ typedef enum
   AOP_STL,
   /* Is in the carry register */
   AOP_CRY,
-  /* Is pointed to by IY */
+  /* Dead: no IY hardware on i8080/i8085. */
   AOP_IY,
   /* Is pointed to by HL */
   AOP_HL,
-  /* Is on the extended stack (addressed via address calculated locally in IY or HL) */
+  /* Is on the extended stack (addressed via address calculated locally in HL) */
   AOP_EXSTK,
   /* Is referenced by a pointer in a register pair. */
   AOP_PAIRPTR,

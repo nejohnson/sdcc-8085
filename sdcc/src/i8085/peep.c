@@ -64,9 +64,6 @@ static struct
   lineNode *head;
 } _G;
 
-// [H_IDX + 1] (was [IYH_IDX + 1], #25): shrunk once IYL_IDX/IYH_IDX were
-// removed from ralloc.h's register-index enum - neither array's IYL/IYH
-// slots were ever meaningfully read (see gen.c's own comments).
 extern bool i8085_regs_used_as_parms_in_calls_from_current_function[H_IDX + 1];
 extern bool i8085_symmParm_in_calls_from_current_function;
 extern bool i8085_regs_preserved_in_calls_from_current_function[H_IDX + 1];
@@ -348,11 +345,6 @@ mightBeParmInCallFromCurrentFunction(const char *what)
     return TRUE;
   if (strchr(what, 'a') && i8085_regs_used_as_parms_in_calls_from_current_function[A_IDX])
     return true;
-  // "if (strstr(what,"iy") && (...[IYL_IDX] || ...[IYH_IDX])) return
-  // true;" removed (#25): the array reads are always false regardless of
-  // what - i8085_regs_used_as_parms_in_calls_from_current_function's one
-  // writer (gen.c) only ever indexes it with a real asmop's rIdx, never
-  // IYL_IDX/IYH_IDX (no byte is ever register-allocated to IY).
 
   return false;
 }
@@ -532,13 +524,6 @@ mightReadFlag(const lineNode *pl, const char *what)
 static bool
 mightRead(const lineNode *pl, const char *what)
 {
-  /* "iyl"/"iyh"/"ixl"/"ixh"/"iy"/"ix" normalization removed (#32): `what`
-     is always either a real 8080/8085 register name/flag or bound via a
-     rule's %N to a real matched operand - and this port's own gen.c
-     never emits any operand containing "ix"/"iy" (no index register
-     exists), nor does peeph-i8085.def contain either substring literally
-     - so `what` can never actually be any of these six strings here. */
-
   const char *larg = lineArg (pl, 0);
   const char *rarg = lineArg (pl, 1);
 
@@ -627,13 +612,6 @@ mightRead(const lineNode *pl, const char *what)
   if((strcmp(pl->line, "call\t___sdcc_call_hl") == 0 || larg && !strncmp (larg, "(hl)", 4)) && (strchr(what, 'h') != 0 || strchr(what, 'l') != 0))
     return true;
 
-  // "call ___sdcc_call_iy" / "(iy)"-operand branch removed (#32): this
-  // port has no index registers, so it has no __sdcc_call_iy helper
-  // (device/lib/i8085 has __sdcc_call_hl only) and never emits "(iy)"
-  // addressing (gen.c's one "*iyx" mapping was itself removed as a
-  // zero-caller entry - see mappings.i) - pl->line can never match
-  // either alternative.
-
   if(strncmp(pl->line, "call\t___sdcc_bcall_", 19) == 0)
     if (strchr (what, pl->line[19]) != 0 || strchr (what, pl->line[20]) != 0 || strchr (what, pl->line[21]) != 0)
       return TRUE;
@@ -662,9 +640,6 @@ mightRead(const lineNode *pl, const char *what)
     {
       if (!strncmp (larg, "(sp)", 4) && !strncmp (rarg, "hl", 2))
         return(!strcmp (what, "h") || !strcmp (what, "l") || !strcmp (what, "sp"));
-      // "ex (sp), ix"/"ex (sp), iy" branches removed (#32): "ex" itself
-      // is never emitted by this port (only xchg/xthl), and even if it
-      // somehow were, no index register exists to be its rarg.
       if (!strncmp (larg, "af", 2) && !strncmp (rarg, "af'", 3))
         return(!strcmp (what, "a"));
       if (!strncmp (larg, "de", 2) && !strncmp (rarg, "hl", 2))
@@ -694,8 +669,6 @@ mightRead(const lineNode *pl, const char *what)
     lineIsInst (pl, "sbc") ||
     lineIsInst (pl, "xor")))
     {
-      // "iy, iy" disjunct removed (#32): no index register exists on
-      // this port, so no instruction can ever have iy as both operands.
       if (!strncmp (larg, "a, a", 4) || !strncmp (larg, "hl, hl", 6))
         return(false);
     }
@@ -738,11 +711,8 @@ mightRead(const lineNode *pl, const char *what)
           if (!strcmp(what, "sp"))
             return(true);
         }
-      // "add ix/y, rr" branch removed (#32): this port has no index
-      // register, so 16-bit add never takes an ix/iy first operand (the
-      // only real 16-bit add form is "dad", handled above via
-      // isHOrL(what) since it always targets hl - see emit3w_o()'s own
-      // comment on this in gen.c).
+      // The only real 16-bit add form is "dad", handled above via
+      // isHOrL(what) since it always targets hl.
       return (argCont (rarg, what));
     }
 
@@ -992,8 +962,7 @@ surelyWritesFlag(const lineNode *pl, const char *what)
 
   if(lineIsInst (pl, "inc") || lineIsInst (pl, "dec"))
     {
-      // 8-bit inc affects all flags other than c. "(ix)"/"(iy)" disjuncts
-      // removed (#32): no such addressing exists on this port.
+      // 8-bit inc affects all flags other than c.
       if (strlen(pl->line + 4) == 1 || // 8-bit register
         !strcmp(pl->line + 4, "(hl)"))
         return (!!strcmp(what, "cf"));
@@ -1086,11 +1055,6 @@ callSurelyWrites (const lineNode *pl, const char *what)
   if (f && (strlen(what) == 2 && what[1] == 'f')) // Flags are never preserved across function calls.
     return(true);
 
-  // "ix" early-return removed (#32): `what` can never literally be "ix"
-  // here - see mightRead()'s equivalent normalization-removal comment
-  // for the full argument (no index register exists, and no rule/matched
-  // operand text ever contains "ix"/"iy" on this port).
-
   if(f)
     preserved_regs = f->type->funcAttrs.preserved_regs;
   else if (lineIsInst (pl, "call"))
@@ -1112,11 +1076,6 @@ callSurelyWrites (const lineNode *pl, const char *what)
     return !preserved_regs[L_IDX];
   if (!strcmp (what, "h"))
     return !preserved_regs[H_IDX];
-  // "iyl"/"iyh"/"iy" branch removed (#32): the #25-era comment here
-  // flagged that whether "what" can actually be one of these three
-  // hadn't been traced through the rest of the peephole framework - it
-  // now has (see mightRead()'s equivalent comment): `what` can never be
-  // "iyl"/"iyh"/"iy" for this port, so this branch never fires either.
 
   return (false);
 }
@@ -1124,10 +1083,6 @@ callSurelyWrites (const lineNode *pl, const char *what)
 static bool
 surelyWrites (const lineNode *pl, const char *what)
 {
-  // "iyl"/"iyh"/"ixl"/"ixh"/"iy"/"ix" normalization removed (#32): same
-  // proof as mightRead()'s equivalent removal - `what` can never
-  // actually be any of these six strings on this port.
-
   const char *larg = lineArg (pl, 0);
   const char *rarg = lineArg (pl, 1);
 
@@ -1241,8 +1196,6 @@ surelyWrites (const lineNode *pl, const char *what)
     return(what[0] == 'd' || what[0] == 'e');
   if (larg && lineIsInst (pl, "ld") && !strncmp (larg, "bc,", 3))
     return(what[0] == 'b' || what[0] == 'c');
-  // "ld ix,"/"ld iy," branches removed (#32): no index register exists
-  // on this port for either to ever target.
   /* in writes a (the value read from the port); out writes no register
      (see mightRead()'s comment on this mnemonic pair). */
   if (lineIsInst (pl, "out"))
@@ -1262,9 +1215,6 @@ surelyWrites (const lineNode *pl, const char *what)
 
   if (larg && lineIsInst (pl, "pop") && !strncmp (larg, "af", 2))
     return (what[0] == 'a');
-  // "pop ix"/"pop iy" branches removed (#32): no index register exists
-  // on this port to ever be popped ("pop ix" is itself unreachable dead
-  // code in gen.c, gated by the always-true omit_frame_ptr() chain).
   else if (larg && lineIsInst (pl, "pop"))
     return (strstr (larg, what));
   
@@ -1481,8 +1431,6 @@ isReg(const char *what)
 static bool
 isRegPair(const char *what)
 {
-  // "ix"/"iy" cases removed (#32): no index register exists on this
-  // port, and `what` can never be either string here regardless.
   if(strlen(what) != 2)
     return FALSE;
   if(strcmp(what, "bc") == 0)
@@ -1513,13 +1461,6 @@ i8085_notUsed (const char *what, lineNode *endPl, lineNode *head)
     return i8085_notUsed("zf", endPl, head) && i8085_notUsed("cf", endPl, head) &&
            i8085_notUsed("sf", endPl, head) && i8085_notUsed("pf", endPl, head) &&
            i8085_notUsed("nf", endPl, head) && i8085_notUsed("hf", endPl, head);
-
-  // "iy"/"ix" special cases removed (#32): `what` can never actually be
-  // either string here (same proof as mightRead()'s equivalent removal -
-  // no index register exists, and no rule/matched operand text ever
-  // contains "ix"/"iy" on this port), so these two branches, like
-  // isUReg() they depended on, are pure dead vestige, not a live "prove
-  // unused" path that was ever actually exercised.
 
   if(isRegPair(what))
     {
@@ -1624,11 +1565,7 @@ i8085_canAssign (const char *op1, const char *op2, const char *exotic)
   if(!strcmp(dst, "(hl)") && src[0] == '#')
     return true;
 
-  // Can load between hl and sp. "ix"/"iy" disjuncts removed (#32): "ld
-  // sp, ix"/"ld ix, sp" are themselves unreachable dead code in gen.c
-  // (the frame-pointer setup/teardown they'd back is gated by the
-  // always-true omit_frame_ptr() chain), so no real matched operand
-  // text can ever be "ix"/"iy" here either.
+  // Can load between hl and sp.
   if(!strcmp(dst, "sp") && !strcmp(src, "hl") ||
     !strcmp(dst, "hl") && !strcmp(src, "sp"))
     return true;
@@ -1645,10 +1582,6 @@ registerBaseName (const char *op)
     return "bc";
   if (!strcmp (op, "h") || !strcmp (op, "l") || !strcmp (op, "(hl)") || !strcmp (op, "(hl+)")  || !strcmp (op, "(hl-)"))
     return "hl";
-  // "iy"/"ix" cases removed (#32): `op` is always bound to real matched
-  // operand text (canJoinRegs()'s own %N-substituted regs[]), which can
-  // never contain either substring on this port - no index register
-  // exists, and peeph-i8085.def never mentions either literally.
   if (!strcmp (op, "a"))
     return "af";
   return op;
@@ -1675,10 +1608,6 @@ bool i8085_canJoinRegs (const char **regs, char dst[20])
       memcpy (&dst[0], regs[0], l1);
       memcpy (&dst[l1], regs[1], l2 + 1); //copy including \0
     }
-  // "ixhixl"/"iyhiyl" special case removed (#32): dst is built purely by
-  // concatenating two real matched operand strings, which can never be
-  // "ixh"/"ixl"/"iyh"/"iyl" on this port - same proof as
-  // registerBaseName()'s equivalent removal just above.
   return isRegPair (dst);
 }
 
@@ -1730,8 +1659,11 @@ bool i8085_canSplitReg (const char *reg, char dst[][16], int nDst)
 
 bool i8085_symmParmStack (const char *name)
 {
-  if (!strcmp (name, "___sdcc_enter_ix"))
-   return false;
+  /* name is always the real operand of a "call %1" instruction this
+     port's own codegen emitted (see the Group 8 tail-call rule in
+     peeph-i8085.def, this function's only caller), so it can only ever
+     be a function this port actually compiled or linked against - never
+     a symbol absent from this port's own runtime library. */
   return i8085_symmParm_in_calls_from_current_function;
 }
 

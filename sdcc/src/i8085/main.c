@@ -544,16 +544,8 @@ _getRegByName (const char *name)
     return L_IDX;
   if (!strcmp (name, "h"))
     return H_IDX;
-  // "iyl"/"iyh" (IYL_IDX/IYH_IDX) removed as of #25: no IY hardware on
-  // i8080/i8085, so there is no such register - falls through to -1
-  // below, same as any other unrecognized name. This closes a real gap:
-  // SDCCy.c's "__preserves_regs(...)" attribute parser accepts any name
-  // this function recognizes with no further validation, so as long as
-  // "iyl"/"iyh" returned a valid index here, user source code really
-  // could set funcAttrs.preserved_regs[IYL_IDX/IYH_IDX] = true, unlike
-  // every other IY-dead fact in this file (all pure register-allocator
-  // invariants, immune to anything user code could write). "k"/"j"
-  // (K_IDX/J_IDX) removed the same way, earlier in #25.
+  // No "iyl"/"iyh": there is no such register on i8080/i8085, so any
+  // unrecognized name (including these) falls through to -1 below.
   return -1;
 }
 
