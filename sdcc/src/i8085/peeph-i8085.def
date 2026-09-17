@@ -8,24 +8,9 @@
 // data sheet, a real-corpus scan with --peep-file to find genuine
 // firing instances, and a ucsim behavioral check).
 //
-// Phase-1 (groups 1-7, task #17): dead-load/dead-result elimination and
-// straight-line arithmetic/move simplifications - none of it touches
-// control flow.
-//
-// Phase-2 (task #20, starting with group 8): control-flow rules -
-// jmp/call/ret. peeph.def's own z80-family equivalents split cleanly
-// into two classes once checked against this hardware: rules that
-// genuinely port (this hardware has jmp/j<cc>/call/ret/r<cc>, all
-// absolute, exactly like z80's jp/jp <cc>/call/ret/ret <cc> - only the
-// mnemonic spelling differs) are ported below, group by group. Rules
-// that convert an absolute jump to a *relative* one (peeph.def's 162/
-// 162a/163) or fold "dec b"/"jr nz" into djnz (peeph.def's 167) are not
-// deferred - they are permanently inapplicable, full stop: 8080/8085
-// has no relative jump and no djnz instruction at all, not even as an
-// undocumented opcode (unlike some of the actual undocumented
-// instructions this port's --allow-undocumented-instructions does
-// support), so there is no future version of this port that could ever
-// use them.
+// This hardware has jmp/j<cc>/call/ret/r<cc>, all absolute - it has no
+// relative jump and no djnz instruction at all, so no rule here ever
+// needs to consider converting an absolute jump to a relative one.
 //
 // Group 1: dead-load / dead-result elimination. Ported from peeph.def's
 // peephole 0a/158 (redundant self-move), 2b (dead 16-bit add result),
@@ -309,14 +294,9 @@ replace restart {
 	dad	%2
 } if notUsed('bc')
 
-// Group 8 (task #20): call-then-return at the end of a function is a
-// tail call - the callee's own ret will return straight to whoever
-// called this function, so there is no need to return here first and
-// call again. Ported directly from peeph.def's common peephole 135;
-// call/ret/jmp are identical mnemonics and semantics on 8080/8085 (all
-// absolute, no relative-addressing distinction to worry about, unlike
-// the jp->jr rules this port can never port - see this file's header),
-// so only the Zilog "jp" -> Intel "jmp" mnemonic rename was needed.
+// Group 8: call-then-return at the end of a function is a tail call -
+// the callee's own ret will return straight to whoever called this
+// function, so there is no need to return here first and call again.
 // symmParmStack() (SDCCpeeph.c, cross-port, already available) checks
 // that the callee itself pops its own parameters (K&R/__z88dk_fastcall-
 // style, not caller-pops-cdecl) - otherwise replacing call+ret with a
@@ -326,25 +306,20 @@ replace restart {
 	call	%1
 	ret
 } by {
-	; task #20 replaced call+ret at function end by a tail-call jmp
 	jmp	%1
 } if symmParmStack(%1)
 
-// Group 9 (task #20): a jump whose only possible target is an immediate
+// Group 9: a jump whose only possible target is an immediate
 // return can just return directly - one instruction instead of two,
 // and it may drop the target label's last remaining reference
 // (labelRefCountChange, needed so later rules - notably Group 11's
-// unused-label removal - see an accurate count afterward). Ported from
-// peeph.def's common peepholes 160 (unconditional) and 161
-// (conditional).
+// unused-label removal - see an accurate count afterward).
 //
-// As with Group 8, 9 separate rules rather than one parameterized
-// rule: Zilog's "jp %1, %5" carries the condition as its own operand
-// token, so a single %1-bound pattern covers every condition; Intel
-// fuses it into the mnemonic (jz/jnz/jc/jnc/jm/jp/jpo/jpe -> rz/rnz/
-// rc/rnc/rm/rp/rpo/rpe, no operand), leaving nothing to bind %1 to.
-// Condition set is genIfxJump()'s own complete list. Note "p"/"rp" is
-// "if sign positive" on Intel, unrelated to Zilog's unconditional "jp".
+// 9 separate rules rather than one parameterized rule: the condition
+// is fused into the mnemonic (jz/jnz/jc/jnc/jm/jp/jpo/jpe -> rz/rnz/
+// rc/rnc/rm/rp/rpo/rpe, no separate operand), leaving nothing to
+// parameterize on. Condition set is genIfxJump()'s own complete list.
+// Note "p"/"rp" here means "if sign positive", not a jump/call.
 //
 // The 8 conditional-return mnemonics had never appeared in this port's
 // output before these rules - gen.c never emits one. Landing them
@@ -499,16 +474,11 @@ replace restart {
 %5:
 } if labelRefCountChange(%5 -1)
 
-// Group 11 (task #20, phase-2 begins): unused-label removal. Ported
-// directly from peeph.def's common peephole 159 - a label with zero
-// references left anywhere in the function is simply dead, regardless
-// of mnemonic syntax on either side of it, so this rule needs no
-// Intel-vs-Zilog adaptation at all. Placed last in the file (as
-// peeph.def's own comment on 159 says its ancestor should be: "opens
-// the code to further peephole optimization") so it can catch labels
-// any future phase-2 group above frees up (e.g. a jmp-to-ret rewrite
-// dropping a jump target's last remaining reference), not just labels
-// already unused before any rule in this file ever runs.
+// Group 11: unused-label removal - a label with zero references left
+// anywhere in the function is simply dead. Placed last in the file so
+// it can catch labels any group above frees up (e.g. a jmp-to-ret
+// rewrite dropping a jump target's last remaining reference), not just
+// labels already unused before any rule in this file ever runs.
 replace restart {
 %1:
 } by {

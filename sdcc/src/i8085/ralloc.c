@@ -79,9 +79,9 @@ static struct
   int nRegs;
 } _G;
 
-/* Intel 8080/8085: same GPR file as the SM83 (no IX/IY index registers).
-   This is the only register file this port ever selects (i8085_opts.sub is
-   always SUB_8080/SUB_8085 here), so it is the only one defined. */
+/* Intel 8080/8085: no IX/IY index registers. This is the only register
+   file this port ever selects (i8085_opts.sub is always SUB_8080/
+   SUB_8085 here), so it is the only one defined. */
 reg_info i8085_gpr_regs[] = {
   {REG_GPR, A_IDX, "a", 1},
   {REG_GPR, C_IDX, "c", 1},

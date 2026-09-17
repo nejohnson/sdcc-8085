@@ -895,8 +895,8 @@ surelyWritesFlag(const lineNode *pl, const char *what)
      (s/z/ac/p/cy - "nf" doesn't exist on this hardware, so nothing reads
      it either); dad touches only cy; inx/dcx touch none; inr/dcr touch
      every flag but cy; the bare accumulator rotates (rlc/rrc/ral/rar)
-     touch only cy; cmc/stc redefine cy, cma touches nothing (unlike
-     Z80's cpl); jmp/j<cc>/mov/mvi/lxi/lda/sta/lhld/shld/ldax/stax/xchg/
+     touch only cy; cmc/stc redefine cy, cma touches nothing;
+     jmp/j<cc>/mov/mvi/lxi/lda/sta/lhld/shld/ldax/stax/xchg/
      xthl/sphl/pchl touch no flags at all. */
   {
     bool immediate, writes_a;
@@ -1049,7 +1049,7 @@ surelyWritesFlag(const lineNode *pl, const char *what)
     return (!!strcmp(what, "cf"));
 
   if(lineIsInst (pl, "mlt"))
-    return true; // mlt is a Z80N-only multiply instruction and never appears in this port's output.
+    return true; // never appears in this port's output.
 
   // pop af writes
   if(lineIsInst (pl, "pop.l"))
@@ -1478,14 +1478,6 @@ isReg(const char *what)
   return FALSE;
 }
 
-/* isUReg()/its "ixl"/"ixh"/"iyl"/"iyh" cases removed entirely (#32): the
-   only 8-bit regs "only accessible by 16-bit and undocumented
-   instructions" on real Z80 hardware were IX/IY's halves - this port has
-   no index register at all, so the whole notion is vacuous here, and
-   `what` can never be any of those four strings regardless (same proof
-   as mightRead()'s equivalent removal). i8085_notUsed()'s one caller
-   updated accordingly. */
-
 static bool
 isRegPair(const char *what)
 {
@@ -1539,11 +1531,11 @@ i8085_notUsed (const char *what, lineNode *endPl, lineNode *head)
       return(i8085_notUsed(low, endPl, head) && i8085_notUsed(high, endPl, head));
     }
 
-  // P/V and L/V (rabbits) are the same flag
+  // P/V and L/V are the same flag
   if(!strcmp(what, "vf") || !strcmp(what, "lf"))
     what = "pf";
 
-  // enable sp and flags. (isUReg() removed along with it - see above.)
+  // enable sp and flags.
   if(!isReg(what) &&
      strcmp(what, "sp") && strcmp(what+1, "f"))
     return FALSE;
@@ -1591,16 +1583,6 @@ i8085_canAssign (const char *op1, const char *op2, const char *exotic)
   if (isIntelM (op2))
     op2 = "(hl)";
 
-  // "Indexed accesses" (exotic == "ix"/"iy") block removed (#32): exotic
-  // is only ever non-NULL when a canAssign() rule condition passes 3
-  // arguments, and this port's own peeph-i8085.def has exactly one real
-  // canAssign() call site, which passes 2 - so exotic is always NULL
-  // here in practice (this whole 3-argument form existed purely to
-  // support Z80-style ix/iy-indexed addressing checks, which this port
-  // has no use for at all: no index register exists). wassert kept
-  // minimal rather than added, to match this file's existing style of
-  // silent proof-by-comment for unreachable branches.
-
   // Everything else.
   dst = op1;
   src = op2;
@@ -1631,9 +1613,8 @@ i8085_canAssign (const char *op1, const char *op2, const char *exotic)
   if((isReg(dst) || isRegPair(dst) || !strcmp(src, "sp")) && src[0] == '#')
     return TRUE;
 
-  /* 8080/8085: only ld a,(nn) (LDA) and ld hl,(nn) (LHLD) load from a direct
-     address; ld bc/de/sp,(nn) are Z80 ED-prefix ops. Likewise only STA/SHLD
-     store to one. */
+  /* 8080/8085: only ld a,(nn) (LDA) and ld hl,(nn) (LHLD) load from a
+     direct address; likewise only STA/SHLD store to one. */
   if(!strncmp(src, "(#", 2) && (!strcmp(dst, "a") || !strcmp(dst, "hl")))
     return TRUE;
   if(!strncmp(dst, "(#", 2) && (!strcmp(src, "a") || !strcmp(src, "hl")))
@@ -1727,9 +1708,10 @@ bool i8085_canSplitReg (const char *reg, char dst[][16], int nDst)
    frontend is SDCCpeeph.c's interpretLine(), itself only called from
    pcDistance(), itself only called from the FBYNAME condition
    functions labelInRange()/labelJTInRange() (relative/short-jump-
-   range checks - "for mcs51 the jump can be -127 to +127 bytes, for
-   Z80 -126 to +129 bytes"). Those two are dispatched purely by name,
-   parsed directly out of a peephole rule's own condition clause
+   range checks, used by ports whose relative jumps have a limited
+   range - this port's jumps are all absolute, with no such range to
+   check). Those two are dispatched purely by name, parsed directly
+   out of a peephole rule's own condition clause
    (callFuncByName(pr->cond, ...)) - never called implicitly. This
    port's complete, exclusive rule set (peeph-i8085.def, confirmed via
    its own header as "the active default rule set") never names either

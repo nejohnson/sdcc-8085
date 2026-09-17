@@ -144,41 +144,22 @@ enum asminst
   A_XOR
 };
 
-/* Zilog mnemonics still present but confirmed dead (never reached at
-   emission time, only appear as a table entry): "bool"/A_BOOL, "ldd"/
-   A_LDD, "ldf"/A_LDF, "ldi"/A_LDI, "neg"/A_NEG, "reti"/A_RETI, "retn"/
-   A_RETN, "rl"/A_RL, "rlc"/A_RLC (superseded below by A_RLCA's own,
-   different, live "rlc" - Intel's accumulator-rotate RLC and this file's
-   register/bit-rotate A_RLC enum value happen to collide on the same
-   3-letter name, but only the former is ever actually emitted through
-   this table; A_RLC always routes through emit8080RotateByte() first,
-   which intercepts before this table is consulted - see emit3_o()'s
-   "!op2 && (inst==A_RL||...)" check), "rld"/A_RLD, "rr"/A_RR, "rrc"/A_RRC
-   (same A_RLC-vs-A_RLCA situation, with A_RRCA below), "rrd"/A_RRD,
-   "swap"/A_SWAP - 0 emit3()/emit3_o() call sites for any of these
-   (confirmed via grep across the whole file), left as-is rather than
-   spend translation effort on something with zero behavioural impact,
-   matching this file's established practice for other confirmed-dead
-   code. "ld"/A_LD is not real table-driven text at all (emit3_o() special-
-   cases A_LD before ever reaching this table - see emit_A_LD()'s own
-   comment for why); "cp"/A_CP, "dec"/A_DEC, "inc"/A_INC, "add"/A_ADD,
-   "adc"/A_ADC, "and"/A_AND, "or"/A_OR, "sbc"/A_SBC, "sub"/A_SUB, "xor"/
-   A_XOR are likewise all intercepted by emit3_o()'s/emit3w_o()'s own
-   A_ADD-family and A_INC/A_DEC special cases before reaching this table -
-   see emit_A_ARITH8()'s and the inr/dcr/inx/dcx code's own comments -
-   kept here only because A_PUSH/A_POP/A_EX (see emit3w_o()'s own A_EX
-   special case) and A_RET (below) DO still reach this table's generic
-   "%s"/"%s %s"/"%s %s, %s" templates directly, and array-index-by-enum
-   means every entry has to be present even where unused. */
+/* Most of the string literals below are never looked up through this
+   table - array-index-by-enum means every slot has to be present even
+   where unused. Only A_PUSH, A_POP, A_EX, and A_RET actually reach the
+   generic "%s"/"%s %s"/"%s %s, %s" templates this table feeds; every
+   other opcode class (A_ADD-family, A_INC/A_DEC, A_LD, the rotate
+   group, etc.) is intercepted and emitted directly by its own
+   special-cased code before this table is ever consulted. */
 static const char *asminstnames[] =
 {
   "add",
   "adc",
   "and",
   "bool",
-  "cmc",                        /* A_CCF: Zilog's ccf (complement carry) -> Intel's cmc, same operation */
+  "cmc",
   "cp",
-  "cma",                        /* A_CPL: Zilog's cpl (complement acc) -> Intel's cma, same operation */
+  "cma",
   "dec",
   "ex",
   "inc",
@@ -188,23 +169,23 @@ static const char *asminstnames[] =
   "ldi",
   "neg",
   "or",
-  "pop",                        /* A_POP: "pop" - same mnemonic both dialects, operand text already valid (see push/pop investigation) */
-  "push",                       /* A_PUSH: ditto */
-  "ret",                        /* A_RET: "ret" - same mnemonic both dialects */
+  "pop",
+  "push",
+  "ret",
   "reti",
   "retn",
   "rl",
-  "ral",                        /* A_RLA: Zilog's rla (rotate acc left through carry) -> Intel's ral */
+  "ral",
   "rlc",
-  "rlc",                        /* A_RLCA: Zilog's rlca (rotate acc left) -> Intel's rlc (the live one - see the leading comment) */
+  "rlc",
   "rld",
   "rr",
-  "rar",                        /* A_RRA: Zilog's rra (rotate acc right through carry) -> Intel's rar */
+  "rar",
   "rrc",
-  "rrc",                        /* A_RRCA: Zilog's rrca (rotate acc right) -> Intel's rrc (the live one - see the leading comment) */
+  "rrc",
   "rrd",
   "sbc",
-  "stc",                        /* A_SCF: Zilog's scf (set carry) -> Intel's stc, same operation */
+  "stc",
   "sla",
   "sra",
   "srl",
@@ -404,23 +385,6 @@ static float regalloc_dry_run_cost_states;
 static float regalloc_dry_run_state_scale = 1.0f;
 
 static void // Count costs for register allocator.
-/* Originally a 15-argument signature (used_bytes/used_states plus 13
-   per-instruction timing columns for other Zilog-family sub-targets -
-   TLCS90/870/EZ80/R800/Rabbit/SM83/Z80/Z80N/... - this port never
-   targets, accepted and discarded at every one of its ~400 call sites
-   throughout this file), kept full-size purely so none of those call
-   sites ever needed editing. Task #21 shrunk it to the two arguments
-   this port actually costs, updating every call site to match - same
-   task also retired cost2old() (a thin 8-argument wrapper forwarding
-   into this function with placeholder values for the same 13 dead
-   columns, made fully redundant by this shrink) into direct cost2()
-   calls. Once shrunk, this became byte-for-byte identical (bar an
-   int-vs-unsigned-int bytes parameter and this function's extra
-   wassert()) to a separate, already-existing helper named cost() -
-   that duplication is now resolved too: cost()'s 3 call sites and the
-   UNIMPLEMENTED macro were repointed here and cost() itself deleted,
-   so this is once again the single, sole cost-accounting function in
-   this file. */
 cost2 (int used_bytes, float used_states)
 {
   int bytes = used_bytes;
@@ -884,10 +848,11 @@ i8085_emitDebuggerSymbol (const char *debugSym)
   genLine.lineElement.isDebug = 0;
 }
 
-/* Intel 8080/8085 mnemonic an A_LD (byte-wide "ld") instruction actually
-   needs, once its two operands' addressing modes are known - Zilog's single
-   "ld" covers every combination Intel splits across several mnemonics.
-   ld_cost_form() (below) is the single place that decides this, doubling as
+/* Which mnemonic a byte-wide load (A_LD) actually needs, once its two
+   operands' addressing modes are known - this port splits loads across
+   several mnemonics (mov/mvi/lda/sta/ldax/etc., see the enum below)
+   depending on the addressing modes involved. ld_cost_form() (below) is
+   the single place that decides this, doubling as
    ld_cost()'s cost dispatch: emit3_o()/emit3wCost() must use the same
    classification ld_cost() uses for cycle-cost accounting, not a second,
    independently-written switch that's supposed to agree with it but isn't
@@ -917,13 +882,11 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
 {
   AOP_TYPE op1type = op1->type;
   AOP_TYPE op2type = op2->type;
-  /* Set when the op1/op2 swap just below fires. Zilog's "ld" cost is
-     direction-symmetric ("ld r,(rr)" and "ld (rr),r" cost the same), which
-     is exactly why the swap below exists - one cost-table walk serves both
-     directions. Intel's mnemonics for exactly those cases are NOT
-     direction-symmetric (ldax vs stax, lda vs sta): whichever of op1/op2
-     was *originally* the register determines whether this is a load or a
-     store. swapped lets each branch below that reaches such a
+  /* Set when the op1/op2 swap just below fires. This port's load/store
+     mnemonics are direction-sensitive (ldax vs stax, lda vs sta):
+     whichever of op1/op2 was *originally* the register determines
+     whether this is a load or a store. swapped lets each branch below
+     that reaches such a
      direction-sensitive case recover which one to report in *form_out,
      without needing a second classification of its own - it's derived from
      the exact same swap ld_cost_form() already does for cost purposes. */
@@ -956,8 +919,7 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
       switch (op2type)
         {
         case AOP_REG:
-          // ld r, r is dangerous, since support for it is inconsistent even among otherwise binary-compatible devices.
-          // In particular, Rabbit 6000 does not have it (but Rabbit 2000 and 3000 do), eZ80 does not have it (but Z80 and z180 do).
+          // A register moved into itself is always a compiler bug, not a real load.
           if (op1->aopu.aop_reg[offset1]->rIdx == op2->aopu.aop_reg[offset2]->rIdx)
             werror (W_INTERNAL_ERROR, __FILE__, __LINE__, "ld r, r considered");
         case AOP_DUMMY:
@@ -1147,7 +1109,7 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
            of a plain register-to-a move preceding the "out", so its own
            form_out (discarded, NULL) is irrelevant here regardless. */
         return (2 + ld_cost_form (ASMOP_A, 0, op2, offset2, count, NULL));
-    case AOP_EXSTK:            /* 4 from ld iy, #... */
+    case AOP_EXSTK:
       /* CONFIRMED reachable for i8085 - empirically, not by static reading
          alone: this fired (with form_out unconditional at the time) while
          compiling tst_swap.c, gdb backtrace traced it to cheapMove()'s
@@ -1155,10 +1117,7 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
          (to, aopGet (from, from_offset, false), to_offset); ...
          ld_cost (to, to_offset, ..., true); }") with to->type == AOP_EXSTK.
          That confirms two things at once:
-         1. The comment this branch inherited from z80/gen.c ("4 from ld
-            iy, #...", implying "op1 is being pointed at like an index
-            register") is misleading for what actually reaches it on this
-            port. cheapMove()'s call here is a byte-level write into an
+         1. cheapMove()'s call here is a byte-level write into an
             EXSTK-addressed location whose source isn't a plain register
             (the op1/op2 swap above only fires for AOP_REG/AOP_DUMMY
             sources) - the same semantic space as the AOP_HL-shaped cases
@@ -1166,11 +1125,9 @@ ld_cost_form (const asmop *op1, int offset1, const asmop *op2, int offset2, bool
             through a different entry point because the swap didn't apply.
             AOP_IMMD/AOP_LIT here is genuinely "mvi into the EXSTK
             location"; AOP_HL/AOP_EXSTK here would be a memory-to-memory
-            move Intel syntax can't do in one instruction (mov m, m does
-            not exist) - untested whether that specific shape is ever
-            actually constructed for i8085 (AOP_IY was a third
-            possibility here too, but is now known impossible - see
-            newAsmop()'s callers, no AOP_IY asmop is ever constructed).
+            move this port's mnemonics can't do in one instruction (mov m,
+            m does not exist) - untested whether that specific shape is
+            ever actually constructed for i8085.
          2. Critically, the real emission for the case that *did* fire
             went through aopPut()/aopGet() directly, one line above the
             ld_cost() call - not through emit3(A_LD, ...)/emit3_o() at
@@ -1613,7 +1570,7 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
     case A_EX:
       if (aopInReg (op1, offset1, DE_IDX))
         cost2 (1, 4);
-      else // Rabbit 4000 ex bc, hl and ex jk, hl.
+      else // dead on this port.
         cost2 (2, 4);
       return;
     case A_LD:
@@ -1636,14 +1593,6 @@ emit3wCost (enum asminst inst, const asmop *op1, int offset1, const asmop *op2, 
       // there is no push-immediate instruction.
       cost2 (1, 12);
       return;
-    // "case A_RL:", "case A_RLC:", "case A_RR:", "case A_RRC:", and
-    // "case A_SWAP:" removed: each was gated solely by a "wassert (IS_RAB);"
-    // / "wassert (IS_R4K||IS_R5K||IS_R6K);" / "wassert (IS_R6K);"
-
-    // the previous checkpoint (their only word-level callers were inside
-    // now-removed IS_RAB-gated dead blocks in shiftR2Left2Result and
-    // shiftL2Left2Result); a full-file grep now confirms zero remaining
-    // callers of any kind for A_RL/A_RLC/A_RR/A_RRC/A_SWAP via emit3w/
     case A_XOR:
       if (op2->type == AOP_LIT || op2->type == AOP_IMMD)
         cost2 (-1, -1);
@@ -1691,8 +1640,8 @@ intelOperand (const char *s)
 /* Real (non-dry-run) emission for inst == A_LD, once ld_cost_form() has
    already classified the operands (called by emit3_o() below, after its
    emit3Cost() call has already charged the cost via the very same
-   classifier - see ld_cost_form()'s own leading comment). Zilog's single
-   "ld" becomes one of several Intel mnemonics depending on addressing mode;
+   classifier - see ld_cost_form()'s own leading comment). A byte-wide
+   load becomes one of several mnemonics depending on addressing mode;
    this is the only place that picks between them. */
 static void
 emit_A_LD (asmop *op1, int offset1, asmop *op2, int offset2)
@@ -1805,9 +1754,8 @@ emit_A_LD (asmop *op1, int offset1, asmop *op2, int offset2)
    offset1 == 0 (confirmed: every one of the 89 emit3()/emit3_o() call
    sites in this file for these eight instructions passes ASMOP_A, 0 as
    op1/offset1 - checked directly via grep across the whole file, not
-   assumed). Zilog syntax spells the accumulator out explicitly
-   ("add a, r" / "cp a, r"), but Intel syntax has no accumulator operand
-   slot for these at all: the accumulator is always implicit, and - per
+   assumed). This port's mnemonics have no accumulator operand slot for
+   these at all: the accumulator is always implicit, and - per
    i85pst.c's S_ADD (register/M form) vs S_ADI (immediate form) mnemonic
    classes - the mnemonic itself is a genuinely different name depending
    on whether the right-hand operand is an immediate value, not an
@@ -1914,12 +1862,10 @@ emit3_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
     {
       /* 8-bit register/M increment/decrement: always 1-operand in this
          file (confirmed - every emit3()/emit3_o() A_INC/A_DEC call site
-         passes 0/NULL for op2). Zilog's "inc"/"dec" serve both the 8-bit
-         (register/M) and 16-bit (register-pair) forms; Intel has no such
-         shared mnemonic - inr/dcr (8-bit) vs inx/dcx (16-bit, handled
-         separately in emit3w_o() below) are genuinely different opcode
-         families, exactly like mov/mvi's vs ld's split or add/adi's vs
-         add's. No immediate form exists for either width (you cannot
+         passes 0/NULL for op2). inr/dcr (8-bit) and inx/dcx (16-bit,
+         handled separately in emit3w_o() below) are genuinely different
+         opcode families, not one shared mnemonic across both widths.
+         No immediate form exists for either width (you cannot
          "increment a literal"), so - unlike A_ADD's family - there is no
          operand-type classification to make here at all. */
       wassert (op1 && !op2);
@@ -1959,10 +1905,10 @@ pairAsmop (PAIR_ID p)
     }
 }
 
-/* 8080/8085: there is no adc hl,rr / sbc hl,rr - those are Z80 ED-prefix ops.
-   Do the 16-bit add/subtract-with-carry byte-wise through A. "ld" does not
-   affect the carry, so the incoming carry/borrow chains correctly across the
-   two bytes. NOTE: this clobbers A; callers must ensure A is free (the register
+/* 8080/8085 has no 16-bit add/subtract-with-carry instruction. Do it
+   byte-wise through A instead - loading a byte does not affect the
+   carry, so the incoming carry/borrow chains correctly across the two
+   bytes. NOTE: this clobbers A; callers must ensure A is free (the register
    allocator does not model this, so the emitting code paths that reach here for
    two register pairs have A dead in practice - verified against the suite). */
 static void
@@ -2029,12 +1975,12 @@ emit8080AdcSbcHL (bool sub, asmop *op2, int offset2, bool a_dead)
   Safe_free (hi);
 }
 
-/* 8080/8085: there are no CB-prefix register rotates (rl/rr/rlc/rrc r). Only the
-   accumulator forms ral/rar/rlc/rrc exist (Intel names - Zilog's equivalent
-   accumulator forms are rla/rra/rlca/rrca; see asminstnames[]'s own leading
-   comment for the naming collision between Intel's accumulator RLC/RRC and
-   this file's A_RLC/A_RRC enum values, which is why this function still
-   switches on A_RLC/A_RRC but produces "rlc"/"rrc" text, not a mismatch).
+/* 8080/8085 has no register rotate instruction (rl/rr/rlc/rrc r) - only
+   the accumulator forms ral/rar/rlc/rrc exist. See asminstnames[]'s own
+   leading comment for the naming collision between the accumulator
+   RLC/RRC mnemonics and this file's A_RLC/A_RRC enum values, which is
+   why this function still switches on A_RLC/A_RRC but produces
+   "rlc"/"rrc" text, not a mismatch.
    Synthesise a single-byte rotate on an arbitrary operand byte by shuttling
    it through A: "mov" does not touch the flags, so the carry chains
    correctly across a multi-byte rotate loop. This clobbers A; the only
@@ -2101,10 +2047,10 @@ emit3w_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
      wider operand (shiftop) and a nonzero offset when shiftop's own upper
      16-bit chunk happens to be register-allocated to L/H. Getting this
      wrong doesn't miscompile silently - the fallthrough to the generic
-     path below emits raw asminstnames[] text ("add"/"adc", Zilog's 2-
-     operand mnemonic spelling) with no Intel dad/adc-synthesis translation
-     at all, which as8085 rejects outright ("add hl, hl" has no valid
-     Intel encoding). Confirmed via blake2s/lonesha256, both of which do
+     path below emits raw asminstnames[] text ("add"/"adc") with no
+     dad/adc-synthesis translation at all, which as8085 rejects outright
+     ("add hl, hl" has no valid encoding on this port). Confirmed via
+     blake2s/lonesha256, both of which do
      wide rotates whose upper chunk lands in L/H once ralloc2.cc's
      tree-decomposition allocator can assign there. */
   if ((inst == A_ADC || inst == A_SBC) &&
@@ -2162,10 +2108,10 @@ emit3w_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
   /* 16-bit register-pair increment/decrement: always 1-operand in this
      file (confirmed - every emit3w()/emit3w_o() A_INC/A_DEC call site
      passes 0/NULL for op2; emit3wCost() above already wasserts this too).
-     Intel's inx/dcx (single pair operand, like dad above) replace Zilog's
-     shared inc/dec mnemonic - see emit3_o()'s A_INC/A_DEC comment for why
-     the 8-bit and 16-bit forms need genuinely different mnemonic names,
-     not just here. aopGet(...,true) already renders exactly the pair-name
+     inx/dcx (single pair operand, like dad above) are a genuinely
+     different mnemonic family from the 8-bit inr/dcr forms - see
+     emit3_o()'s A_INC/A_DEC comment for why, not just here.
+     aopGet(...,true) already renders exactly the pair-name
      text inx/dcx need (same S_REG synonym acceptance as dad's operand -
      see the A_ADD/dad comment above), so no further translation needed. */
   if ((inst == A_INC || inst == A_DEC) && op1 && !op2)
@@ -2183,21 +2129,11 @@ emit3w_o (enum asminst inst, asmop *op1, int offset1, asmop *op2, int offset2)
       return;
     }
 
-  /* Zilog's 2-operand "ex de, hl" (register-pair swap) has no Intel
-     2-operand form: XCHG always swaps DE and HL specifically, with no
-     operand slots at all. emit3wCost()'s own A_EX case already keys its
-     cost on exactly this same distinction (aopInReg(op1, offset1, DE_IDX)
-     - true is the live "ex de, hl"/xchg case; false is a Rabbit-4000-only
-     "ex bc, hl"/"ex jk, hl" case, unconditionally dead in this file - both
-     the IS_R4K_NOTYET||IS_R5K_NOTYET||IS_R6K_NOTYET-gated ASMOP_BC call
-     site and the ASMOP_JK call site's surrounding guard confirm this, and
-     6 of the file's 7 other ASMOP_JK "ex" call sites are inside comment
-     blocks, not even compiled) - reusing that same predicate rather
-     than writing a second one. The dead branch is left as unmodified
-     Zilog text (matches this file's established practice for other
-     confirmed-dead sites), since it is a genuinely different, real
-     hardware instruction on the chips that have it, not something that
-     collapses to Intel syntax the way the live DE case does. */
+  /* XCHG always swaps DE and HL specifically, with no operand slots at
+     all. emit3wCost()'s own A_EX case already keys its cost on exactly
+     this same distinction (aopInReg(op1, offset1, DE_IDX) - true is the
+     live xchg case; false is unconditionally dead in this file) -
+     reusing that same predicate rather than writing a second one. */
   if (inst == A_EX && op1 && op2)
     {
       emit3wCost (inst, op1, offset1, op2, offset2);
@@ -2558,9 +2494,8 @@ aopForSym (const iCode *ic, symbol *sym, bool result, bool requires_a)
           aop->size = getSize (sym->type);
           aop->banked = FUNC_REGBANK (sym->type);
           /* __banked __sfr means a 16-bit I/O address. i8080/i8085 have an
-             8-bit I/O space only (and lack the Z80 addressing the banked access
-             relies on), so reject it at compile time rather than emitting an
-             illegal in/out (c). */
+             8-bit I/O space only, so reject it at compile time rather
+             than emitting an illegal in/out (c). */
           if (aop->banked && !regalloc_dry_run)
             werror (E_SFR_BANKED_UNSUPPORTED);
           aop->bcInUse = isPairInUse (PAIR_BC, ic);
@@ -3644,8 +3579,7 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
         {
           /* Do nothing */
         }
-      /* Getting the parameter by a pop / push sequence is cheaper when we have a free pair (except for the Rabbit, which has an even cheaper sp-relative load).
-         SM83 is nearly twice as fast doing it byte by byte, but that's a byte bigger.
+      /* Getting the parameter by a pop / push sequence is cheaper when we have a free pair.
          Stack allocation can change after register allocation, so assume this optimization is not possible for the allocator's cost function (unless the stack location is for a parameter). */
       else if (aop->size - offset >= 2 &&
                aop->type == AOP_EXSTK && (!regalloc_dry_run || aop->aopu.aop_stk > 0)
@@ -3667,10 +3601,9 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
           _pop (pairId);
           _push (pairId);
         }
-      /* The 8080/8085 has no "ld de/bc, (nn)" - that encoding is a Z80 ED-prefix
-         instruction (and 0xED is LHLX on the 8085). Only HL can be loaded from a
-         direct address, via LHLD. Load DE/BC byte-wise through A with LDA, which
-         leaves HL untouched. */
+      /* 8080/8085 has no way to load DE/BC directly from a 16-bit
+         address - only HL can, via LHLD. Load DE/BC byte-wise through A
+         with LDA instead, which leaves HL untouched. */
       else if (pairId != PAIR_HL && aop->type == AOP_HL &&
         (aop->size - offset >= 1))
         {
@@ -3700,13 +3633,10 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
       else if (aop->type == AOP_HL &&
         (aop->size >= 2 || optimize.allow_unsafe_read)) // pairId != PAIR_IY dropped: always true (see the pairId comment just below).
         {
-          /* Instead of fetching relative to IY, just grab directly
-             from the address IY refers to. pairId is PAIR_HL (live -
-             translated to lhld, Intel's direct-load-into-HL, single
-             operand, no pair name needed since it can only ever target
-             HL) or PAIR_IY (dead - no IY hardware on i8080/i8085, left
-             as unmodified Zilog text, matching this file's established
-             practice for dead-IY sites elsewhere). */
+          /* pairId is PAIR_HL (live - translated to lhld, this port's
+             direct-load-into-HL, single operand, no pair name needed
+             since it can only ever target HL) or PAIR_IY (dead - no IY
+             hardware on i8080/i8085). */
           if (pairId == PAIR_HL)
             emit2 ("lhld !mems", aopGetLitWordLong (aop, offset, FALSE));
           else
@@ -3746,17 +3676,16 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
                   /* "!ldahli" (another token in this port's own
                      _i8085_asm_mapping table - see intelOperand()'s comment
                      and the "!ldahlsp" one in setupPair() above for the
-                     pattern) expands to the 2-instruction Zilog
-                     "ld a, (hl)" / "inc hl" sequence -
-                     emitted directly here instead, as "mov a, m" / "inx h"
-                     (all 5 of this file's !ldahli/!ldahld/!lldahli/!lldahld
-                     call sites get the same treatment, since - unlike
-                     ordinary aopGet()/aopPut() text - this token's
-                     expansion never passes through intelOperand()). */
+                     pattern) is emitted directly here instead, as
+                     "mov a, m" / "inx h" (all 5 of this file's
+                     !ldahli/!ldahld/!lldahli/!lldahld call sites get the
+                     same treatment, since - unlike ordinary
+                     aopGet()/aopPut() text - this token's expansion never
+                     passes through intelOperand()). */
                   emit2 ("mov a, m");
                   emit2 ("inx h");
-                  cost2 (1, 7); // ld a, (hl)
-                  cost2 (1, 6); // inc hl
+                  cost2 (1, 7);
+                  cost2 (1, 6);
                   emit2 ("mov h, m");
                   cost2 (1, 7);
                   emit3 (A_LD, ASMOP_L, ASMOP_A);
@@ -3775,8 +3704,6 @@ fetchPairLong (PAIR_ID pairId, asmop *aop, const iCode *ic, int offset)
         }
       else
         {
-          // (IS_RAB||IS_TLCS90)-gated ld-from-sp/ix-offset arm and the
-
           /* Operand resides (partially) in the pair */
           if (!regalloc_dry_run && !strcmp (aopGet (aop, offset + 1, FALSE), _pairs[pairId].l))    // aopGet (aop, offset + 1, FALSE) is problematic: It prevents calculation of exact cost, and results in redundant code being generated. Todo: Exact cost
             {
@@ -4050,13 +3977,12 @@ aopGet (asmop *aop, int offset, bool bit16)
           {
               if (aop->banked)
                 {
-    /* "Banked"/16-bit I/O-port addressing via a two-byte port setup is a Z80
-                     extension with no 8080/8085 hardware equivalent at all - the same
-                     pre-existing, orthogonal gap documented on the aopPut()/AOP_SFR OUT
-                     side above (aop->banked provably always false when this aop reaches
-                     codegen at all - see the E_SFR_BANKED_UNSUPPORTED werror where
-                     aop->banked is set, earlier in this file - but left as literal
-                     untranslated text on principle, matching the OUT side, in case that
+    /* "Banked"/16-bit I/O-port addressing has no 8080/8085 hardware
+                     equivalent at all (aop->banked provably always false when
+                     this aop reaches codegen at all - see the
+                     E_SFR_BANKED_UNSUPPORTED werror where aop->banked is set,
+                     earlier in this file - but left as literal untranslated
+                     text on principle, matching the OUT side, in case that
                      proof is ever wrong). */
                   emit2 ("ld a, !msbimmeds", aop->aopu.aop_dir);
                   emit2 ("in a, (!lsbimmeds)", aop->aopu.aop_dir);
@@ -4064,9 +3990,9 @@ aopGet (asmop *aop, int offset, bool bit16)
               else
                 {
                   /* 8 bit mode - the only shape valid on real 8080/8085 hardware.
-                     Intel's IN is single-operand (port only); the accumulator is
-                     implicit, unlike Zilog's "in a, (port)". Mirrors the OUT side's
-                     already-fixed "out %s" case just below in aopPut(). */
+                     IN is single-operand (port only); the accumulator is
+                     always implicit. Mirrors the OUT side's already-fixed
+                     "out %s" case just below in aopPut(). */
                   emit2 ("in !mems", aop->aopu.aop_dir);
                   cost2 (2, 10);
                 }
@@ -4201,12 +4127,12 @@ aopPut (asmop *aop, const char *s, int offset)
           if (aop->banked)
             {
               /* "Banked"/16-bit I/O-port addressing via bc ("out (c), r")
-                 is a Z80 extension with no 8080/8085 hardware equivalent at
-                 all (see the AOP_SFR comment in ld_cost_form() for the
-                 fuller reachability discussion; aop->banked is only ever
-                 set for banked-*call* symbols elsewhere in this file, never
+                 has no 8080/8085 hardware equivalent at all (see the
+                 AOP_SFR comment in ld_cost_form() for the fuller
+                 reachability discussion; aop->banked is only ever set for
+                 banked-*call* symbols elsewhere in this file, never
                  observed set for an SFR aop, but not proven impossible).
-                 What has a real Intel equivalent is translated (push/pop/
+                 What has a real translation is translated (push/pop/
                  mov/mvi); "out (c), s" itself has none to substitute, so
                  it's left as literal text - as8085 will reject it outright,
                  a loud assemble-time failure rather than silently targeting
@@ -4231,8 +4157,8 @@ aopPut (asmop *aop, const char *s, int offset)
           else
             {
               /* 8 bit mode - the only shape valid on real 8080/8085
-                 hardware. Intel's OUT is single-operand (port only); the
-                 accumulator is implicit, unlike Zilog's "out (port), a". */
+                 hardware. OUT is single-operand (port only); the
+                 accumulator is always implicit. */
               if (strcmp (s, "a"))
                 emit_intel_move ("a", s);
               emit2 ("out %s", aop->aopu.aop_dir);
@@ -4588,9 +4514,9 @@ commitPair (asmop *aop, PAIR_ID id, const iCode *ic, bool dont_destroy) // Obsol
   else
     {
       /* Special cases */
-      /* 8080/8085: only ld (nn),hl (SHLD) exists; ld (nn),de/bc are Z80
-         ED-prefix ops, so this direct store is restricted to HL, and other
-         pairs always use the byte-wise path below. */
+      /* 8080/8085: only ld (nn),hl (SHLD) exists, so this direct store
+         is restricted to HL, and other pairs always use the byte-wise
+         path below. */
 
       // "(!IS_8080LIKE || id == PAIR_HL)" simplified to "id == PAIR_HL"
 
@@ -5038,7 +4964,7 @@ skip_byte:
 
 
 
-        !optimize.codeSpeed) // A bit slower (42 vs 38 cycles on Z80 and Z80N), so don't do it when optimizing for speed.
+        !optimize.codeSpeed) // A bit slower, so don't do it when optimizing for speed.
         {
           PAIR_ID pair = getPairId_o (result, roffset + i);
           PAIR_ID extrapair = (getPairId_o (result, roffset + i) != PAIR_HL && hl_free) ? PAIR_HL : PAIR_DE; // If we knew it is dead, we could use bc as extrapair here, too.
@@ -5236,8 +5162,8 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
         }
 
       if (i + 1 < size && getPairId_o(source, soffset + i) != PAIR_INVALID &&
-        /* 8080/8085: only ld (nn),hl (SHLD) exists; ld (nn),de/bc are Z80
-           ED-prefix ops, so let non-HL pairs fall through to a byte-wise store. */
+        /* 8080/8085: only ld (nn),hl (SHLD) exists, so let non-HL pairs
+           fall through to a byte-wise store. */
         (getPairId_o(source, soffset + i) == PAIR_HL) &&
         (result->type == AOP_DIR || result->type == AOP_HL && (getPairId_o(source, soffset + i) == PAIR_HL || !hl_dead)))
         {
@@ -5253,8 +5179,8 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           continue;
         }
       else if (i + 1 < size && soffset + i + 1 < source->size && getPairId_o(result, roffset + i) != PAIR_INVALID &&
-        /* 8080/8085: only ld hl,(nn) (LHLD) exists; ld bc/de,(nn) are Z80
-           ED-prefix ops, so let non-HL pairs fall through to a byte-wise load. */
+        /* 8080/8085: only ld hl,(nn) (LHLD) exists, so let non-HL pairs
+           fall through to a byte-wise load. */
         (getPairId_o(result, roffset + i) == PAIR_HL) &&
         (source->type == AOP_DIR || source->type == AOP_HL && (getPairId_o(result, roffset + i) == PAIR_HL || !hl_dead)))
         {
@@ -5301,10 +5227,10 @@ genMove_o (asmop *result, int roffset, asmop *source, int soffset, int size, boo
           else if ((aopInReg (result, roffset + i, L_IDX) || aopInReg (result, roffset + i, H_IDX)) && hl_dead)
             pair = PAIR_HL;
 
-          /* 8080/8085: only ld hl,(nn) (LHLD) exists; ld bc/de,(nn) are Z80
-             ED-prefix ops, so this "load a whole pair from a direct address"
-             shortcut is only legal for HL. Let non-HL pairs fall through to the
-             byte-wise load below. */
+          /* 8080/8085: only ld hl,(nn) (LHLD) exists, so this "load a
+             whole pair from a direct address" shortcut is only legal for
+             HL. Let non-HL pairs fall through to the byte-wise load
+             below. */
           if (pair != PAIR_INVALID && (pair == PAIR_HL) && soffset + i - upper >= 0 && (optimize.allow_unsafe_read || upper || soffset + i + 1 < source->size))
             {
               /* pair == PAIR_HL is guaranteed by this "if" itself - lhld
@@ -5455,12 +5381,12 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
     (af_free || bc_free || de_free || hl_free))
     {
       loop_bytes = n / 2 + n % 2;
-      loop_cycles = n / 2 * 10 + n % 2 * 6; // Z80
+      loop_cycles = n / 2 * 10 + n % 2 * 6;
     }
   else // Assume sequence of inc / dec sp
     {
       loop_bytes = abs(n);
-      loop_cycles = abs(n) * 6; // Z80
+      loop_cycles = abs(n) * 6;
     }
 
 
@@ -5515,11 +5441,6 @@ adjustStack (int n, bool af_free, bool bc_free, bool de_free, bool hl_free, bool
 
   while (abs(n))
     {
-      // (IS_RAB && ...) || (IS_SM83 && ...)-gated "add sp, !immed"
-
-      // in this file).
-      // on sm83 pop is smaller and faster, but that makes detection of uninitialized memory harder
-      // On TLCS-90 pop af messes up interrupts (unless we have a valid value for f on the stack from previous push af).
       if (n >= 2 && af_free && optimize.codeSize)
         {
           emit2 ("pop af");
@@ -6040,7 +5961,7 @@ _saveRegsForCall (const iCode *ic, bool saveHLifused)
           push (ASMOP_HL, 0, 2);
           _G.stack.pushedHL = true;
         }
-      if (push_bc && push_de) // Try to use Rabbit 4000 push bcde
+      if (push_bc && push_de)
         {
           push (ASMOP_BCDE, 0, 4);
           _G.stack.pushedDE = true;
@@ -6191,8 +6112,6 @@ genIpush (const iCode *ic)
           emit3w_o (A_PUSH, ic->left->aop, size - 2, 0, 0);
           d = 2;
         }
-      // (IS_R4K||IS_R5K||IS_R6K)-gated "push bcde/jkhl" (4-byte
-      // memory-source) arm and IS_SM83-gated "push 0x0000/etc.
       else if (size >= 2 &&
           (hl_free || de_free || bc_free ||
           aopInReg (IC_LEFT (ic)->aop, size - 1, B_IDX) && c_free || b_free && aopInReg (IC_LEFT (ic)->aop, size - 2, C_IDX) ||
@@ -6201,7 +6120,6 @@ genIpush (const iCode *ic)
           {
             asmop *pair = 0;
 
-            /* hl has lower priority on GB, because it's needed for stack access */
             if (hl_free)
               pair = ASMOP_HL;
             else if (de_free)
@@ -6327,9 +6245,6 @@ genIpush (const iCode *ic)
           cost2 (1, 6);
           d = 1;
         }
-      // (IS_Z80N||IS_R4K||IS_R5K||IS_R6K)-gated "push !immedword" arm
-
-      // file).
       else
         {
           emit3w (A_PUSH, ASMOP_HL, 0);
@@ -6646,7 +6561,7 @@ genCall (const iCode *ic)
   else if (currFunc && !IFFUNC_ISISR (currFunc->type) && !IFFUNC_ISDYNAMICC (currFunc->type) && !IFFUNC_ISDYNAMICC (ftype) &&
     !ic->parmBytes &&
     !_G.stack.pushedHL && !_G.stack.pushedBC && !_G.stack.pushedDE && // If for some reason something got pushed, we don't have the return address in place.
-    (!isFuncCalleeStackCleanup (currFunc->type) || !ic->parmEscapeAlive && ic->op == CALL && 0 /* todo: test and enable depending on optimization goal - as done for stm8 - for z80 and r3ka this will be slower and bigger than without tail call optimization, but it saves RAM */) &&
+    (!isFuncCalleeStackCleanup (currFunc->type) || !ic->parmEscapeAlive && ic->op == CALL && 0 /* todo: test and enable depending on optimization goal - this will be slower and bigger than without tail call optimization, but it saves RAM */) &&
     !ic->localEscapeAlive &&
     !IFFUNC_ISBANKEDCALL (dtype) && !IFFUNC_ISZ88DK_SHORTCALL (ftype))
     {
@@ -6764,13 +6679,12 @@ genCall (const iCode *ic)
           genMove (ASMOP_HL, ic->left->aop, a_free, hl_free, de_free);
           adjustStack (prestackadjust, a_not_parm, bc_not_parm, de_not_parm, false, false);
 
-          // this file).
             {
               /* "!jphl" (another token in this port's own _i8085_asm_mapping
                  table - see intelOperand()'s comment and the "!ldahli"
-                 one earlier in this file for the pattern) expands to
-                 Zilog "jp (hl)" - emitted directly here instead, as
-                 Intel's PCHL (jump-via-HL, single mnemonic, no operand). */
+                 one earlier in this file for the pattern) is emitted
+                 directly here instead, as PCHL (jump-via-HL, single
+                 mnemonic, no operand). */
               emit2 (jump ? "pchl" : "call ___sdcc_call_hl");
               if (jump)
                 cost2 (1, 4);
@@ -7124,10 +7038,6 @@ genFunction (const iCode * ic)
          If critical function then turn interrupts off */
       if (IFFUNC_ISCRITICAL (sym->type))
         {
-          // "if (IS_SM83||IS_RAB||IS_TLCS90||IS_8080LIKE) {!di} else {...}"
-          // collapsed to just the IS_8080LIKE arm (IS_8080LIKE unconditionally
-          // true in this file, making the whole "||" chain unconditionally
-          // true).
           emit2 ("!di");
         }
     }
@@ -7187,8 +7097,7 @@ genFunction (const iCode * ic)
   // The frame pointer is unconditionally omitted on this port - there is
   // no index register to hold one - so nothing here ever checks for it.
   // "--fno-omit-frame-pointer" is accordingly not registered as an option
-  // on this port at all (see main.c; sm83, the closest architectural
-  // precedent, makes the same call for the same reason).
+  // on this port at all (see main.c).
   if (sym->stack)
     {
       adjustStack (-sym->stack, !i8085_IsParmInCall (sym->type, "a"), !i8085_IsParmInCall (sym->type, "c") && !i8085_IsParmInCall (sym->type, "v"), !i8085_IsParmInCall (sym->type, "e") && !i8085_IsParmInCall (sym->type, "d"), !i8085_IsParmInCall (sym->type, "l") && !i8085_IsParmInCall (sym->type, "h"), false);
@@ -7655,9 +7564,6 @@ genPlusIncr (const iCode *ic)
           emit3_o (A_INC, ic->result->aop, 1, 0, 0);
           return true;
         }
-      // (IS_Z80N||IS_TLCS90||IS_R6K)-gated "add dd, !immed" arm removed
-
-
       if (isPair (IC_LEFT (ic)->aop) && resultId == PAIR_HL && icount > 3) // getPairId(...) != PAIR_IY dropped: never PAIR_IY.
         {
           if (getPairId (IC_LEFT (ic)->aop) == PAIR_HL)
@@ -7842,8 +7748,6 @@ static void
 setupToPreserveCarry (asmop *result, asmop *left, asmop *right)
 {
   wassert (left && right);
-
-  // "if (!IS_SM83) {...}" unwrapped into the whole function body
 
   if (couldDestroyCarry (right) && couldDestroyCarry (result))
     {
@@ -8067,14 +7971,11 @@ genPlus (iCode * ic)
   // second handled the general "result is in IY" case via genMove(
   // ASMOP_IY, ...) + "add iy, rr".
 
-  // ld hl, sp+n (which trashes the carry flag) for stack-based 16-bit
-  // and 32-bit additions - an sm83-only concern.
-
   /* 8080/8085: a 16-bit addition cannot use the byte-wise loop below whenever
      it would need to address more than one memory location. With no index
-     register a stack operand is reached through HL, and - unlike the sm83,
-     which has the flag-safe ld hl, sp+n - the 8080/8085 must point HL with
-     add hl, sp, which destroys the carry needed between the low and high byte.
+     register a stack operand is reached through HL, which must be pointed
+     there with add hl, sp - this destroys the carry needed between the
+     low and high byte.
      Worse, when the result is in memory the byte loop repurposes DE as the
      result-address pointer, clobbering a still-needed addend that was widened
      into DE. Do the whole 16-bit add at once in HL via add hl, de (DAD D),
@@ -8552,8 +8453,6 @@ genPlus (iCode * ic)
           i += 2;
         }
       // When adding registers the 16 bit addition results in smaller, faster code than an 8-bit addition.
-
-      // this file (IS_SM83 is always false, so !IS_SM83 is always true).
       else if (!maskedbyte && (!premoved || i) && i == size - 1 && isPairDead (PAIR_HL, ic) && aopInReg (IC_RESULT (ic)->aop, i, L_IDX)
         && (aopInReg (leftop, i, L_IDX) || aopInReg (rightop, i, L_IDX))
         && (aopInReg (leftop, i, C_IDX) || aopInReg (rightop, i, C_IDX) || aopInReg (leftop, i, E_IDX) || aopInReg (rightop, i, E_IDX)))
@@ -8835,9 +8734,6 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
     }
 
 
-  // in genPlus, it worked around ld hl, sp+n trashing the carry flag -
-  // an sm83-only concern.
-
   /* 8085 undocumented DSUB: HL = HL - BC in a single byte. Worth it for a
      16-bit subtract when both operands are already in register pairs - there is
      then no memory operand fighting for HL, and by costing this path cheaply
@@ -8865,7 +8761,7 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
       return;
     }
 
-  /* 8080/8085: like the sm83 case above, a 16-bit subtraction where the right
+  /* 8080/8085: a 16-bit subtraction where the right
      operand is in memory cannot use the byte loop below - with no index
      register the memory operand needs HL, and pointing HL at a stack operand
      uses add hl, sp, which destroys the borrow between the low and high byte.
@@ -9168,9 +9064,6 @@ genSub (const iCode *ic, asmop *result, asmop *left, asmop *right)
             }
           else if (!offset)
             {
-              // (!IS_SM83 && !IS_8080LIKE)-gated "neg a" shortcut removed
-
-              // always true, so !IS_8080LIKE is always false).
                 {
                   if (aopIsLitVal (left, offset, 1, 0x00) && !aopInReg (left, offset, A_IDX))
                     emit3 (A_XOR, ASMOP_A, ASMOP_A);
@@ -9308,7 +9201,7 @@ static void
 jmpTrueOrFalse (iCode *ic, symbol *tlbl)
 {
   // ugly but optimized by peephole
-  // Using emitLabelSpill instead of emitLabel (esp. on sm83)
+  // Using emitLabelSpill instead of emitLabel:
   // We could jump there from locations with different values in hl.
   // This should be changed to a more efficient solution that spills
   // only what and when necessary.
@@ -9454,8 +9347,6 @@ genEor (const iCode *ic, iCode *ifx, asmop *result_aop, asmop *left_aop, asmop *
         bool hl_free = isRegDead (HL_IDX, ic) &&
           (left_aop->regs[L_IDX] < i && left_aop->regs[H_IDX] < i && right_aop->regs[L_IDX] < i && right_aop->regs[H_IDX] < i) &&
           (result_aop->regs[L_IDX] < 0 || result_aop->regs[L_IDX] >= i) && (result_aop->regs[H_IDX] < 0 || result_aop->regs[H_IDX] >= i);
-        // de_free removed: it was only read by the now-removed (IS_R4K||IS_R5K||
-        // IS_R6K||IS_TLCS90)/(IS_RAB||IS_TLCS90||IS_EZ80)-gated stack-xor arms.
 
         if (isRegDead (A_IDX, ic) && left_aop->regs[A_IDX] <= i && right_aop->regs[A_IDX] <= i && (result_aop->regs[A_IDX] < 0 || result_aop->regs[A_IDX] >= i))
           a_free = true;
@@ -9950,10 +9841,6 @@ genIfxJump (iCode *ic, const char *jval)
         {
           inst = "po";
         }
-      // "else if (IS_R6K_NOTYET && ...) inst = ...;" (gt/le, lt/ge, gtu/leu)
-      // removed: IS_R6K_NOTYET is a permanent "#define IS_R6K_NOTYET false"
-      // placeholder for a Rabbit 6000 assembler backend this port does not
-      // have - unconditionally dead "if (0)".
       else
         {
           /* The buffer contains the bit on A that we should test */
@@ -9987,7 +9874,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
   /* if left & right are bit variables */
   if (left->aop->type == AOP_CRY && right->aop->type == AOP_CRY)
     {
-      /* Can't happen on the Z80 */
+      /* Can't happen: bit-bit compare is never generated */
       wassertl (0, "Tried to compare two bits");
     }
   else
@@ -10045,7 +9932,7 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
         }
 
 
-      if (right->aop->type == AOP_LIT && !ullFromVal (right->aop->aopu.aop_lit)) // special case: comparison to 0. Do it here early, so we don't run into sm83 workarounds below.
+      if (right->aop->type == AOP_LIT && !ullFromVal (right->aop->aopu.aop_lit)) // special case: comparison to 0. Do it here early, before the general path below.
         {
           if (!sign)
             {
@@ -10082,9 +9969,6 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
           goto release;
         }
 
-      // On the SM83 we can't afford to adjust HL as it may trash the carry.
-
-
       if (size > 1 &&
         left->aop->type != AOP_REG && requiresHL (left->aop) && left->aop->type != AOP_STL &&
         right->aop->type != AOP_REG && requiresHL (right->aop) && right->aop->type != AOP_STL)
@@ -10111,11 +9995,11 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
             {
               /* Signed fixup done here, directly off the pointers (DE->top of
                  left, HL->top of right, carry = unsigned borrow), so it works
-                 whether or not DE was live/pushed: the D/E approach used for
-                 SM83 needs the top bytes preloaded into D/E, but on 8080 a live
-                 DE is popped below, which would clobber them. signed_lt =
-                 borrow XOR left.sign XOR right.sign, landing in A bit 7 (which
-                 release: shifts out); no carry needs preserving afterwards. */
+                 whether or not DE was live/pushed: preloading the top bytes
+                 into D/E instead would be clobbered by the live-DE pop below.
+                 signed_lt = borrow XOR left.sign XOR right.sign, landing in A
+                 bit 7 (which release: shifts out); no carry needs preserving
+                 afterwards. */
               emit3 (A_SBC, ASMOP_A, ASMOP_A);   /* A = borrow ? 0xff : 0x00 */
               emit2 ("xra m");                   /* ^ right top byte */
               cost2 (1, 7);
@@ -10170,8 +10054,6 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
         }
 
 
-      // in this file).
-
       if (right->aop->type == AOP_LIT)
         {
           lit = ullFromVal (right->aop->aopu.aop_lit);
@@ -10184,11 +10066,6 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
 
           if (sign)
             {
-              // (size==2 && !(IS_SM83||IS_8080LIKE||...))-gated
-
-              // always true, so the inner "!(... || IS_8080LIKE || ...)"
-              // is always false).
-
               cheapMove (ASMOP_A, 0, left->aop, offset, true);
               if (size == 1)
                 {
@@ -10217,9 +10094,6 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
               goto release;
             }
         }
-      // (!IS_SM83 && !IS_8080LIKE)-gated "xor a; sbc hl, rr" arm removed
-
-      // true, so !IS_8080LIKE is always false).
       if (left->aop->type == AOP_LIT && !aopInReg (right->aop, offset, A_IDX) && isRegDead (A_IDX, ic))
         {
           bool pushed_hl = false;
@@ -10317,7 +10191,6 @@ genCmp (operand * left, operand * right, operand * result, iCode * ifx, int sign
         }
 
 fix:
-      // There is no good signed compare in the Z80, so we need workarounds.
       if (sign)
         {
           {
@@ -10566,10 +10439,6 @@ gencjneshort (operand *left, operand *right, symbol *lbl, const iCode *ic)
               _push (PAIR_HL);
               pushed_hl = true;
             }
-
-          // bc_dead/de_dead removed: only read by the (!IS_SM83&&
-          // !IS_8080LIKE)-gated "sbc hl, rr" arm above, now removed as
-
 
           bool hl_dead = pushed_hl || isRegDead (HL_IDX, ic) && left->aop->regs[L_IDX] < offset && left->aop->regs[H_IDX] < offset && right->aop->regs[L_IDX] < offset && right->aop->regs[H_IDX] < offset;
 
@@ -11123,8 +10992,6 @@ genAnd (const iCode *ic, iCode *ifx)
               sizel--;
               offset++;
             }
-          // (IS_Z180||IS_EZ80||IS_Z80N)-gated "tst a, ..." arm removed
-
           else if (!isRegDead (A_IDX, ic) && bytelit == 0x0ff && !aopInReg (left->aop, offset, A_IDX) && left->aop->type == AOP_REG)
             {
               emit3_o (A_RLC, left->aop, offset, 0, 0);
@@ -11192,8 +11059,6 @@ genAnd (const iCode *ic, iCode *ifx)
     }
 
 
-  // this file).
-
   wassertl (result->aop->type != AOP_CRY, "Result of and is in a bit");
 
   for (int i = 0; i < size;)
@@ -11201,9 +11066,6 @@ genAnd (const iCode *ic, iCode *ifx)
       bool hl_free = isRegDead (HL_IDX, ic) &&
         (left->aop->regs[L_IDX] < i && left->aop->regs[H_IDX] < i && right->aop->regs[L_IDX] < i && right->aop->regs[H_IDX] < i) &&
         (result->aop->regs[L_IDX] < 0 || result->aop->regs[L_IDX] >= i) && (result->aop->regs[H_IDX] < 0 || result->aop->regs[H_IDX] >= i);
-      // de_free removed: only read by the IS_RAB-/IS_TLCS90-/IS_EZ80-
-      // gated stack "and" arms above, all now removed as dead
-
 
       if (isRegDead (A_IDX, ic) && left->aop->regs[A_IDX] <= i && right->aop->regs[A_IDX] <= i && (result->aop->regs[A_IDX] < 0 || result->aop->regs[A_IDX] >= i))
         a_free = true;
@@ -11244,12 +11106,7 @@ genAnd (const iCode *ic, iCode *ifx)
               i++;
               continue;
             }
-          // IS_RAB-gated and IS_TLCS90-gated "ld hl/de, mask; and hl,
-
         }
-
-
-
 
       if (!a_free)
         {
@@ -11444,9 +11301,6 @@ genOr (const iCode * ic, iCode * ifx)
       bool hl_free = isRegDead (HL_IDX, ic) &&
         (left->aop->regs[L_IDX] < i && left->aop->regs[H_IDX] < i && right->aop->regs[L_IDX] < i && right->aop->regs[H_IDX] < i) &&
         (result->aop->regs[L_IDX] < 0 || result->aop->regs[L_IDX] >= i) && (result->aop->regs[H_IDX] < 0 || result->aop->regs[H_IDX] >= i);
-      // de_free removed: only read by the IS_RAB-/IS_TLCS90-/IS_EZ80-
-      // gated arms removed above, all unconditionally dead in this
-      // file.
 
       if (isRegDead (A_IDX, ic) && left->aop->regs[A_IDX] <= i && right->aop->regs[A_IDX] <= i && (result->aop->regs[A_IDX] < 0 || result->aop->regs[A_IDX] >= i))
         a_free = true;
@@ -11524,15 +11378,7 @@ genOr (const iCode * ic, iCode * ifx)
               i++;
               continue;
             }
-          // Two IS_RAB-gated 16-bit literal-mask arms (hl/iy) and one
-
         }
-
-
-
-      // Two (IS_RAB||IS_TLCS90||[IS_EZ80])-gated stack "or hl, de"/
-
-      // in this file).
 
       // Use plain or in a.
       if (!a_free)
@@ -11724,12 +11570,6 @@ emitRsh2 (asmop * aop, int size, int is_signed)
      For the top byte we first establish the incoming carry: 0 for a logical
      shift, or the sign bit for an arithmetic shift.  "rlca; rrca" sets
      carry = bit 7 while leaving A unchanged (and needs no scratch register). */
-  // "if (IS_8080LIKE) {...}" unwrapped into the whole function body:
-
-  // this block already ended in "return;", so the general-Z80 CB-shift-
-  // instruction fallback that used to follow it was unconditionally
-  // unreachable - removed. This orphaned the "offset" local (only read by
-  // the removed tail) - removed.
   /* 8085 undocumented ARHL: HL = HL >> 1 arithmetic (sign preserved, bit 0
      into carry) in a single byte, replacing the per-byte rlca/rrca/rra
      synthesis for a signed 16-bit shift whose value is in HL. Costing this
@@ -11781,8 +11621,7 @@ emit8080Lsh1 (asmop *aop, int offset, bool rotate)
 }
 
 /* 8080/8085 have no block-copy (ldir).  Emit the equivalent byte loop with
-   the same register contract: HL = source, DE = dest, BC = count. Clobbers A
-   (as the existing SM83/Rabbit byte-loop fallbacks do). */
+   the same register contract: HL = source, DE = dest, BC = count. Clobbers A. */
 static void
 emit8080Ldir (void)
 {
@@ -11859,14 +11698,6 @@ shiftR2Left2Result (const iCode *ic, operand *left, int offl, operand *result, i
   wassert (shCount >= 0 && shCount <= 16);
 
   /* 8080/8085: no CB shifts. Move into place and shift byte-wise via rra. */
-  // "if (IS_8080LIKE) {...}" unwrapped into the whole function body:
-
-  // this block already ended in "return;", so the general-Z80/IS_RAB/
-  // IS_SM83/IS_TLCS870-gated CB-shift-instruction shift loop that used to
-  // follow it was unconditionally unreachable - removed. This orphaned the
-  // "size" local (only read by the removed tail, which used "size" instead
-  // of the literal 2 used in the surviving code) and the "tlbl" local (only
-  // used by the removed tail) - both removed.
   /* 8085 undocumented ARHL: a signed 16-bit right shift is one byte per
      step (HL = HL >> 1 arithmetic) when done in HL. Do the shift in HL and
      move the result out, replacing the ~8-instruction rlca/rrca/rra
@@ -11906,14 +11737,6 @@ static void
 shiftL2Left2Result (operand *left, operand *result, int shCount, const iCode *ic)
 {
   /* 8080/8085: no CB shifts. Move into place and shift byte-wise via add a,a / rla. */
-  // "if (IS_8080LIKE) {...}" unwrapped into the whole function body:
-
-  // this block already ended in "return;", so the general-Z80/IS_RAB/
-  // IS_SM83/pair-shift ("add hl, hl" etc.) fallback that used to follow it
-  // was unconditionally unreachable - removed. This orphaned the
-  // "shiftaop" local (declared "= result->aop" but only ever read by the
-  // removed tail; the surviving block operates on result->aop/left->aop
-  // directly) - removed.
   if (result->aop != left->aop)
     genMove_o (result->aop, 0, left->aop, 0, 2, isRegDead (A_IDX, ic), isPairDead (PAIR_HL, ic), isPairDead (PAIR_DE, ic), true);
   /* emit8080Lsh1 uses A as scratch for any byte not in A; preserve a live A
@@ -12010,7 +11833,7 @@ shiftL1Left2Result (operand *left, int offl, operand *result, int offr, unsigned
 {
   if (!shCount)
     cheapMove (result->aop, offr, left->aop, offl, isRegDead (A_IDX, ic));
-  // add hl, hl is cheap in code size. On Rabbits it is also fastest.
+  // add hl, hl is cheap in code size.
   else if (sameRegs (result->aop, left->aop) && aopInReg (result->aop, offr, L_IDX) && isPairDead(PAIR_HL, ic) && offr == offl && !optimize.codeSpeed)
     {
       while (shCount--)
@@ -12364,9 +12187,6 @@ genRotW (const iCode *ic)
           cheapMove (ASMOP_A, 0, left->aop, offset, true);
           emit3_o (A_RRA, 0, 0, 0, 0);
 
-
-          // this file - IS_RAB, IS_R4K, IS_R5K, IS_R6K all unconditionally
-          // false).
           while (--offset >= 0)
             emit3_o (A_RR, left->aop, offset, 0, 0);
           if (requiresHL (left->aop))
@@ -12423,9 +12243,6 @@ genRotW (const iCode *ic)
         }
     }
 
-  // "release:" label removed: its only "goto release;" was in the now-
-  // removed (IS_Z80N||IS_R4K||IS_R5K||IS_R6K)-gated fast-path arm above;
-  // every other path already falls through to here naturally.
   if (pushed_a)
     _pop (PAIR_AF);
 
@@ -12533,10 +12350,6 @@ genLeftShift (const iCode *ic)
 
   aopOp (result, ic, true, false);
   aopOp (left, ic, false, false);
-
-  // z80n_de removed: only read by the two IS_Z80N-gated arms above,
-  // both unconditionally dead in this file (IS_Z80N is unconditionally
-  // false).
 
   if (right->aop->type == AOP_REG && !bitVectBitValue (ic->rSurv, right->aop->aopu.aop_reg[0]->rIdx) && (sameRegs (left->aop, result->aop) || left->aop->type != AOP_REG) &&
     (result->aop->type != AOP_REG ||
@@ -12697,11 +12510,6 @@ genLeftShift (const iCode *ic)
     started = false;
     while (size)
     {
-
-
-
-      // "(IS_R4K||IS_R5K||IS_R6K) && aopInReg (shiftop, offset,
-
       if (size >= 2 && offset + 1 >= byteshift &&
         shiftop->type == AOP_REG &&
         (aopInReg (shiftop, offset, HL_IDX) ||
@@ -12710,8 +12518,6 @@ genLeftShift (const iCode *ic)
 
           if (aopInReg (shiftop, offset, HL_IDX))
             emit3w_o (started ? A_ADC : A_ADD, shiftop, offset, shiftop, offset);
-          // (IS_RAB||(IS_R4K||IS_R5K||IS_R6K))-gated "rl shiftop" arm
-
           else
             {
               emit3w (A_EX, ASMOP_DE, ASMOP_HL);
@@ -12734,8 +12540,6 @@ genLeftShift (const iCode *ic)
           started = true;
           size -= 2, offset += 2;
         }
-      // (IS_RAB||IS_EZ80)-gated "add hl, hl" stack-shift arm removed
-
       else
         {
           if (offset >= byteshift)
@@ -13212,24 +13016,14 @@ genRightShift (const iCode * ic)
 
   regalloc_dry_run_state_scale = shift_by_lit ? shiftcount : 2;
 
-  // shift_bytewise removed: it was only ever set true in the
-  // !IS_8080LIKE-gated bytewise-shift-detection arm above (now removed
-
-  // was always false here; the "if (shift_bytewise) genMove_o (...);"
-  // arm was correspondingly always dead and removed too.
-
-    // body always takes this arm; the four IS_RAB-/IS_R4K-/IS_R5K-/
-    // IS_R6K-gated "else if" arms that followed (unconditionally
-    // unreachable) were removed along with the "first"/"byteoffset"
-    // bookkeeping only they needed.
-    while (size)
-      {
-        int reps = unroll_8080 ? shiftcount : 1;
-        for (int r = 0; r < reps; r++)
-          emitRsh2 (shiftop, size, is_signed);
-        offset -= size;
-        size = 0;
-      }
+  while (size)
+    {
+      int reps = unroll_8080 ? shiftcount : 1;
+      for (int r = 0; r < reps; r++)
+        emitRsh2 (shiftop, size, is_signed);
+      offset -= size;
+      size = 0;
+    }
 
   if (!shift_by_one && !unroll_8080)
     {
@@ -13331,10 +13125,6 @@ genUnpackBits (operand *result, int offset, int blen, int bstr)
         {
           // signed bit-field: sign extension with 0x00 or 0xff
           emit3 (A_RLA, 0, 0);
-
-          // "if (!IS_SM83 && !IS_8080LIKE && !IS_TLCS870 && ...) emit3w
-
-
           emit3 (A_SBC, ASMOP_A, ASMOP_A);
           while (rsize--)
             cheapMove (result->aop, offset++, ASMOP_A, 0, true);
@@ -13459,7 +13249,7 @@ genPointerGet (const iCode *ic)
     from_far = (DCL_TYPE (type) == FPOINTER);
   else // We have to go by the storage class
     from_far = (PTR_TYPE (SPEC_OCLS (etype)) == FPOINTER);
-  wassertl (!from_far, "Only eZ80, Rabbits and TLCS-90 have __far pointers");
+  wassertl (!from_far, "__far pointers are not supported on this target");
   wassertl (!from_far || left->aop->type != AOP_STL, "Stack cannot be __far");
 
 
@@ -13506,9 +13296,10 @@ genPointerGet (const iCode *ic)
        full-width bitfield that needs no unpacking */
     (!bit_field || blen <= 8 || bstr == 0 && blen == size * 8))
     {
-      /* 8080/8085: there is no "ld bc/de, (nn)" (that is a Z80 ED-prefix op, and
-         0xED is LHLX on the 8085). Load the value byte-wise through A with LDA,
-         which leaves HL untouched. Only non-A register results reach here. */
+      /* 8080/8085: there is no "ld bc/de, (nn)" instruction (0xED is the
+         undocumented LHLX opcode on the 8085). Load the value byte-wise
+         through A with LDA, which leaves HL untouched. Only non-A register
+         results reach here. */
       if (surviving_a && !pushed_a)
         _push (PAIR_AF), pushed_a = true;
       for (int i = 0; i < size; i++)
@@ -13534,9 +13325,9 @@ genPointerGet (const iCode *ic)
     !from_far)
     {
       PAIR_ID pair = getPairId (result->aop);
-      /* 8080/8085: only "lhld" (load HL direct) exists - "ld bc,(nn)"/
-         "ld de,(nn)" are Z80 ED-prefix ops with no 8080/8085 equivalent
-         at all (unlike the sibling AOP_HL/AOP_IY sites elsewhere in this
+      /* 8080/8085: only "lhld" (load HL direct) exists - there is no
+         "ld bc,(nn)"/"ld de,(nn)" equivalent at all (unlike the sibling
+         AOP_HL/AOP_IY sites elsewhere in this
          file, which have an explicit "pair == PAIR_HL" guard - or, for
          genPointerSet's mirror-image store case just below in this file,
          an outer guard that forces it by construction - this specific
@@ -13560,9 +13351,6 @@ genPointerGet (const iCode *ic)
         cost2 (4, 20);
       goto release;
     }
-  // (!IS_SM83 && !IS_8080LIKE)-gated 4-byte immd-pointer arm removed
-
-  // true, so !IS_8080LIKE is always false).
   else if (left->aop->type == AOP_STL && !bit_field && size <= 4)
     {
       struct asmop saop;
@@ -14099,7 +13887,7 @@ genPointerSet (iCode *ic)
     to_far = (DCL_TYPE (type) == FPOINTER);
   else // We have to go by the storage class
     to_far = (PTR_TYPE (SPEC_OCLS (etype)) == FPOINTER);
-  wassertl (!to_far, "Only eZ80, Rabbits, and TLCS-90 have __far pointers");
+  wassertl (!to_far, "__far pointers are not supported on this target");
   wassertl (!to_far || result->aop->type != AOP_STL, "Stack cannot be __far");
 
 
@@ -14143,7 +13931,7 @@ genPointerSet (iCode *ic)
              never returns it, only "bc"/"de"/"hl"/"iy"), so this is
              PAIR_HL (live - mov m,<any register>, Intel's flexible HL-
              indirect addressing) or PAIR_IY (dead - no IY hardware on
-             i8080/i8085, left as unmodified Zilog text). */
+             i8080/i8085). */
           if (!regalloc_dry_run)
             {
               if (!strcmp (pair, "hl"))
@@ -14226,8 +14014,6 @@ genPointerSet (iCode *ic)
       goto release;
     }
 
-  // Using ldir is cheapest for large memory-to-memory transfers.
-  // SM83 doesn't have ldir. Rabbit 2000 to Rabbit 3000 (i.e. r2k and r2ka ports) have a wait-state bug breaking ldir between different types of memory.
   else if (!to_far && getPairId (result->aop) == PAIR_HL && !isPairDead (PAIR_HL, ic) && !bit_field)
     {
       while (offset < size)
@@ -14334,9 +14120,6 @@ genPointerSet (iCode *ic)
     {
       last_offset = offset;
 
-      // (IS_R4K||IS_R5K||IS_R6K)-gated "ld (hl), bcde" arm and
-
-
       if (!zero_a && offset + 1 < size && aopIsLitVal (right->aop, offset, 2, 0x0000) && !surviving_a)
         {
           emit3 (A_XOR, ASMOP_A, ASMOP_A);
@@ -14401,7 +14184,6 @@ genPointerSet (iCode *ic)
 
 
   // Restore operand in pair.
-  // (IS_EZ80||IS_R6K)-gated "lea/add iy, ..." arm and IS_TLCS90-gated
   if (!isPairDead (pairId, ic) && getPairId (result->aop) == pairId)
       while (last_offset --> 0)
         {
@@ -14502,10 +14284,7 @@ genAddrOf (const iCode *ic)
   aopOp (IC_RESULT (ic), ic, true, false);
   bool pushed_pair = false;
 
-  // __far (FPOINTER) was only ever supported on eZ80, Rabbits and TLCS-90 -
-  // none of which this port ever targets, so this simplifies to a plain
-  // "never FPOINTER" check.
-  wassertl (PTR_TYPE (SPEC_OCLS (getSpec (operandType (ic->left)))) != FPOINTER, "Only eZ80, Rabbits and TLCS-90 support __far pointers.");
+  wassertl (PTR_TYPE (SPEC_OCLS (getSpec (operandType (ic->left)))) != FPOINTER, "__far pointers are not supported on this target.");
 
   if (sym->onStack)
     {
@@ -14548,9 +14327,8 @@ genAddrOf (const iCode *ic)
   if (pushed_pair)
     _pop (pair);
 
-  // Upper byte of pointer to __far - eZ80/Rabbits/TLCS-90 only, none of
-  // which this port ever targets (see genAddrOf's FPOINTER wassertl
-  // above), so this branch should never actually be reached.
+  // Upper byte of a __far pointer - not supported on this target (see the
+  // FPOINTER wassertl above), so this branch should never actually be reached.
   if (ic->result->aop->size > 2)
     {
       wassert (0);
@@ -14575,9 +14353,6 @@ genAddrOf (const iCode *ic)
         }
     }
 
-  // "release:" label removed: its only "goto release;" was in the now-
-  // removed IS_EZ80-gated "ld.lil" far-pointer arm above; the only other
-  // path already falls through to here naturally.
   freeAsmop (ic->result, NULL);
 }
 
@@ -14866,8 +14641,6 @@ genJumpTab (const iCode *ic)
   cost2 (1, 10);
   spillPair (PAIR_HL);
 
-  // "if (IS_TLCS90||IS_EZ80) {ld hl, (hl)} else if (IS_RAB) {ld hl, 0(hl)}
-
   emit2 ("mov %s, m", _pairs[pair].l);
   cost2 (1, 7);
   emit3w (A_INC, ASMOP_HL, 0);
@@ -14875,9 +14648,6 @@ genJumpTab (const iCode *ic)
   cost2 (1, 7);
   emit3 (A_LD, ASMOP_L, pair == PAIR_DE ? ASMOP_E : ASMOP_C);
 
-  // "jump:" label removed: its only "goto jump;" was in the now-removed
-  // IS_TLCS90-gated "lda hl, hl, a" arm above; the only other path already
-  // falls through to here naturally.
   if (pushed_pair)
     _pop (pair);
 
@@ -15118,14 +14888,6 @@ genDummyRead (const iCode * ic)
 static void
 genCritical (const iCode * ic)
 {
-  // "if (IS_SM83||IS_RAB||IS_TLCS90||IS_8080LIKE) {!di} else if
-  // (IC_RESULT (ic)) {...critical_enter/ld a,i+!di, jp po ...} else
-  // {...critical_enter/ld a,i+!di; push af;}" collapsed to just the
-
-
-  // including their IC_RESULT(ic)/i8085_opts.nmosZ80/IS_RAB-gated XPC-window
-  // content - are unconditionally unreachable). This orphaned the "tlbl"
-  // local (only used by the removed IC_RESULT(ic) branch) - removed.
   emit2 ("!di");
   regalloc_dry_run_cost += 1;
 }
@@ -15136,13 +14898,6 @@ genCritical (const iCode * ic)
 static void
 genEndCritical (const iCode * ic)
 {
-  // "if (IS_SM83||IS_TLCS90||IS_RAB||IS_8080LIKE) {!ei} else if
-  // (IC_RIGHT (ic)) {...} else {...restore P/O flag...}" collapsed to just
-  // the IS_8080LIKE arm, mirroring the identical simplification in
-
-
-  // unconditionally unreachable). This orphaned the "tlbl" local (only
-  // used by the removed branches) - removed.
   emit2 ("!ei");
   cost2 (1, 4);
 }
@@ -15717,18 +15472,12 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
   /* Two ways to fill the buffer on real 8080/8085 hardware: straight-line
      (one store per byte, unrolled) or a loop counted in b (at most 255
      iterations, or 510 bytes via the double_loop 2x-unroll below - a
-     single 8-bit counter register cannot represent more). Zilog's ldir
-     (block-copy-and-decrement-bc, no 8080/8085 equivalent at all) used
-     to be weighed as a third option here whenever it costed out cheaper
-     than both - unconditionally reachable on this port, since nothing
-     gated it out, and unassemblable by as8085 when picked (task #18).
-     Removed rather than gated: with no ldir, size <= 510 chooses
-     whichever of direct/loop is genuinely cheaper, exactly as before;
-     size > 510 (past the loop's counter range) now falls back to
-     direct instead of the no-longer-available third option - direct
-     has no upper size bound (see its own cost formula above), so it
-     always produces working code, just increasingly large for very big
-     literal sizes. */
+     single 8-bit counter register cannot represent more). size <= 510
+     chooses whichever of direct/loop is genuinely cheaper; size > 510
+     (past the loop's counter range) falls back to direct, which has no
+     upper size bound (see its own cost formula above), so it always
+     produces working code, just increasingly large for very big literal
+     sizes. */
   if (sizecost_direct <= sizecost_loop || size > 510) // straight-line code.
     {
       if (live_HL)
@@ -15777,14 +15526,9 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
              size stores in total (see the loop body below - the very
              first pass writes just the one byte at tlbl2, every
              subsequent pass writes the normal two). 8080/8085 has no
-             relative jump at all (no jr, unlike z80) - jmp (unconditional,
-             absolute) is the exact right replacement for what is simply
-             an unconditional jump to a label here, not a real z80-vs-
-             8080 semantic gap the way ldir above was (task #18: this
-             was "jr", still unassemblable by as8085, but otherwise
-             already correct control flow - fixed by mnemonic
-             substitution alone, nothing about the loop's structure
-             needed to change). */
+             relative jump instruction at all, so jmp (unconditional,
+             absolute) is the right way to express this unconditional
+             jump to a label. */
           if (!regalloc_dry_run)
             emit2 ("jmp !tlabel", labelKey2num (tlbl2->key));
           regalloc_dry_run_cost += 3;
@@ -16081,8 +15825,8 @@ genBuiltInStrchr (const iCode *ic, int nParams, operand **pparams)
      (the only pairs besides HL with real memory-indirect addressing on
      8080/8085 hardware - see _moveFrom_tpair_()'s own copy of this
      comment earlier in this file). Any other pair (IX/IY, dead - no
-     IX/IY hardware) falls through to the unmodified Zilog fallback,
-     matching this file's established practice elsewhere. */
+     IX/IY hardware) falls through to the else branch below, which is
+     unreachable. */
   if (pair == PAIR_HL)
     emit2 ("mov a, m");
   else if (pair == PAIR_DE || pair == PAIR_BC)

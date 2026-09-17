@@ -31,13 +31,10 @@ typedef enum
   AOP_REG,
   /* Is in direct space */
   AOP_DIR,
-  /* AOP_FDIR ("far direct space") removed (#28): was documented
-     "Rabbits, TLCS-90 and eZ80 only", and traced exhaustively (not
-     merely trusting that documentation) - i8080/i8085 has no __far at
+  /* AOP_FDIR ("far direct space") removed: i8080/i8085 has no __far at
      all (the storage-class keywords that would select it, "__far"/
      "__xdata", do not even parse for this port), so it was never
-     actually constructed. Every site that read "->type == AOP_FDIR"
-     has been simplified accordingly. */
+     actually constructed. */
   /* SFR space ($FF00 and above) */
   AOP_SFR,
   /* Is on the stack (addressed stackpointer-relative or framepointer-relative) */

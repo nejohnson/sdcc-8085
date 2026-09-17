@@ -54,8 +54,7 @@ static char _i8085_defaultRules[] = {
 #include "peeph-i8085.rul"
 };
 
-/* i8085_opts is this port's own copy of the option state (see i8085.h),
-   independent of src/z80/main.c's own z80_opts. */
+/* i8085_opts is this port's own copy of the option state (see i8085.h). */
 I8085_OPTS i8085_opts;
 
 static OPTION _i8080_options[] = {
@@ -123,9 +122,7 @@ static char *_keywords[] = {
 };
 
 /* This port's own token-substitution table for the vendor ASxxxx
-   assembler (see mappings.i's own comment for what it does); defined here
-   rather than shared with src/z80/main.c's copy so that i8085's table can
-   be edited independently of the z80 port's. */
+   assembler (see mappings.i's own comment for what it does). */
 #include "mappings.i"
 
 // Dont have size_t here, so we just use unsigned int, which is size_t for these ports.
@@ -326,9 +323,9 @@ _parseOptions (int *pargc, char **argv, int *i)
 {
   if (argv[*i][0] == '-')
     {
-      /* OPTION_BO/OPTION_BA (ROM/RAM bank selection) are z80/sm83-only
-         options and are not applicable to i8080/i8085, so they are not
-         present in _i8080_options/_i8085_options and are not handled here. */
+      /* OPTION_BO/OPTION_BA (ROM/RAM bank selection) are not applicable
+         to i8080/i8085, so they are not present in
+         _i8080_options/_i8085_options and are not handled here. */
 
       if (!strncmp (argv[*i], OPTION_ASM, sizeof (OPTION_ASM) - 1))
         {
@@ -607,8 +604,8 @@ _hasNativeMulFor (iCode *ic, sym_link *left, sym_link *right)
   /* Same for any multiplication with 8 bit result. */
   else if (result_size == 1)
     return(true);
-  /* i8080/i8085 have no native 16x16 multiplication (that was Rabbit/R800
-     only), so no further fast-path checks apply here. */
+  /* i8080/i8085 have no native 16x16 multiplication, so no further
+     fast-path checks apply here. */
   else
     return(false);
 

@@ -1568,8 +1568,7 @@ static bool tree_dec_ralloc(T_t &T, G_t &G, const I_t &I, SI_t &SI)
 // choice. Its one caller (i8085_ralloc2_cc, below) removed too.
 
 // Adjust stack location for the frame pointer this port always omits.
-// Only called from within this file (i8085_ralloc2_cc, below) - made
-// static so it can't collide with z80/ralloc2.cc's own move_parms.
+// Only called from within this file (i8085_ralloc2_cc, below).
 static void move_parms(void)
 {
   if(!currFunc)
