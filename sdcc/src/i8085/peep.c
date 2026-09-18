@@ -408,86 +408,18 @@ mightReadFlag(const lineNode *pl, const char *what)
       lineIsInst (pl, "inr") || lineIsInst (pl, "dcr"))
     return false;
 
-  if(lineIsInst (pl, "ld") ||
-     lineIsInst (pl, "or") ||
-     lineIsInst (pl, "cp") ||
-     lineIsInst (pl, "di") ||
+  if(lineIsInst (pl, "di") ||
      lineIsInst (pl, "ei") ||
-     lineIsInst (pl, "im") ||
      lineIsInst (pl, "in"))
     return false;
   if(lineIsInst (pl, "nop") ||
-     lineIsInst (pl, "add") ||
-     lineIsInst (pl, "sub") ||
-     lineIsInst (pl, "and") ||
-     lineIsInst (pl, "xor") ||
-     lineIsInst (pl, "dec") ||
-     lineIsInst (pl, "inc") ||
      lineIsInst (pl, "cpl") ||
-     lineIsInst (pl, "bit") ||
-     lineIsInst (pl, "res") ||
-     lineIsInst (pl, "set") ||
      lineIsInst (pl, "pop") ||
-     lineIsInst (pl, "rlc") ||
-     lineIsInst (pl, "rrc") ||
-     lineIsInst (pl, "sla") ||
-     lineIsInst (pl, "sra") ||
-     lineIsInst (pl, "srl") ||
-     lineIsInst (pl, "scf") ||
-     lineIsInst (pl, "cpd") ||
-     lineIsInst (pl, "cpi") ||
-     lineIsInst (pl, "ind") ||
-     lineIsInst (pl, "ini") ||
-     lineIsInst (pl, "ldd") ||
-     lineIsInst (pl, "ldi") ||
-     lineIsInst (pl, "neg") ||
-     lineIsInst (pl, "rld") ||
-     lineIsInst (pl, "rrd") ||
-     lineIsInst (pl, "mlt") ||
      lineIsInst (pl, "out"))
     return false;
-  if(lineIsInst (pl, "halt") ||
-     lineIsInst (pl, "rlca") ||
-     lineIsInst (pl, "rrca") ||
-     lineIsInst (pl, "cpdr") ||
-     lineIsInst (pl, "cpir") ||
-     lineIsInst (pl, "indr") ||
-     lineIsInst (pl, "inir") ||
-     lineIsInst (pl, "lddr") ||
-     lineIsInst (pl, "ldir") ||
-     lineIsInst (pl, "outd") ||
-     lineIsInst (pl, "outi") ||
-     lineIsInst (pl, "djnz"))
-    return false;
-
-  if(lineIsInst (pl, "rl") ||
-     lineIsInst (pl, "rr") ||
-     lineIsInst (pl, "rla") ||
-     lineIsInst (pl, "rra") ||
-     lineIsInst (pl, "sbc") ||
-     lineIsInst (pl, "adc") ||
-     lineIsInst (pl, "ccf"))
-    return (!strcmp(what, "cf"));
-
-  if(lineIsInst (pl, "daa"))
-    return (!strcmp(what, "cf") || !strcmp(what, "nf") ||
-            !strcmp(what, "hf"));
 
   if(lineIsInst (pl, "push"))
     return (argCont(pl->line + 4, "af"));
-
-  if(lineIsInst (pl, "ex"))
-    return (argCont(pl->line + 2, "af"));
-
-  // catch c, nc, z, nz, po, pe, p and m
-  if(lineIsInst (pl, "jp") ||
-     lineIsInst (pl, "jr"))
-    return (strchr(pl->line, ',') && mightReadFlagCondition(pl->line + 2, what));
-
-  // flags don't matter according to calling convention
-  if(lineIsInst (pl, "reti") ||
-     lineIsInst (pl, "retn"))
-    return false;
 
   if(lineIsInst (pl, "call"))
     return (strchr(pl->line, ',') && mightReadFlagCondition(pl->line + 4, what));
@@ -525,7 +457,6 @@ static bool
 mightRead(const lineNode *pl, const char *what)
 {
   const char *larg = lineArg (pl, 0);
-  const char *rarg = lineArg (pl, 1);
 
   /* Each mnemonic is checked against exactly the registers it reads per
      the 8085 data sheet: mov reads its source; mvi/lxi/lda/lhld read
@@ -625,9 +556,6 @@ mightRead(const lineNode *pl, const char *what)
         return mightBeParmInCallFromCurrentFunction(what);
     }
 
-  if(lineIsInst (pl, "reti") || lineIsInst (pl, "retn"))
-    return(strcmp(what, "sp") == 0);
-
   // A conditional return, on its taken path, reads exactly what a bare
   // ret does (return value, sp, any register a subsequent call from
   // this function might take as a parm); not taken, it reads none of
@@ -636,99 +564,11 @@ mightRead(const lineNode *pl, const char *what)
   if(lineIsInst (pl, "ret") || isIntelCondRet (pl, NULL))
     return(i8085_IsReturned(what) || mightBeParmInCallFromCurrentFunction(what)) || strcmp(what, "sp") == 0;
 
-  if (lineIsInst (pl, "ex") && larg && rarg)
-    {
-      if (!strncmp (larg, "(sp)", 4) && !strncmp (rarg, "hl", 2))
-        return(!strcmp (what, "h") || !strcmp (what, "l") || !strcmp (what, "sp"));
-      if (!strncmp (larg, "af", 2) && !strncmp (rarg, "af'", 3))
-        return(!strcmp (what, "a"));
-      if (!strncmp (larg, "de", 2) && !strncmp (rarg, "hl", 2))
-        return(!strcmp (what, "h") || !strcmp (what, "l") || !strcmp (what, "d") || !strcmp (what, "e"));
-    }
-  if (lineIsInst (pl, "exx"))
-    return(!strcmp (what, "b") || !strcmp (what, "c") ||!strcmp (what, "d") || !strcmp (what, "e") || !strcmp (what, "h") || !strcmp (what, "l") || !strcmp (what, "j") || !strcmp (what, "k"));
-
-  if(lineIsInst (pl, "ld"))
-    {
-      if(argCont(strchr(pl->line, ','), what))
-        return(true);
-      if(*(strchr(pl->line, ',') - 1) == ')' && strstr(pl->line + 3, what) &&
-        (strchr(pl->line, '#') == 0 || strchr(pl->line, '#') > strchr(pl->line, ',')) &&
-        (strchr(pl->line, '_') == 0 || strchr(pl->line, '_') > strchr(pl->line, ',')))
-        return(true);
-      if (!strcmp(what, "sp") && strchr(pl->line, '(')) // Assume any indirect memory access to be a possible stack access. This avoids optimizing out stackframe setups for local variables (bug #3173).
-        return(true);
-      return(false);
-    }
-
-
-  // Sometimes the result and flags do not depend on the value of the operands.
-  if (larg &&
-    (lineIsInst (pl, "cp") ||
-    lineIsInst (pl, "sbc") ||
-    lineIsInst (pl, "sbc") ||
-    lineIsInst (pl, "xor")))
-    {
-      if (!strncmp (larg, "a, a", 4) || !strncmp (larg, "hl, hl", 6))
-        return(false);
-    }
-
-  //ld a, #0x00
-  if(!strcmp(pl->line, "and\ta, #0x00") || !strcmp(pl->line, "and\ta,#0x00") || !strcmp(pl->line, "and\t#0x00"))
-    return(false);
-
-  //ld a, #0xff
-  if(!strcmp(pl->line, "or\ta, #0xff") || !strcmp(pl->line, "or\ta,#0xff") || !strcmp(pl->line, "or\t#0xff"))
-    return(false);
-
-  if (larg &&
-    (lineIsInst (pl, "adc") ||
-    lineIsInst (pl, "add") ||
-    lineIsInst (pl, "and") ||
-    lineIsInst (pl, "or") ||
-    lineIsInst (pl, "cp") ||
-    lineIsInst (pl, "sbc") ||
-    lineIsInst (pl, "sub") ||
-    lineIsInst (pl, "xor")))
-    {
-      if (!rarg) // Basic support for asm syntax variant that omits left operand on 8-bit oeprations.
-        {
-          rarg = larg;
-          larg = "a";
-        }
-      if (larg[0] == 'a' && larg[1] == ',')
-        {
-          if (!strcmp(what, "a"))
-            return(true);
-        }
-      else if (!strncmp (larg, "hl", 2) && larg[2] == ',') // add hl, rr
-        {
-          if (!strcmp(what, "h") || !strcmp(what, "l"))
-            return(true);
-        }
-      else if (!strncmp(larg, "sp", 2) && larg[2] == ',') // add sp, rr
-        {
-          if (!strcmp(what, "sp"))
-            return(true);
-        }
-      // The only real 16-bit add form is "dad", handled above via
-      // isHOrL(what) since it always targets hl.
-      return (argCont (rarg, what));
-    }
-
-  if(lineIsInst (pl, "neg"))
-    return(strcmp(what, "a") == 0);
-
   if(lineIsInst (pl, "pop"))
     return(strcmp(what, "sp") == 0);
 
   if (larg && lineIsInst (pl, "push"))
     return (strstr (larg, what) || !strcmp(what, "sp"));
-
-  if (larg && (lineIsInst (pl, "dec") || lineIsInst (pl, "inc")))
-    {
-      return (argCont (larg, what));
-    }
 
   if(lineIsInst (pl, "cpl"))
     return(!strcmp(what, "a"));
@@ -736,54 +576,8 @@ mightRead(const lineNode *pl, const char *what)
   if(lineIsInst (pl, "di") || lineIsInst (pl, "ei"))
     return(false);
 
-  // Rotate and shift group
-  if(lineIsInst (pl, "rlca") ||
-     lineIsInst (pl, "rla")  ||
-     lineIsInst (pl, "rrca") ||
-     lineIsInst (pl, "rra")  ||
-     lineIsInst (pl, "daa"))
-    {
-      return(strcmp(what, "a") == 0);
-    }
-  if (larg &&
-    (lineIsInst (pl, "rl") ||
-    lineIsInst (pl, "rlc") ||
-    lineIsInst (pl, "sla") ||
-    lineIsInst (pl, "rr") ||
-    lineIsInst (pl, "rrc") ||
-    lineIsInst (pl, "sra") ||
-    lineIsInst (pl, "srl")))
-    {
-      return (argCont (larg, what));
-    }
-  if(lineIsInst (pl, "rld") || lineIsInst (pl, "rrd"))
-    return(!!strstr("ahl", what));
-
-  // Bit set, reset and test group
-  if (lineIsInst (pl, "bit") ||
-    lineIsInst (pl, "set") ||
-    lineIsInst (pl, "res"))
-    {
-      return (argCont (rarg, what));
-    }
-
-  if(lineIsInst (pl, "ccf") ||
-    lineIsInst (pl, "scf")  ||
-    lineIsInst (pl, "nop")  ||
-    lineIsInst (pl, "halt"))
+  if(lineIsInst (pl, "nop"))
     return(false);
-
-  if(lineIsInst (pl, "jp") || lineIsInst (pl, "jr"))
-    return(false);
-
-  if(lineIsInst (pl, "djnz"))
-    return(strchr(what, 'b') != 0);
-
-  if(lineIsInst (pl, "ldd") || lineIsInst (pl, "lddr") || lineIsInst (pl, "ldi") || lineIsInst (pl, "ldir"))
-    return(strchr("bcdehl", *what));
-
-  if(lineIsInst (pl, "cpd") || lineIsInst (pl, "cpdr") || lineIsInst (pl, "cpi") || lineIsInst (pl, "cpir"))
-    return(strchr("abchl", *what));
 
   /* in/out are single-operand (port address only); the accumulator is
      implicit on both sides. out reads a; in reads nothing (the value
@@ -792,10 +586,6 @@ mightRead(const lineNode *pl, const char *what)
     return !strcmp (what, "a");
   if (lineIsInst (pl, "in"))
     return false;
-
-  if(lineIsInst (pl, "ini") || lineIsInst (pl, "ind") || lineIsInst (pl, "inir") || lineIsInst (pl, "indr") ||
-    lineIsInst (pl, "outi") || lineIsInst (pl, "outd") || lineIsInst (pl, "otir") || lineIsInst (pl, "otdr"))
-    return(strchr("bchl", *what));
 
   /* TODO: Can we know anything about rst? */
   if(lineIsInst (pl, "rst"))
@@ -834,27 +624,16 @@ uncondJump(const lineNode *pl)
      needs its own handling here. */
   if (lineIsInst (pl, "jmp") || lineIsInst (pl, "pchl"))
     return TRUE;
-  /* gen.c's real "jp" is always the conditional jump-if-sign-positive
-     (isIntelCondJump() above), checked before the comma-less "jp"/"jr"
-     case below - never treat it as unconditional here. */
-  if (isIntelCondJump (pl, NULL))
-    return FALSE;
-  if((lineIsInst (pl, "jp") || lineIsInst (pl, "jr")) &&
-     strchr(pl->line, ',') == 0)
-    return TRUE;
+  /* gen.c's real "jp" is always the conditional jump-if-sign-positive,
+     caught by isIntelCondJump() in condJump() below - never treat it as
+     unconditional here. */
   return FALSE;
 }
 
 static bool
 condJump(const lineNode *pl)
 {
-  if (isIntelCondJump (pl, NULL))
-    return TRUE;
-  if(((lineIsInst (pl, "jp") || lineIsInst (pl, "jr")) &&
-      strchr(pl->line, ',') != 0) ||
-     lineIsInst (pl, "djnz"))
-    return TRUE;
-  return FALSE;
+  return isIntelCondJump (pl, NULL);
 }
 
 static bool
@@ -887,97 +666,10 @@ surelyWritesFlag(const lineNode *pl, const char *what)
       lineIsInst (pl, "pchl"))
     return false;
 
-  /* LD instruction is never change flags except LD A,I and LD A,R.
-    But it is most popular instruction so place it first */
-  if(lineIsInst (pl, "ld"))
-    {
-      if(!!strcmp(what, "pf") ||
-          !argCont(pl->line+3, "a"))
-        return false;
-      const char *p = strchr(pl->line+4, ',');
-      if (p == NULL)
-        return false; /* unknown instruction */
-      ++p;
-      return argCont(p, "i") || argCont(p, "r");
-    }
-
   /* Intel's in is single-operand and touches no flags on real 8080/8085
      hardware (see mightRead()'s comment on this mnemonic pair). */
   if (lineIsInst (pl, "in"))
     return false;
-
-  if(lineIsInst (pl, "rlca") ||
-     lineIsInst (pl, "rrca") ||
-     lineIsInst (pl, "rra")  ||
-     lineIsInst (pl, "rla"))
-    return(!!strcmp(what, "zf") && !!strcmp(what, "sf") && !!strcmp(what, "pf"));
-
-  if(lineIsInst (pl, "adc") ||
-     lineIsInst (pl, "and") ||
-     lineIsInst (pl, "sbc") ||
-     lineIsInst (pl, "sub") ||
-     lineIsInst (pl, "xor") ||
-     lineIsInst (pl, "and") ||
-     lineIsInst (pl, "rlc") ||
-     lineIsInst (pl, "rrc") ||
-     lineIsInst (pl, "sla") ||
-     lineIsInst (pl, "sra") ||
-     lineIsInst (pl, "srl") ||
-     lineIsInst (pl, "neg"))
-    return true;
-
-  if(lineIsInst (pl, "or") ||
-     lineIsInst (pl, "cp") ||
-     lineIsInst (pl, "rl") ||
-     lineIsInst (pl, "rr"))
-    return true;
-
-  if(lineIsInst (pl, "bit") ||
-     lineIsInst (pl, "cpd") ||
-     lineIsInst (pl, "cpi") ||
-     lineIsInst (pl, "ind") ||
-     lineIsInst (pl, "ini") ||
-     lineIsInst (pl, "rrd"))
-    return (!!strcmp(what, "cf"));
-
-  if(lineIsInst (pl, "cpdr") ||
-     lineIsInst (pl, "cpir") ||
-     lineIsInst (pl, "indr") ||
-     lineIsInst (pl, "inir") ||
-     lineIsInst (pl, "otdr") ||
-     lineIsInst (pl, "otir") ||
-     lineIsInst (pl, "outd") ||
-     lineIsInst (pl, "outi"))
-    return (!!strcmp(what, "cf"));
-
-  if(lineIsInst (pl, "daa"))
-    return (!!strcmp(what, "nf"));
-
-  if(lineIsInst (pl, "ccf") ||
-    lineIsInst (pl, "scf"))
-    return (!strcmp(what, "hf") || !strcmp(what, "nf") || !strcmp(what, "cf"));
-
-  if(lineIsInst (pl, "cpl"))
-    return (!strcmp(what, "hf") || !strcmp(what, "nf"));
-
-  if(lineIsInst (pl, "inc") || lineIsInst (pl, "dec"))
-    {
-      // 8-bit inc affects all flags other than c.
-      if (strlen(pl->line + 4) == 1 || // 8-bit register
-        !strcmp(pl->line + 4, "(hl)"))
-        return (!!strcmp(what, "cf"));
-      return false; // 16-bit inc does not affect flags.
-    }
-
-  if(lineIsInst (pl, "add"))
-    return (argCont(pl->line + 4, "a") ||
-           (!!strcmp(what, "zf") && !!strcmp(what, "sf") && !!strcmp(what, "pf")));
-
-  if(lineIsInst (pl, "ldd") ||
-    lineIsInst (pl, "lddr") ||
-    lineIsInst (pl, "ldi") ||
-    lineIsInst (pl, "ldir"))
-    return (!strcmp(what, "hf") || !strcmp(what, "pf") || !strcmp(what, "nf"));
 
   // pop af writes
   if(lineIsInst (pl, "pop"))
@@ -998,31 +690,12 @@ surelyWritesFlag(const lineNode *pl, const char *what)
      lineIsInst (pl, "call"))
     return true;
 
-  if(lineIsInst (pl, "rld") ||
-    lineIsInst (pl, "rrd"))
-    return (!strcmp(what, "hf") || !strcmp(what, "pf") || !strcmp(what, "nf"));
-
   if(lineIsInst (pl, "di") ||
-    lineIsInst (pl, "djnz") ||
     lineIsInst (pl, "ei") ||
-    lineIsInst (pl, "ex") ||
     lineIsInst (pl, "nop") ||
     lineIsInst (pl, "out") ||
-    lineIsInst (pl, "push") ||
-    lineIsInst (pl, "res") ||
-    lineIsInst (pl, "set"))
+    lineIsInst (pl, "push"))
     return false;
-
-  /* handle IN0 r,(n) and IN r,(c) instructions */
-  if(lineIsInst (pl, "in0") || (lineIsInst (pl, "in") && (!strcmp(pl->line+5, "(c)") || !strcmp(pl->line+5, "(bc)"))))
-    return (!!strcmp(what, "cf"));
-
-  if(lineIsInst (pl, "mlt"))
-    return true; // never appears in this port's output.
-
-  // pop af writes
-  if(lineIsInst (pl, "pop.l"))
-    return (argCont(pl->line + 6, "af"));
 
   /* 8085 undocumented instructions. ldhi/ldsi/lhlx/shlx and the jumps
      jx5/jnx5/rstv touch no flags; dsub/arhl/rdel do, but reporting "not sure"
@@ -1047,8 +720,6 @@ callSurelyWrites (const lineNode *pl, const char *what)
     f = findSym (SymbolTab, 0, pl->line + 6);
   else if (lineIsInst (pl, "jmp") && lineArg (pl, 0)) // real, live tail-call form - see uncondJump()
     f = findSym (SymbolTab, 0, lineArg (pl, 0));
-  else if ((lineIsInst (pl, "jp") || lineIsInst (pl, "jr")) && !strchr(pl->line, ','))
-    f = findSym (SymbolTab, 0, pl->line + 4);
 
   const bool *preserved_regs;
 
@@ -1059,7 +730,7 @@ callSurelyWrites (const lineNode *pl, const char *what)
     preserved_regs = f->type->funcAttrs.preserved_regs;
   else if (lineIsInst (pl, "call"))
     preserved_regs = i8085_regs_preserved_in_calls_from_current_function;
-  else // Err on the safe side for jmp/jp/jr - might not be a function call, might e.g. be a jump table.
+  else // Err on the safe side for jmp - might not be a function call, might e.g. be a jump table.
     return (false);
 
   if (!strcmp (what, "a"))
@@ -1084,7 +755,6 @@ static bool
 surelyWrites (const lineNode *pl, const char *what)
 {
   const char *larg = lineArg (pl, 0);
-  const char *rarg = lineArg (pl, 1);
 
   /* Mirror of mightRead()'s read side. "m" as a destination writes
      memory, never h/l themselves (the opposite of mightRead(), where "m"
@@ -1136,82 +806,15 @@ surelyWrites (const lineNode *pl, const char *what)
       lineIsInst (pl, "jmp") || isIntelCondJump (pl, NULL))
     return false;
 
-  //ld a, #0x00
-  if((lineIsInst (pl, "xor") || lineIsInst (pl, "sub")) && !strcmp(what, "a") &&
-     (!strcmp(pl->line+4, "a, a") || !strcmp(pl->line+4, "a,a") || (!strchr(pl->line, ',') && !strcmp(pl->line+4, "a"))))
-    return(true);
-
-  //ld a, #0x00
-  if(!strcmp(what, "a") && (!strcmp(pl->line, "and\ta, #0x00") || !strcmp(pl->line, "and\ta,#0x00") || !strcmp(pl->line, "and\t#0x00")))
-    return(true);
-
-  //ld a, #0xff
-  if(!strcmp(what, "a") && (!strcmp(pl->line, "or\ta, #0xff") || !strcmp(pl->line, "or\ta,#0xff") || !strcmp(pl->line, "or\t#0xff")))
-    return(true);
-
-  if (lineIsInst (pl, "adc") ||
-    lineIsInst (pl, "add") ||
-    lineIsInst (pl, "and") ||
-    lineIsInst (pl, "dec") ||
-    lineIsInst (pl, "inc") ||
-    lineIsInst (pl, "or") ||
-    lineIsInst (pl, "sbc") ||
-    lineIsInst (pl, "sra") ||
-    lineIsInst (pl, "srl") ||
-    lineIsInst (pl, "sub") ||
-    lineIsInst (pl, "xor"))
-    {
-      if (!strcmp (what, "a") && larg && larg[0] == 'a')
-        return(true);
-      if ((!strcmp (what, "h") || !strcmp (what, "l")) && larg && !strncmp (larg, "hl", 2))
-        return(true);
-      return(false);
-    }
-
-  if (lineIsInst (pl, "ccf") ||
-    lineIsInst (pl, "ei") ||
-    lineIsInst (pl, "di") ||
-    lineIsInst (pl, "scf"))
+  if (lineIsInst (pl, "ei") || lineIsInst (pl, "di"))
     return (false);
 
-  if (lineIsInst (pl, "cp"))
-    return (false);
-
-  if (lineIsInst (pl, "cpl") ||
-    lineIsInst (pl, "daa") ||
-    lineIsInst (pl, "rla") ||
-    lineIsInst (pl, "rra") ||
-    lineIsInst (pl, "rlca") ||
-    lineIsInst (pl, "rrca"))
-    return (what[0] == 'a');
-
-  if (larg && lineIsInst (pl, "ex"))
-    return (strstr (larg, what) || strstr (rarg, what));
-
-  if (larg && lineIsInst (pl, "ld") && (larg[0] == '-' || larg[0] == '(' || isdigit (larg[0])))
-    return (false);
-  if (larg && lineIsInst (pl, "ld") && !strncmp (larg, "hl,", 3))
-    return(what[0] == 'h' || what[0] == 'l');
-  if (larg && lineIsInst (pl, "ld") && !strncmp (larg, "de,", 3))
-    return(what[0] == 'd' || what[0] == 'e');
-  if (larg && lineIsInst (pl, "ld") && !strncmp (larg, "bc,", 3))
-    return(what[0] == 'b' || what[0] == 'c');
   /* in writes a (the value read from the port); out writes no register
      (see mightRead()'s comment on this mnemonic pair). */
   if (lineIsInst (pl, "out"))
     return false;
   if (lineIsInst (pl, "in"))
     return !strcmp (what, "a");
-
-  if (larg && (lineIsInst (pl, "ld") || lineIsInst (pl, "in"))
-    && strlen(what) > 1 && larg && larg[0] && larg[1] == ',')
-    return (false);
-  if (larg && ((lineIsInst (pl, "ld") || lineIsInst (pl, "in")))
-    && strlen (larg) >= strlen (what) && larg[strlen (what)] == ',')
-    return (!strncmp (larg, what, strlen (what)));
-
-  if (lineIsInst (pl, "ldir") || lineIsInst (pl, "lddr"))
-    return(strchr ("bcdehl", *what));
 
   if (larg && lineIsInst (pl, "pop") && !strncmp (larg, "af", 2))
     return (what[0] == 'a');
@@ -1231,8 +834,7 @@ surelyWrites (const lineNode *pl, const char *what)
   if(strcmp(pl->line, "ret") == 0)
     return true;
 
-  if(lineIsInst (pl, "bit") ||
-    lineIsInst (pl, "push"))
+  if(lineIsInst (pl, "push"))
     return (false);
 
   //printf("Warning: surelyWrites unknown asm inst line: %s\n", pl->line);
@@ -1516,9 +1118,12 @@ i8085_canAssign (const char *op1, const char *op2, const char *exotic)
   /* op1/op2/exotic come straight from a rule file's %N variables, so on
      this port they can include "m", Intel's spelling of HL-indirect
      addressing. Normalize it to "(hl)" here rather than duplicate every
-     check below. This doesn't extend to "(bc)"/"(de)"/"(hl+)"/"(hl-)" -
-     those are never produced by matching Intel-syntax text on this
-     port. */
+     check below. 8080/8085 has no post-increment/post-decrement
+     addressing hardware and no (bc)/(de)-as-a-literal-operand syntax
+     (those are ldax b/ldax d, a mnemonic plus a bare register-pair
+     name, never a parenthesised operand), so no other parenthesised
+     form is ever produced by matching this port's own generated
+     text. */
   if (isIntelM (op1))
     op1 = "(hl)";
   if (isIntelM (op2))
@@ -1540,14 +1145,6 @@ i8085_canAssign (const char *op1, const char *op2, const char *exotic)
   if(isReg(dst) && !strcmp(src, "(hl)"))
     return TRUE;
   if(!strcmp(dst, "(hl)") && isReg(src))
-    return TRUE;
-
-  // Can assign between a and (bc), (de), (hl+), (hl-)
-  if(!strcmp(dst, "a") &&
-     (!strcmp(src, "(bc)") || !strcmp(src, "(de)") || !strcmp(src, "(hl+)") || !strcmp(src, "(hl-)")))
-    return TRUE;
-  if((!strcmp(dst, "(bc)") || !strcmp(dst, "(de)") || !strcmp(src, "(hl+)") || !strcmp(src, "(hl-)"))
-     && !strcmp(src, "a"))
     return TRUE;
 
   // Can load immediate values directly into registers and register pairs.
@@ -1573,14 +1170,17 @@ i8085_canAssign (const char *op1, const char *op2, const char *exotic)
   return false;
 }
 
+/* op is a real register name or "(hl)" taken from matched code on this
+   port (see i8085_canAssign's comment on why no other parenthesised
+   form - (bc)/(de)/(hl+)/(hl-) - can ever appear here either). */
 static const char *
 registerBaseName (const char *op)
 {
-  if (!strcmp (op, "d") || !strcmp (op, "e") || !strcmp (op, "(de)"))
+  if (!strcmp (op, "d") || !strcmp (op, "e"))
     return "de";
-  if (!strcmp (op, "b") || !strcmp (op, "c") || !strcmp (op, "(bc)"))
+  if (!strcmp (op, "b") || !strcmp (op, "c"))
     return "bc";
-  if (!strcmp (op, "h") || !strcmp (op, "l") || !strcmp (op, "(hl)") || !strcmp (op, "(hl+)")  || !strcmp (op, "(hl-)"))
+  if (!strcmp (op, "h") || !strcmp (op, "l") || !strcmp (op, "(hl)"))
     return "hl";
   if (!strcmp (op, "a"))
     return "af";
