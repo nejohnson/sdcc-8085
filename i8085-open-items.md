@@ -55,20 +55,46 @@ formula, which the current `sizecost_l` doesn't even attempt (it has
 no `* size` term at all, unlike `cyclecost_l` - a separate, pre-
 existing structural gap noticed but not investigated further here).
 
-## 3. Remaining `PAIR_IY`/`PAIR_IX`-style underscore-joined comment mentions
-
-Found 2026-09-17 during the ix/iy comment sweep (the pass that also
-fixed the `symmParmStack`/`isPtr`/`IsReturned`/`IsRegArg` dead-code
-sites - see the closed round-2 gloss entry and commit history around
-that date). The `\biy\b`/`\bix\b` word-boundary grep this pass used,
-plus a subagent's follow-up sweep, missed ~25+ mentions where "iy"/"ix"
-appears joined to another identifier by an underscore rather than as a
-standalone word (e.g. symbol/constant names embedding `_iy`/`_ix`
-rather than the bare register mnemonic). Not yet swept. Neil confirmed
-2026-09-17: sweep these too, once the current pending work (the
-ix/iy/dead-code fixes above) lands and is regression-verified.
-
 ## Closed
+
+### Remaining `PAIR_IY`/`PAIR_IX`-style underscore-joined comment mentions (closed 2026-09-17/18, `94fb4f1` + `b3eca67`)
+
+Was item 3 on this list. Overtaken by two subsequent passes that
+together swept essentially everything this item was tracking, found
+via direct source review rather than a dedicated grep sweep:
+
+- A `djnz` sighting in `peep.c` led to a full trace-and-verify of its
+  classifier-function family (`mightRead`/`mightReadFlag`/
+  `uncondJump`/`condJump`/`surelyWritesFlag`/`surelyWrites`/
+  `callSurelyWrites`) - all inherited a complete Z80-mnemonic
+  classification from this file's shared origin with `z80/peep.c`.
+  Every one of these functions is only ever reached on lines that
+  already passed `scan4op()`'s `isInline` guard, so they can only ever
+  see this port's own Intel-syntax output. Removed the entire dead
+  Z80-mnemonic surface (`djnz`, `ldir`/`lddr`, the `cpi`/`cpd` family,
+  `ex`/`exx`, `reti`/`retn`, `ccf`/`scf`, `bit`/`set`/`res`, the
+  CB-prefix shift group, `rld`/`rrd`, and more), fixed a genuine
+  duplicate/inconsistent `daa` check found along the way, and cleaned
+  up `i8085_canAssign()`/`registerBaseName()`'s dead `(bc)`/`(de)`/
+  `(hl+)`/`(hl-)` checks (no post-inc/post-dec addressing or
+  parenthesised-pair operand syntax exists on this hardware).
+- Separately, direct review of `gen.c` found `AOP_IY` (a different
+  enum from `PAIR_IY`, one Task #25 never reached) still present with
+  ~14 dead switch-case/if-check sites. Exhaustively confirmed nothing
+  can ever construct one (all 12 `newAsmop()` call sites enumerated,
+  none pass it; dedicated storage already deleted) and removed the
+  enum member entirely from `gen.h` - turning every remaining
+  reference into a compile error, which the compiler then found with
+  certainty across `ld_cost_form`, `op8_cost`, `incdec_cost`,
+  `bit8_cost`, `requiresHL`, `setupPair`, `aopGet`, `aopPut`,
+  `cheapMove`, `genMove_o`, and `genPlusIncr`.
+
+Both passes verified via full 3-port regression, 0 failures, 0
+abnormal stops, byte- and tick-identical to baseline. What remains of
+"iy"/"ix" anywhere in `src/i8085/` at this point is exclusively
+current-fact statements (e.g. "no IY register exists on this CPU
+family") consistent with the comment-noise standard - nothing left to
+sweep.
 
 ### Broken/dangling comment fragments + more dead ix/iy code, fixed (2026-09-17, `f7666c5`)
 
