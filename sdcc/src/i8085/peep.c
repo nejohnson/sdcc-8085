@@ -1230,33 +1230,6 @@ bool i8085_canSplitReg (const char *reg, char dst[][16], int nDst)
   return TRUE;
 }
 
-/* i8085_instructionSize() removed entirely (found 2026-09-16, tracked
-   as i8085-open-items.md item 2 pending removal): traced its full
-   reachability chain, not just guessed. It was this port's
-   port->peep.getSize callback - the sole caller in the entire shared
-   frontend is SDCCpeeph.c's interpretLine(), itself only called from
-   pcDistance(), itself only called from the FBYNAME condition
-   functions labelInRange()/labelJTInRange() (relative/short-jump-
-   range checks, used by ports whose relative jumps have a limited
-   range - this port's jumps are all absolute, with no such range to
-   check). Those two are dispatched purely by name, parsed directly
-   out of a peephole rule's own condition clause
-   (callFuncByName(pr->cond, ...)) - never called implicitly. This
-   port's complete, exclusive rule set (peeph-i8085.def, confirmed via
-   its own header as "the active default rule set") never names either
-   condition - grep confirms zero references. So the whole call chain,
-   and this function with it, was unreachable regardless of input,
-   including from user-written inline assembly (the one theoretical
-   path considered and ruled out - i8085 has no relative/short jump to
-   range-check against in the first place, which is exactly why no
-   rule here would ever need this). Verified empirically too: a clean
-   rebuild + full 3-port regression after removal came back byte- and
-   tick-identical to the pre-removal baseline. Both PORT struct
-   `peep.getSize` fields (main.c) now point to NULL - the shared
-   frontend already handles that gracefully (falls back to a
-   pessimistic worst-case distance estimate), and did so unconditionally
-   here anyway since this path was never reached. */
-
 bool i8085_symmParmStack (const char *name)
 {
   /* name is always the real operand of a "call %1" instruction this

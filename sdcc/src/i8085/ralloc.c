@@ -141,15 +141,6 @@ noOverLap (set *itmpStack, symbol *fsym)
     {
       if (bitVectBitValue (sym->clashes, fsym->key))
         return 0;
-#if 0
-      // if sym starts before (or on) our end point
-      // and ends after (or on) our start point,
-      // it is an overlap.
-      if (sym->liveFrom <= fsym->liveTo && sym->liveTo >= fsym->liveFrom)
-        {
-          return 0;
-        }
-#endif
     }
   return 1;
 }

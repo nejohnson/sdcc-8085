@@ -430,24 +430,9 @@ _finaliseOptions (void)
   port->mem.default_local_map = data;
   port->mem.default_globl_map = data;
 
-  /* port->num_regs stays at its 7 literal (a, c, b, e, d, l, h) - #29:
-     enable l/h for ralloc2.cc's tree-decomposition allocator, not just the
-     classic hl-pointer-pair. This is a live bug hunt, not a finished
-     change: letting ralloc2.cc assign l/h to ordinary byte variables
-     surfaces a broad latent bug surface in gen.c wherever code assumed
-     (true only at num_regs=5) that l/h could never hold a variable that
-     survives to be read again later. Bugs found and fixed so far (see git
-     history for the full trace of each): genLeftShift()'s and
-     genRightShift()'s missing HL save/restore around their memory-
-     addressing loops; emit3w_o()'s offset-blind getPairId() check (2
-     sites); genPointerSet()'s unsound "pair is never hl here" proof in
-     its size-1 exception path. Deliberately left crystallized at 7 (not
-     reverted between fixes) per Neil's direction - flip-flopping back to
-     5 to "safely" re-verify each fix in isolation was slowing the hunt
-     down for no real benefit once the pattern was established; the
-     regression suite itself is the safety net now. Not yet clean - see
-     the tracking notes (project memory / commit history) for the current
-     remaining failure list before assuming this is done. */
+  /* port->num_regs is 7 (a, c, b, e, d, l, h) - l/h are ordinary,
+     allocator-assignable registers on this port, not reserved solely
+     for the HL pointer pair. */
 
   _setValues ();
 }
@@ -479,43 +464,6 @@ _setDefaultOptions (void)
   options.out_fmt = 'i';        /* Default output format is ihx */
 }
 
-#if 0
-/* Mangling format:
-    _fun_policy_params
-    where:
-      policy is the function policy
-      params is the parameter format
-
-   policy format:
-    rsp
-    where:
-      r is 'r' for reentrant, 's' for static functions
-      s is 'c' for callee saves, 'r' for caller saves
-      f is 'f' for profiling on, 'x' for profiling off
-    examples:
-      rr - reentrant, caller saves
-   params format:
-    A combination of register short names and s to signify stack variables.
-    examples:
-      bds - first two args appear in BC and DE, the rest on the stack
-      s - all arguments are on the stack.
-*/
-static const char *
-_mangleSupportFunctionName (const char *original)
-{
-  struct dbuf_s dbuf;
-
-  if (strstr (original, "longlong"))
-    return (original);
-
-  dbuf_init (&dbuf, 128);
-  dbuf_printf (&dbuf, "%s_rr%s_%s", original, options.profile ? "f" : "x", options.noRegParams ? "s" : "bds"    /* MB: but the library only has hds variants ??? */
-    );
-
-  return dbuf_detach_c_str (&dbuf);
-}
-#endif
-
 static const char *
 _getRegName (const struct reg_info *reg)
 {
@@ -523,7 +471,6 @@ _getRegName (const struct reg_info *reg)
     {
       return reg->name;
     }
-  /*  assert (0); */
   return "err";
 }
 
