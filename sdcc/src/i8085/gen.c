@@ -6542,7 +6542,7 @@ genCall (const iCode *ic)
               emit2 ("call ___sdcc_bcall");
               emit2 ("!dws", name);
               emit2 ("!dw !bankimmeds", name);
-              regalloc_dry_run_cost += 7;
+              cost2 (7, 17); // call (3B/17T) + 2 data words (2B/0T each, never executed)
             }
           else if (IFFUNC_ISZ88DK_FASTCALL (ftype))
             {
@@ -6550,7 +6550,7 @@ genCall (const iCode *ic)
               emit2 ("mvi a, !hashedbankimmeds", name);
               emit2 ("lxi b, !hashedstr", name);
               emit2 ("call ___sdcc_bcall_abc");
-              regalloc_dry_run_cost += 8;
+              cost2 (8, 34); // mvi (2B/7T) + lxi (3B/10T) + call (3B/17T)
             }
           else
             {
@@ -6559,7 +6559,7 @@ genCall (const iCode *ic)
               emit2 ("mvi e, !hashedbankimmeds", name);
               emit2 ("lxi h, !hashedstr", name);
               emit2 ("call ___sdcc_bcall_ehl");
-              regalloc_dry_run_cost += 8;
+              cost2 (8, 34); // mvi (2B/7T) + lxi (3B/10T) + call (3B/17T)
             }
         }
       else
@@ -7136,7 +7136,8 @@ genRet (const iCode *ic)
          "mov a, m" / "inx h" pair, above in this file. */
       emit2 ("mov a, m");
       emit2 ("inx h");
-      regalloc_dry_run_cost += 6;
+      cost2 (1, 7);
+      cost2 (1, 6);
       emit2 ("mov h, m");
       cost2 (1, 7);
       emit3 (A_LD, ASMOP_L, ASMOP_A);
@@ -8971,7 +8972,7 @@ genEor (const iCode *ic, iCode *ifx, asmop *result_aop, asmop *left_aop, asmop *
 
                   emit2 ("jnz !tlabel", labelKey2num (tlbl->key));
                  }
-              regalloc_dry_run_cost += 3;
+              cost2 (3, 10);
             }
           offset++;
         }
@@ -10686,14 +10687,20 @@ genAnd (const iCode *ic, iCode *ifx)
 
                   emit2 ("j%s !tlabel", jumpcond, labelKey2num (tlbl->key));
                 }
-              regalloc_dry_run_cost += 3;
+              cost2 (3, 10);
             }
         }
       // bit = left & literal
       if (size)
         {
-          emit2 ("clr c");
-          regalloc_dry_run_cost += 3;
+          /* 8080/8085 has no direct clear-carry instruction; "ora a"
+             clears it as a side effect while leaving A unchanged (same
+             idiom already used above in this function, "// For the
+             flags"). This replaces a previous "clr c" here, which is
+             not a valid mnemonic on this port - dead until now (the
+             regression corpus never reached this branch in real,
+             non-dry-run emission), not merely unoptimal. */
+          emit3 (A_OR, ASMOP_A, ASMOP_A);
           emitLabel (tlbl);
         }
       // if(left & literal)
@@ -10930,7 +10937,7 @@ genOr (const iCode * ic, iCode * ifx)
                   // file).
                    emit2 ("jnz !tlabel", labelKey2num (tlbl->key));
                 }
-              regalloc_dry_run_cost += 3;
+              cost2 (3, 10);
             }
 
           offset++;
@@ -13091,7 +13098,7 @@ genPointerGet (const iCode *ic)
              b/d/h/sp works - so no dispatch/guard is needed here, unlike
              the lhld/shld-shaped sites elsewhere in this file. */
           emit2 ("lxi %s, %s", _pairs[pair].name, aopGetLitWordLong (left->aop, rightval, TRUE));
-          regalloc_dry_run_cost += 3;
+          cost2 (3, 10);
           spillPair (pair);
           rightval = 0;
         }
@@ -13128,9 +13135,10 @@ genPointerGet (const iCode *ic)
              in this file. */
           emit2 ("mov a, m");
           emit2 ("dcx h");
+          cost2 (1, 7);
+          cost2 (1, 6);
           if (!regalloc_dry_run)
             aopPut (result->aop, "!*hl", 0);
-          regalloc_dry_run_cost += 3;
         }
       else
         {
@@ -13141,9 +13149,10 @@ genPointerGet (const iCode *ic)
              file. */
           emit2 ("mov a, m");
           emit2 ("inx h");
+          cost2 (1, 7);
+          cost2 (1, 6);
           if (!regalloc_dry_run)
             aopPut (result->aop, "!*hl", 1);
-          regalloc_dry_run_cost += 3;
           cheapMove (result->aop, 0, ASMOP_A, 0, true);
         }
       spillPair (PAIR_HL);
@@ -13408,7 +13417,7 @@ genPackBits (PAIR_ID pair, operand *right, int roffset, int blen, int bstr, PAIR
         emit2 ("mov a, m");
       else
         emit2 ("ldax %s", _pairs[pair].name);
-      regalloc_dry_run_cost += 1;
+      cost2 (1, 7);
       if ((mask | litval) != 0xff)
         {
           emit2 ("ani !immedbyte", mask);
@@ -13430,7 +13439,7 @@ genPackBits (PAIR_ID pair, operand *right, int roffset, int blen, int bstr, PAIR
         emit2 ("mov m, a");
       else
         emit2 ("stax %s", _pairs[pair].name);
-      regalloc_dry_run_cost += 1;
+      cost2 (1, 7);
       return;
     }
   else
@@ -13472,7 +13481,7 @@ genPackBits (PAIR_ID pair, operand *right, int roffset, int blen, int bstr, PAIR
         emit2 ("mov a, m");
       else
         emit2 ("ldax %s", _pairs[pair].name);
-      regalloc_dry_run_cost += 1;
+      cost2 (1, 7);
 
       emit2 ("ani !immedbyte", mask);
       cost2 (2, 7);
@@ -13484,7 +13493,7 @@ genPackBits (PAIR_ID pair, operand *right, int roffset, int blen, int bstr, PAIR
         emit2 ("mov m, a");
       else
         emit2 ("stax %s", _pairs[pair].name);
-      regalloc_dry_run_cost += 1;
+      cost2 (1, 7);
       if (needPopExtra)
         _pop (extrapair);
       return;
@@ -14065,7 +14074,7 @@ genAssign (const iCode *ic)
               emit2 ("mov m, a");
               emit2 ("inx h");
               emit2 ("inx de");
-              regalloc_dry_run_cost += 3;
+              cost2 (3, 19); // mov m,a (1B/7T) + inx h (1B/6T) + inx de (1B/6T)
             }
           else
             {
@@ -14527,7 +14536,7 @@ static void
 genCritical (const iCode * ic)
 {
   emit2 ("!di");
-  regalloc_dry_run_cost += 1;
+  cost2 (1, 4);
 }
 
 /*-----------------------------------------------------------------*/
@@ -15169,7 +15178,7 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
              jump to a label. */
           if (!regalloc_dry_run)
             emit2 ("jmp !tlabel", labelKey2num (tlbl2->key));
-          regalloc_dry_run_cost += 3;
+          cost2 (3, 10);
         }
 
       if (!regalloc_dry_run)
@@ -15189,7 +15198,19 @@ genBuiltInMemset (const iCode *ic, int nParams, operand **pparams)
           emit2 ("dcr b");
           emit2 ("jnz !tlabel", labelKey2num (tlbl1->key));
         }
-      regalloc_dry_run_cost += (double_loop ? 6 : 4);
+      /* Per-iteration body: emit_intel_move("m", X) is "mvi m, X" (2B/7T)
+         when X is a literal (only possible when direct_cl is set and
+         c->aop is itself AOP_LIT), otherwise "mov m, X" (1B/7T) - the
+         state cost is 7 either way. Plus "inx h" (1B/6T), once per
+         emit_intel_move; "dcr b" (1B/4T) and the loop-closing "jnz"
+         (3B/10T) once per pass regardless of double_loop. */
+      {
+        const int move_bytes = (direct_cl && c->aop->type == AOP_LIT) ? 2 : 1;
+        if (double_loop)
+          cost2 (2 * move_bytes + 6, 40);
+        else
+          cost2 (move_bytes + 5, 27);
+      }
     }
 
 done:
@@ -15267,7 +15288,8 @@ genBuiltInStrcpy (const iCode *ic, int nParams, operand **pparams)
       emit2 ("ora a");
       emit2 ("jnz !tlabel", labelKey2num (tlbl->key));
     }
-  regalloc_dry_run_cost += 8;
+  // mov a,m(1B/7T) + stax d(1B/7T) + inx hl(1B/6T) + inx de(1B/6T) + ora a(1B/4T) + jnz(3B/10T)
+  cost2 (8, 40);
 
   spillPair (PAIR_HL);
 
@@ -15375,7 +15397,15 @@ genBuiltInStrncpy (const iCode *ic, int nparams, operand **pparams)
       emit2 ("jmp !tlabel", labelKey2num (tlbl3->key));
       emitLabel (tlbl1);
     }
-  regalloc_dry_run_cost += 14; // todo: fix cycle costs
+  /* Byte count only (still "todo: fix cycle costs" - bc's runtime value
+     decides both loops' real trip counts, so no single cycle number can
+     be right; the code-size total below doesn't have that problem, it's
+     fixed regardless of runtime data). Copy phase (mov a,b/ora c/jz +
+     mov a,m/stax d/inx hl/inx de/dcx bc/ora a/jnz) = 14 bytes; pad phase
+     (mov a,b/ora c/jz + xra a/stax d/inx de/dcx bc/jmp) = 12 bytes -
+     26 total. The previous "14" only ever counted the copy phase; the
+     pad phase's bytes were never counted at all. */
+  regalloc_dry_run_cost += 26;
 
   spillPair (PAIR_HL);
 

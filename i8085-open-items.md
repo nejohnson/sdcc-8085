@@ -31,28 +31,81 @@ source, plus redundant re-masking in `assym.c` and presumably
 only so it appears in one consolidated place alongside the other four -
 see that doc for the real detail if this is ever picked up.
 
-## 2. `regalloc_dry_run_cost`'s "legacy, bytes-only" sites silently drop states
+## 2. Two `regalloc_dry_run_cost` sites with no confident derivation
 
-Found 2026-09-18 while fixing item 2's old entry (see the closed entry
-below). `regalloc_dry_run_cost` (gen.c ~line 371) is explicitly
-documented as `// Legacy: cost counted in bytes only (i.e. states have
-been ignored for corresponding instructions and will be estimated)`,
-and folds only into `regalloc_dry_run_cost_bytes` at the end of a
-dry-run pass (gen.c ~15833) - never into `regalloc_dry_run_cost_states`.
-Dozens of `regalloc_dry_run_cost += N` sites throughout `gen.c` use
-this instead of a proper `cost2(bytes, states)` call, meaning every one
-of them silently omits its real T-state cost from this port's actual
-reported cycle counts - not just a dry-run cost *estimate* used for a
-decision (like item 2's old l-path issue), but the *real* accounting
-used for the compiled program's final reported cost. Two instances
-inside `genAssign`'s l-path were fixed in the pass that found this (see
-below); the rest (dozens of sites, `grep -n 'regalloc_dry_run_cost +='
-gen.c`) are untouched - each needs its own instruction-by-instruction
-trace the same way the l-path ones got, not a mechanical find-replace,
-since the "N" at each site would need re-deriving from what's actually
-emitted there. Not started beyond the two already fixed.
+Residual from the 2026-09-18 sweep that fixed the rest of this cluster
+(see the closed entry below). Two sites resisted the same
+instruction-by-instruction tracing that worked everywhere else:
+
+- `genAssign`'s size-4 "simple memcpy" special case (`gen.c`, the
+  `size == 4 && requiresHL(...)` branch): the `regalloc_dry_run_cost +=
+  8; // Todo: More exact cost here!` covers two `aopGet()` calls whose
+  emitted pointer-setup code depends on the operand's real type
+  (`AOP_HL` goes through `fetchLitPair()`; `AOP_EXSTK` goes through
+  `setupPairFromSP()`/`adjustPair()`, whose cost further depends on
+  `_G.pairs[]`'s cached pointer state at that point) - genuinely
+  state-dependent, not resolvable to one static formula the way the
+  l-path's guaranteed-`AOP_EXSTK` case was.
+- `genBuiltInMemcpy`'s `emit8080Ldir()` call site (the `count->aop->type
+  != AOP_REG` branch): `regalloc_dry_run_cost += 2;` doesn't correspond
+  to any visibly-uncosted instruction - `fetchPair()`/`fetchPairLong()`,
+  `emit8080Ldir()`, and the zero-check `emitJP()` all already self-cost
+  via their own internal `cost2()` calls. Left alone rather than
+  guessed; may be genuinely spurious (double-counting) or may be
+  modeling something not obvious from this reading - needs someone to
+  either find what it's for or confirm it's dead weight.
+
+Both are purely dry-run cost-*estimate* inputs (like the old l-path
+issue), not known to affect correctness.
 
 ## Closed
+
+### `regalloc_dry_run_cost`'s "legacy, bytes-only" sites, swept (2026-09-18)
+
+Was item 2 on this list. `regalloc_dry_run_cost` (`gen.c` ~line 371) is
+explicitly documented as `// Legacy: cost counted in bytes only (i.e.
+states have been ignored for corresponding instructions and will be
+estimated)`, and folds only into `regalloc_dry_run_cost_bytes` at the
+end of a dry-run pass - never into `regalloc_dry_run_cost_states`.
+Dozens of `regalloc_dry_run_cost += N` sites throughout `gen.c` used
+this instead of a proper `cost2(bytes, states)` call, silently omitting
+their real T-state cost from this port's actual reported cycle counts
+- not a dry-run *estimate* used for a decision, but the *real*
+accounting behind the compiled program's final reported cost.
+
+Traced 16 of 18 remaining sites (2 already fixed inside `genAssign`'s
+l-path in the prior pass) instruction-by-instruction, cross-checking
+every timing against other already-verified `cost2()` sites in this
+file (`call`=3B/17T, `mvi`=2B/7T, `lxi`=3B/10T, `push`=1B/12T,
+`pop`=1B/10T, conditional jumps=3B/10T, `mov`/`ldax`/`stax`=1B/7T,
+`inx`/`dcx`=1B/6T, register-form ALU ops=1B/4T). Several sites were
+wrong even by the "bytes only" convention they were supposed to
+follow, not just missing states - e.g. two `"mov a, m"`/`"inx"` pairs
+counted `+3` where the byte count alone is 2; a `strncpy`-style loop's
+byte count counted only its copy phase (14 bytes), missing its pad
+phase (12 bytes) entirely, undercounting real code size by 12 bytes.
+
+Found one genuine correctness bug along the way: `emit2 ("clr c")` -
+not a valid 8085/Intel mnemonic on this port at all, and unlike most
+`emit2()` calls here it wasn't gated behind `if (!regalloc_dry_run)`,
+so it would have written that literal invalid text into real,
+non-dry-run output if ever reached (this port's `emit2()` itself
+no-ops during dry runs, but not during real emission). Never hit by
+the regression corpus, so latent until now. Replaced with `emit3 (A_OR,
+ASMOP_A, ASMOP_A)` - the same "ora a" clear-carry idiom this exact
+function already uses one branch away, with its own `// For the
+flags` comment.
+
+2 of the 18 sites resisted confident derivation and were left alone
+rather than guessed - see item 2 above for the narrower follow-up.
+
+Verified: full 3-port regression, 0 failures, 0 abnormal stops. Unlike
+the l-path fix, this one *did* shift byte/tick counts slightly
+(i8085: 8201484->8201440 bytes, 2663784739->2663784305 ticks, and
+proportionally on the other two ports) - smaller and faster, the
+expected signature of the allocator making marginally better decisions
+once fed accurate costs, confirming this fix has real, corpus-visible
+effect rather than being corpus-uncovered.
 
 ### `genAssign`'s l-path cost (`cyclecost_l`/`sizecost_l`), fully re-derived (2026-09-18)
 
