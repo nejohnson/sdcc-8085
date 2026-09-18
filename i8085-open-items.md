@@ -31,31 +31,78 @@ source, plus redundant re-masking in `assym.c` and presumably
 only so it appears in one consolidated place alongside the other four -
 see that doc for the real detail if this is ever picked up.
 
-## 2. `genAssign`'s l-path cost (`cyclecost_l`/`sizecost_l`) - unclear what it's even modeling
+## 2. `regalloc_dry_run_cost`'s "legacy, bytes-only" sites silently drop states
 
-Residual from item 3's 2026-09-16 finding (n-path half fixed 2026-09-17,
-commit `6b9a763` - see the closed entry below). `cyclecost_l`'s
-`21 * size` term structurally matches a per-iteration cost for the
-hand-rolled `emit8080Ldir()` loop this port uses (no hardware block-
-move instruction on 8080/8085) - but Z80 has real hardware `LDIR`, so a
-genuine Z80 cost model would never have needed this loop shape at all.
-That casts real doubt on whether "21" was ever modeling *this*
-8080/8085-specific code path, as opposed to being a generic Z80-family
-byte-copy estimate inherited unexamined when `emit8080Ldi()`/
-`emit8080Ldir()` were added for this port. Unlike the n-path fix,
-re-deriving this with confidence would mean guessing what the numbers
-were originally for, not correcting a known-right shape's wrong
-values - a materially different, riskier kind of change. Left alone,
-reasoning documented inline in `gen.c`. Purely a dry-run cost-
-estimation input (affects which of two already-correct codegen shapes
-`genAssign` picks, never correctness), so still low priority - pending
-someone actually tracing `emit8080Ldi()`/`emit8080Ldir()`'s real
-per-iteration cost in enough depth to derive a properly `size`-scaled
-formula, which the current `sizecost_l` doesn't even attempt (it has
-no `* size` term at all, unlike `cyclecost_l` - a separate, pre-
-existing structural gap noticed but not investigated further here).
+Found 2026-09-18 while fixing item 2's old entry (see the closed entry
+below). `regalloc_dry_run_cost` (gen.c ~line 371) is explicitly
+documented as `// Legacy: cost counted in bytes only (i.e. states have
+been ignored for corresponding instructions and will be estimated)`,
+and folds only into `regalloc_dry_run_cost_bytes` at the end of a
+dry-run pass (gen.c ~15833) - never into `regalloc_dry_run_cost_states`.
+Dozens of `regalloc_dry_run_cost += N` sites throughout `gen.c` use
+this instead of a proper `cost2(bytes, states)` call, meaning every one
+of them silently omits its real T-state cost from this port's actual
+reported cycle counts - not just a dry-run cost *estimate* used for a
+decision (like item 2's old l-path issue), but the *real* accounting
+used for the compiled program's final reported cost. Two instances
+inside `genAssign`'s l-path were fixed in the pass that found this (see
+below); the rest (dozens of sites, `grep -n 'regalloc_dry_run_cost +='
+gen.c`) are untouched - each needs its own instruction-by-instruction
+trace the same way the l-path ones got, not a mechanical find-replace,
+since the "N" at each site would need re-deriving from what's actually
+emitted there. Not started beyond the two already fixed.
 
 ## Closed
+
+### `genAssign`'s l-path cost (`cyclecost_l`/`sizecost_l`), fully re-derived (2026-09-18)
+
+Was item 2 on this list. Traced (not guessed) by reading the real
+emission instruction-by-instruction and cross-checking every timing
+against other already-verified `cost2()` sites in this file. Found
+along the way that the l-path's outer guard (`AOP_EXSTK` **or**
+`AOP_DIR` for both operands) was structurally too loose: `AOP_DIR` is
+only ever constructed for size-1 symbols (its one construction site,
+`aopForSym()`, gates it on `getSize(sym->type) == 1`), but `size`
+(`== result->aop->size`, and `right->aop->size` must match it - SDCC
+never emits a raw `'='` icode with mismatched operand sizes) is `>= 2`
+to even reach the l-path at all. So of the four nominal combinations
+the old guard allowed, only `(EXSTK, EXSTK)` was ever actually
+reachable - not corpus-dependent, provable by construction. Simplified
+the guard to require `AOP_EXSTK` on both sides directly, removing the
+now-dead `pointPairToAop()` fallback branches and the cost formula's
+dead `AOP_DIR` adjustment terms.
+
+With only one combination left to model, re-derived both costs fully:
+fixed overhead is conditional `push`/`pop` of hl/de/bc (12/10 states
+each) plus result's pointer setup (`lxi h,#nn`+`dad sp`+`xchg` =
+5 bytes/24 states) and right's (`lxi h,#nn`+`dad sp` = 4 bytes/20
+states, no xchg needed); the copy itself is either unrolled
+(`emit8080Ldi()` x size, each 5 bytes/32 states) or looped (one-time
+`lxi b,#size` at 3 bytes/10 states, then `emit8080Ldir()`'s body -
+10 bytes/50 states - executed size times), matching the same
+`size <= 2 + optimize.codeSpeed` threshold the real emission branches
+on. `sizecost_l` now has the `* size` scaling term it was previously
+missing entirely (a separate, pre-existing gap the old item text had
+also flagged).
+
+Found and fixed two related real bugs in the same code while tracing
+it: the pointer-setup sequences used `regalloc_dry_run_cost += 4` (a
+"bytes only, states ignored" legacy pattern - see the new item 2 above)
+instead of proper `cost2()` calls, silently dropping 20 real T-states
+from this port's actual reported cycle count each time the l-path
+fired; the loop-form's `lxi b,#size` setup had the same issue
+(`+= 5`, and 5 doesn't even match its real 3-byte cost). Both replaced
+with accurate `cost2(3, 10)`/`cost2(1, 10)` calls.
+
+Verified: full 3-port regression, 0 failures, 0 abnormal stops - but
+byte- and tick-identical to baseline on all three ports, meaning the
+current 6358-case corpus never actually exercises this l-path (both
+operands `AOP_EXSTK`, size >= 2, `l_better` favoring it) at all. The
+fix is confirmed *safe* (nothing broke) and correct by direct
+derivation, but not confirmed to change any real register-allocation
+decision in practice, since nothing in the corpus reaches it - the
+same "real but corpus-uncovered" character as `bit8_cost()`'s
+`AOP_EXSTK` fix (closed entry further below).
 
 ### Remaining `PAIR_IY`/`PAIR_IX`-style underscore-joined comment mentions (closed 2026-09-17/18, `94fb4f1` + `b3eca67`)
 

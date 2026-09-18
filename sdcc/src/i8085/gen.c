@@ -14085,10 +14085,18 @@ genAssign (const iCode *ic)
             down = true;
 
       if (!down &&
-          (result->aop->type == AOP_EXSTK || result->aop->type == AOP_DIR) &&
-          (right->aop->type == AOP_EXSTK || right->aop->type == AOP_DIR) && size >= 2)
+          result->aop->type == AOP_EXSTK &&
+          right->aop->type == AOP_EXSTK && size >= 2)
         {
-          // This estimation is only accurate if neither operand is AOP_EXSTK.
+          /* result/right are guaranteed AOP_EXSTK here, not just
+             AOP_EXSTK-or-AOP_DIR: AOP_DIR is only ever constructed for
+             size-1 symbols (its one construction site, aopForSym(),
+             gates it on getSize(sym->type) == 1), but size (==
+             result->aop->size, and right->aop->size must match it - SDCC
+             never emits a raw '=' icode with mismatched operand sizes,
+             conversions are always their own separate CAST icode first)
+             is >= 2 to even reach here. So neither operand can be
+             AOP_DIR by construction, regardless of corpus coverage. */
           int sizecost_n, sizecost_l, cyclecost_n, cyclecost_l;
           const bool hl_alive = !isPairDead (PAIR_HL, ic);
           const bool de_alive = !isPairDead (PAIR_DE, ic);
@@ -14104,31 +14112,41 @@ genAssign (const iCode *ic)
              right; cyclecost_n's state count was still the inherited Z80
              value (38) - fixed to 26 (13+13), the real 8085 total. */
           sizecost_n = 6 * size;
-
-          sizecost_l = 13 + hl_alive * 2 + de_alive * 2 + bc_alive * 2 -
-            (right->aop->type == AOP_DIR) -
-            (result->aop->type == AOP_DIR) * 2;
-
           cyclecost_n = 26 * size;
 
-          /* l-path cost NOT re-derived (2026-09-17): unlike cyclecost_n
-             above, this couldn't be traced with the same confidence.
-             cyclecost_l's "21 * size" term structurally matches a
-             per-iteration cost for the hand-rolled emit8080Ldir() loop -
-             but that loop exists only because 8080/8085 have no hardware
-             block-move instruction. Z80 has one (LDIR), so a genuine Z80
-             cost model would never have needed this loop shape at all,
-             which casts real doubt on whether "21" was ever modeling
-             *this* 8080/8085-specific code path, as opposed to being a
-             generic Z80-family byte-copy estimate inherited unexamined
-             when emit8080Ldi()/emit8080Ldir() were added. Rewriting these
-             two constants with confidence would mean guessing what they
-             were for, not correcting a known-right shape's wrong numbers
-             - left as-is pending someone actually working out what this
-             estimate is supposed to represent on this port. */
-          cyclecost_l = 21 * size + 51 + hl_alive * 21 + de_alive * 21 + bc_alive * 21 -
-              (right->aop->type == AOP_DIR) * 11 -
-              (result->aop->type == AOP_DIR) * 15;
+          /* l-path cost, fully re-derived 2026-09-18 by tracing the real
+             emission below instruction-by-instruction (all timings
+             cross-checked against other already-verified cost2() sites
+             in this file): conditional push h/d/b (12 states each) and
+             the matching pop b/d/h (10 states each, POP has no extended
+             opcode-fetch cycle the way PUSH does); result's pointer
+             setup is always "lxi h,#nn"(3B/10T) + "dad sp"(1B/10T) +
+             "xchg"(1B/4T) = 5 bytes/24 states (EXSTK is guaranteed, so
+             this is no longer conditional); right's is the same minus
+             the xchg (HL is already the right register) = 4 bytes/20
+             states. That's the whole fixed overhead, independent of
+             size. The copy itself takes one of two shapes depending on
+             the same "size <= 2 + optimize.codeSpeed" threshold the real
+             emission below branches on: unrolled (size calls to
+             emit8080Ldi(), each "mov a,m"+"stax d"+"inx h"+"inx
+             d"+"dcx b" = 5 bytes/32 states) or looped ("lxi b,#size"
+             (3B/10T) once, then emit8080Ldir()'s body - the same 5
+             instructions plus "mov a,b"+"ora c"+"jnz" = 10 bytes/50
+             states - executed size times). */
+          {
+            const int fixed_bytes = (hl_alive + de_alive + bc_alive) * 2 + 9;
+            const int fixed_states = (hl_alive + de_alive + bc_alive) * 22 + 44;
+            if (size <= 2 + optimize.codeSpeed)
+              {
+                sizecost_l = fixed_bytes + 5 * size;
+                cyclecost_l = fixed_states + 32 * size;
+              }
+            else
+              {
+                sizecost_l = fixed_bytes + 3 + 10 * size;
+                cyclecost_l = fixed_states + 10 + 50 * size;
+              }
+          }
 
           if (optimize.codeSize)
             l_better = (sizecost_l < sizecost_n || sizecost_l == sizecost_n && cyclecost_l < cyclecost_n);
@@ -14144,39 +14162,35 @@ genAssign (const iCode *ic)
               if (bc_alive)
                 _push (PAIR_BC);
 
-              if (result->aop->type == AOP_EXSTK)
-                {
-                  int fp_offset =
-                    result->aop->aopu.aop_stk + offset + (result->aop->aopu.aop_stk >
-                        0 ? _G.stack.param_offset : 0);
-                  int sp_offset = fp_offset + _G.stack.pushed + _G.stack.offset;
-                  /* See the "!ldahlsp" comment above (in setupPair()) for
-                     why this shared-mapping-table macro token is expanded
-                     directly here instead of used as-is. */
-                  emit2 ("lxi h, #%d", sp_offset);
-                  emit2 ("dad sp");
-                  regalloc_dry_run_cost += 4;
-                  emit3w (A_EX, ASMOP_DE, ASMOP_HL);
-                }
-              else
-                pointPairToAop (PAIR_DE, result->aop, 0);
+              {
+                int fp_offset =
+                  result->aop->aopu.aop_stk + offset + (result->aop->aopu.aop_stk >
+                      0 ? _G.stack.param_offset : 0);
+                int sp_offset = fp_offset + _G.stack.pushed + _G.stack.offset;
+                /* See the "!ldahlsp" comment above (in setupPair()) for
+                   why this shared-mapping-table macro token is expanded
+                   directly here instead of used as-is. */
+                emit2 ("lxi h, #%d", sp_offset);
+                cost2 (3, 10);
+                emit2 ("dad sp");
+                cost2 (1, 10);
+                emit3w (A_EX, ASMOP_DE, ASMOP_HL);
+              }
 
-              if (right->aop->type == AOP_EXSTK)
-                {
-                  int fp_offset =
-                    right->aop->aopu.aop_stk + offset + (right->aop->aopu.aop_stk >
-                        0 ? _G.stack.param_offset : 0);
-                  int sp_offset = fp_offset + _G.stack.pushed + _G.stack.offset;
-                  /* See the "!ldahlsp" comment above (in setupPair()) for
-                     why this shared-mapping-table macro token is expanded
-                     directly here instead of used as-is. */
-                  emit2 ("lxi h, #%d", sp_offset);
-                  emit2 ("dad sp");
-                  spillPair (PAIR_HL);
-                  regalloc_dry_run_cost += 4;
-                }
-              else
-                pointPairToAop (PAIR_HL, right->aop, 0);
+              {
+                int fp_offset =
+                  right->aop->aopu.aop_stk + offset + (right->aop->aopu.aop_stk >
+                      0 ? _G.stack.param_offset : 0);
+                int sp_offset = fp_offset + _G.stack.pushed + _G.stack.offset;
+                /* See the "!ldahlsp" comment above (in setupPair()) for
+                   why this shared-mapping-table macro token is expanded
+                   directly here instead of used as-is. */
+                emit2 ("lxi h, #%d", sp_offset);
+                cost2 (3, 10);
+                emit2 ("dad sp");
+                cost2 (1, 10);
+                spillPair (PAIR_HL);
+              }
 
               if (size <= 2 + optimize.codeSpeed)
                 for(int i = 0; i < size; i++)
@@ -14184,8 +14198,8 @@ genAssign (const iCode *ic)
               else
                 {
                   emit2 ("lxi b, !immed%d", size);
+                  cost2 (3, 10);
                   emit8080Ldir ();
-                  regalloc_dry_run_cost += 5;
                 }
               spillPair (PAIR_HL);
               spillPair (PAIR_DE);
