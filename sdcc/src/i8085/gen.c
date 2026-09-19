@@ -14061,7 +14061,19 @@ genAssign (const iCode *ic)
           emit2 ("mov e, l");
           aopGet (result->aop, LSB, FALSE);
         }
-      regalloc_dry_run_cost += 8;       // Todo: More exact cost here!
+      /* Not re-derivable to one static formula the way every other
+         regalloc_dry_run_cost site in this file was (2026-09-18/19
+         sweep, see i8085-open-items.md): requiresHL() is true for
+         AOP_HL, AOP_EXSTK, AOP_STL, and AOP_PAIRPTR-pointing-at-HL, so
+         right/result here can each be any of those four, and
+         aopGet()'s pointer-setup side effect differs by type - AOP_HL
+         goes through fetchLitPair(), AOP_EXSTK through
+         setupPairFromSP()/adjustPair(), whose own cost further depends
+         on _G.pairs[]'s cached pointer state at this exact point in the
+         instruction stream. "mov d,h"/"mov e,l" are the only two
+         instructions here with a fixed, type-independent cost (1B/4T
+         each - see the register-register MOV case in ld_cost_form()). */
+      regalloc_dry_run_cost += 8;
 
       while (size--)
         {
@@ -14994,7 +15006,6 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
         emit3w (A_INC, ASMOP_BC, 0);
     }
 
-  // file).
   else
     {
       symbol *tlbl = 0;
@@ -15007,8 +15018,13 @@ genBuiltInMemcpy (const iCode *ic, int nparams, operand **pparams)
           tlbl = regalloc_dry_run ? NULL : newiTempLabel (NULL);
           emitJP (tlbl, "z", 0.0f, true);
         }
+      /* fetchPair()/emitJP()/emit8080Ldir() above all self-cost via
+         their own internal cost2() calls - traced instruction-by-
+         instruction (2026-09-19) and found nothing left uncosted here.
+         This branch previously had an extra "regalloc_dry_run_cost +=
+         2" with no corresponding instruction to justify it - removed
+         as stale/erroneous rather than guessed a replacement value. */
       emit8080Ldir ();
-      regalloc_dry_run_cost += 2;
       emitLabel (tlbl);
     }
 

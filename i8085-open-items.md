@@ -31,34 +31,49 @@ source, plus redundant re-masking in `assym.c` and presumably
 only so it appears in one consolidated place alongside the other four -
 see that doc for the real detail if this is ever picked up.
 
-## 2. Two `regalloc_dry_run_cost` sites with no confident derivation
+## 2. `genAssign`'s size-4 memcpy special case: cost genuinely state-dependent, not a fix
 
-Residual from the 2026-09-18 sweep that fixed the rest of this cluster
-(see the closed entry below). Two sites resisted the same
-instruction-by-instruction tracing that worked everywhere else:
-
-- `genAssign`'s size-4 "simple memcpy" special case (`gen.c`, the
-  `size == 4 && requiresHL(...)` branch): the `regalloc_dry_run_cost +=
-  8; // Todo: More exact cost here!` covers two `aopGet()` calls whose
-  emitted pointer-setup code depends on the operand's real type
-  (`AOP_HL` goes through `fetchLitPair()`; `AOP_EXSTK` goes through
-  `setupPairFromSP()`/`adjustPair()`, whose cost further depends on
-  `_G.pairs[]`'s cached pointer state at that point) - genuinely
-  state-dependent, not resolvable to one static formula the way the
-  l-path's guaranteed-`AOP_EXSTK` case was.
-- `genBuiltInMemcpy`'s `emit8080Ldir()` call site (the `count->aop->type
-  != AOP_REG` branch): `regalloc_dry_run_cost += 2;` doesn't correspond
-  to any visibly-uncosted instruction - `fetchPair()`/`fetchPairLong()`,
-  `emit8080Ldir()`, and the zero-check `emitJP()` all already self-cost
-  via their own internal `cost2()` calls. Left alone rather than
-  guessed; may be genuinely spurious (double-counting) or may be
-  modeling something not obvious from this reading - needs someone to
-  either find what it's for or confirm it's dead weight.
-
-Both are purely dry-run cost-*estimate* inputs (like the old l-path
-issue), not known to affect correctness.
+`gen.c`'s `size == 4 && requiresHL(...)` branch (the "simple memcpy"
+special case) has a `regalloc_dry_run_cost += 8` covering two
+`aopGet()` calls whose emitted pointer-setup code depends on the
+operand's real type: `requiresHL()` is true for `AOP_HL`, `AOP_EXSTK`,
+`AOP_STL`, and `AOP_PAIRPTR`-pointing-at-HL, so right/result here can
+each be any of those four, and each drives a different `aopGet()` code
+path (`AOP_HL` through `fetchLitPair()`; `AOP_EXSTK` through
+`setupPairFromSP()`/`adjustPair()`, whose own cost further depends on
+`_G.pairs[]`'s cached pointer state at that exact point in the
+instruction stream). Investigated 2026-09-18/19 as part of closing out
+the rest of the `regalloc_dry_run_cost` cluster (see the closed entries
+below) - unlike every other site in that cluster, this one has no
+single static formula to derive; giving it one would mean either
+replicating a large chunk of the pointer-caching logic into the cost
+estimator, or picking one type's cost as a stand-in and being
+systematically wrong whenever a different type is the real one at
+runtime, which is worse than the current honest (if imprecise) flat
+estimate. Purely a dry-run cost-*estimate* input, not known to affect
+correctness - the actual emission is unaffected either way.
 
 ## Closed
+
+### `genBuiltInMemcpy`'s unexplained `regalloc_dry_run_cost += 2`, removed (2026-09-19)
+
+Was the other half of item 2's prior entry. A second, more thorough
+pass - this time also tracing `setupForMemcpy()` (called just before
+this whole branch, previously unchecked) - found it too self-costs
+fully via `regMove()`/`genMove()`/`fetchPair()`/`cheapMove()`, all
+already-established self-costing functions. With every instruction on
+every path into this branch confirmed self-costing (`fetchPair()`,
+`emit3()`'s zero-check, `emitJP()`, `emit8080Ldir()`), the `+= 2` had
+no remaining candidate to explain it. Removed as stale/erroneous rather
+than guessed a replacement - verified via full 3-port regression that
+its removal changes nothing (byte/tick counts identical to the prior
+commit's baseline on all three ports), consistent with it having been
+dead weight. Also cleaned up a broken `// file).` comment fragment
+(same class as the round-2 gloss pass's finds) immediately above this
+branch.
+
+Verified: full 3-port regression, 0 failures, 0 abnormal stops,
+byte/tick-identical to baseline.
 
 ### `regalloc_dry_run_cost`'s "legacy, bytes-only" sites, swept (2026-09-18)
 
