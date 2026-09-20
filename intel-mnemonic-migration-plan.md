@@ -804,6 +804,13 @@ the full byte range, the redundant re-masking sites in `assym.c` and
 presumably `linksrc`'s equivalent symbol code) remains open should
 priorities change.
 
+**Superseded 2026-09-20**: Neil made this an explicit policy decision
+rather than a deferred one - this fork's C source is ASCII only, full
+stop, regardless of cost to fix the above. The technical findings
+above still stand as the accurate record of what the gap actually is;
+see `i8085-open-items.md` item 1 for the current, authoritative
+disposition.
+
 **Confirmed working (2026-08-22)**: the first full regression run since
 the exclusion landed came back **`0 failures, 0 abnormal stops, 6354
 test cases`** on all three ports (`i8085`, `i8085-undoc`, `i8080`) -

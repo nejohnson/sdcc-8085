@@ -16,20 +16,32 @@ Update this file whenever one of these is resolved (move it to a
 resolution) or a new one is found worth tracking here rather than only
 in a commit message.
 
-## 1. UTF-8-in-identifiers: documented gap, not a fix
+## 1. UTF-8-in-identifiers: out of scope by policy, not a deferred fix
 
-The vendor ASxxxx assembler's `ctype`/`ccase` tables don't cover the
-full byte range needed for UTF-8 continuation bytes in identifiers, so
-`tcc_83_utf8_in_identifiers`/`tst_p99-conformance` are excluded from
-the regression corpus (`support/regression/MakeList`'s
-`EXCLUDE_ARCH_i8080`-family lists, shared across i8080/i8085/i8085-undoc)
-rather than fixed. Already tracked in detail in
-`intel-mnemonic-migration-plan.md` (the authoritative writeup - both
-`get()`s and both `ctype`/`ccase` table pairs in the vendor assembler
-source, plus redundant re-masking in `assym.c` and presumably
-`linksrc`'s equivalent symbol code, would need extending). Listed here
-only so it appears in one consolidated place alongside the other four -
-see that doc for the real detail if this is ever picked up.
+**Policy decision (Neil, 2026-09-20): this fork's C source is ASCII
+only.** UTF-8 (or any non-ASCII byte) in an identifier is rejected as
+out of scope by design, not tracked as future work to eventually pick
+up. This supersedes the "tracked as real future work, not closed
+permanently" framing in `intel-mnemonic-migration-plan.md`'s
+2026-08-22 investigation - that investigation's technical findings
+still stand (see below for what they found), only the disposition
+changed: it's not that fixing it is too risky to attempt yet, it's
+that this project has no intention of supporting non-ASCII identifiers
+regardless of cost.
+
+Background, for anyone wondering why `tcc_83_utf8_in_identifiers`/
+`tst_p99-conformance` are excluded from the regression corpus
+(`support/regression/MakeList`'s `EXCLUDE_ARCH_i8080`-family lists,
+shared across i8080/i8085/i8085-undoc): the vendor ASxxxx assembler
+masks every identifier character to 7 bits in three independent
+places (`asxxsrc/aslex.c`'s `get()`, a separate copy of the same
+pattern in `linksrc/lklex.c`'s own `get()`, and `assym.c`'s symbol
+comparison/hashing functions re-masking independently at their own
+call sites) - so UTF-8 identifiers don't cleanly fail to compile, they
+silently get mangled into a degraded byte sequence, with a real risk
+of two genuinely different identifiers colliding into the same masked
+symbol name. Full technical detail in
+`intel-mnemonic-migration-plan.md`'s 2026-08-22 entry.
 
 ## 2. `genAssign`'s size-4 memcpy special case: cost genuinely state-dependent, not a fix
 
