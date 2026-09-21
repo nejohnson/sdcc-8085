@@ -504,11 +504,36 @@ _genAssemblerStart (FILE * of)
      so emit it as a ';'-prefixed comment instead for both ports - still
      useful for a human (or future tooling) reading the .asm, but harmless
      to as8085. */
+  /* The compatibility key:  a string every module in a link must agree
+     on, so that objects built for different calling conventions are
+     caught rather than linked into a program that goes wrong when it
+     runs.  The two assemblers spell the directive differently - sdas
+     .optsdcc, ASxxxx .abi - and neither accepts the other's, but the
+     string that follows is the same and both write it as the same O
+     record, so an object from one toolchain still compares correctly
+     against one from the other.
+
+     Until ASxxxx gained .abi this went out as ";optsdcc":  a comment,
+     which as8085 would at least not stop on, but which left these two
+     ports with no key at all, so two objects built with different
+     --sdcccall linked without a word.
+
+     The target name earns its place in the string.  A .rel file records
+     nothing about the CPU it was assembled for, so without it the linker
+     will take an object built for one target and one built for another
+     and produce a program from them. */
   if (!options.noOptsdccInAsm)
     {
-      tfprintf (of, (TARGET_IS_I8085 || TARGET_IS_I8080) ? "\t;optsdcc -m%s" : "\t!optsdcc -m%s", port->target);
-      fprintf (of, " sdcccall(%d)", options.sdcccall);
-      fprintf (of, "\n");
+      if (port->assembler.asxxxx)
+        {
+          fprintf (of, "\t.abi -m%s sdcccall(%d)\n", port->target, options.sdcccall);
+        }
+      else
+        {
+          tfprintf (of, "\t!optsdcc -m%s", port->target);
+          fprintf (of, " sdcccall(%d)", options.sdcccall);
+          fprintf (of, "\n");
+        }
     }
 
   /* Only i8080_port/i8085_port ever call this, so port->id is always
