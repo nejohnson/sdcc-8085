@@ -609,40 +609,26 @@ static const char *_i808xVendorAsmCmd[] = {
    linkEdit() already writes (port->linker.needLinkerScript stays 1,
    below) rather than hand-building the command line here - that shared
    code correctly handles --nostdlib, --no-std-crt0, -L/-l and
-   port->linker.libs. It assumes SDAS's sdldz80 dialect in four spots
-   vendor's aslink doesn't share, so _i808xVendorLinkCmd sed-adapts the
-   generated script (into a sibling "$1.v" file) before invoking aslink:
-     1. "-b AREA = addr" (SDAS's repurposed -b) -> "-a AREA = addr"
-        (vendor's -a; vendor's -b means "bank base address" instead).
-     2. "-i <dstfile>" (SDAS's rename-output extension) -> "-i+<dstfile>"
-        (vendor's own syntax for the same thing).
-     3. "-k <path>" library search paths get a trailing "/" added:
-        vendor's addfile() (linksrc/lklibr.c), unlike SDAS's, doesn't add
-        one itself before appending the -l name, so the two otherwise
-        concatenate into one bogus path and every symbol the library
-        would supply is silently reported as an undefined-global
-        *warning*, not a fatal error.
-     4. "-l <path>/<name>" (a library spec that's itself a relative path)
-        is rewritten to the equivalent "-k <path>/" + "-l <name>" pair:
-        vendor's addfile() has no fallback for a bare relative -l value,
-        unlike SDAS's.
-   The sed patterns need a literal space in "-k "/"-l " (wrapped in C
-   string literals, not shell-escaped - buildCmdLine() flattens this
-   array into one string handed to `sh -c` verbatim) and can't use a '$'
-   end-of-line anchor (buildCmdLine() reserves '$' for its own $1/$2/$3/
-   $l/$L substitution and asserts on any other use) - fix 3's pattern is
-   deliberately left unanchored, relying on the greedy match to land on
-   the final '/' when one exists; SDCCmain.c's own -k lines never already
-   end in one, so the only edge case is a harmless doubled trailing
-   slash. */
+   port->linker.libs.
+
+   That script used to be handed to sed first, to patch up the four
+   places where the shared code assumed SDAS's sdldz80 dialect.  It no
+   longer needs to be.  Three of them are now written correctly in the
+   first place, because linkEdit() asks port->linker.asxxxx which dialect
+   to emit:  -a rather than -b for an area base, -i+name rather than
+   -i name, and a trailing separator on every -k path.  The fourth - a -l
+   whose value is itself a relative path, which vendor's addfile() could
+   not resolve and, worse, did not report, so the library was silently
+   dropped and its symbols came back as undefined globals - was fixed in
+   ASxxxx itself.
+
+   Setting the flag also gets -o+, which names the map and the debug
+   files after the program instead of after whichever object came first.
+   For SDCC that is the crt0 in the library directory, so they were
+   landing there under the wrong name, and against a read-only library
+   directory the link failed outright. */
 static const char *_i808xVendorLinkCmd[] = {
-  "sed",
-  "-e", "s/^-i/-i+/",
-  "-e", "s/^-b/-a/",
-  "-e", "\"s#^-k \\(.*[^/]\\)#-k \\1/#\"",
-  "-e", "\"s#^-l \\(.*\\)/\\([^/]*\\)#-k \\1/\\n-l \\2#\"",
-  "$1", ">", "$1.v", "&&",
-  "aslink", "-nf", "$1.v", "$L", NULL
+  "aslink", "-nf", "$1", "$L", NULL
 };
 
 static const char *const _crt[] = { "crt0.rel", NULL, };
@@ -669,16 +655,19 @@ PORT i8080_port =
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx as8085, not sdas */
   },
   {                             /* Linker: vendor's aslink, not sdldz80 - see _i808xVendorLinkCmd */
     _i808xVendorLinkCmd,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
-    1,                          /* still need the "$1.lk" script - _i808xVendorLinkCmd sed-adapts it for vendor's aslink, see its comment */
+    1,                          /* linkEdit() writes "$1.lk";  linker.asxxxx below makes it ASxxxx's dialect */
     _crt,                       /* crt */
     _libs_i8080,                /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdld */
   },
   {                             /* Peephole optimizer */
     _i8085_defaultRules,
@@ -821,16 +810,19 @@ PORT i8085_port =
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx as8085, not sdas */
   },
   {                             /* Linker: vendor's aslink, not sdldz80 - see _i808xVendorLinkCmd */
     _i808xVendorLinkCmd,
     NULL,
     NULL,
     ".rel",
-    1,                          /* still need the "$1.lk" script - _i808xVendorLinkCmd sed-adapts it for vendor's aslink, see its comment */
+    1,                          /* linkEdit() writes "$1.lk";  linker.asxxxx below makes it ASxxxx's dialect */
     _crt,                       /* crt */
     _libs_i8085,                /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdld */
   },
   {                             /* Peephole optimizer */
     _i8085_defaultRules,
