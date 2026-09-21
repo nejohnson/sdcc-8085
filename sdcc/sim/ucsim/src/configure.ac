@@ -101,6 +101,18 @@ AC_ARG_ENABLE(xa51-port,
 	      ,
 	      enable_xa51_port="no")
 
+AC_ARG_ENABLE(i8080-port,
+	      AS_HELP_STRING([--enable-i8080-port=ARG],
+			     [feature opt passed from SDCC]),
+	      ,
+	      enable_i8080_port="yes")
+
+AC_ARG_ENABLE(i8085-port,
+	      AS_HELP_STRING([--enable-i8085-port=ARG],
+			     [feature opt passed from SDCC]),
+	      ,
+	      enable_i8085_port="yes")
+
 AC_ARG_ENABLE(z80-port,
 	      AS_HELP_STRING([--enable-z80-port=ARG],
 			     [feature opt passed from SDCC]),
@@ -251,7 +263,6 @@ if test $in_sdcc == "yes" ; then
     def_feapp="no"
     def_serio="no"
     def_i8048="no"
-    def_i8085="no"
     def_avr="no"
     def_m6809="no"
     def_m68hc11="no"
@@ -299,6 +310,14 @@ if test $in_sdcc == "yes" ; then
     fi
     if test $enable_r800_port = "yes"; then
 	def_z80="yes"
+    fi
+
+    def_i8085="no"
+    if test $enable_i8080_port = "yes"; then
+	def_i8085="yes"
+    fi
+    if test $enable_i8085_port = "yes"; then
+	def_i8085="yes"
     fi
 
     def_tlcs="no"
