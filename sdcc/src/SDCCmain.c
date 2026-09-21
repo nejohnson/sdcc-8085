@@ -139,6 +139,7 @@ char buffer[PATH_MAX * 2];
 #define OPTION_OPT_CODE_SPEED       "--opt-code-speed"
 #define OPTION_OPT_CODE_SIZE        "--opt-code-size"
 #define OPTION_STD                  "--std"
+#define OPTION_FFUNCTION_SECTIONS   "--ffunction-sections"
 #define OPTION_CODE_SEG             "--codeseg"
 #define OPTION_CONST_SEG            "--constseg"
 #define OPTION_DATA_SEG             "--dataseg"
@@ -220,6 +221,7 @@ static const OPTION optionsTable[] = {
   {0,   OPTION_NO_XINIT_OPT, &options.noXinitOpt, "don't memcpy initialized xram from code"},
   {0,   OPTION_NO_CCODE_IN_ASM, &options.noCcodeInAsm, "don't include c-code as comments in the asm file"},
   {0,   OPTION_NO_PEEP_COMMENTS, &options.noPeepComments, "don't include peephole optimizer comments"},
+  {0,   OPTION_FFUNCTION_SECTIONS, &options.ffunction_sections, "place each function in its own area, so the linker can discard unused ones"},
   {0,   OPTION_CODE_SEG, NULL, "<name> use this name for the code segment"},
   {0,   OPTION_CONST_SEG, NULL, "<name> use this name for the const segment"},
   {0,   OPTION_DATA_SEG, NULL, "<name> use this name for the data segment"},
@@ -1803,6 +1805,21 @@ parseCmdLine (int argc, char **argv)
       options.float_rent++;
     }
 
+  /* .function and .endfunc are ASxxxx directives;  the sdas forks do not
+     have them at all.  Refuse the option rather than let it produce
+     assembly the port's own assembler cannot assemble.  Asking the port
+     which assembler it invokes is exact, where the earlier test on the
+     z80 family was only a proxy - and the wrong one, since every
+     TARGET_Z80_LIKE port ran sdasz80 until this commit. */
+  if (options.ffunction_sections && !port->assembler.asxxxx)
+    {
+      fprintf (stderr,
+               "error: --ffunction-sections needs an assembler providing"
+               " .function and .endfunc,\n"
+               "       which is not available for this target.\n");
+      exit (EXIT_FAILURE);
+    }
+
   /* if debug option is set then open the cdbFile */
   if (options.debug && fullSrcFileName)
     {
@@ -1853,6 +1870,24 @@ getOutFmtExt (void)
 }
 
 /*-----------------------------------------------------------------*/
+/* libPathSep - trailing separator to append to a -k library path  */
+/*                                                                 */
+/* ASxxxx joins the -k path to the library or module name with no  */
+/* separator of its own, so the path has to carry one - its manual */
+/* writes them that way ("-k c:\\iosystem\\").  sdld inserts the     */
+/* separator itself, so SDCC has never had to supply it.           */
+/*-----------------------------------------------------------------*/
+static const char *
+libPathSep (const char *path)
+{
+  size_t n = strlen (path);
+
+  if (!port->linker.asxxxx || (n && IS_DIR_SEPARATOR (path[n - 1])))
+    return "";
+  return DIR_SEPARATOR_STRING;
+}
+
+/*-----------------------------------------------------------------*/
 /* linkEdit : - calls the linkage editor  with options             */
 /*-----------------------------------------------------------------*/
 static void
@@ -1871,6 +1906,11 @@ linkEdit (char **envp)
   if (port->linker.needLinkerScript)
     {
       char out_fmt = (options.out_fmt == 0) ? 'i' : options.out_fmt;
+      /* Both linkers name the output file with the option that selects its
+         format, but they separate option from name differently: the sdld
+         forks take it as the option's argument, ASxxxx aslink appends it
+         to the option letter with a '+'. */
+      const char *out_sep = port->linker.asxxxx ? "+" : " ";
 
       if (NULL != fullDstFileName)
         {
@@ -1892,14 +1932,22 @@ linkEdit (char **envp)
 
       if (TARGET_Z80_LIKE||TARGET_MOS6502_LIKE)
         {
-          fprintf (lnkfile, "-mjwx\n-%c %s\n", out_fmt, dbuf_c_str (&binFileName));
+          fprintf (lnkfile, "-mjwx\n-%c%s%s\n", out_fmt, out_sep, dbuf_c_str (&binFileName));
         }
       else                      /* For all the other ports which need linker script */
         {
-          fprintf (lnkfile, "-muwx\n-%c %s\n", out_fmt, dbuf_c_str (&binFileName));
+          fprintf (lnkfile, "-muwx\n-%c%s%s\n", out_fmt, out_sep, dbuf_c_str (&binFileName));
           if (TARGET_MCS51_LIKE)
             fprintf (lnkfile, "-M\n");
         }
+
+      /* aslink names the map and the debug files after the first object
+         file, which is the crt0 sitting in the library directory - the
+         wrong name, and unwritable if that directory is not the user's.
+         -o+ gives them the program's name instead.  The linked output is
+         already named by the -i+/-s+/-t+ above, which takes precedence. */
+      if (port->linker.asxxxx)
+        fprintf (lnkfile, "-o+%s\n", dstFileName);
 
       if (!TARGET_Z80_LIKE)   /* Not for the z80 and related */
         {
@@ -1929,7 +1977,8 @@ linkEdit (char **envp)
     char *c, *segName; \
     segName = Safe_strdup (N); \
     c = strtok (segName, " \t"); \
-    fprintf (lnkfile,"-b %s = 0x%04x\n", c, L); \
+    fprintf (lnkfile, "%s %s = 0x%04x\n", \
+             port->linker.asxxxx ? "-a" : "-b", c, L); \
     if (segName) { Safe_free (segName); } \
   }
 
@@ -1998,18 +2047,37 @@ linkEdit (char **envp)
           port->extraAreas.genExtraAreaLinkOptions (lnkfile);
         }
 
+      /* With --ffunction-sections each function is in an area of its
+         own and the linker discards the areas nothing reaches.  Two of
+         them have to be named as roots:  the static initialisation
+         fragments each module contributes are run by being laid end to
+         end rather than by being called, so no relocation points at
+         them and reachability alone would throw them all away.  The
+         areas holding initialised data need no root here - the linker
+         keeps any area named by a reference to the a_, l_, s_ or m_
+         symbols it generates for it, which is how the startup code
+         finds them.  A name that matches no area is reported by the
+         linker, so a mismatch here cannot pass unnoticed. */
+      if (options.ffunction_sections)
+        {
+          if (STATIC_NAME)
+            fprintf (lnkfile, "-r %s%s\n", port->fun_prefix, STATIC_NAME);
+          if (GSFINAL_NAME)
+            fprintf (lnkfile, "-r %s%s\n", port->fun_prefix, GSFINAL_NAME);
+        }
+
       /* add the extra linker options */
       fputStrSet (lnkfile, linkOptionsSet);
 
       /* command line defined library paths if specified */
       for (s = setFirstItem (libPathsSet); s != NULL; s = setNextItem (libPathsSet))
-        fprintf (lnkfile, "-k %s\n", s);
+        fprintf (lnkfile, "-k %s%s\n", s, libPathSep (s));
 
       /* standard library path */
       if (!options.nostdlib)
         {
           for (s = setFirstItem (libDirsSet); s != NULL; s = setNextItem (libDirsSet))
-            fprintf (lnkfile, "-k %s\n", s);
+            fprintf (lnkfile, "-k %s%s\n", s, libPathSep (s));
         }
 
       /* command line defined library files if specified */

@@ -330,7 +330,9 @@ _z80_init (void)
       asm_addTree (&_gas_z80);
       break;
     default:
-      asm_addTree (&_asxxxx_z80);
+      /* The banked area mapping is only correct for an ASxxxx assembler;
+         sdas has no banks and rejects the syntax. */
+      asm_addTree (port->assembler.asxxxx ? &_asxxxx_z80_bank : &_asxxxx_z80);
       break;
     }
 
@@ -348,7 +350,9 @@ _z180_init (void)
       asm_addTree (&_gas_z80);
       break;
     default:
-      asm_addTree (&_asxxxx_z80);
+      /* The banked area mapping is only correct for an ASxxxx assembler;
+         sdas has no banks and rejects the syntax. */
+      asm_addTree (port->assembler.asxxxx ? &_asxxxx_z80_bank : &_asxxxx_z80);
       break;
     }
 
@@ -429,7 +433,9 @@ static void
 _tlcs90_init (void)
 {
   z80_opts.sub = SUB_TLCS90;
-  asm_addTree (&_asxxxx_z80);
+  /* The banked area mapping is only correct for an ASxxxx assembler;
+     sdas has no banks and rejects the syntax. */
+  asm_addTree (port->assembler.asxxxx ? &_asxxxx_z80_bank : &_asxxxx_z80);
 
   regsZ80 = z80_regs;
   z80_init_asmops ();
@@ -445,7 +451,9 @@ _ez80_init (void)
       asm_addTree (&_gas_z80);
       break;
     default:
-      asm_addTree (&_asxxxx_z80);
+      /* The banked area mapping is only correct for an ASxxxx assembler;
+         sdas has no banks and rejects the syntax. */
+      asm_addTree (port->assembler.asxxxx ? &_asxxxx_z80_bank : &_asxxxx_z80);
       break;
     }
 
@@ -457,7 +465,9 @@ static void
 _z80n_init (void)
 {
   z80_opts.sub = SUB_Z80N;
-  asm_addTree (&_asxxxx_z80);
+  /* The banked area mapping is only correct for an ASxxxx assembler;
+     sdas has no banks and rejects the syntax. */
+  asm_addTree (port->assembler.asxxxx ? &_asxxxx_z80_bank : &_asxxxx_z80);
 
   regsZ80 = z80_regs;
   z80_init_asmops ();
@@ -467,7 +477,9 @@ static void
 _r800_init (void)
 {
   z80_opts.sub = SUB_R800;
-  asm_addTree (&_asxxxx_z80);
+  /* The banked area mapping is only correct for an ASxxxx assembler;
+     sdas has no banks and rejects the syntax. */
+  asm_addTree (port->assembler.asxxxx ? &_asxxxx_z80_bank : &_asxxxx_z80);
 
   regsZ80 = z80_regs;
   z80_init_asmops ();
@@ -1127,11 +1139,31 @@ _getRegByName (const char *name)
 static void
 _z80_genAssemblerStart (FILE * of)
 {
+  /* The compatibility key:  a string every module in a link must agree
+     on, so that objects built for different calling conventions are
+     caught rather than linked into a program that misbehaves quietly.
+     The two assemblers spell the directive differently - sdas .optsdcc,
+     ASxxxx .abi - and neither accepts the other's, but the string that
+     follows is the same, and both write it as the same O record.  So an
+     object from one toolchain still compares correctly against one from
+     the other, which matters while both are in use.
+
+     The target name earns its place here:  a .rel file records nothing
+     about the CPU it was assembled for, so without it the linker will
+     take an object built for one target and one built for another and
+     produce a program from them. */
   if (!options.noOptsdccInAsm)
     {
-      tfprintf (of, "\t!optsdcc -m%s", port->target);
-      fprintf (of, " sdcccall(%d)", options.sdcccall);
-      fprintf (of, "\n");
+      if (port->assembler.asxxxx)
+        {
+          fprintf (of, "\t.abi -m%s sdcccall(%d)\n", port->target, options.sdcccall);
+        }
+      else
+        {
+          tfprintf (of, "\t!optsdcc -m%s", port->target);
+          fprintf (of, " sdcccall(%d)", options.sdcccall);
+          fprintf (of, "\n");
+        }
     }
 
   if (TARGET_IS_Z80 && options.allow_undoc_inst)
@@ -1307,6 +1339,20 @@ static const char *_z80LinkCmd[] = {
   "sdldz80", "-nf", "$1", "$L", NULL
 };
 
+/* Alan Baldwin's ASxxxx tools, which the z80, z180 and z80n ports use in
+   place of the sdas/sdld forks.  asz80 assembles all three instruction
+   sets (it has the Z180 mlt/in0/out0 and the Z80N swapnib/ldix), but not
+   the R800's multuw/mulub, so r800 stays on sdasz80.  The assembler
+   differs in one spelling: it derives every output file name from -o+base
+   rather than taking the object file name as a separate argument. */
+static const char *_asxxxxZ80AsmCmd[] = {
+  "asz80", "$l", "$3", "-o+$1", "$1.asm", NULL
+};
+
+static const char *_asxxxxLinkCmd[] = {
+  "aslink", "-nf", "$1", "$L", NULL
+};
+
 static const char *_gbLinkCmd[] = {
   "sdldgb", "-nf", "$1", "$L", NULL
 };
@@ -1368,21 +1414,24 @@ PORT z80_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _z80AsmCmd,
+    _asxxxxZ80AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx asz80, not sdasz80 */
   },
   {                             /* Linker */
-    _z80LinkCmd,                //NULL,
+    _asxxxxLinkCmd,             //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,                          /* needLinkerScript */
     _crt,                       /* crt */
     _libs_z80,                  /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldz80 */
   },
   {                             /* Peephole optimizer */
     _z80_defaultRules,
@@ -1505,21 +1554,24 @@ PORT z80n_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _z80AsmCmd,
+    _asxxxxZ80AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx asz80, not sdasz80 */
   },
   {                             /* Linker */
-    _z80LinkCmd,                //NULL,
+    _asxxxxLinkCmd,             //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_z80n,                 /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldz80 */
   },
   {                             /* Peephole optimizer */
     _z80n_defaultRules,
@@ -1642,21 +1694,24 @@ PORT z180_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _z80AsmCmd,
+    _asxxxxZ80AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx asz80, not sdasz80 */
   },
   {                             /* Linker */
-    _z80LinkCmd,                //NULL,
+    _asxxxxLinkCmd,             //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_z180,                 /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldz80 */
   },
   {                             /* Peephole optimizer */
     _z80_defaultRules,

@@ -7851,7 +7851,21 @@ createFunction (symbol * name, ast * body)
   if (fatalError)
     goto skipall;
 
+  /* With --ffunction-sections each function is bracketed by .function
+     and .endfunc, which puts it in an area of its own so that a linker
+     can discard the functions a program does not reach.  The assembler
+     derives the area name and carries over the enclosing area's
+     attributes and bank;  naming the area here instead would mean
+     repeating those, and an attribute left out is not diagnosed - the
+     area is quietly given a different bank and allocated over the top
+     of another one. */
+  if (options.ffunction_sections)
+    dbuf_printf (&code->oBuf, "\t.function %s\n", name->rname);
+
   eBBlockFromiCode (piCode);
+
+  if (options.ffunction_sections)
+    dbuf_printf (&code->oBuf, "\t.endfunc\n");
 
   /* if there are any statics then do them */
   if (staticAutos)
