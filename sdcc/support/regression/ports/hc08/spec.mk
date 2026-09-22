@@ -4,7 +4,7 @@
 ifdef SDCC_BIN_PATH
   UCHC08C = $(SDCC_BIN_PATH)/ucsim_m68hc08$(EXEEXT)
 
-  AS_HC08C = $(SDCC_BIN_PATH)/sdas6808$(EXEEXT)
+  AS_HC08C = $(SDCC_BIN_PATH)/as6808$(EXEEXT)
 else
   ifdef UCSIM_DIR
     UCHC08A = $(UCSIM_DIR)/src/sims/m68hc08.src/ucsim_m68hc08$(EXEEXT)
@@ -15,7 +15,7 @@ else
 
   EMU = $(WINE) $(shell if [ -f $(UCHC08A) ]; then echo $(UCHC08A); else echo $(UCHC08B); fi)
 
-  AS = $(WINE) $(top_builddir)/bin/sdas6808$(EXEEXT)
+  AS = $(WINE) $(top_builddir)/bin/as6808$(EXEEXT)
 
 ifndef CROSSCOMPILING
   SDCCFLAGS += --nostdinc -I$(top_srcdir)
