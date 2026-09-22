@@ -62,11 +62,18 @@ static void
 genBuiltInMemset(const iCode *ic, int nparams, operand **pparams)
 {
   operand *dst, *val, *len;
+  symbol *page_label = m6502_safeNewiTempLabel (NULL);
   symbol *loop_label = m6502_safeNewiTempLabel (NULL);
+  symbol *tail_label = m6502_safeNewiTempLabel (NULL);
+  symbol *tail_loop_label = m6502_safeNewiTempLabel (NULL);
+  symbol *done_label = m6502_safeNewiTempLabel (NULL);
   bool needpulla = false;
   bool needpully = false;
+  bool needpullx = false;
   bool use_dptr = false;
-  //  int offset;
+  bool islit;
+  bool onepage;
+  unsigned long litlen = 0;
 
   m6502_emitComment (TRACEGEN, "  %s", __func__);
 
@@ -81,8 +88,36 @@ genBuiltInMemset(const iCode *ic, int nparams, operand **pparams)
   needpulla = storeRegTempIfSurv (m6502_reg_a);
   needpully = storeRegTempIfSurv (m6502_reg_y);
 
+  /* A literal length of at most one page can be done with the plain
+     countdown in Y.  Anything else - a longer literal, or a length not
+     known until run time - needs the page loop below, which walks DPTR,
+     so the destination has to be copied there even when it already is a
+     direct-page pointer of our own: writing through the caller's pointer
+     and incrementing it in place would corrupt the variable.  */
+  islit = (AOP_TYPE (len) == AOP_LIT);
+  if (islit)
+    litlen = (unsigned long) ulFromVal (AOP (len)->aopu.aop_lit);
+  onepage = islit && litlen <= 256;
 
-  if(AOP_TYPE(dst)!=AOP_DIR)
+  if (!onepage)
+    {
+      needpullx = storeRegTempIfSurv (m6502_reg_x);
+
+      /* Read a run-time length before anything else runs: the first
+         argument arrives in A:X, and both the DPTR setup and the load of
+         the fill value go through A.  The low half has to outlive the page
+         loop, which owns Y, so it goes to a temp.  */
+      if (islit)
+        m6502_loadRegFromConst (m6502_reg_x, (litlen >> 8) & 0xff);
+      else
+        {
+          m6502_loadRegFromAop (m6502_reg_y, AOP (len), 0);
+          storeRegTemp (m6502_reg_y, true);
+          m6502_loadRegFromAop (m6502_reg_x, AOP (len), 1);
+        }
+    }
+
+  if (AOP_TYPE(dst) != AOP_DIR || !onepage)
     {
       //storeOperToDPTR (operand *oper, int size, iCode *ic)
       m6502_loadRegFromAop (m6502_reg_a, AOP (dst), 0);
@@ -93,16 +128,71 @@ genBuiltInMemset(const iCode *ic, int nparams, operand **pparams)
     }
 
   m6502_loadRegFromAop (m6502_reg_a, AOP (val), 0);
-  m6502_loadRegFromAop (m6502_reg_y, AOP (len), 0);
-  m6502_safeEmitLabel(loop_label);
-  m6502_rmwWithReg ("dec", m6502_reg_y);
 
-  if(use_dptr)
-    m6502_emitOp ("sta", INDFMT_IY, "DPTR");
+  if (onepage)
+    {
+      /* 1..256 bytes: count down in Y, storing at Y-1 .. 0.  A literal 256
+         arrives as 0 and wraps to 255 on the first dey, which is right. */
+      m6502_loadRegFromAop (m6502_reg_y, AOP (len), 0);
+      m6502_safeEmitLabel(loop_label);
+      m6502_rmwWithReg ("dec", m6502_reg_y);
+
+      if(use_dptr)
+        m6502_emitOp ("sta", INDFMT_IY, "DPTR");
+      else
+        m6502_emitOp("sta", INDFMT_IY, AOP(dst)->aopu.aop_dir);
+      m6502_emitBranch ("bne", loop_label);
+    }
   else
-    m6502_emitOp("sta", INDFMT_IY, AOP(dst)->aopu.aop_dir);
-  m6502_emitBranch ("bne", loop_label);
+    {
+      /* X counts whole pages and Y the odd bytes left over.  The full pages
+         go first so the page number only ever has to be stepped with an inc
+         of the high half of DPTR - no 16 bit address arithmetic, and nothing
+         that disturbs A, which holds the fill value throughout.  The counts
+         are tested explicitly rather than off the flags of whatever loaded
+         them, since a load the register tracker can prove redundant emits
+         no instruction at all.  A literal only reaches here with at least
+         one whole page, so its zero tests fold away.  */
+      if (!islit)
+        {
+          m6502_emitOp ("cpx", "#0x00");
+          m6502_emitBranch ("beq", tail_label);
+        }
 
+      m6502_safeEmitLabel (page_label);
+      m6502_loadRegFromConst (m6502_reg_y, 0);
+      m6502_safeEmitLabel (loop_label);
+      m6502_rmwWithReg ("dec", m6502_reg_y);
+      m6502_emitOp ("sta", INDFMT_IY, "DPTR");
+      m6502_emitBranch ("bne", loop_label);
+      m6502_emitOp ("inc", DPTRFMT, 1);
+      m6502_rmwWithReg ("dec", m6502_reg_x);
+      m6502_emitBranch ("bne", page_label);
+
+      m6502_safeEmitLabel (tail_label);
+      if (!islit)
+        {
+          m6502_loadRegTemp (m6502_reg_y);
+          m6502_emitOp ("cpy", "#0x00");
+          m6502_emitBranch ("beq", done_label);
+        }
+      else if (litlen & 0xff)
+        {
+          m6502_loadRegFromConst (m6502_reg_y, litlen & 0xff);
+        }
+
+      if (!islit || (litlen & 0xff))
+        {
+          m6502_safeEmitLabel (tail_loop_label);
+          m6502_rmwWithReg ("dec", m6502_reg_y);
+          m6502_emitOp ("sta", INDFMT_IY, "DPTR");
+          m6502_emitBranch ("bne", tail_loop_label);
+        }
+
+      m6502_safeEmitLabel (done_label);
+    }
+
+  m6502_loadOrFreeRegTemp(m6502_reg_x, needpullx);
   m6502_loadOrFreeRegTemp(m6502_reg_y, needpully);
   m6502_loadOrFreeRegTemp(m6502_reg_a, needpulla);
 

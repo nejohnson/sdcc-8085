@@ -8514,11 +8514,17 @@ genm6502iCode (iCode *ic)
     printf ("ic %d op %d stack pushed %d\n", ic->key, ic->op, G.stack.pushed);
 #endif
 
-  if(ic->op==SEND && ic->builtinSEND)
+  /* A builtin's parameters are a run of SEND iCodes which getBuiltinParms()
+     consumes as a group, marking every one of them generated.  The dry run
+     costs each iCode on its own and re-visits the group's first SEND, so
+     that one has to be cleared again or the builtin costs nothing.  Only
+     the first may be cleared: clearing the rest makes genBuiltIn() re-enter
+     part way down the parameter list, where it reads past the end of the
+     array it was handed.  */
+  if (ic->op == SEND && ic->builtinSEND
+      && (!ic->prev || ic->prev->op != SEND || !ic->prev->builtinSEND))
     {
-      // FIXME: the send is marked generated
-      // workaround to mark the send as not generated
-      ic->generated=0;
+      ic->generated = 0;
     }
 
   if (resultRemat (ic))
