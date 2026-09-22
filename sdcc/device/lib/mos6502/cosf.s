@@ -59,11 +59,11 @@ _cosf:
 not_zero:
 ;	return sincosf(x, 1);
 	lda	*(_cosf_PARM_1+3)
-	sta	(_sincosf_PARM_1+3)
+	sta	_sincosf_PARM_1+3
 	lda	*(_cosf_PARM_1+2)
-	sta	(_sincosf_PARM_1+2)
+	sta	_sincosf_PARM_1+2
 	lda	*(_cosf_PARM_1+1)
-	sta	(_sincosf_PARM_1+1)
+	sta	_sincosf_PARM_1+1
 	lda	*_cosf_PARM_1
 	sta	_sincosf_PARM_1
 
