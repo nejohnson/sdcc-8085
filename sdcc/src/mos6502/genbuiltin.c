@@ -58,6 +58,33 @@ genBuiltInFabs(const iCode *ic, int nparams, operand **pparams)
   m6502_freeAsmop (result, NULL);
 }
 
+/* NOTE: this does not produce a result.  memset() returns its destination,
+   but nothing here writes IC_RESULT, so a use of the return value gets
+   whatever the register restores at the end happen to leave in A:X.  It is
+   unreachable today - m6502_builtins[] declares only __builtin_fabsf, so
+   only a hand-written __builtin_memset declaration can get here at all -
+   and it stays that way until the port can route the cases this function
+   cannot do back to a real call.
+
+   That routing is the thing to fix, and it is not local to this file.  The
+   z80 family arm of convertToFcall() in SDCCopt.c turns a builtin back into
+   a library call whenever the return value is used or the length is not a
+   literal, which is why z80's genBuiltInMemset can simply assert AOP_LIT
+   and ignore the result.  Adding mos6502 to that arm gets the dispatch
+   right but breaks the call: convert: emits stack pushes, while mos6502
+   passes memset's extra arguments in the static _memset_PARM_2 and
+   _memset_PARM_3 and the first in A:X, so the arguments never arrive.
+   Measured 2026-09-22 - uc6502 67 failures, uc65c02 7, uc6502-stack-auto 3,
+   the gradient tracking how nearly each model's library really is stack
+   based.  Teaching convert: the target's parameter passing is shared core
+   work affecting every builtin-using port, so it wants its own change.
+
+   Two traps for whoever does it.  OP_USES is an optimizer structure and is
+   NULL by the time the back end runs, so !bitVectIsZero (OP_USES (result))
+   is always false here and cannot be used to decide whether to materialise
+   the result.  And the result has to be written after the
+   m6502_loadOrFreeRegTemp calls below, which would otherwise overwrite a
+   result the allocator placed in A or X.  */
 static void
 genBuiltInMemset(const iCode *ic, int nparams, operand **pparams)
 {
