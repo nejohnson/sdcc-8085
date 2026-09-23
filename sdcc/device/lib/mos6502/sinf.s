@@ -54,11 +54,11 @@ _sinf:
 not_zero:
 ;	../sinf.c: 39: return sincosf(x, 0);
 	lda	*(_sinf_PARM_1+3)
-	sta	(_sincosf_PARM_1+3)
+	sta	_sincosf_PARM_1+3
 	lda	*(_sinf_PARM_1+2)
-	sta	(_sincosf_PARM_1+2)
+	sta	_sincosf_PARM_1+2
 	lda	*(_sinf_PARM_1+1)
-	sta	(_sincosf_PARM_1+1)
+	sta	_sincosf_PARM_1+1
 	lda	*_sinf_PARM_1
 	sta	_sincosf_PARM_1
 

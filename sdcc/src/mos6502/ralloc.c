@@ -1222,8 +1222,13 @@ packRegisters (eBBlock ** ebpp, int count)
 	{
 	  //packRegsForLiteral (ic);
       
-	  /* move SEND to immediately precede its CALL/PCALL */
-	  if (ic->op == SEND && ic->next &&
+	  /* move SEND to immediately precede its CALL/PCALL.  Never do this
+	     for a builtin: its SENDs are already required to run contiguously
+	     into the CALL (getBuiltinParms() asserts as much while it walks
+	     them), and their order is the parameter order.  moveSendToCall()
+	     relocates only the first two of them, which silently rotated the
+	     arguments of any builtin taking three, such as __builtin_memset. */
+	  if (ic->op == SEND && !ic->builtinSEND && ic->next &&
 	      ic->next->op != CALL && ic->next->op != PCALL)
 	    {
 	      ic = moveSendToCall (ic, ebp);

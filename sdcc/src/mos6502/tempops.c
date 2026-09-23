@@ -168,7 +168,7 @@ m6502_loadRegTempAt (reg_info * reg, int offset)
 	    m6502_emitOp (loadOp, "*(%s+%d)",
 			  _S.tempAttr[offset].aop->aopu.aop_dir, _S.tempAttr[offset].aopofs );
           else
-	    m6502_emitOp (loadOp, "(%s+%d)",
+	    m6502_emitOp (loadOp, "%s+%d",
 			  _S.tempAttr[offset].aop->aopu.aop_dir, _S.tempAttr[offset].aopofs );
         }
       else
@@ -298,7 +298,11 @@ m6502_emitRegTempOp(const char *op, int offset)
     {
       m6502_emitComment(REGOPS|VVDBG, "  %s: %s with %s+%d", __func__,
 			op, _S.tempAttr[offset].aop->aopu.aop_dir, _S.tempAttr[offset].aopofs);
-      m6502_emitOp (op, "%s(%s+%d)", (_S.tempAttr[offset].aop->type==AOP_DIR)?"*":"",
+      /* "*(expr)" is fine - the * marks direct page and the parentheses
+	 only group - but a bare "(expr)" is 6502 indirect addressing to
+	 ASxxxx, so the absolute form must not be parenthesised. */
+      m6502_emitOp (op,
+		    (_S.tempAttr[offset].aop->type==AOP_DIR) ? "*(%s+%d)" : "%s+%d",
 		    _S.tempAttr[offset].aop->aopu.aop_dir, _S.tempAttr[offset].aopofs );
     }
   else
