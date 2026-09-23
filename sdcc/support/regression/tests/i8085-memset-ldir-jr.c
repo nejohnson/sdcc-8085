@@ -36,7 +36,23 @@
 
 #include <testfwk.h>
 
-#if !defined(__SDCC_pdk14) // Not enough RAM/code space for a 600-byte buffer.
+/* __builtin_memset is declared below rather than reached through string.h,
+   so that what gets tested is the back end's own expansion of it and not
+   whichever library memset the header would have picked.  That only works
+   where a back end expands it at all:  z80/gen.c for the twelve z80 family
+   ports, i8085/gen.c for i8080 and i8085, and mos6502/genbuiltin.c.  sm83
+   is the one z80 family port that does not take z80_builtins, and no other
+   port has a builtin dispatch to reach - hc08 has none whatsoever.  Declare
+   it there and the call goes out as an undefined reference to
+   __builtin_memset and the link fails, which is what this test did on hc08
+   and s08 until the guard below was written. */
+#if (defined(__SDCC_z80) || defined(__SDCC_z80n) || defined(__SDCC_z180) || \
+     defined(__SDCC_r2k) || defined(__SDCC_r2ka) || defined(__SDCC_r3ka) || \
+     defined(__SDCC_r4k) || defined(__SDCC_r5k) || defined(__SDCC_r6k) || \
+     defined(__SDCC_tlcs90) || defined(__SDCC_ez80) || defined(__SDCC_r800) || \
+     defined(__SDCC_i8080) || defined(__SDCC_i8085) || \
+     defined(__SDCC_mos6502) || defined(__SDCC_mos65c02)) && \
+    !defined(__SDCC_pdk14) // Not enough RAM/code space for a 600-byte buffer.
 
 void *__builtin_memset (void *dst, int c, unsigned n) __builtin__;
 
