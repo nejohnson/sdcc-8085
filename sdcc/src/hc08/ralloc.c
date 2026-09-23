@@ -325,7 +325,17 @@ createStackSpil (symbol * sym)
   /* set the type to the spilling symbol */
   sloc->type = copyLinkChain (sym->type);
   sloc->etype = getSpec (sloc->type);
-  SPEC_SCLS (sloc->etype) = S_DATA;
+  /* Spill locations go to extended space, not the direct page.  There is
+     one set of them per function and they are not overlaid, so in the
+     direct page they accumulate across the whole program - and the direct
+     page is only what is left of 0x0000..0x00FF above --data-loc, 128
+     bytes by default.  Nothing bounds them: a translation unit cannot see
+     what the others have already used, so no compile-time budget is sound.
+     Past the boundary the generated "*sym" direct accesses cannot encode
+     the address at all; sdld quietly truncated them to the low byte and
+     read the wrong location, which is how this survived so long.  Extended
+     addressing costs a byte and a cycle per access and always works. */
+  SPEC_SCLS (sloc->etype) = S_XDATA;
   SPEC_EXTR (sloc->etype) = 0;
   SPEC_STAT (sloc->etype) = 0;
   SPEC_VOLATILE(sloc->etype) = 0;

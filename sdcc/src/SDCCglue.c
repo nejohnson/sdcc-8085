@@ -2315,7 +2315,7 @@ glue (void)
 
   // TODO: Move this from here to port-specific genAssemblerStart (like we did for the z80-related ports already)?
   if (TARGET_IS_S08)
-    fprintf (asmFile, "\t.cs08\n");
+    fprintf (asmFile, port->assembler.asxxxx ? "\t.hcs08\n" : "\t.cs08\n");
 
   tfprintf (asmFile, "\t!fileprelude\n");
 
