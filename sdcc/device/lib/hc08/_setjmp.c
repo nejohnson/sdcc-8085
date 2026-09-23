@@ -37,10 +37,10 @@ static void dummy (void) __naked
 ;--------------------------------------------------------
 ; overlayable items in ram
 ;--------------------------------------------------------
-        .area   OSEG    (OVR)
+        .area   OSEG    (REL,OVR)
 ___setjmp_buf:
         .ds 2
-        .area   OSEG    (OVR)
+        .area   OSEG    (REL,OVR)
 _longjmp_buf:
         .ds 2
 ;--------------------------------------------------------

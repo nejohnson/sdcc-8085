@@ -886,7 +886,7 @@ PORT hc08_port =
     NULL, /* "BSEG" */
     "RSEG    (ABS)",
     "GSINIT",
-    "OSEG    (OVR)",
+    "OSEG    (REL,OVR)",
     "GSFINAL",
     "HOME",
     "XISEG",              // initialized xdata
@@ -1038,7 +1038,7 @@ PORT s08_port =
     NULL, /* "BSEG" */
     "RSEG    (ABS)",
     "GSINIT",
-    "OSEG    (OVR)",
+    "OSEG    (REL,OVR)",
     "GSFINAL",
     "HOME",
     "XISEG",              // initialized xdata
