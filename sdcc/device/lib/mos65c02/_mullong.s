@@ -38,7 +38,7 @@
 ;--------------------------------------------------------
 ; overlayable function parameters in zero page
 ;--------------------------------------------------------
-	.area	OSEG    (PAG, OVR)
+	.area	OSEG    (REL,OVR)
 __mullong_PARM_1:
 	.ds 4
 __mullong_PARM_2:

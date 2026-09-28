@@ -37,7 +37,7 @@
 ;--------------------------------------------------------
 ; overlayable function parameters in zero page
 ;--------------------------------------------------------
-	.area	OSEG    (PAG, OVR)
+	.area	OSEG    (REL,OVR)
 ___stdc_count_ones_PARM_1:
 	.ds 8
 

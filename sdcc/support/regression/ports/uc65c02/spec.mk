@@ -4,7 +4,7 @@
 SIM_CYCLES = 1000000000
 
 ifdef SDCC_BIN_PATH
-  AS = $(SDCC_BIN_PATH)/sdas6500$(EXEEXT)
+  AS = $(SDCC_BIN_PATH)/as6500$(EXEEXT)
   UC65 = $(SDCC_BIN_PATH)/ucsim_mos6502$(EXEEXT)
 else
   ifdef UCSIM_DIR
@@ -12,7 +12,7 @@ else
   else
     UC65 = $(top_builddir)/sim/ucsim/src/sims/mos6502.src/ucsim_mos6502$(EXEEXT)
   endif
-  AS = $(WINE) $(top_builddir)/bin/sdas6500$(EXEEXT)
+  AS = $(WINE) $(top_builddir)/bin/as6500$(EXEEXT)
 ifndef CROSSCOMPILING
   SDCCFLAGS += --nostdinc -I$(top_srcdir)
   LINKFLAGS += --nostdlib -L$(top_builddir)/device/lib/build/mos65c02

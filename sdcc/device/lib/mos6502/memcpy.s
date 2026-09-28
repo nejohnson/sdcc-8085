@@ -43,7 +43,7 @@
 ;--------------------------------------------------------
 ; overlayable function parameters in zero page
 ;--------------------------------------------------------
-	.area	OSEG    (PAG, OVR)
+	.area	OSEG    (REL,OVR)
 _memcpy_PARM_2:
 ___memcpy_PARM_2:
 	.ds 2
