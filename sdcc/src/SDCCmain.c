@@ -2003,6 +2003,23 @@ linkEdit (char **envp)
                 {
                   WRITE_SEG_LOC (XDATA_NAME, options.xdata_loc);
                 }
+              else if (port->linker.asxxxx)
+                {
+                  /* "_DATA" is an area the assembler predefines, and the two
+                     assemblers place it differently in the object file's area
+                     list: SDAS emits it where the source first names it, after
+                     ZP and OSEG, while ASxxxx emits it and "_CODE" ahead of
+                     every source-declared area because they are entries 0 and 1
+                     of its built-in table - and puts it in its own bank, so a
+                     base given for it never reaches the chain the other areas
+                     are laid out in.  aslink runs one location counter per
+                     bank, resetting it wherever an area carries an explicit
+                     base, so the anchor has to be an area that really sits at
+                     the head of the xdata group.  That is XIDATA_NAME ("DATA"),
+                     which crt0 declares immediately before BSS; basing it
+                     reproduces the SDAS layout exactly. */
+                  WRITE_SEG_LOC (XIDATA_NAME, options.xdata_loc);
+                }
               else
                 {
                   WRITE_SEG_LOC ("_DATA", options.xdata_loc);

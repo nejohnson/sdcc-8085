@@ -211,9 +211,13 @@ m6502_getRegName (const struct reg_info *reg)
 static void
 m6502_genAssemblerStart (FILE * of)
 {
+  /* SDAS's .optsdcc and ASxxxx's .abi are the same O record carrying the
+     same string, and each assembler rejects the other's spelling, so the
+     directive follows whichever toolchain the port is built against. */
   if (!options.noOptsdccInAsm)
     {
-      fprintf (of, "\t.optsdcc -m%s\n", port->target);
+      fprintf (of, "\t%s -m%s\n",
+               port->assembler.asxxxx ? ".abi" : ".optsdcc", port->target);
     }
   fprintf (of, "\n");
 }
@@ -617,15 +621,37 @@ get_model (void)
     $L is the list of extra options that should be passed on the command line...
     MUST be terminated with a NULL.
 */
+/* Both mos6502 ports drive vendor ASxxxx as6500/aslink rather than SDAS's
+   sdas6500/sdld6808.  as6500 covers the 65C02 too - the .r65c02 directive
+   m65c02_genAssemblerStart() emits selects the extension set, exactly as it
+   did for SDAS - so one command serves both ports.  It takes
+   "[-options] file1 [file2...]" and derives the object name from the input,
+   which already gives the .rel name SDCC expects, so there is no separate
+   output argument.
+
+   The linker reuses the "$1.lk" script the shared linkEdit() writes
+   (needLinkerScript stays 1); linker.asxxxx below makes that script
+   ASxxxx's dialect - -a rather than -b for an area base, -i+name rather
+   than -i name, a trailing separator on -k paths, and -o+ so the map and
+   debug files are named after the program rather than after whichever
+   object happened to come first.  See the i8085 and hc08 ports for the
+   same pair.
+
+   Note the linker was sdld6808, not sdld6500: SDAS builds one linker per
+   object-format family, and the 6502 and 6808 share one.  aslink is single
+   and format-agnostic, so that asymmetry disappears here. */
 static const char *_linkCmd[] =
   {
-    "sdld6808", "-nf", "$1", "$L", NULL
+    "aslink", "-nf", "$1", "$L", NULL
   };
 
-/* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
+/* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts.
+   Those option strings already carry "g" (undefined symbols made global),
+   which is what lets ASxxxx accept the implicit externals SDCC emits
+   without a .globl - SDAS assumed them. */
 static const char *_asmCmd[] =
   {
-    "sdas6500", "$l", "$3", "$2", "$1.asm", NULL
+    "as6500", "$l", "$3", "$1.asm", NULL
   };
 
 static const char *const _crt[] = { "crt0.rel", NULL, };
@@ -653,7 +679,8 @@ PORT mos6502_port =
       "-plosgffw",              /* Options without debug */
       0,
       ".asm",
-      NULL                      /* no do_assemble function */
+      NULL,                     /* no do_assemble function */
+      TRUE,                     /* ASxxxx as6500, not sdas */
     },
     {                           /* Linker */
       _linkCmd,
@@ -663,6 +690,7 @@ PORT mos6502_port =
       1,                        /* need linker script */
       _crt,                     /* crt */
       _libs_m6502,              /* libs */
+      TRUE,                     /* ASxxxx aslink, not sdld */
     },
     {                           /* Peephole optimizer */
       _m6502_defaultRules,
@@ -700,7 +728,7 @@ PORT mos6502_port =
       "XSEG",                   /* xstack_name */
       "STACK",                  /* istack_name */
       "CODE",                   /* code */
-      "ZP      (PAG)",          /* data */
+      "ZP",                     /* data */
       NULL,                     /* idata */
       NULL,                     /* pdata */
       "BSS",                    /* xdata */
@@ -708,7 +736,7 @@ PORT mos6502_port =
       NULL,                     /* bit */
       "RSEG    (ABS)",          /* reg */
       "GSINIT",                 /* static initialization */
-      "OSEG    (PAG, OVR)",     /* overlay */
+      "OSEG    (REL,OVR)",      /* overlay */
       "GSFINAL",                /* gsfinal */
       "_CODE",                  /* home */
       "DATA",                   /* initialized xdata */
@@ -826,7 +854,8 @@ PORT mos65c02_port =
       "-plosgffw",              /* Options without debug */
       0,
       ".asm",
-      NULL                      /* no do_assemble function */
+      NULL,                     /* no do_assemble function */
+      TRUE,                     /* ASxxxx as6500, not sdas */
     },
     {                           /* Linker */
       _linkCmd,
@@ -836,6 +865,7 @@ PORT mos65c02_port =
       1,
       _crt,                     /* crt */
       _libs_m65c02,             /* libs */
+      TRUE,                     /* ASxxxx aslink, not sdld */
     },
     {                           /* Peephole optimizer */
       _m65c02_defaultRules,
@@ -872,7 +902,7 @@ PORT mos65c02_port =
       "XSEG",                   // xstack_name
       "STACK",                  // istack_name
       "CODE",                   // code
-      "ZP      (PAG)",          // data
+      "ZP",                     // data
       NULL,                     // idata
       NULL,                     // pdata
       "BSS",                    // xdata
@@ -880,7 +910,7 @@ PORT mos65c02_port =
       NULL,                     // bit
       "RSEG    (ABS)",          // reg
       "GSINIT",                 // static initialization
-      "OSEG    (PAG, OVR)",     // overlay
+      "OSEG    (REL,OVR)",      // overlay
       "GSFINAL",                // gsfinal
       "_CODE",                  // home
       "DATA",                   // initialized xdata

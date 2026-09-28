@@ -37,7 +37,7 @@
 ;--------------------------------------------------------
 ; overlayable function parameters in zero page
 ;--------------------------------------------------------
-	.area	OSEG    (PAG, OVR)
+	.area	OSEG    (REL,OVR)
 __mulint_PARM_2:
 	.ds 2
 

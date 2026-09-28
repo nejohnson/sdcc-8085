@@ -342,6 +342,27 @@ createStackSpil (symbol * sym)
   /* set the type to the spilling symbol */
   sloc->type = copyLinkChain (sym->type);
   sloc->etype = getSpec (sloc->type);
+  /* S_DATA sends the spill to the zero page, by way of the overlay area
+     OSEG, which is where the speed of this port comes from and also its
+     one unbounded allocation: there is a set of these per function, the
+     area is OVR so it sizes to the largest of them, and nothing anywhere
+     checks that largest against the 256 bytes a zero page has.  Past
+     0x00FF the "*sym" direct accesses the port emits cannot encode the
+     address.  sdld truncated them to the low byte and addressed the wrong
+     location in silence - an operand at 0x0152 assembles and links as
+     "lda *0x52" - while vendor aslink reports a Page0 relocation error and
+     writes no output, which is how this came to light.
+
+     Two regression cases reach it: rotate/rotate_size_64_msb_0 and _msb_1,
+     whose spill set is 344 bytes.  They are left failing rather than
+     worked around, because --no-zp-spill, the switch below that moves the
+     whole lot to extended space, is not a cure - measured over uc6502 it
+     costs 5.3% more bytes and 11.7% more ticks and, worse, it miscompiles:
+     rotate_left_type_unsigned_{int,short} and serpent_op_{en,de}crypt all
+     link cleanly and then return wrong answers.  Trading two refused links
+     for four wrong results is not an improvement, so the default stands
+     and the underlying two bugs - the unbounded direct-page allocation,
+     and whatever --no-zp-spill gets wrong - are left for their own work.  */
   SPEC_SCLS (sloc->etype) = (options.xdata_spill)?S_XDATA:S_DATA;
   SPEC_EXTR (sloc->etype) = 0;
   SPEC_STAT (sloc->etype) = 0;

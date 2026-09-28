@@ -1,11 +1,18 @@
 #!/bin/sh
-# Build the vendor ASxxxx tools this tree's z80-family ports drive, and put
+# Build the vendor ASxxxx tools this tree's migrated ports drive, and put
 # them where SDCC's build expects to find them (sdcc/bin).
 #
-# The z80, z180 and z80n ports invoke asz80/aslink rather than the sdas/sdld
-# forks (src/z80/main.c), and device/lib/{z80,z180,z80n}/Makefile.in assembles
-# its hand-written .s files with bin/asz80 directly.  SDCC's own build system
-# knows nothing about vendor/asxxxx, so run this once before "make" in sdcc/.
+# Each of these ports invokes a vendor assembler and aslink rather than the
+# sdas/sdld forks, both from src/<port>/main.c and from the hand-written .s
+# files in device/lib/<port>/Makefile.in:
+#
+#     asz80   z80, z180, z80n
+#     as8085  i8080, i8085
+#     as6808  hc08, s08, s08-stack-auto
+#     as6500  mos6502, mos65c02, mos6502-stack-auto
+#
+# SDCC's own build system knows nothing about vendor/asxxxx, so run this once
+# before "make" in sdcc/, naming the tools the ports you build need.
 #
 # Usage:  tools/build-vendor-asxxxx.sh [tool ...]      (default: asz80 aslink)
 set -e

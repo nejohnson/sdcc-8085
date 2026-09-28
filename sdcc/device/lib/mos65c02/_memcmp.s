@@ -40,7 +40,7 @@
 ;--------------------------------------------------------
 ; overlayable function parameters in zero page
 ;--------------------------------------------------------
-	.area	OSEG    (PAG, OVR)
+	.area	OSEG    (REL,OVR)
 _memcmp_PARM_2:
 	.ds 2
 _memcmp_PARM_3:

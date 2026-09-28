@@ -7,9 +7,9 @@ SIM_CYCLES = 1000000000
 EMU = $(WINE) sim65 -c -v -x $(SIM_CYCLES)
 MAKEBIN = $(top_builddir)/bin/makebin$(EXEEXT)
 ifdef SDCC_BIN_PATH
-  AS = $(SDCC_BIN_PATH)/sdas6500$(EXEEXT)
+  AS = $(SDCC_BIN_PATH)/as6500$(EXEEXT)
 else
-  AS = $(WINE) $(top_builddir)/bin/sdas6500$(EXEEXT)
+  AS = $(WINE) $(top_builddir)/bin/as6500$(EXEEXT)
 ifndef CROSSCOMPILING
   SDCCFLAGS += --nostdinc -I$(top_srcdir)
   LINKFLAGS += --nostdlib -L$(top_builddir)/device/lib/build/mos6502
