@@ -88,9 +88,9 @@ __mullong:
 	#define b3  (b1_3)
 #else
 #if defined(__SDCC_NOOVERLAY)
-	.area DSEG    (DATA)
+	.area DSEG    (BANK=BDATA)
 #else
-	.area OSEG    (OVR,DATA)
+	.area OSEG    (OVR,BANK=BDATA)
 #endif
 
 __mullong_PARM_2:
@@ -105,7 +105,7 @@ __mullong_PARM_2:
 	b3 = (__mullong_PARM_2+3)
 
 #endif
-	.area CSEG    (CODE)
+	.area CSEG    (BANK=BCODE)
 
 				; parameter a comes in a, b, dph, dpl
 	mov	r2,b		; save parameter a
@@ -335,7 +335,7 @@ __mullong:
 	; c3  a3 * b0 + a2 * b1 + a1 * b2 + a0 * b3
 
 #if !defined(__SDCC_PARMS_IN_BANK1)
-	.area XSEG    (XDATA)
+	.area XSEG    (BANK=BXDATA)
 
 __mullong_PARM_2:
 
@@ -343,7 +343,7 @@ __mullong_PARM_2:
 
 	.ds	4
 #endif
-	.area CSEG    (CODE)
+	.area CSEG    (BANK=BCODE)
 
 				; parameter a comes in a, b, dph, dpl
 	mov	r0,dpl		; save parameter a

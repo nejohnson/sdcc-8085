@@ -206,9 +206,26 @@ _mcs51_getRegName (const struct reg_info *reg)
 static void
 _mcs51_genAssemblerStart (FILE * of)
 {
+  /* The 8051's four address spaces are four ASxxxx banks.  SDAS tagged each
+     area with the space it belongs to - (CODE), (DATA), (XDATA), (BIT) - and
+     sdld kept a separate location counter per tag; ASxxxx has no such
+     attribute, but it does have banks, and aslink runs one location counter
+     per bank, which is the same mechanism arrived at from the other end.
+     The banks have to be declared before the first .area that names one -
+     an undeclared BANK= is an undefined symbol, not an implicit bank. */
+  if (port->assembler.asxxxx)
+    {
+      fprintf (of, "\t.bank BCODE\n");
+      fprintf (of, "\t.bank BDATA\n");
+      fprintf (of, "\t.bank BXDATA\n");
+      fprintf (of, "\t.bank BBIT\n");
+    }
+
   if (!options.noOptsdccInAsm)
     {
-      fprintf (of, "\t.optsdcc -m%s", port->target);
+      /* Same O record, same string; each assembler rejects the other's
+         spelling of the directive that carries it. */
+      fprintf (of, "\t%s -m%s", port->assembler.asxxxx ? ".abi" : ".optsdcc", port->target);
 
       switch (options.model)
         {
@@ -384,12 +401,12 @@ static void
 _mcs51_genExtraAreas(FILE *of, bool hasMain)
 {
   tfprintf (of, "\t!area\n", HOME_NAME);
-  tfprintf (of, "\t!area\n", "GSINIT0 (CODE)");
-  tfprintf (of, "\t!area\n", "GSINIT1 (CODE)");
-  tfprintf (of, "\t!area\n", "GSINIT2 (CODE)");
-  tfprintf (of, "\t!area\n", "GSINIT3 (CODE)");
-  tfprintf (of, "\t!area\n", "GSINIT4 (CODE)");
-  tfprintf (of, "\t!area\n", "GSINIT5 (CODE)");
+  tfprintf (of, "\t!area\n", "GSINIT0 (BANK=BCODE)");
+  tfprintf (of, "\t!area\n", "GSINIT1 (BANK=BCODE)");
+  tfprintf (of, "\t!area\n", "GSINIT2 (BANK=BCODE)");
+  tfprintf (of, "\t!area\n", "GSINIT3 (BANK=BCODE)");
+  tfprintf (of, "\t!area\n", "GSINIT4 (BANK=BCODE)");
+  tfprintf (of, "\t!area\n", "GSINIT5 (BANK=BCODE)");
   tfprintf (of, "\t!area\n", STATIC_NAME);
   tfprintf (of, "\t!area\n", port->mem.post_static_name);
   tfprintf (of, "\t!area\n", CODE_NAME);
@@ -962,15 +979,24 @@ get_model (void)
     $L is the list of extra options that should be passed on the command line...
     MUST be terminated with a NULL.
 */
+/* This port drives vendor ASxxxx as8051/aslink rather than SDAS's
+   sdas8051/sdld.  as8051 takes "[-options] file1 [file2...]" and derives the
+   object name from the input, so there is no separate output argument.
+
+   linker.asxxxx below puts the "$1.lk" script the shared linkEdit() writes
+   into ASxxxx's dialect: -a rather than -b for an area base, -i+name rather
+   than -i name, a trailing separator on -k paths, and none of -I, -X, -C, -S
+   or -M, which aslink does not have.  See the i8085, hc08 and mos6502 ports
+   for the same pair. */
 static const char *_linkCmd[] =
 {
-  "sdld", "-nf", "$1", "$L", NULL
+  "aslink", "-nf", "$1", "$L", NULL
 };
 
 /* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
 static const char *_asmCmd[] =
 {
-  "sdas8051", "$l", "$3", "$2", "$1.asm", NULL
+  "as8051", "$l", "$3", "$1.asm", NULL
 };
 
 static const char * const _libs[] = { "mcs51", STD_LIB, STD_INT_LIB, STD_LONG_LIB, STD_FP_LIB, NULL, };
@@ -996,7 +1022,8 @@ PORT mcs51_port =
     "-plosgffw",                /* Options without debug */
     0,
     ".asm",
-    NULL                        /* no do_assemble function */
+    NULL,                       /* no do_assemble function */
+    TRUE,                       /* ASxxxx as8051, not sdas */
   },
   {                             /* Linker */
     _linkCmd,
@@ -1006,6 +1033,7 @@ PORT mcs51_port =
     1,
     NULL,                       /* crt */
     _libs,                      /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdld */
   },
   {                             /* Peephole optimizer */
     _defaultRules,
@@ -1025,26 +1053,26 @@ PORT mcs51_port =
   /* tags for generic pointers */
   { 0x00, 0x40, 0x60, 0x80 },   /* far, near, xstack, code */
   {
-    "XSTK    (PAG,XDATA)",      // xstack_name
-    "STACK   (DATA)",           // istack_name
-    "CSEG    (CODE)",           // code_name
-    "DSEG    (DATA)",           // data_name
-    "ISEG    (DATA)",           // idata_name
-    "PSEG    (PAG,XDATA)",      // pdata_name
-    "XSEG    (XDATA)",          // xdata_name
+    "XSTK    (PAG,BANK=BXDATA)",      // xstack_name
+    "STACK   (BANK=BDATA)",           // istack_name
+    "CSEG    (BANK=BCODE)",           // code_name
+    "DSEG    (BANK=BDATA)",           // data_name
+    "ISEG    (BANK=BDATA)",           // idata_name
+    "PSEG    (BANK=BXDATA)",      // pdata_name
+    "XSEG    (BANK=BXDATA)",          // xdata_name
     NULL,                       // xconst_name
-    "BSEG    (BIT)",            // bit_name
-    "RSEG    (ABS,DATA)",       // reg_name
-    "GSINIT  (CODE)",           // static_name
-    "OSEG    (OVR,DATA)",       // overlay_name
-    "GSFINAL (CODE)",           // post_static_name
-    "HOME    (CODE)",           // home_name
-    "XISEG   (XDATA)",          // xidata_name - initialized xdata
-    "XINIT   (CODE)",           // xinit_name - a code copy of xiseg
-    "CONST   (CODE)",           // const_name - const data (code or not)
-    "CABS    (ABS,CODE)",       // cabs_name - const absolute data (code or not)
-    "XABS    (ABS,XDATA)",      // xabs_name - absolute xdata/pdata
-    "IABS    (ABS,DATA)",       // iabs_name - absolute idata/data
+    "BSEG    (BANK=BBIT)",            // bit_name
+    "RSEG    (ABS,BANK=BDATA)",       // reg_name
+    "GSINIT  (BANK=BCODE)",           // static_name
+    "OSEG    (OVR,BANK=BDATA)",       // overlay_name
+    "GSFINAL (BANK=BCODE)",           // post_static_name
+    "HOME    (BANK=BCODE)",           // home_name
+    "XISEG   (BANK=BXDATA)",          // xidata_name - initialized xdata
+    "XINIT   (BANK=BCODE)",           // xinit_name - a code copy of xiseg
+    "CONST   (BANK=BCODE)",           // const_name - const data (code or not)
+    "CABS    (ABS,BANK=BCODE)",       // cabs_name - const absolute data (code or not)
+    "XABS    (ABS,BANK=BXDATA)",      // xabs_name - absolute xdata/pdata
+    "IABS    (ABS,BANK=BDATA)",       // iabs_name - absolute idata/data
     NULL,                       // name of segment for initialized variables
     NULL,                       // name of segment for copies of initialized variables in code space
     NULL,

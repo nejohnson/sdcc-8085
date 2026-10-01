@@ -1930,8 +1930,11 @@ linkEdit (char **envp)
         }
       else                      /* For all the other ports which need linker script */
         {
-          fprintf (lnkfile, "-muwx\n-%c%s%s\n", out_fmt, out_sep, dbuf_c_str (&binFileName));
-          if (TARGET_MCS51_LIKE)
+          /* aslink has no -u (it is sdld's "update" flag) and no -M. */
+          fprintf (lnkfile, "%s\n-%c%s%s\n",
+                   port->linker.asxxxx ? "-mwx" : "-muwx",
+                   out_fmt, out_sep, dbuf_c_str (&binFileName));
+          if (TARGET_MCS51_LIKE && !port->linker.asxxxx)
             fprintf (lnkfile, "-M\n");
         }
 
@@ -1943,7 +1946,12 @@ linkEdit (char **envp)
       if (port->linker.asxxxx)
         fprintf (lnkfile, "-o+%s\n", dstFileName);
 
-      if (!TARGET_Z80_LIKE)   /* Not for the z80 and related */
+      /* -I, -S, -X and -C are sdld's memory-size options and aslink has
+         none of them.  They are not merely diagnostic either - sdld's -S
+         allocates the stack - so a port that drives aslink has to get the
+         same effect from area bases and sizes, and asking for them here
+         would just be an unknown option. */
+      if (!TARGET_Z80_LIKE && !port->linker.asxxxx)
         {
           /* if iram size specified */
           if (options.iram_size)

@@ -72,9 +72,9 @@ __divulong:
 #if !defined(__SDCC_PARMS_IN_BANK1)
 
 #if defined(__SDCC_NOOVERLAY)
-	.area DSEG    (DATA)
+	.area DSEG    (BANK=BDATA)
 #else
-	.area OSEG    (OVR,DATA)
+	.area OSEG    (OVR,BANK=BDATA)
 #endif
 
 	.globl __divulong_PARM_2
@@ -84,7 +84,7 @@ __divulong_PARM_2:
 __divslong_PARM_2:
 	.ds	4
 
-	.area CSEG    (CODE)
+	.area CSEG    (BANK=BCODE)
 
 	#define y0      (__divulong_PARM_2)
 	#define y1      (__divulong_PARM_2 + 1)

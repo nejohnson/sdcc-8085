@@ -1,3 +1,7 @@
+	.bank BCODE
+	.bank BDATA
+	.bank BXDATA
+	.bank BBIT
 ;--------------------------------------------------------------------------
 ;  crtxclear.asm - C run-time: clear XSEG
 ;
@@ -26,25 +30,25 @@
 ;  might be covered by the GNU General Public License.
 ;--------------------------------------------------------------------------
 
-	.area CSEG    (CODE)
-	.area GSINIT0 (CODE)
-	.area GSINIT1 (CODE)
-	.area GSINIT2 (CODE)
-	.area GSINIT3 (CODE)
-	.area GSINIT4 (CODE)
-	.area GSINIT5 (CODE)
-	.area GSINIT  (CODE)
-	.area GSFINAL (CODE)
+	.area CSEG    (BANK=BCODE)
+	.area GSINIT0 (BANK=BCODE)
+	.area GSINIT1 (BANK=BCODE)
+	.area GSINIT2 (BANK=BCODE)
+	.area GSINIT3 (BANK=BCODE)
+	.area GSINIT4 (BANK=BCODE)
+	.area GSINIT5 (BANK=BCODE)
+	.area GSINIT  (BANK=BCODE)
+	.area GSFINAL (BANK=BCODE)
 
-	.area GSINIT4 (CODE)
+	.area GSINIT4 (BANK=BCODE)
 
 __mcs51_genXRAMCLEAR::
 	mov	r0,#l_PSEG
 	mov	a,r0
 	orl	a,#(l_PSEG >> 8)
 	jz	00006$
-	mov	r1,#s_PSEG
-	mov	__XPAGE,#(s_PSEG >> 8)
+	mov	r1,#a_PSEG
+	mov	__XPAGE,#(a_PSEG >> 8)
 	clr     a
 00005$:	movx	@r1,a
 	inc	r1
@@ -56,7 +60,7 @@ __mcs51_genXRAMCLEAR::
 	orl	a,#(l_XSEG >> 8)
 	jz	00008$
 	mov	r1,#((l_XSEG + 255) >> 8)
-	mov	dptr,#s_XSEG
+	mov	dptr,#a_XSEG
 	clr     a
 00007$:	movx	@dptr,a
 	inc	dptr
