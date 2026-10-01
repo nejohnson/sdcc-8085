@@ -1,7 +1,7 @@
 # Placement audit: what ASlink would refuse in SDCC's regression output
 
-**Status:** pass 1 complete, 2026-09-29.  Four candidate findings, one of them
-a control.  Read §4 before quoting any of them.
+**Status:** passes 1 and 2 complete, 2026-10-01.  Two findings survive, one
+of them the control.  Read §4 and §5 before quoting any of it.
 
 ## 1. Why
 
@@ -112,24 +112,108 @@ found: the `PSEG` `PAG` blocker, which is migration cost rather than a bug.
 Both confirmed instances of the unbounded-allocation class - hc08's spills and
 mos6502's - came from doing the migrations, not from scanning maps.
 
+Pass 2 (§6) found none at all.
+
 That is the lesson for the sweep: **the checks that need no memory model are
 exactly the checks that cannot tell a 24-bit port from a wrapped 16-bit one.**
 Breadth is cheap and shallow; the depth came from linking real programs with a
 linker that refuses.
 
-## 6. What the audit structurally cannot see
+## 6. Pass 2: re-linking SDAS's objects with vendor ASlink
 
-The check that caught hc08 and mos6502 in the first place - a *direct-page
-relocation* resolving past `0xFF` - leaves no trace in a `.map`.  It lives in
-the `R` records, and on the evidence above it is where the yield actually is.
+Run 2026-10-01 over 42,642 programs across the nine ports it turned out to
+be possible on. `tools/audit-relink.py` rewrites each `.lk` into ASlink's
+dialect (`-a` for `-b`, `-i+`, a trailing separator on `-k`, dropping `-M`,
+`-u`, `-j` and the bare `-r`, which in this fork takes a root argument and
+would eat the following line); the SDAS `.lib` archives are mirrored into
+plain-text member lists, because ASlink cannot read an `ar` archive.
 
-Pass 2: **re-link the existing sdas objects with vendor aslink** and collect
-the diagnostics.  No assembler change and no migration - the `.rel` files are
-V3 and `lkrloc3.c` reads them - only a mechanical translation of each `.lk`
-script into ASxxxx's dialect (`-a` for `-b`, `-i+` for `-i`, a trailing
-separator on `-k`, and dropping `-I -X -C -S -M`, which aslink does not have).
-Expect noise from `s_<area>` versus `a_<area>`, which is identifiable and can
-be filtered.  Every port now has a full, freshly built object corpus for it.
+**Yield of new SDCC defects: none.** What it found instead is why the
+premise was only half right.
+
+### The V3 object format forked, and both forks extended it incompatibly
+
+"The `.rel` files are V3 and `lkrloc3.c` reads them" holds only for a port
+that uses nothing but the base V3 relocation modes. Beyond those, the two
+lineages went different ways:
+
+- **SDAS added an escape.** `R_ESCAPE_MASK 0xf0` in `sdas/linksrc/aslink.h`:
+  a mode byte whose top nibble is set consumes **one extra byte** and builds
+  a 12-bit mode, carrying `R_BYT3` (3-byte address, select one byte),
+  `R_HIB` (select byte 3 of 24) and `R_BIT` (byte-addressable to
+  bit-addressable). The relocation entry becomes five bytes. Vendor ASlink
+  reads four, desynchronises, and reports `?ASlink-Error-R area error`.
+- **Both assign different values to the same extended modes.** SDAS has
+  `R3_J19 = 0210` and `R_C24 = 0200`; vendor has `R3_J19 = 0050` and
+  `R3_3BYTE = 0110`. Same ideas, independently encoded.
+
+Which modes each port actually uses, sampled over 200 objects:
+
+| Port | `R_BYT3` | `R_HIB` | `R_BIT` |
+|---|---|---|---|
+| mcs51-small | 10,242 | - | 2 |
+| mcs51-huge | 9,058 | 1,541 | 2 |
+| ds390 | 3,302 | 1,045 | - |
+| stm8 | 1,710 | - | - |
+| stm8-large | 1,726 | 6 | - |
+| Rabbit family | 4 | - | - |
+
+So nine of the 22 SDAS ports cannot be re-linked by vendor ASlink at all:
+all six mcs51 models, ds390, stm8 and stm8-large, plus two objects in each
+Rabbit port.
+
+**This is not a migration blocker, and it is worth being clear about why.**
+ASxxxx V4 expresses every one of these natively - `R4_1BYTE` through
+`R4_4BYTE` with `R4_BYTES` as the size field, `R4_MSB` for byte selection,
+and `R4_MBRS`/`R4_MBRU` for merge-bit-range. A migrated port assembles with
+ASxxxx's own assembler and emits V4, so it never produces an escaped V3
+mode in the first place. The one to check before starting mcs51 is `R_BIT`,
+the 8051's byte-to-bit-space conversion, against `R4_MBRS`/`R4_MBRU`; it is
+rare (2 uses in 200 objects) but it has no obvious V4 twin.
+
+### What the nine readable ports reported
+
+Every one of them produces three or four `?ASlink-Warning-Undefined Global
+s_<area>` per program. That is the `s_` versus `a_` divergence and is
+expected dialect noise, not a finding. Setting it aside:
+
+| Port | Programs | Beyond the noise |
+|---|---|---|
+| f8, f8l | 9,524 | nothing but `tst_p99-conformance` |
+| ucez80, ucr800 | 9,524 | nothing but `tst_p99-conformance` |
+| tlcs90 | 4,762 | 5 × `Area _XDATA Exceeds The Address Space`, all `__far` tests |
+| ucgbz80 | 4,762 | 4,761 × `Byte PCR relocation error`, every one in `_HEADERd`/`_HEADERe` |
+| pdk14, pdk15, pdk15-stack-auto | 14,060 | swamped: millions of `Undefined Extended Mode` and `2K Page relocation error` |
+
+- **`tst_p99-conformance`** appears once per port as
+  `Invalid symbol type : D for _N`. That is ASCII-only policy meeting
+  `S _κ Def00A0` in the symbol table - the known deliberate non-goal, not a
+  defect.
+- **tlcs90's five** are the same `__far` programs pass 1 flagged and
+  withdrew. They are now known to come from this fork's own address-space
+  check (`94d8c73`) meeting a target that places through an MMU: the object
+  declares `XL2`, so a 16-bit space, while SDCC puts `_XDATA` at `0x977E`
+  with size `0x9C45`. Either the placement or the declared address size is
+  wrong, and the programs pass, so the check is the thing that is wrong
+  here. **Recorded against the check, not against SDCC.**
+- **ucgbz80's PCR errors** are all in the Game Boy ROM header areas that
+  `sdldgb` builds and ASlink has no equivalent for. That is sm83's
+  already-known migration blocker showing up exactly where expected.
+- **pdk** is the extended-mode divergence again, from the other side: its
+  objects parse (no escape bytes) but SDAS's `R3_PAG` (0100) is vendor's
+  extended-mode designator, so almost every relocation is misread.
+
+### What this says about the sweep
+
+Pass 1 found one real thing the migrations had not. Pass 2 found none. Both
+confirmed instances of the unbounded-allocation class still come from doing
+the migrations - assembling with ASxxxx's assembler and linking with a
+linker that refuses.
+
+The honest conclusion is that **auditing SDAS's output with ASlink has a
+ceiling, and we have reached it**: the formats have diverged far enough that
+what a cross-link reports is mostly the divergence, not the program. Depth
+needs a migrated port.
 
 ## 7. Baselines
 
@@ -141,7 +225,11 @@ tlcs90, ucez80, ucgbz80, ucr2k, ucr2ka, ucr3ka, ucr4k, ucr5k, ucr6k, ucr800,
 ucz80, ucz80-resiy, ucz80-unsafe-read.
 
 Non-zero: hc08 3, s08 3, s08-stack-auto 3, uc6502 3, uc65c02 3,
-uc6502-stack-auto 1, mcs51-large 3, mcs51-huge 3, ucz180 2, ucz180-resiy 2.
+uc6502-stack-auto 1, mcs51-large 3, mcs51-huge 3, ucz180 1 (`malloc.c`),
+ucz180-resiy 2.
 
-Cannot run: `ucz80n` and `ucz80-undoc`, both on the `.allow_undocumented` gap
-above.
+`ucz80n` and `ucz80-undoc` could not run at all when this was first written,
+on the `.allow_undocumented` gap in vendor `asz80`.  Both now run clean after
+that gap and the `tst` operand form were fixed in ASxxxx (`40e56a0`,
+`d02ee7a`): ucz80n 0 failures over 36,561 tests, ucz80-undoc 0 over 36,595.
+Fixing `tst` also took ucz180 from two failures to one.
