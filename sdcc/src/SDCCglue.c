@@ -2353,21 +2353,27 @@ glue (void)
           fprintf (asmFile, "%s", iComments2);
           fprintf (asmFile, "; overlayable register banks\n");
           fprintf (asmFile, "%s", iComments2);
+          /* "DATA" is SDAS's address-space tag; ASxxxx spells the same idea
+             with a bank, which is what the mcs51 port's own area strings
+             now use.  These four are built here rather than taken from
+             port->mem, so they need the same treatment. */
+          const char *dseg = port->assembler.asxxxx ? "BANK=BDATA" : "DATA";
           if (RegBankUsed[0])
-            fprintf (asmFile, "\t.area REG_BANK_0\t(REL,OVR,DATA)\n\t.ds 8\n");
+            fprintf (asmFile, "\t.area REG_BANK_0\t(REL,OVR,%s)\n\t.ds 8\n", dseg);
           if (RegBankUsed[1] || options.parms_in_bank1)
-            fprintf (asmFile, "\t.area REG_BANK_1\t(REL,OVR,DATA)\n\t.ds 8\n");
+            fprintf (asmFile, "\t.area REG_BANK_1\t(REL,OVR,%s)\n\t.ds 8\n", dseg);
           if (RegBankUsed[2])
-            fprintf (asmFile, "\t.area REG_BANK_2\t(REL,OVR,DATA)\n\t.ds 8\n");
+            fprintf (asmFile, "\t.area REG_BANK_2\t(REL,OVR,%s)\n\t.ds 8\n", dseg);
           if (RegBankUsed[3])
-            fprintf (asmFile, "\t.area REG_BANK_3\t(REL,OVR,DATA)\n\t.ds 8\n");
+            fprintf (asmFile, "\t.area REG_BANK_3\t(REL,OVR,%s)\n\t.ds 8\n", dseg);
         }
       if (BitBankUsed)
         {
           fprintf (asmFile, "%s", iComments2);
           fprintf (asmFile, "; overlayable bit register bank\n");
           fprintf (asmFile, "%s", iComments2);
-          fprintf (asmFile, "\t.area BIT_BANK\t(REL,OVR,DATA)\n");
+          fprintf (asmFile, "\t.area BIT_BANK\t(REL,OVR,%s)\n",
+                   port->assembler.asxxxx ? "BANK=BDATA" : "DATA");
           fprintf (asmFile, "bits:\n\t.ds 1\n");
           fprintf (asmFile, "\tb0 = bits[0]\n");
           fprintf (asmFile, "\tb1 = bits[1]\n");
@@ -2468,7 +2474,8 @@ glue (void)
       fprintf (asmFile, "%s", iComments2);
       fprintf (asmFile, "; external stack\n");
       fprintf (asmFile, "%s", iComments2);
-      fprintf (asmFile, "\t.area XSTK (PAG,XDATA)\n" "__start__xstack:\n\t.ds\t1\n\n");
+      fprintf (asmFile, "\t.area XSTK (PAG,%s)\n" "__start__xstack:\n\t.ds\t1\n\n",
+               port->assembler.asxxxx ? "BANK=BXDATA" : "XDATA");
     }
 
   /* copy external ram data */

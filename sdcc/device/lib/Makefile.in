@@ -338,30 +338,36 @@ objects:
 	$(MAKE) $(LIB_FILES)
 	$(MAKE) clean_intermediate
 
+# The mcs51 models link with vendor ASxxxx aslink, whose lklibr.c reads a
+# library as a plain-text list of .rel file names and cannot parse an ar
+# archive at all.  Pinned per model rather than globally, because ds390,
+# ds400, pic and xa51 still build with SDAS and want the configured default.
+MCS51_LIB_TYPE = LIB_TYPE=ASXVENDOR
+
 models:
 	if grep '^mcs51$$' $(top_builddir)/ports.build > /dev/null; then \
 	  for model in $(MODELS); do \
-	    $(MAKE) MODELFLAGS="--model-$$model" PORT=$$model PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
+	    $(MAKE) $(MCS51_LIB_TYPE) MODELFLAGS="--model-$$model" PORT=$$model PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
 	  done \
 	fi
 
 small-mcs51-stack-auto:
 	if grep '^mcs51$$' $(top_builddir)/ports.build > /dev/null; then \
 	  mkdir -p small-stack-auto; cp small/Makefile small-stack-auto; \
-	  $(MAKE) MODELFLAGS="--model-small --stack-auto" PORT=small-stack-auto PORTDIR=$(BUILDDIR)/small-stack-auto PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
+	  $(MAKE) $(MCS51_LIB_TYPE) MODELFLAGS="--model-small --stack-auto" PORT=small-stack-auto PORTDIR=$(BUILDDIR)/small-stack-auto PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
 	fi
 
 large-mcs51-stack-auto:
 	if grep '^mcs51$$' $(top_builddir)/ports.build > /dev/null; then \
 	  mkdir -p large-stack-auto; cp small/Makefile large-stack-auto; \
-	  $(MAKE) MODELFLAGS="--model-large --stack-auto" PORT=large-stack-auto PORTDIR=$(BUILDDIR)/large-stack-auto PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
+	  $(MAKE) $(MCS51_LIB_TYPE) MODELFLAGS="--model-large --stack-auto" PORT=large-stack-auto PORTDIR=$(BUILDDIR)/large-stack-auto PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
 	fi
 
 model-mcs51-stack-auto:
 	if grep '^mcs51$$' $(top_builddir)/ports.build > /dev/null; then \
 	  for model in $(MODELS); do \
 	    mkdir -p $${model}-stack-auto; cp $${model}/Makefile $${model}-stack-auto; \
-	    $(MAKE) MODELFLAGS="--model-$$model --stack-auto" PORT=$${model}-stack-auto PORTDIR=$(BUILDDIR)/$${model}-stack-auto PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
+	    $(MAKE) $(MCS51_LIB_TYPE) MODELFLAGS="--model-$$model --stack-auto" PORT=$${model}-stack-auto PORTDIR=$(BUILDDIR)/$${model}-stack-auto PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
 	  done \
 	fi
 
@@ -369,7 +375,7 @@ model-mcs51-xstack-auto:
 	if grep '^mcs51$$' $(top_builddir)/ports.build > /dev/null; then \
 	  for model in $(MODELS); do \
 	    mkdir -p $${model}-xstack-auto; cp $${model}/Makefile $${model}-xstack-auto; \
-	    $(MAKE) MODELFLAGS="--model-$$model --stack-auto --xstack" PORT=$${model}-xstack-auto PORTDIR=$(BUILDDIR)/$${model}-xstack-auto PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
+	    $(MAKE) $(MCS51_LIB_TYPE) MODELFLAGS="--model-$$model --stack-auto --xstack" PORT=$${model}-xstack-auto PORTDIR=$(BUILDDIR)/$${model}-xstack-auto PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
 	  done \
 	fi
 

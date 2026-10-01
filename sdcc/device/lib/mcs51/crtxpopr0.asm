@@ -1,3 +1,7 @@
+	.bank BCODE
+	.bank BDATA
+	.bank BXDATA
+	.bank BBIT
 ;--------------------------------------------------------------------------
 ;  crtxpopbits.asm - C run-time: pop bits and other registers from xstack
 ;
@@ -29,14 +33,14 @@
 ;--------------------------------------------------------
 ; overlayable bit register bank
 ;--------------------------------------------------------
-	.area BIT_BANK	(REL,OVR,DATA)
+	.area BIT_BANK	(REL,OVR,BANK=BDATA)
 bits:
 	.ds 1
 
 	ar0 = 0x00
 	ar1 = 0x01
 
-	.area HOME    (CODE)
+	.area HOME    (BANK=BCODE)
 
 ; Pop registers r0..r7 & bits from xstack (r0 always)
 ; Expect mask in B
