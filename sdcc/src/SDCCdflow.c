@@ -123,8 +123,8 @@ DEFSETFUNC (mergeInExprs)
     }
   else
     {
-      //if (dest != ebp)
-      //  dest->inExprs = intersectSets (dest->inExprs, ebp->outExprs, THROW_DEST);
+      if (dest != ebp)
+        dest->inExprs = intersectSets (dest->inExprs, ebp->outExprs, THROW_DEST);
 
       /* delete only if killed in this block*/
       deleteItemIf (&dest->inExprs, ifKilledInBlock, ebp);
