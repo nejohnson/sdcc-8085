@@ -1884,7 +1884,10 @@ array_abstract_declarator
         DCL_ELEM ($$) = 0;
         if ($1)
           {
-            $1->next = $$;
+            sym_link *p;
+            for (p = $1; p->next; p = p->next)
+              ;
+            p->next = $$;
             $$ = $1;
           }
       }
@@ -1905,7 +1908,10 @@ array_abstract_declarator
           }
         if ($1)
           {
-            $1->next = $$;
+            sym_link *p;
+            for (p = $1; p->next; p = p->next)
+              ;
+            p->next = $$;
             $$ = $1;
           }
       }
@@ -3010,6 +3016,7 @@ type_name
               p->next = $1;
             }
           $$ = $2;
+          processFuncPtr ($$);
           ignoreTypedefType = 0;
         }
    ;
