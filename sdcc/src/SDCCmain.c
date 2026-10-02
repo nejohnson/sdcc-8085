@@ -2041,8 +2041,16 @@ linkEdit (char **envp)
               WRITE_SEG_LOC (PDATA_NAME, options.xstack_loc);
             }
 
-          /* indirect data */
-          if (IDATA_NAME)
+          /* indirect data.  Not for an ASxxxx link: idata shares the
+             internal RAM with the register banks, the bit bank, DSEG,
+             OSEG and SSEG, and under banks they are one chain that lays
+             them out one after another.  Basing ISEG at 0 - which is what
+             an idata_loc of 0 means, since this one is written whether or
+             not a location was asked for - resets that chain back over
+             the register banks.  sdld could do it because it kept a
+             separate location counter per address space; the chain is
+             what replaces those counters here. */
+          if (IDATA_NAME && !(TARGET_MCS51_LIKE && port->linker.asxxxx))
             {
               WRITE_SEG_LOC (IDATA_NAME, options.idata_loc);
             }

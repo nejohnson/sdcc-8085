@@ -133,7 +133,7 @@ __mulint:
 #if defined(__SDCC_NOOVERLAY)
 	.area DSEG    (BANK=BDATA)
 #else
-	.area OSEG    (OVR,BANK=BDATA)
+	.area OSEG    (REL,OVR,BANK=BDATA)
 #endif
 #if defined(__SDCC_PARMS_IN_BANK1)
 	#define bl 	(b1_0)

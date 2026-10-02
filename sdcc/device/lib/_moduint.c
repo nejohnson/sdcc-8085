@@ -87,7 +87,7 @@ __modint:			; entry point for __modsint
 #if defined(__SDCC_NOOVERLAY)
 	.area DSEG    (BANK=BDATA)
 #else
-	.area OSEG    (OVR,BANK=BDATA)
+	.area OSEG    (REL,OVR,BANK=BDATA)
 #endif
 
 	.globl __moduint_PARM_2
