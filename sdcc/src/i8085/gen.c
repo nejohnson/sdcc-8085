@@ -7044,7 +7044,21 @@ genRet (const iCode *ic)
   aopOp (IC_LEFT (ic), ic, FALSE, FALSE);
   size = IC_LEFT (ic)->aop->size;
 
-  if (size <= 4 && !IS_STRUCT (operandType (IC_LEFT (ic))))
+  /* operandType(IC_LEFT(ic)) - and its aop->size above - can be wrong here:
+     an earlier optimizer pass (replaceRegEqv's aggrToPtr conversion,
+     upstream bug #3803) corrupts the operand's type away from struct for
+     "return *p;" on a struct pointer, so neither IS_STRUCT() nor ->size on
+     the operand alone can be trusted.  currFunc->type's own return-type
+     link isn't touched by that pass (same reasoning already used for
+     caller_bigreturn above), so prefer it whenever it says struct - a false
+     "not struct" here sends a struct return down the small-scalar path,
+     where aopRet() correctly returns NULL for a struct return type and
+     genMove() crashes on it; even routed to the right path, a wrong
+     (corrupted) size silently copies too many/few bytes instead. */
+  if (currFunc && IS_STRUCT (currFunc->type->next))
+    size = getSize (currFunc->type->next);
+
+  if (size <= 4 && !IS_STRUCT (operandType (IC_LEFT (ic))) && !(currFunc && IS_STRUCT (currFunc->type->next)))
     {
       /* TODO: get this working with floats */
       if (IC_LEFT (ic)->aop->type == AOP_LIT && size == 4 && !IS_FLOAT (IC_LEFT (ic)->aop->aopu.aop_lit->type) &&
@@ -7154,6 +7168,24 @@ genRet (const iCode *ic)
 
   else
     {
+      /* The hidden return-value pointer we're about to fetch into BC would
+         clobber ic->left->aop if that source value happens to already be
+         register-resident in BC - upstream bug #3803 means a genuinely
+         register-resident struct return value can reach here now (the
+         frontend's corrupted type used to always misroute it to the
+         small-scalar path above, which crashes instead of getting here).
+         Evacuate BC to DE around the fetch first in that case; the
+         offset-0-is-low-byte/offset-1-is-high-byte convention survives a
+         push/pop round-trip unchanged, so ASMOP_DE is a correct drop-in
+         replacement source once restored. */
+      bool srcInBC = ic->left->aop->type == AOP_REG
+        && (aopInReg (ic->left->aop, 0, B_IDX) || aopInReg (ic->left->aop, 0, C_IDX)
+            || (size > 1 && (aopInReg (ic->left->aop, 1, B_IDX) || aopInReg (ic->left->aop, 1, C_IDX))));
+      asmop *srcaop = ic->left->aop;
+
+      if (srcInBC)
+        _push (PAIR_BC);
+
       setupPairFromSP (PAIR_HL, _G.stack.offset + 2/* todo: real call overhead */ + _G.stack.pushed);
       emit2 ("mov c, m");
       cost2 (1, 7);
@@ -7161,9 +7193,16 @@ genRet (const iCode *ic)
       emit2 ("mov b, m");
       cost2 (1, 7);
       updatePair (PAIR_HL, 1);
+
+      if (srcInBC)
+        {
+          _pop (PAIR_DE);
+          srcaop = ASMOP_DE;
+        }
+
       do
         {
-          cheapMove (ASMOP_A, 0, ic->left->aop, offset++, true);
+          cheapMove (ASMOP_A, 0, srcaop, offset++, true);
           emit2 ("stax b");   /* store A to *(bc) - sta/lda are direct-address only, no (bc)/(de) form exists; use stax like the ldax d read just above */
           cost2 (1, 7);
           if (size > 1)
