@@ -378,6 +378,39 @@ first. This supersedes the `other`-only version of this plan; the tiers
 below absorb Front-end's and infra's CORE findings rather than sitting
 alongside them.
 
+**Progress (updated as items close - see git log for the actual commits):**
+
+- **#3727 fixed** (`3668789`) - the Tier 2 GCSE miscompilation. Textbook
+  fix already sat commented-out in `SDCCdflow.c`'s `mergeInExprs()`;
+  re-enabled it. Shared code, fixes it for every port.
+- **#4051 / #4099 fixed** (`5f08369`) - function-returning-array ICE.
+  Upstream fixed #4099 (the same root cause) the day before this triage;
+  ported the equivalent 3-part patch (`SDCCsymt.c` + two `SDCC.y` grammar
+  rules) rather than inventing a narrower one. Shared code.
+- **#3971 fixed** (`dc1eced`) - SIGSEGV on `"literal" + constant` pointer
+  initializers. One-line `IS_AST_VALUE` guard in `SDCCast.c`'s
+  `constExprValue()`; `initPointer()`'s existing `(ptr + constant)`
+  fallback already handled the rest correctly once reached. Shared code.
+- **#3803 fixed, i8085-only** (`ef58abb`) - segfault on `return *p;` for a
+  struct pointer. No upstream reference patch exists - the real frontend
+  fix is still undesigned there (since Jan 2025). Fixed narrowly in this
+  port's own `genRet()` by trusting `currFunc`'s declared return type
+  instead of the frontend-corrupted operand type, which exposed a second,
+  previously-dormant register-conflict bug in the same function (fixed
+  too). **Not fixed upstream or for any other port** - this is a targeted
+  mitigation for this backend specifically, not a general solution.
+- **#3916 / #3917 parked, not fixed** - #3917's own crash (function
+  *pointer* type as `typeof_unqual` operand) turned out to already be
+  fixed on this fork by inheritance from the baseline. The remaining
+  crash (bare function type, same root cause as #3916) has only an
+  explicitly-unstable combined patch upstream (maintainer-reported test
+  regressions, author-suspected bug in their own diff as of 2026-09-29) -
+  deliberately not ported. Revisit once that patch stabilizes upstream.
+- **#3835 - doesn't reproduce on i8085/i8080.** Both of the two
+  independently-reported minimal cases compile cleanly here. Likely
+  specific to stm8's codegen path through the shared optimizer code the
+  crash cites. No action taken, nothing to fix for this fork.
+
 **Tier 1 - crashes/ICEs (14 tickets).** Unambiguous defects, no judgment
 calls about whether they're "real" - the compiler hard-crashes or aborts on
 valid or near-valid input. Several (#3803, #3470, #3715, and the
