@@ -48,6 +48,9 @@ def cmd_show(args):
           f"priority: {t['custom_fields'].get('_priority', '?')}")
     print(f"reported: {t['reported_by']} on {t['created_date']}")
     print(f"url:      https://sourceforge.net/p/sdcc/bugs/{t['ticket_num']}/")
+    if t.get("attachments"):
+        for a in t["attachments"]:
+            print(f"attached: {a['url']} ({a['bytes']} bytes)")
     print()
     print(t["description"])
 
@@ -68,6 +71,9 @@ def cmd_thread(args):
 def cmd_attachments(args):
     t = fetch_ticket(args.num)
     found = False
+    for a in t.get("attachments", []):
+        found = True
+        print(f"{t['created_date']}  {a['bytes']:>8} bytes  {a['url']}  (ticket)")
     for p in t["discussion_thread"]["posts"]:
         for a in p["attachments"]:
             found = True
