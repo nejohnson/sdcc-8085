@@ -2445,6 +2445,17 @@ glue (void)
           if (RegBankUsed[3])
             fprintf (asmFile, "\t.area REG_BANK_3\t(REL,OVR,%s)\n\t.ds 8\n", dseg);
         }
+      /* linkEdit() bases BIT_BANK at 0x20 for an ASxxxx link, and aslink
+         refuses a base for an area no module declares - which is most of
+         them, since only a function that runs the allocator out of
+         ordinary registers ever reaches the bit registers.  Declare the
+         area in every module, empty unless it is used, so the base always
+         has something to apply to.  An empty area costs nothing but the
+         eight bytes sdld would have reclaimed by rolling back an unused
+         top register bank. */
+      if (port->assembler.asxxxx && !BitBankUsed)
+        fprintf (asmFile, "\t.area BIT_BANK\t(REL,OVR,BANK=BDATA)\n");
+
       if (BitBankUsed)
         {
           fprintf (asmFile, "%s", iComments2);
@@ -2453,14 +2464,39 @@ glue (void)
           fprintf (asmFile, "\t.area BIT_BANK\t(REL,OVR,%s)\n",
                    port->assembler.asxxxx ? "BANK=BDATA" : "DATA");
           fprintf (asmFile, "bits:\n\t.ds 1\n");
-          fprintf (asmFile, "\tb0 = bits[0]\n");
-          fprintf (asmFile, "\tb1 = bits[1]\n");
-          fprintf (asmFile, "\tb2 = bits[2]\n");
-          fprintf (asmFile, "\tb3 = bits[3]\n");
-          fprintf (asmFile, "\tb4 = bits[4]\n");
-          fprintf (asmFile, "\tb5 = bits[5]\n");
-          fprintf (asmFile, "\tb6 = bits[6]\n");
-          fprintf (asmFile, "\tb7 = bits[7]\n");
+          if (port->assembler.asxxxx)
+            {
+              int b;
+
+              /* "bits[n]" is SDAS's operator for bit n of a byte whose
+                 address the linker has yet to choose, and it rests on
+                 sdld's R_BIT relocation, which converts a byte address
+                 into a bit address.  ASxxxx has no such relocation and no
+                 bit-address operator either - a bit is a plain number
+                 there - so the byte cannot be allowed to float.
+
+                 linkEdit() bases BIT_BANK at 0x20, the first
+                 bit-addressable byte, which is where sdld placed it in
+                 every program that used it: it follows the four eight
+                 byte register banks.  The eight bit addresses are then
+                 simply 0 to 7, and they are the same in every module
+                 because the area is OVR.  Pinning it costs at most the
+                 eight bytes sdld would have reclaimed by rolling back an
+                 unused top register bank. */
+              for (b = 0; b < 8; b++)
+                fprintf (asmFile, "\tb%d = 0x%02x\n", b, b);
+            }
+          else
+            {
+              fprintf (asmFile, "\tb0 = bits[0]\n");
+              fprintf (asmFile, "\tb1 = bits[1]\n");
+              fprintf (asmFile, "\tb2 = bits[2]\n");
+              fprintf (asmFile, "\tb3 = bits[3]\n");
+              fprintf (asmFile, "\tb4 = bits[4]\n");
+              fprintf (asmFile, "\tb5 = bits[5]\n");
+              fprintf (asmFile, "\tb6 = bits[6]\n");
+              fprintf (asmFile, "\tb7 = bits[7]\n");
+            }
         }
     }
 

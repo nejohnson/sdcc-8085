@@ -2044,6 +2044,36 @@ linkEdit (char **envp)
           /* bit segment start */
           WRITE_SEG_LOC (BIT_NAME, 0);
 
+          /* The eight bit registers the mcs51 allocator spills into live
+             in one byte of BIT_BANK, and SDCCglue.c gives their addresses
+             as the constants 0 to 7 when the assembler is ASxxxx, because
+             ASxxxx has no relocation that converts a byte address into a
+             bit address.  Those constants are only right if the byte is
+             at 0x20, the first bit-addressable one, so say so here rather
+             than leave it to where the area happens to fall.  sdld put it
+             at 0x20 too, after the four register banks - in all 214
+             programs of the regression corpus that used it. */
+          if (TARGET_MCS51_LIKE && port->linker.asxxxx)
+            {
+              fprintf (lnkfile, "-a BIT_BANK = 0x0020\n");
+
+              /* sdld builds the 8051's memory model into the linker:
+                 lkmain.c pre-declares BSEG_BYTES, BIT_BANK, DSEG, OSEG,
+                 ISEG and SSEG, pins the four register banks at 0x00, 0x08,
+                 0x10 and 0x18 and BSEG_BYTES at 0x20, and defines l_IRAM
+                 as the -I size or 0x100.  aslink is target agnostic and
+                 knows none of it, but the link script can say all of it,
+                 which is where it belongs: a linker should not have to
+                 know what an 8051 is.
+
+                 l_IRAM first, because the runtime's crtclear.asm clears
+                 internal RAM with "mov r0,#(l_IRAM-1)" and an undefined
+                 global fails the link. */
+              fprintf (lnkfile, "-g l_IRAM = 0x%04x\n",
+                       (options.iram_size > 0 && options.iram_size <= 0x100) ?
+                       options.iram_size : 0x100);
+            }
+
           /* stack start */
           if ((options.stack_loc) && (options.stack_loc < 0x100) && TARGET_MCS51_LIKE && !TARGET_MOS6502_LIKE)
             {
