@@ -410,6 +410,48 @@ alongside them.
   independently-reported minimal cases compile cleanly here. Likely
   specific to stm8's codegen path through the shared optimizer code the
   crash cites. No action taken, nothing to fix for this fork.
+- **#3645 fixed** (`abe70a5`) - SIGSEGV initializing a flexible array
+  member with a non-literal const array. `createIvalCharPtr()`'s
+  "is this a code-segment string literal" guard checked only
+  `SPEC_SCLS == S_CODE`, which any const array also has on this port -
+  added the real distinguishing fact, `AST_SYMBOL(iexpr)->isstrlit`.
+  Found via GDB backtrace. Shared code.
+- **#2639 fixed** (`47cf1ea`) - crash on an implicitly-declared function
+  called with arguments. `resolveSymbols()`'s synthesized function type
+  for an undeclared call was never marked `FUNC_NOPROTOTYPE`, so it was
+  treated as a strict zero-parameter prototype instead of old-K&R
+  "unspecified parameters" - matches the exact precedent this codebase
+  already has for an explicit empty-parens declarator. Real behavior
+  change, verified carefully: the common zero-arg case is unaffected;
+  calling an implicit declaration WITH arguments now correctly hits the
+  pre-existing #3021/#3481 limitation instead of silently guessing.
+  Full regression byte/tick-identical to the pre-fix baseline - this
+  fork's own corpus never exercised the broken pattern. Shared code.
+- **#3470 / #3370 / #2860 / #3016 - all already fixed upstream,
+  inherited.** Each ticket's reported reproducer, tried verbatim on
+  i8085, now either compiles cleanly or gets a proper diagnostic instead
+  of crashing. No action needed.
+- **#3021 / #3481 parked, not fixed** - both are the same deliberate
+  `wassertl` guard ("Setting of register parameter vs. other parameter
+  not yet implemented for functions without prototype"), not a true
+  crash (a controlled FATAL stop, not SIGSEGV) - for calling conventions
+  on K&R-style no-prototype functions, a feature upstream has left
+  genuinely unimplemented. Obsolete C style; not worth building out for
+  this fork.
+- **#3715 parked, not fixed** - crash in `support/cpp/gcc/
+  cc1_dummies.cc`, a stub in SDCC's *vendored GCC preprocessor* source,
+  not SDCC's own code. `__has_attribute` calls a `get_identifier` stub
+  explicitly marked "unreachable dummy". Affects every target
+  identically (confirmed port-independent, including i8085). No
+  upstream fix in 2+ years; a known, documented user-level workaround
+  exists (`&& !defined(__SDCC)`). Out of scope - real preprocessor-
+  maintainer territory, not an i8085-backend concern.
+
+**Tier 1 is fully worked through as of this pass - every item above has
+a final disposition.** 5 genuine fixes landed (4 shared-code, 1
+i8085-specific), 5 already fixed upstream and inherited, 1 confirmed
+non-reproducing, 4 deliberately parked with reasons recorded above.
+Moving to Tier 2 next.
 
 **Tier 1 - crashes/ICEs (14 tickets).** Unambiguous defects, no judgment
 calls about whether they're "real" - the compiler hard-crashes or aborts on
