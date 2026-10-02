@@ -167,7 +167,7 @@ __endasm;
     #if defined(__SDCC_NOOVERLAY)
         .area DSEG    (BANK=BDATA)
     #else
-        .area OSEG    (OVR,BANK=BDATA)
+        .area OSEG    (REL,OVR,BANK=BDATA)
     #endif
         _memset_PARM_2::
               .ds 1

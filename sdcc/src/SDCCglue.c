@@ -2540,7 +2540,13 @@ glue (void)
       fprintf (asmFile, "%s", iComments2);
       fprintf (asmFile, "; Stack segment in internal ram\n");
       fprintf (asmFile, "%s", iComments2);
-      tfprintf (asmFile, "\t!area\n" "__start__stack:\n\t.ds\t1\n\n", "SSEG");
+      /* The stack lives in internal RAM, so SSEG belongs in the same bank
+         as DSEG, OSEG and the register banks.  Named here rather than
+         taken from port->mem, so it needs the bank naming too - without
+         it the area lands in the default bank, on top of the code. */
+      tfprintf (asmFile, "\t!area\n" "__start__stack:\n\t.ds\t1\n\n",
+                port->assembler.asxxxx && TARGET_MCS51_LIKE ?
+                "SSEG    (BANK=BDATA)" : "SSEG");
     }
 
   /* create the idata segment */

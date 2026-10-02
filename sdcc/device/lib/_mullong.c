@@ -90,7 +90,7 @@ __mullong:
 #if defined(__SDCC_NOOVERLAY)
 	.area DSEG    (BANK=BDATA)
 #else
-	.area OSEG    (OVR,BANK=BDATA)
+	.area OSEG    (REL,OVR,BANK=BDATA)
 #endif
 
 __mullong_PARM_2:
