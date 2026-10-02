@@ -722,6 +722,15 @@ resolveSymbols (ast *tree)
             {
               tree->opval.val->sym->type = newLink (DECLARATOR);
               DCL_TYPE (tree->opval.val->sym->type) = FUNCTION;
+              /* An implicitly-declared function was never given a parameter
+                 list at all, old-K&R-style - same as an explicit empty-parens
+                 declarator pre-C23 (function_declarator in SDCC.y), which
+                 means "unspecified parameters", not "takes none". Without
+                 this, processParms() treats a 2-argument call to this made-up
+                 zero-parameter type as a real arity mismatch (E_TOO_MANY_PARMS)
+                 and later crashes hitting a leftover, never-consumed PARAM
+                 node it isn't expecting (upstream bug #2639). */
+              FUNC_NOPROTOTYPE (tree->opval.val->sym->type) = true;
               tree->opval.val->sym->type->next = tree->opval.val->sym->etype = newIntLink ();
               tree->opval.val->etype = tree->opval.val->etype;
               tree->opval.val->type = tree->opval.val->sym->type;
