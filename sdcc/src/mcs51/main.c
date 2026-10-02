@@ -219,6 +219,27 @@ _mcs51_genAssemblerStart (FILE * of)
       fprintf (of, "\t.bank BDATA\n");
       fprintf (of, "\t.bank BXDATA\n");
       fprintf (of, "\t.bank BBIT\n");
+
+      /* And the order of the internal RAM areas, which matters because
+         the chain lays them out in the order they are first declared and
+         the stack grows up from the end of it.  sdld did this by
+         pre-declaring the 8051's areas inside the linker, in this order
+         (sdas/linksrc/lkmain.c); aslink has no built-in idea of an 8051,
+         so every module declares them instead - empty, if it has nothing
+         to put in them.  One module's idea of the order is not enough:
+         the first module linked is usually the test framework, which has
+         no overlaid locals, so OSEG would first appear in some later
+         module and be laid out after the stack it must sit below. */
+      fprintf (of, "\n");
+      fprintf (of, "\t.area REG_BANK_0\t(REL,OVR,BANK=BDATA)\n");
+      fprintf (of, "\t.area REG_BANK_1\t(REL,OVR,BANK=BDATA)\n");
+      fprintf (of, "\t.area REG_BANK_2\t(REL,OVR,BANK=BDATA)\n");
+      fprintf (of, "\t.area REG_BANK_3\t(REL,OVR,BANK=BDATA)\n");
+      fprintf (of, "\t.area BIT_BANK\t(REL,OVR,BANK=BDATA)\n");
+      fprintf (of, "\t.area DSEG\t(BANK=BDATA)\n");
+      fprintf (of, "\t.area OSEG\t(REL,OVR,BANK=BDATA)\n");
+      fprintf (of, "\t.area ISEG\t(BANK=BDATA)\n");
+      fprintf (of, "\t.area SSEG\t(BANK=BDATA)\n");
     }
 
   if (!options.noOptsdccInAsm)

@@ -2258,6 +2258,7 @@ glue (void)
   struct dbuf_s asmFileName;
   FILE *asmFile;
   int mcs51_like;
+  int stack_seg;
   namedspacemap *nm;
 
   dbuf_init (&vBuf, 4096);
@@ -2375,9 +2376,6 @@ glue (void)
          has something to apply to.  An empty area costs nothing but the
          eight bytes sdld would have reclaimed by rolling back an unused
          top register bank. */
-      if (port->assembler.asxxxx && !BitBankUsed)
-        fprintf (asmFile, "\t.area BIT_BANK\t(REL,OVR,BANK=BDATA)\n");
-
       if (BitBankUsed)
         {
           fprintf (asmFile, "%s", iComments2);
@@ -2456,19 +2454,23 @@ glue (void)
       dbuf_write_and_destroy (&ovrBuf, asmFile);
     }
 
-  /* create the stack segment MOF */
-  if (mainf && IFFUNC_HASBODY (mainf->type))
+  /* create the stack segment MOF.
+     SSEG has to be the last area in internal RAM, because the stack grows
+     up from __start__stack over whatever follows it.  sdld guarantees that
+     by pre-declaring the 8051's areas in a fixed order and putting SSEG at
+     the end of the list (sdas/linksrc/lkmain.c); aslink has no built-in
+     idea of an 8051, so the order the areas are declared in is the order
+     they are laid out, and getting it from here is what replaces that
+     list.  Emitted after idata below when the assembler is ASxxxx - in its
+     historical place otherwise, where it precedes ISEG and the stack
+     would start on top of it. */
+  stack_seg = (mainf && IFFUNC_HASBODY (mainf->type));
+  if (stack_seg && !(port->assembler.asxxxx && TARGET_MCS51_LIKE))
     {
       fprintf (asmFile, "%s", iComments2);
       fprintf (asmFile, "; Stack segment in internal ram\n");
       fprintf (asmFile, "%s", iComments2);
-      /* The stack lives in internal RAM, so SSEG belongs in the same bank
-         as DSEG, OSEG and the register banks.  Named here rather than
-         taken from port->mem, so it needs the bank naming too - without
-         it the area lands in the default bank, on top of the code. */
-      tfprintf (asmFile, "\t!area\n" "__start__stack:\n\t.ds\t1\n\n",
-                port->assembler.asxxxx && TARGET_MCS51_LIKE ?
-                "SSEG    (BANK=BDATA)" : "SSEG");
+      tfprintf (asmFile, "\t!area\n" "__start__stack:\n\t.ds\t1\n\n", "SSEG");
     }
 
   /* create the idata segment */
@@ -2478,6 +2480,19 @@ glue (void)
       fprintf (asmFile, "; indirectly addressable internal ram data\n");
       fprintf (asmFile, "%s", iComments2);
       dbuf_write_and_destroy (&idata->oBuf, asmFile);
+    }
+
+  if (stack_seg && port->assembler.asxxxx && TARGET_MCS51_LIKE)
+    {
+      fprintf (asmFile, "%s", iComments2);
+      fprintf (asmFile, "; Stack segment in internal ram\n");
+      fprintf (asmFile, "%s", iComments2);
+      /* The stack lives in internal RAM, so SSEG belongs in the same bank
+         as DSEG, OSEG and the register banks.  Named here rather than
+         taken from port->mem, so it needs the bank naming too - without it
+         the area lands in the default bank, on top of the code. */
+      tfprintf (asmFile, "\t!area\n" "__start__stack:\n\t.ds\t1\n\n",
+                "SSEG    (BANK=BDATA)");
     }
 
   /* create the absolute idata/data segment */
