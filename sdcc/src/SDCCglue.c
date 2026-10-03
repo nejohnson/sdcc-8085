@@ -1083,15 +1083,51 @@ printIvalStruct (symbol *sym, sym_link *type, initList *ilist, struct dbuf_s *oB
   if (SPEC_STRUCT (type)->type == UNION)
     {
       int size;
+      unsigned int offset;
+
       /* skip past holes, print value */
       while (iloop && iloop->type == INIT_HOLE)
         {
           iloop = iloop->next;
           sflds = sflds->next;
         }
+
+      /* The first field always gets iloop exactly as before - whatever
+         it is (a flat value, or this member's own braced
+         sub-initializer) is correctly its own business, same as prior
+         to this fix. */
       printIval (sym, sflds->type, iloop, oBuf, 1);
+      offset = sflds->offset + getSize (sflds->type);
+
+      /* The selected alternative's own members may have been flattened
+         into this union's ->fields list instead of being kept behind
+         one struct/union-typed field (an anonymous inner struct or
+         union) - then iloop's own nested list (if it has one) holds one
+         item per flattened member, and any sibling field still
+         contiguous with the first belongs to that same alternative and
+         needs its own value from the rest of that nested list, not to
+         be zero-padded over (upstream bug #2948). An ordinary
+         standalone field with its own braced sub-initializer (e.g. a
+         plain array) looks identical from here - iloop is INIT_DEEP
+         either way - but has no genuine further sibling value to give
+         away: the loop below only ever runs if there both IS a
+         contiguous sibling field AND a real further nested item for
+         it, which a standalone field's own initializer doesn't have
+         left over once its own value above has used it. */
+      if (iloop && iloop->type == INIT_DEEP)
+        {
+          initList *inner = iloop->init.deep ? iloop->init.deep->next : NULL;
+          while (inner && sflds->next && sflds->next->offset == offset)
+            {
+              sflds = sflds->next;
+              printIval (sym, sflds->type, inner, oBuf, 1);
+              offset += getSize (sflds->type);
+              inner = inner->next;
+            }
+        }
+
       /* pad out with zeros if necessary */
-      size = getSize(type) - getSize(sflds->type);
+      size = getSize(type) - offset;
       for ( ; size > 0 ; size-- )
         {
           dbuf_tprintf (oBuf, "\t!db !constbyte\n", 0);
