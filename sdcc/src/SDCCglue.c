@@ -2123,6 +2123,26 @@ flushStatics (void)
     dbuf_tprintf (&code->oBuf, "\t!area\n", options.const_seg);
 
   emitStaticSeg (statsg, codeOutBuf);
+
+  /* outputDebugSymbols() (SDCCdebug.c), called once at the very end from
+     glue(), expects every static symbol ever declared to still be in
+     statsg->syms at that point - but this function (called mid-codegen,
+     from each port's own genXXXCode(), to keep memory bounded on files
+     with many statics) clears that set right below, on every call, not
+     just the last one. Any statics flushed before the final call silently
+     never reach the debug output at all (upstream bug #3662). Write out
+     this batch's debug symbols now, before they're lost, the same way
+     outputDebugSymbols() itself would for statsg specifically - it isn't
+     safe to just call outputDebugSymbols() here instead, since that also
+     walks every other symbol space (data/code/xinit/...), which aren't
+     cleared early and would end up written out twice. */
+  if (options.debug && debugFile)
+    {
+      symbol *dsym;
+      for (dsym = setFirstItem (statsg->syms); dsym; dsym = setNextItem (statsg->syms))
+        debugFile->writeSymbol (dsym);
+    }
+
   statsg->syms = 0;
 
   if (options.const_seg)

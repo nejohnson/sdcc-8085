@@ -112,12 +112,15 @@ from the API and read. Four buckets:
 
 Two things worth calling out on their own, not buried in the table:
 
-1. **A single debug-info bug has been reported four separate times**
-   (#4061, #3662, #3153, #3107) - duplicate/colliding symbol names for
-   inline functions under `--debug`, across at least three different SDCC
-   eras and reporter bases. Fixing the real root cause (almost certainly in
-   `SDCCdebug.c`/`SDCCglue.c`'s inline-function symbol-naming, per #3662's
-   own trace into `flushStatics()`) plausibly closes all four at once.
+1. **#3662 looked at first like one of a cluster of four duplicate
+   debug-info tickets (#4061/#3662/#3153/#3107) - it isn't.** Reading all
+   four tickets' full descriptions (not just titles) shows #3662 is a
+   `flushStatics()`/`outputDebugSymbols()` *timing* bug (static symbols
+   silently dropped from `.adb` output, fixed this pass), while
+   #4061/#3153/#3107 are a genuinely different mechanism: duplicate debug
+   *label* names for inline functions under specific conditional/switch
+   control flow. Fixing #3662 does not close the other three; they need
+   their own separate investigation.
 2. **Two tickets (#2646, #2442) describe the exact bug class the
    placement-audit work already found independently** (see
    `sdcc-placement-audit.md`): `__at()`-placed data silently overlapping
@@ -134,7 +137,7 @@ Two things worth calling out on their own, not buried in the table:
 | [4077](https://sourceforge.net/p/sdcc/bugs/4077/) | CORE | No diagnostic for missing static function definition and false linkage to definition in another TU | no diagnostic for false internal/external linkage resolution; frontend symbol table |
 | [4072](https://sourceforge.net/p/sdcc/bugs/4072/) | CORE | _Generic incorrectly sees an unqualified union array member as volatile | _Generic misjudges volatile on union array member; frontend type system |
 | [4064](https://sourceforge.net/p/sdcc/bugs/4064/) | CORE | Incorrect code generated for assembly inline functions | inline param elimination too eager; reproduces on 2 unrelated backend families |
-| [4061](https://sourceforge.net/p/sdcc/bugs/4061/) | CORE | Multiple definition error for header inline funcs in conditionals in multiple source files | duplicate inline-fn debug symbols; cluster w/ #3662/#3153/#3107, cross-family |
+| [4061](https://sourceforge.net/p/sdcc/bugs/4061/) | CORE | Multiple definition error for header inline funcs in conditionals in multiple source files | duplicate inline-fn debug labels under conditional flow; cluster w/ #3153/#3107 (NOT #3662, different mechanism), cross-family |
 | [4051](https://sourceforge.net/p/sdcc/bugs/4051/) | CORE | Internal error: validateLink failed | Internal error in SDCCsymt.c (confirmed core file) |
 | [4043](https://sourceforge.net/p/sdcc/bugs/4043/) | CORE | Unexpected uninitialized variable warning | spurious uninitialized-var warning; frontend dataflow warning heuristic |
 | [4042](https://sourceforge.net/p/sdcc/bugs/4042/) | CORE | Weird uninitialized variable warning on local function prototype | same class: spurious warning on local fn prototype |
@@ -164,7 +167,7 @@ Two things worth calling out on their own, not buried in the table:
 | [3803](https://sourceforge.net/p/sdcc/bugs/3803/) | CORE | segfault on pointer to struct | segfault on pointer-to-struct; reproduces on 3 independent backends (stm8,f8,z80-fam) |
 | [3701](https://sourceforge.net/p/sdcc/bugs/3701/) | CORE | multiple identical externs in function fail to compile | multiple identical externs fail to compile; cross-family (z80-fam+mos6502-fam) |
 | [3674](https://sourceforge.net/p/sdcc/bugs/3674/) | CORE | Explicit cast ignored when va args argument is a function return value | explicit cast ignored for varargs return-value arg; cross-family, frontend varargs |
-| [3662](https://sourceforge.net/p/sdcc/bugs/3662/) | CORE | Adding a function removes const arrays above it from .adb/.cdb output | flushStatics()/debug-output ordering bug; cluster w/ #4061/#3153/#3107 |
+| [3662](https://sourceforge.net/p/sdcc/bugs/3662/) | CORE | Adding a function removes const arrays above it from .adb/.cdb output | flushStatics()/debug-output timing bug - FIXED; distinct from #4061/#3153/#3107's label-collision bug |
 | [3645](https://sourceforge.net/p/sdcc/bugs/3645/) | CORE | SDCC Crash during compile with incorrect type assignment in struct | SIGSEGV + FATAL error both cite SDCCast.c:1637 (confirmed core file) |
 | [3630](https://sourceforge.net/p/sdcc/bugs/3630/) | CORE | UB in the compiler | UB findings include SDCCval.c + SDCCralloc.hpp (shared w/ i8085's ralloc2.cc) |
 | [3495](https://sourceforge.net/p/sdcc/bugs/3495/) | CORE | "error 0: Duplicate symbol" for no obvious reason | duplicate-symbol false positive in nested block scope; frontend symbol table |
@@ -177,9 +180,9 @@ Two things worth calling out on their own, not buried in the table:
 | [3351](https://sourceforge.net/p/sdcc/bugs/3351/) | CORE | pagma callee_saves sensitive to spaces | pragma callee_saves whitespace-sensitive parsing; frontend pragma tokenizer |
 | [3293](https://sourceforge.net/p/sdcc/bugs/3293/) | CORE | Bug in .rst file | .rst debug-listing missing signed-var info; shared listing-generation code |
 | [3162](https://sourceforge.net/p/sdcc/bugs/3162/) | CORE | Missing loop optimization and missing debug informations | loop-reversal optimizer limitation; generic SDCCloop.c heuristic |
-| [3153](https://sourceforge.net/p/sdcc/bugs/3153/) | CORE | --debug produces same lable names for inline functions | duplicate inline-fn debug labels; cluster w/ #4061/#3662/#3107, broad multi-port |
+| [3153](https://sourceforge.net/p/sdcc/bugs/3153/) | CORE | --debug produces same lable names for inline functions | duplicate inline-fn debug labels; cluster w/ #4061/#3107 (NOT #3662, different mechanism), broad multi-port |
 | [3108](https://sourceforge.net/p/sdcc/bugs/3108/) | CORE | warning: missing terminating ' character in asm | false-positive 'unterminated quote' warning on asm apostrophe; shared inline-asm text scan |
-| [3107](https://sourceforge.net/p/sdcc/bugs/3107/) | CORE | --debug switch generate duplicate labels for the lines of code that contain equal text | duplicate debug labels for identical-text lines; same cluster as #4061/#3662/#3153 |
+| [3107](https://sourceforge.net/p/sdcc/bugs/3107/) | CORE | --debug switch generate duplicate labels for the lines of code that contain equal text | duplicate debug labels for identical-text lines; same cluster as #4061/#3153 (NOT #3662, different mechanism) |
 | [3021](https://sourceforge.net/p/sdcc/bugs/3021/) | CORE | SIGSEGV on passing certain types to vari | SIGSEGV parsing K&R decl + ternary + call; no port mentioned, frontend crash |
 | [3016](https://sourceforge.net/p/sdcc/bugs/3016/) | CORE | Internal error when compiling array with function call in array declaration | Internal error citing SDCCast.c:1858 (confirmed core file) |
 | [3015](https://sourceforge.net/p/sdcc/bugs/3015/) | CORE | Extremely long compile times for big arrays | extreme compile time for large array init; shared initializer processing |
@@ -572,16 +575,20 @@ worth investigating together, might share a root cause. #2686/#2555
 independent backends) and #3015 (extremely long compile times for large
 array initializers) round this out.
 
-**Tier 3 - the duplicate debug-symbol cluster (4 tickets, 1 fix).**
-#4061/#3662/#3153/#3107 - same bug, reported four times over what looks
-like several SDCC eras. Investigate #3662's trace into `flushStatics()`
-first since it's the only one of the four with a specific code pointer
-already in hand. Related but distinct debug-info bugs exist too (#2229
-wrong `.cdb` format, #2700 debug info for multi-iTemp variables, #3892
-wrong DWARF tag constant, #2739 missing CDB record for `__at`-placed
-variables) - worth a look once the cluster itself is fixed, since they
-likely share adjacent code in `SDCCdebug.c`/`SDCCdwarf2.c`, but they are
-not the same bug and shouldn't be bundled into one fix.
+**Tier 3 - debug-info bugs (4 tickets, 1 fix; originally mis-grouped as
+one 4-ticket cluster).** Reading all four tickets' full descriptions
+(not just titles) shows #3662 is a genuinely different bug from the
+other three, not a fourth report of the same thing: #3662 is a
+`flushStatics()`/`outputDebugSymbols()` *timing* bug - static symbols
+silently dropped from `.adb` output, FIXED this pass - while
+#4061/#3153/#3107 are duplicate debug *label* names for inline functions
+under specific conditional/switch control flow, a different mechanism,
+not yet investigated. Related but distinct debug-info bugs exist too
+(#2229 wrong `.cdb` format, #2700 debug info for multi-iTemp variables,
+#3892 wrong DWARF tag constant [fixed], #2739 missing CDB record for
+`__at`-placed variables) - likely share adjacent code in
+`SDCCdebug.c`/`SDCCdwarf2.c` with #4061/#3153/#3107, but are not the same
+bug and shouldn't be bundled into one fix.
 
 **Tier 4 - everything else (90 tickets).** Dominated by missing or wrong
 *diagnostic messages* for real-but-narrow C23/`_Optional` constraint
