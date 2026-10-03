@@ -482,6 +482,85 @@ function wrongly marked both public and extern in emitted glue), #3513
 (cpp macro expansion corrupts text inside `__asm` comments), #3268 (`-MD`
 dependency-file paths get Windows backslashes, breaking `make`).
 
+**Tier 2 progress - every item resolved, full sweep done:**
+
+- **#3727 fixed** (`3668789`, see the Tier 1 progress note above for
+  detail) - the GCSE miscompilation. Shared code.
+- **#2948 fixed** (`84f9c74`) - a union whose first alternative is a
+  flattened multi-member anonymous struct only got its first flattened
+  member's real value; every member after it was silently zeroed
+  instead of consuming its own share of the initializer. Traced the
+  exact nested-initList shape with GDB (the field-grouping logic looked
+  right on paper and wasn't - the real gap was structural, not a typo).
+  **First attempt regressed `tst_bug-2569`** (an ordinary standalone
+  array union member's own braced sub-initializer looks structurally
+  identical to the flattened case from the outside) - caught by the
+  full suite, not assumed safe; the corrected version leaves the first
+  member's own handling completely untouched and only engages extra
+  logic when there's a genuine further nested item to hand to a truly
+  contiguous sibling field. Shared code (`SDCCglue.c`).
+- **#3973 fixed** (`626db99`) - found while finishing this sweep, not on
+  the original list (via #3971's own "maybe related" cross-reference).
+  Same root defect as #3971 (a string literal's value gets marked
+  `SPEC_SCLS` `S_LITERAL` even though it's genuinely a symbol address),
+  surfacing in two different consumers (`printIvalPtr`, `printIvalType`)
+  - a second or later reference to the same literal in one aggregate
+  initializer got garbage bytes instead of the address. Shared code.
+- **#3892 fixed** (`cd528a7`) - trivial typo'd constant
+  (`DW_TAG_inlined_subroutine`), confirmed unused anywhere in this tree.
+  Byte/tick-identical regression, as expected.
+- **#3920 - already passing, no action needed.** All Ascon crypto test
+  variants (`asconaead128`, `asconhash256`) run 0 failures across all
+  three ports in every regression this session. Whatever fix landed
+  upstream between the report and this fork's baseline, it's already
+  inherited.
+- **#2646 / #2442 - not this fork's item**, per the placement-audit
+  cross-reference already noted above; routed there, not duplicated.
+- **#3005 parked, not fixed** - a `static` local struct/union
+  initialized with a designated initializer referencing a non-constant
+  (e.g. a function parameter) silently generates nonsensical code
+  (the generated assignment AST gets misplaced into `_GSINIT`, which
+  runs before any function call and has no stack frame to read a
+  parameter from) instead of the `E_CONST_EXPECTED` diagnostic a plain
+  scalar already correctly gets for the identical mistake. Root cause
+  confirmed: `createIval()` never distinguishes static from automatic
+  storage before dispatching struct/union fields to `createIvalStruct()`
+  (an AST-generating, runtime-assignment-style function). A correct fix
+  needs a new recursive constant-validation pass over the initializer
+  tree in the same delicate, already-twice-touched `createIval*` family
+  - real new logic, not a narrow guard, for a case that's already
+  illegal C. Not worth the risk for a missing-diagnostic-only issue.
+- **#2519 parked, not a bug** - a 10-year-old maintainer design debate
+  (should inline asm be treated as having unknown side effects, or does
+  using it carry the responsibility to mark shared state `volatile`,
+  same as every other compiler's inline-asm convention) with no
+  consensus to change the current behavior. The original reporter
+  accepted the standard `volatile` workaround and suggested documenting
+  it, not fixing it.
+- **#2354 - not applicable to this fork.** The bug is specific to
+  assemblers with separate PUBLIC/EXTERN directives (asz80/z80asm-
+  style); this port uses vendor ASxxxx's `as8085`/`aslink`, which emits
+  a single `.globl` uniformly and lets the linker resolve public vs.
+  extern automatically - confirmed by direct reproduction, exactly
+  matching the original thread's own observation that "the bug is not
+  apparent when using asxxx."
+- **#3513 parked, not fixed** - reproduces on i8085 too (confirmed), but
+  it's architecturally deep: the preprocessor has no concept of a
+  *target assembler's* comment syntax (which varies per port) at the
+  point it expands macros, so it can't distinguish a comment inside an
+  `__asm` block from code a user legitimately wants macro-expanded
+  there. No way to recover the original text after the fact either -
+  the corruption happens before the backend ever sees it. Same class of
+  risk as #3715.
+- **#3268 - not applicable to this fork.** Confirmed Windows-only by the
+  reporter's own follow-up (a `\` vs `/` path-separator inconsistency
+  in `-MD` dependency-file generation); sanity-checked `-MD` on Linux
+  here and it correctly emits forward slashes throughout.
+
+Tier 2 is fully worked through: **4 genuine fixes landed this pass**
+(all shared code), 1 already passing, 2 routed elsewhere, 5 parked with
+reasons recorded above.
+
 **Tier 2.5 - performance/resource pathologies (5 tickets), new this pass.**
 Not wrong output, but real usability failures: the compiler hangs, runs out
 of memory, or takes pathologically long on valid input. #2815 (CSE/
