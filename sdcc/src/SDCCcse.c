@@ -814,6 +814,23 @@ DEFSETFUNC (ifPointerGet)
 }
 
 /*-----------------------------------------------------------------*/
+/* ifPointerGetKeys - like ifPointerGet, but tests membership in a */
+/*                    bitVect of keys instead of a single operand  */
+/*-----------------------------------------------------------------*/
+DEFSETFUNC (ifPointerGetKeys)
+{
+  cseDef *cdp = item;
+  V_ARG (bitVect *, keys);
+  iCode *dic = cdp->diCode;
+  operand *left = IC_LEFT (cdp->diCode);
+
+  if (POINTER_GET (dic) && left->key && bitVectBitValue (keys, left->key))
+    return 1;
+
+  return 0;
+}
+
+/*-----------------------------------------------------------------*/
 /* ifPointerSet - returns true if the icode is pointer set sym     */
 /*-----------------------------------------------------------------*/
 DEFSETFUNC (ifPointerSet)
@@ -2114,6 +2131,28 @@ DEFSETFUNC (delGetPointerSucc)
 }
 
 /*-----------------------------------------------------------------*/
+/* delGetPointerSuccSet - like delGetPointerSucc, but invalidates   */
+/*                        for a whole bitVect of keys in one walk  */
+/*-----------------------------------------------------------------*/
+DEFSETFUNC (delGetPointerSuccSet)
+{
+  eBBlock *ebp = item;
+  V_ARG (bitVect *, keys);
+  V_ARG (int, dfnum);
+
+  if (ebp->visited)
+    return 0;
+
+  ebp->visited = 1;
+  if (ebp->dfnum > dfnum)
+    {
+      deleteItemIf (&ebp->inExprs, ifPointerGetKeys, keys);
+    }
+
+  return applyToSet (ebp->succList, delGetPointerSuccSet, keys, dfnum);
+}
+
+/*-----------------------------------------------------------------*/
 /* fixUpTypes - KLUGE HACK fixup a lowering problem                */
 /*-----------------------------------------------------------------*/
 static void
@@ -2224,6 +2263,9 @@ cseBBlock (eBBlock * ebb, int computeOnly, ebbIndex * ebbi)
   cseDef *expr;
   int replaced;
   int recomputeDataFlow = 0;
+  bitVect *ptrArgKeys = NULL; /* keys of ptr operands pushed as call args,
+                                  batched so successors are walked once per
+                                  block rather than once per push */
 
   /* if this block is not reachable */
   if (ebb->noPath)
@@ -2347,9 +2389,7 @@ cseBBlock (eBBlock * ebb, int computeOnly, ebbIndex * ebbi)
             {
               deleteGetPointers (&cseSet, &ptrSetSet, IC_LEFT (ic), ebb);
               ebb->ptrsSet = bitVectSetBit (ebb->ptrsSet, IC_LEFT (ic)->key);
-              for (i = 0; i < count; ebbs[i++]->visited = 0);
-              applyToSet (ebb->succList, delGetPointerSucc,
-                          IC_LEFT (ic), ebb->dfnum);
+              ptrArgKeys = bitVectSetBit (ptrArgKeys, IC_LEFT (ic)->key);
             }
           continue;
         }
@@ -2760,6 +2800,17 @@ cseBBlock (eBBlock * ebb, int computeOnly, ebbIndex * ebbi)
       }
 
   deleteSet (&ptrSetSet);
+
+  /* invalidate pointer-get caches in successor blocks for every pointer
+     passed as a call argument in this block, in one combined walk rather
+     than one walk per pointer argument */
+  if (ptrArgKeys)
+    {
+      for (i = 0; i < count; ebbs[i++]->visited = 0);
+      applyToSet (ebb->succList, delGetPointerSuccSet, ptrArgKeys, ebb->dfnum);
+      freeBitVect (ptrArgKeys);
+    }
+
   deleteSet (&ebb->outExprs);
   ebb->outExprs = cseSet;
   ebb->outDefs = bitVectInplaceUnion (ebb->outDefs, ebb->defSet);

@@ -169,9 +169,20 @@ computeDataFlow (ebbIndex * ebbi)
   int count = ebbi->count;
   int i;
   int change;
+  bitVect *dirty;
 
   for (i = 0; i < count; i++)
     deleteSet (&ebbs[i]->killedExprs);
+
+  /* EXPERIMENTAL worklist prototype (bug #2815/#2555/#3884 investigation):
+     mark every block dirty on entry; after processing one, only its
+     successors can possibly need re-processing (their inExprs/inDefs are
+     the only state that depends on this block's output), so only they get
+     marked dirty for the next round, instead of unconditionally
+     reprocessing every block on every pass. */
+  dirty = newBitVect (count);
+  for (i = 0; i < count; i++)
+    bitVectSetBit (dirty, ebbs[i]->bbnum);
 
   do
     {
@@ -186,11 +197,16 @@ computeDataFlow (ebbIndex * ebbi)
           bitVect *oldOutDefs = NULL;
           int firstTime;
           eBBlock *pBlock;
+          bool blockChanged;
 
           /* if this is the entry block then continue     */
           /* since entry block can never have any inExprs */
           if (ebbs[i]->noPath)
             continue;
+
+          if (!bitVectBitValue (dirty, ebbs[i]->bbnum))
+            continue;
+          bitVectUnSetBit (dirty, ebbs[i]->bbnum);
 
           /* get blocks that can come to this block */
           pred = edgesTo (ebbs[i]);
@@ -245,19 +261,35 @@ computeDataFlow (ebbIndex * ebbi)
           cseBBlock (ebbs[i], TRUE, ebbi);
 
           /* if it change we will need to iterate */
+          blockChanged = FALSE;
           if (optimize.global_cse)
             {
-              change += !isSetsEqualWith (ebbs[i]->outExprs, oldOutExprs, isCseDefEqual);
-              change += !isSetsEqualWith (ebbs[i]->killedExprs, oldKilledExprs, isCseDefEqual);
+              blockChanged |= !isSetsEqualWith (ebbs[i]->outExprs, oldOutExprs, isCseDefEqual);
+              blockChanged |= !isSetsEqualWith (ebbs[i]->killedExprs, oldKilledExprs, isCseDefEqual);
             }
-          change += !bitVectEqual (ebbs[i]->outDefs, oldOutDefs);
+          blockChanged |= !bitVectEqual (ebbs[i]->outDefs, oldOutDefs);
           freeBitVect (oldOutDefs);
           deleteSet (&oldOutExprs);
           deleteSet (&oldKilledExprs);
+
+          if (blockChanged)
+            {
+              change = 1;
+              /* only this block's successors can possibly need
+                 reprocessing - their inExprs/inDefs are the only state
+                 that depends on what this block just produced. */
+              if (ebbs[i]->succVect)
+                {
+                  bitVect *newDirty = bitVectUnion (dirty, ebbs[i]->succVect);
+                  freeBitVect (dirty);
+                  dirty = newDirty;
+                }
+            }
         }
     }
   while (change);      /* iterate till no change */
 
+  freeBitVect (dirty);
   return;
 }
 

@@ -362,7 +362,7 @@ serious finding of this whole pass (#3727, below).
 | [4075](https://sourceforge.net/p/sdcc/bugs/4075/) | BACKEND-SPECIFIC | uCsim incorrect STA ZP,X for HuC6280 | uCsim STA ZP,X address bug specific to the HuC6280 (6502-variant) simulator model |
 | [3818](https://sourceforge.net/p/sdcc/bugs/3818/) | NEEDS-VERIFICATION | Can't quit windows uCsim build | ucsim_z80 Windows build hangs on quit under wine; could be shared uCsim core command-loop or Windows/wine-hosting-specific - unclear without reading uCsim source |
 | [3670](https://sourceforge.net/p/sdcc/bugs/3670/) | NOT-APPLICABLE | read_cdb_file always assigns var to "rom" without considering banking | ucsim read_cdb_file mishandles banked ROM variables; i8085/i8080 have no banking |
-| [3884](https://sourceforge.net/p/sdcc/bugs/3884/) | CORE | CSE taking  a lot of time | CSE (cseAllBlocks) pathologically slow on one gcc-torture test; shared optimizer performance |
+| [3884](https://sourceforge.net/p/sdcc/bugs/3884/) | CORE | CSE taking  a lot of time | CSE (cseAllBlocks) pathologically slow on one gcc-torture test - FIXED (worklist computeDataFlow + batched delGetPointerSucc, SDCCdflow.c/SDCCcse.c) |
 | [3727](https://sourceforge.net/p/sdcc/bugs/3727/) | CORE | Incorrect loop optimization (probably in GCSE) | GCSE incorrectly assumes globals unmodified across a function call - silent miscompilation in shared optimizer |
 | [2815](https://sourceforge.net/p/sdcc/bugs/2815/) | CORE | SDCC hangs in CSE (and keeps allocating more and more memory) | CSE/computeDataFlow hangs and unbounded-allocates, explicitly "assume it happens for all targets"; shared dataflow analysis |
 | [3518](https://sourceforge.net/p/sdcc/bugs/3518/) | NOT-APPLICABLE | PIC headers are no longer "non-free"? | doc content question about PIC header licensing; documentation, PIC-specific |
@@ -564,16 +564,30 @@ Tier 2 is fully worked through: **4 genuine fixes landed this pass**
 (all shared code), 1 already passing, 2 routed elsewhere, 5 parked with
 reasons recorded above.
 
-**Tier 2.5 - performance/resource pathologies (5 tickets), new this pass.**
+**Tier 2.5 - performance/resource pathologies (5 tickets, 1 fix).**
 Not wrong output, but real usability failures: the compiler hangs, runs out
-of memory, or takes pathologically long on valid input. #2815 (CSE/
-`computeDataFlow` hangs and unbounded-allocates, "happens for all
-targets") and #3884 (`cseAllBlocks` pathologically slow on one
-gcc-torture case) are both in the shared optimizer's dataflow analysis -
-worth investigating together, might share a root cause. #2686/#2555
-(compiler-wide excessive-but-finite memory use, reproduces across multiple
-independent backends) and #3015 (extremely long compile times for large
-array initializers) round this out.
+of memory, or takes pathologically long on valid input. #3884
+(`cseAllBlocks` pathologically slow on one gcc-torture case) is FIXED:
+passive background analysis (gprof-profiled, not guessed) found the true
+bottleneck was `delGetPointerSucc` (97.1% of `deleteItemIf` calls), not
+the originally-suspected `mergeInExprs`. Fix is two parts applied
+together - a worklist-based rewrite of `computeDataFlow()` (`SDCCdflow.c`)
+and batched `delGetPointerSucc`/`ifPointerGetKeys`/`delGetPointerSuccSet`
+(`SDCCcse.c`) - verified with a clean (uncontended) re-measurement on the
+repro case (113.7s/448MB baseline -> ~46-50s/378MB, ~2.4x faster, ~16%
+less memory) and a full 3-port i8085/i8085-undoc/i8080 regression:
+0 failures, byte-for-byte identical generated code to the pre-fix
+baseline on every test case - this is a pure internal performance
+improvement, no behavior change.
+
+#2815 (CSE/`computeDataFlow` hangs and unbounded-allocates, "happens for
+all targets") is in the same function Candidate A rewrote, so this fix
+may well help it too - but #2815 needs ~20GB RAM just to reproduce,
+more than this box has, so that's not verified and #2815 stays parked.
+#2686/#2555 (compiler-wide excessive-but-finite memory use, reproduces
+across multiple independent backends) and #3015 (extremely long compile
+times for large array initializers) are still open, not yet confirmed
+to share this root cause.
 
 **Tier 3 - debug-info bugs (4 tickets, 1 fix; originally mis-grouped as
 one 4-ticket cluster).** Reading all four tickets' full descriptions
