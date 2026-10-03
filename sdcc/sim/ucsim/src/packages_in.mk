@@ -18,7 +18,6 @@ enable_mos6502_sim = @enable_mos6502_sim@
 enable_rxk_sim	    = @enable_rxk_sim@
 enable_pblaze_sim  = @enable_pblaze_sim@
 enable_i8085_sim   = @enable_i8085_sim@
-enable_f8_sim      = @enable_f8_sim@
 enable_i8048_sim   = @enable_i8048_sim@
 enable_oisc_sim    = @enable_oisc_sim@
 
@@ -133,12 +132,6 @@ else
 I8085	=
 endif
 
-ifeq ($(enable_f8_sim),yes)
-F8      	= f8.src
-else
-F8		=
-endif
-
 ifeq ($(enable_i8048_sim),yes)
 I8048      	= i8048.src
 else
@@ -151,7 +144,7 @@ else
 OISC		=
 endif
 
-PKGS		= $(P1516) $(F8) $(OISC) \
+PKGS		= $(P1516) $(OISC) \
 		  $(S51) $(I8048) $(I8085) $(XA) \
 		  $(SAVR) \
 		  $(SZ80) $(TLCS) $(RXK) \
@@ -164,7 +157,7 @@ PKGS		= $(P1516) $(F8) $(OISC) \
 PKGS_ALL	= s51.src avr.src z80.src tlcs.src xa.src \
 		  m68hc08.src stm8.src st7.src pdk.src p1516.src \
 		  m6809.src m6800.src m68hc11.src m68hc12.src mos6502.src \
-		  rxk.src pblaze.src i8085.src f8.src i8048.src oisc.src
+		  rxk.src pblaze.src i8085.src i8048.src oisc.src
 
 curses_ok	= @curses_ok@
 

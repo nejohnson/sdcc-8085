@@ -104,6 +104,18 @@ As of **v0.2.0**, the code generator actively emits **`DSUB`, `ARHL`, `RDEL`, `L
 
 ---
 
+## ⚠️ Removed: SDCC's own `f8` port
+
+This fork's toolchain is migrating fully onto the vendor **ASxxxx** assembler/linker suite, replacing SDCC's bundled `sdas`/`sdld`. ASxxxx ships `asf8`, targeting the real, vintage **Fairchild F8 / Mostek 3870** processor family. SDCC separately shipped its own `f8`/`f8l` port — a hobby instruction set created by one of SDCC's maintainers, unrelated to the real F8 chip. Both tools used the exact same name for two different, unrelated processors.
+
+Rather than carry that ambiguity forward, **this fork has removed SDCC's `f8`/`f8l` port entirely** — the compiler backend, its runtime library, its regression-suite port, ucsim's `f8` simulator, and every build-system reference to it. `sdcc -mf8` / `-mf8l` are no longer valid options in this fork. This is a deliberate **removal of functionality**, not a bug.
+
+If SDCC's `f8` author wants it reinstated here, the bar is: (a) pick a name that doesn't collide with a real chip ASxxxx already supports, and (b) port the instruction set into ASxxxx itself under that name, so the compiler and the toolchain agree on what the name means. This fork stays private (per standing project practice), so this isn't a patch proposed upstream — it's a decision for this fork only.
+
+Nothing else changed: this has zero effect on `-mi8085`/`-mi8080`, which share no code with the removed port, and the full regression suite confirms it.
+
+---
+
 ## 🙏 Built on giants
 
 This work stands on the shoulders of the **[SDCC](https://sdcc.sourceforge.net/)** project — its Z80 backend (the starting point this port was originally gated down from, before going independent) and the `ucsim` simulator made targeting the 8085/8080 a matter of careful subsetting rather than starting over. The toolchain itself comes from Alan Baldwin's **ASxxxx** cross-assembler suite. And, of course, on **Federico Faggin, Masatoshi Shima**, and the Intel teams who gave us the 8080 (1974) and 8085 (1976) in the first place. 🎩

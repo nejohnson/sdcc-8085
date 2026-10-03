@@ -227,12 +227,6 @@ AC_ARG_ENABLE(pdk16-port,
 	      ,
 	      enable_pdk16_port="no")
 
-AC_ARG_ENABLE(f8-port,
-	      AS_HELP_STRING([--enable-f8-port=ARG],
-			     [feature opt passed from SDCC]),
-	      ,
-	      enable_f8_port="yes")
-
 def_dlso="no"
 def_feapp="yes"
 def_serio="yes"
@@ -256,7 +250,6 @@ def_stm8="yes"
 def_pdk="yes"
 def_pblaze="yes"
 def_p1516="yes"
-def_f8="yes"
 def_oisc="yes"
 
 if test $in_sdcc == "yes" ; then
@@ -369,11 +362,6 @@ if test $in_sdcc == "yes" ; then
     fi
     if test $enable_pdk16_port = "yes"; then
 	def_pdk="yes"
-    fi
-
-    def_f8="no"
-    if test $enable_f8_port = "yes"; then
-	def_f8="yes"
     fi
 else
     SILENT="no"
@@ -514,12 +502,6 @@ AC_ARG_ENABLE(p1516-sim,
 	      ,
 	      enable_p1516_sim=$def_p1516)
 
-AC_ARG_ENABLE(f8-sim,
-	      AS_HELP_STRING([--enable-f8-sim=ARG],
-			     [en/disable compile f8 simulator]),
-	      ,
-	      enable_f8_sim=$def_f8)
-
 AC_ARG_ENABLE(oisc-sim,
 	      AS_HELP_STRING([--enable-oisc-sim=ARG],
 			     [en/disable compile oisc simulator]),
@@ -551,7 +533,6 @@ AC_SUBST(enable_stm8_sim)
 AC_SUBST(enable_pdk_sim)
 AC_SUBST(enable_pblaze_sim)
 AC_SUBST(enable_p1516_sim)
-AC_SUBST(enable_f8_sim)
 AC_SUBST(enable_oisc_sim)
 
 
@@ -1134,7 +1115,6 @@ src/sims/mos6502.src/Makefile src/sims/mos6502.src/test/Makefile
 src/sims/rxk.src/Makefile     src/sims/rxk.src/test/Makefile
 src/sims/pblaze.src/Makefile  src/sims/pblaze.src/test/Makefile
 src/sims/i8085.src/Makefile   src/sims/i8085.src/test/Makefile
-src/sims/f8.src/Makefile      src/sims/f8.src/test/Makefile
 src/sims/i8048.src/Makefile   src/sims/i8048.src/test/Makefile
 src/sims/p1516.src/Makefile   src/sims/p1516.src/test/Makefile
 src/sims/pdk.src/Makefile     src/sims/pdk.src/test/Makefile
@@ -1174,7 +1154,6 @@ echo "Compile mos6502   $enable_mos6502_sim"
 echo "Compile rxk       $enable_rxk_sim"
 echo "Compile pblaze    $enable_pblaze_sim"
 echo "Compile i8085     $enable_i8085_sim"
-echo "Compile f8        $enable_f8_sim"
 echo "Compile i8048     $enable_i8048_sim"
 echo "Compile oisc      $enable_oisc_sim"
 echo "Compile serio     $enable_serio"
