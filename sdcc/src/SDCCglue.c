@@ -862,7 +862,21 @@ printIvalType (symbol * sym, sym_link * type, initList * ilist, struct dbuf_s *o
   if (ilist && (ilist->type == INIT_DEEP))
     ilist = ilist->init.deep;
 
-  if (!(val = list2val (ilist, FALSE)))
+  val = list2val (ilist, FALSE);
+  if (val && val->sym)
+    /* list2val() (via constExprValue()'s "literal array in code segment"
+       case) can return a value that's really a symbol's address - e.g.
+       a scalar initialized from a string literal cast to an integer
+       type, (unsigned long)"AAA" - marked SPEC_SCLS S_LITERAL even
+       though it isn't a genuine numeric constant. Falling through below
+       would hand it to valCastLiteral()/ulFromVal(), which extracts
+       garbage instead of the address (upstream bug #3973). Discard it
+       here so the initPointer() fallback just below - already correct,
+       and already exactly what a symbol-address initializer needs -
+       gets a chance to run instead. */
+    val = NULL;
+
+  if (!val)
     {
       if (!!(val = initPointer (ilist, type, 0)))
         {
@@ -1743,8 +1757,16 @@ printIvalPtr (symbol *sym, sym_link *type, initList *ilist, struct dbuf_s *oBuf)
 
   const bool use_ret = TARGET_PDK_LIKE && !TARGET_IS_PDK16;
 
-  /* if val is literal */
-  if (IS_LITERAL (val->etype))
+  /* if val is literal - but constExprValue()'s own "literal array in code
+     segment" case (a string literal) also marks its SPEC_SCLS S_LITERAL
+     even though val->sym genuinely points at the literal's own symbol, so
+     IS_LITERAL alone can't tell a true numeric pointer constant (no
+     symbol at all) apart from a symbol's address that merely happens to
+     carry that same storage class - require !val->sym too, or a pointer
+     to a string literal gets its address's bytes individually
+     reinterpreted as if they were a plain numeric value instead of being
+     emitted as a reference to the symbol (upstream bug #3973). */
+  if (IS_LITERAL (val->etype) && !val->sym)
     {
       switch (getSize (type))
         {
