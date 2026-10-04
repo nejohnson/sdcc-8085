@@ -5128,6 +5128,18 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
           goto errorTreeReturn;
         }
 
+      /* nor cast a struct/union to anything other than void (casting
+         to void, e.g. to discard an unused value, is fine). Note:
+         IS_STRUCT, not IS_AGGREGATE - arrays are aggregates too, and
+         array-to-pointer decay (e.g. passing a string literal) is a
+         completely ordinary conversion, not a constraint violation;
+         it's represented as a CAST node here same as an explicit one. */
+      if (IS_STRUCT (RTYPE (tree)) && !IS_VOID (LTYPE (tree)))
+        {
+          werrorfl (tree->filename, tree->lineno, E_CAST_ILLEGAL);
+          goto errorTreeReturn;
+        }
+
       /* a pointer shall not be converted to a floating type, and a
          floating type shall not be converted to a pointer type
          (C17/C23 6.5.4p4) */

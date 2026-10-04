@@ -280,7 +280,7 @@ and one shared-glue-code bug (#2354, `SDCCglue.c` linkage-attribute emission).
 |---:|---|---|---|
 | [4094](https://sourceforge.net/p/sdcc/bugs/4094/) | CORE | Structure with a flexible array member is accepted as an array element type | frontend type/decl check; array of flexible-array-member struct undiagnosed; reproduces on 18 unrelated ports |
 | [4090](https://sourceforge.net/p/sdcc/bugs/4090/) | CORE | sizeof applied to a function is accepted without a diagnostic | sizeof on function type undiagnosed - FIXED (new E_SIZEOF_FUNCTION, SDCCast.c); also now catches sizeof(&func), consistent with SDCC's own pre-existing "&func == func" design |
-| [4089](https://sourceforge.net/p/sdcc/bugs/4089/) | CORE | Undiagnosed constraint violation on cast from struct to scalar type | undiagnosed struct-to-scalar cast; frontend constraint check; cross-port |
+| [4089](https://sourceforge.net/p/sdcc/bugs/4089/) | CORE | Undiagnosed constraint violation on cast from struct to scalar type | undiagnosed struct-to-scalar cast - FIXED (CAST case, SDCCast.c, source-side IS_STRUCT check; void-discard still valid) |
 | [4088](https://sourceforge.net/p/sdcc/bugs/4088/) | CORE | Internal error instead of constraint violation reported when pointer cast to float | ICE instead of diagnostic on pointer-to-float cast - FIXED (new E_CAST_PTR_FLOAT, SDCCast.c CAST case, both directions) |
 | [4087](https://sourceforge.net/p/sdcc/bugs/4087/) | CORE | Undiagnosed constraint violation when _Alignof applied to an incomplete type | _Alignof on incomplete type undiagnosed; frontend |
 | [4086](https://sourceforge.net/p/sdcc/bugs/4086/) | CORE | Undiagnosed constraint violation when [] used on an incomplete type | [] on incomplete-type pointer undiagnosed; frontend |
@@ -767,7 +767,25 @@ Fixed so far:
   change, so it got the full 3-port regression treatment rather than
   being assumed safe from the unit-level test alone.
 
-Not yet investigated: the remaining 23.
+- **#4089** (undiagnosed cast from struct to scalar, `(int)some_struct`)
+  - fixed with a source-side `IS_STRUCT(RTYPE(tree))` check next to
+    the pre-existing target-side one, reusing `E_CAST_ILLEGAL`.
+    `(void)some_struct;` (discarding a struct value) is explicitly
+    excluded and stays valid. First attempt used `IS_AGGREGATE`
+    (struct-or-array) instead of `IS_STRUCT` - caught immediately by
+    the full regression, not assumed safe: it broke the test
+    framework's own `fwk/lib/testfwk.c` wholesale, because
+    `IS_AGGREGATE` also matches arrays, and passing a string literal
+    anywhere (ordinary array-to-pointer decay) is represented as a
+    `CAST` node here too. Worth remembering for the rest of this
+    cluster: `IS_AGGREGATE` is almost never actually what a
+    struct/union-specific constraint check wants - decay-eligible
+    arrays will false-positive on the entire codebase instantly, and
+    this regression suite's own infrastructure is proof it will be
+    caught, but better to reach for `IS_STRUCT` directly from the
+    start for this class of check.
+
+Not yet investigated: the remaining 22.
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce
