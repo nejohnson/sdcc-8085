@@ -391,6 +391,8 @@ enum {
   W_QUALIFIED_RETURN            = 361, // qualifier on return type has no effect
   E_DYNAMICC_UNSUPPORTED        = 362, // __dynamicc calling convention not supported on this target (needs an index register)
   E_SFR_BANKED_UNSUPPORTED      = 363, // __banked __sfr (16-bit I/O) not supported on this target (8-bit I/O space only)
+  E_SIZEOF_FUNCTION             = 364, // sizeof applied to a function type
+  E_NONSCALAR_CONTROLLING_EXPR  = 365, // controlling expression of if/while/for/do does not have scalar type
 
   // If you get a merge conflict here, some #pragma disable_warning in support/valdiag and support/regression will likely need to be adapted to the resolution. Check there!
 

@@ -5647,7 +5647,9 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
 
         dbuf_init (&dbuf, 128);
         dbuf_printf (&dbuf, "%d", size);
-        if (!size && !IS_VOID (tree->right->ftype))
+        if (IS_FUNC (tree->right->ftype))
+          werrorfl (tree->filename, tree->lineno, E_SIZEOF_FUNCTION);
+        else if (!size && !IS_VOID (tree->right->ftype))
           werrorfl (tree->filename, tree->lineno, E_SIZEOF_INCOMPLETE_TYPE);
         tree->type = EX_VALUE;
         tree->opval.val = constVal (dbuf_c_str (&dbuf));
@@ -6206,6 +6208,8 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
       /* ifx Statement              */
       /*----------------------------*/
     case IFX:
+      if (LTYPE (tree) && !IS_ARITHMETIC (LETYPE (tree)) && !IS_PTR (LTYPE (tree)) && !IS_NULLPTR (LETYPE (tree)))
+        werrorfl (tree->left->filename, tree->left->lineno, E_NONSCALAR_CONTROLLING_EXPR);
       tree->left = backPatchLabels (tree->left, tree->trueLabel, tree->falseLabel);
       TTYPE (tree) = TETYPE (tree) = NULL;
       return tree;
@@ -6219,6 +6223,14 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
       AST_FOR (tree, initExpr) = decorateType (resolveSymbols (AST_FOR (tree, initExpr)), RESULT_TYPE_NONE, reduceTypeAllowed);
       AST_FOR (tree, condExpr) = decorateType (resolveSymbols (AST_FOR (tree, condExpr)), RESULT_TYPE_NONE, reduceTypeAllowed);
       AST_FOR (tree, loopExpr) = decorateType (resolveSymbols (AST_FOR (tree, loopExpr)), RESULT_TYPE_NONE, reduceTypeAllowed);
+
+      /* covers while/do-while too: both are desugared to FOR. A
+         missing condExpr ("for (;;)") is the valid infinite-loop
+         case, not a violation. */
+      if (AST_FOR (tree, condExpr) && AST_FOR (tree, condExpr)->ftype &&
+          !IS_ARITHMETIC (AST_FOR (tree, condExpr)->etype) && !IS_PTR (AST_FOR (tree, condExpr)->ftype) &&
+          !IS_NULLPTR (AST_FOR (tree, condExpr)->etype))
+        werrorfl (AST_FOR (tree, condExpr)->filename, AST_FOR (tree, condExpr)->lineno, E_NONSCALAR_CONTROLLING_EXPR);
 
       /* if the for loop is reversible then
          reverse it otherwise do what we normally

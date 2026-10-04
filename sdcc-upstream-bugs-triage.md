@@ -279,14 +279,14 @@ and one shared-glue-code bug (#2354, `SDCCglue.c` linkage-attribute emission).
 | # | Classification | Summary | Why |
 |---:|---|---|---|
 | [4094](https://sourceforge.net/p/sdcc/bugs/4094/) | CORE | Structure with a flexible array member is accepted as an array element type | frontend type/decl check; array of flexible-array-member struct undiagnosed; reproduces on 18 unrelated ports |
-| [4090](https://sourceforge.net/p/sdcc/bugs/4090/) | CORE | sizeof applied to a function is accepted without a diagnostic | sizeof on function type undiagnosed; frontend constraint check; cross-port |
+| [4090](https://sourceforge.net/p/sdcc/bugs/4090/) | CORE | sizeof applied to a function is accepted without a diagnostic | sizeof on function type undiagnosed - FIXED (new E_SIZEOF_FUNCTION, SDCCast.c); also now catches sizeof(&func), consistent with SDCC's own pre-existing "&func == func" design |
 | [4089](https://sourceforge.net/p/sdcc/bugs/4089/) | CORE | Undiagnosed constraint violation on cast from struct to scalar type | undiagnosed struct-to-scalar cast; frontend constraint check; cross-port |
 | [4088](https://sourceforge.net/p/sdcc/bugs/4088/) | CORE | Internal error instead of constraint violation reported when pointer cast to float | ICE instead of diagnostic on pointer-to-float cast; frontend |
 | [4087](https://sourceforge.net/p/sdcc/bugs/4087/) | CORE | Undiagnosed constraint violation when _Alignof applied to an incomplete type | _Alignof on incomplete type undiagnosed; frontend |
 | [4086](https://sourceforge.net/p/sdcc/bugs/4086/) | CORE | Undiagnosed constraint violation when [] used on an incomplete type | [] on incomplete-type pointer undiagnosed; frontend |
 | [4085](https://sourceforge.net/p/sdcc/bugs/4085/) | CORE | Undiagnosed constraint violations on arithmetic operations | pointer arithmetic constraint violations undiagnosed; frontend |
 | [4084](https://sourceforge.net/p/sdcc/bugs/4084/) | CORE | No diagnostic when the first operand of ?: has struct type | ?: first operand struct type undiagnosed; frontend |
-| [4083](https://sourceforge.net/p/sdcc/bugs/4083/) | CORE | Non-scalar type of if or loop controlling expression is not diagnosed | non-scalar if/loop condition undiagnosed; frontend |
+| [4083](https://sourceforge.net/p/sdcc/bugs/4083/) | CORE | Non-scalar type of if or loop controlling expression is not diagnosed | non-scalar if/loop condition undiagnosed - FIXED (new E_NONSCALAR_CONTROLLING_EXPR, SDCCast.c, covers if/while/do/for in two checks since the latter three desugar to one AST shape) |
 | [4078](https://sourceforge.net/p/sdcc/bugs/4078/) | CORE | SDCC accepts storage class on return type | storage class on return type silently accepted; frontend parser |
 | [4071](https://sourceforge.net/p/sdcc/bugs/4071/) | CORE | Array conversion of an array reached through a generic pointer produces an address-space-specific pointer | array-to-pointer decay through generic pointer loses genericness; frontend type system |
 | [3992](https://sourceforge.net/p/sdcc/bugs/3992/) | CORE | error 0: Duplicate symbol | spurious duplicate-symbol in nested for-loop scope; frontend symbol table |
@@ -682,6 +682,51 @@ full precision and narrowing once at the end. This is a separate rabbit
 hole from the fixed three - parked rather than chased further this pass.
 Regression test: `support/regression/tests/bug-3986.c` (covers all three
 fixed cases; #2877 is not fixed so isn't asserted there).
+
+**The `cs99cjb` C23/`_Optional` sweep: full list confirmed, 2 fixed so
+far, no single shared chokepoint found.** Checked every candidate
+ticket's actual `reported:` field (not assumed from title/category) to
+build the real list - 27 tickets, not "roughly 20+": #4094, #4093,
+#4090, #4089, #4088, #4087, #4086, #4085, #4084, #4083, #4072, #4071,
+#4006, #4005, #4004, #4003, #4002, #3963, #3962, #3960, #3958, #3957,
+#3955, #3954, #3952, #3917, #3916. The hoped-for "one investigation,
+not 20+ fixes" shortcut doesn't quite hold: there's no single function
+that validates constraints across the frontend - each construct's
+missing check lives wherever `decorateType` (`SDCCast.c`) handles that
+AST node, so each ticket still needs its own targeted fix, but the
+*pattern* is now established and fast to apply: reproduce, find the
+relevant `case` in `decorateType`, add an `IS_xxx` type-shape check,
+`werrorfl` with a new `E_xxx` code (next free number, currently 366).
+
+Fixed so far:
+- **#4090** (`sizeof` on a function type) - added `E_SIZEOF_FUNCTION`
+  in the existing `SIZEOF` case. Also now correctly catches
+  `sizeof(&func)`, not just bare `sizeof(func)` - confirmed by reading
+  SDCCast.c's unary `&` handling that this is consistent, not a new
+  false positive: it already has a comment saying `&function` "ought
+  to be ignored" and returns the function operand unchanged, so SDCC
+  never gave `&function` a distinct pointer type to lose here. Taking
+  the address of a function and storing it in an actual function
+  pointer *variable* is unaffected either way.
+- **#4083** (non-scalar `if`/loop controlling expression) - added
+  `E_NONSCALAR_CONTROLLING_EXPR` in the `IFX` case (covers `if`) and
+  the `FOR` case (covers `while`/`do`/`for` too - the parser desugars
+  all three to `FOR`, confirmed empirically rather than assumed, so one
+  check covers all of them; a missing `condExpr`, i.e. `for (;;)`, is
+  the valid infinite-loop case and is explicitly left alone). Found
+  and worked around two sharp edges along the way: (1) `createIf()`
+  silently drops an if-statement with an empty, side-effect-free body
+  *before* it's even turned into an `IFX` node, so a naive `if (s) {}`
+  test case never reaches the new check at all - needs a body that
+  does something; (2) both the `IFX` and `FOR` AST nodes are
+  synthesized by the parser without their own source position, so
+  `werrorfl` using the node's own `tree->filename`/`lineno` prints
+  `-:0:` - fixed by using the *condition expression's* position
+  instead (`tree->left->filename` / `AST_FOR(tree,condExpr)->filename`).
+
+Not yet investigated: the remaining 25. #4088 and #3917 are themselves
+FATAL internal-error crashes (not just missing diagnostics) so should
+be prioritized next over the plain missing-diagnostic ones.
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce
