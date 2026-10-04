@@ -2734,6 +2734,29 @@ valZeroResultFromOp (sym_link * type1, sym_link * type2, int op, bool reduceType
 }
 
 /*------------------------------------------------------------------*/
+/* fixupCharLiteralSign - a char-sized literal arithmetic result    */
+/* (+, -, << specifically: computeType() picks their result's sign */
+/* from the OPERANDS' types to keep runtime char arithmetic small,  */
+/* not from the computed value, unlike cheapestVal()'s own          */
+/* int-to-char reduction) may come back typed signed char even      */
+/* though the value just computed doesn't fit in one (e.g. 30*8-1   */
+/* == 239, or 1<<7 == 128). Since this runs only on fully known      */
+/* literal values, just pick the sign that can hold the value, the  */
+/* same convention cheapestVal() already uses - otherwise it's read */
+/* back later via a (signed char) cast (ullFromLit()) and silently   */
+/* becomes negative, which among other things produces a false      */
+/* "overflow in implicit constant conversion" warning on assignment  */
+/* to an unsigned target (upstream bugs #2733/#2877/#3094/#3986).    */
+/*------------------------------------------------------------------*/
+static void
+fixupCharLiteralSign (value * val)
+{
+  if (IS_CHAR (val->type) && !SPEC_USIGN (val->type) &&
+      SPEC_CVAL (val->type).v_int >= 128 && SPEC_CVAL (val->type).v_int <= 255)
+    SPEC_USIGN (val->type) = 1;
+}
+
+/*------------------------------------------------------------------*/
 /* valPlus - Addition constants                                     */
 /*------------------------------------------------------------------*/
 value *
@@ -2778,6 +2801,7 @@ valPlus (value * lval, value * rval, bool reduceType)
       else
         SPEC_CVAL (val->type).v_int =  (TYPE_TARGET_INT)(ulFromVal (lval) + ulFromVal (rval));
     }
+  fixupCharLiteralSign (val);
   return reduceType ? cheapestVal (val) : val;
 }
 
@@ -2826,6 +2850,7 @@ valMinus (value * lval, value * rval, bool reduceType)
       else
         SPEC_CVAL (val->type).v_int = (TYPE_TARGET_INT) ulFromVal (lval) - (TYPE_TARGET_INT) ulFromVal (rval);
     }
+  fixupCharLiteralSign (val);
   return reduceType ? cheapestVal (val) : val;
 }
 
@@ -2899,6 +2924,7 @@ valShift (value * lval, value * rval, int lr, bool reduceType)
             (TYPE_TARGET_INT) ulFromVal (lval) >> (TYPE_TARGET_ULONG) ulFromVal (rval);
         }
     }
+  fixupCharLiteralSign (val);
   return reduceType ? cheapestVal (val) : val;
 }
 

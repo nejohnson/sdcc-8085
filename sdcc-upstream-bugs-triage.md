@@ -291,7 +291,7 @@ and one shared-glue-code bug (#2354, `SDCCglue.c` linkage-attribute emission).
 | [4071](https://sourceforge.net/p/sdcc/bugs/4071/) | CORE | Array conversion of an array reached through a generic pointer produces an address-space-specific pointer | array-to-pointer decay through generic pointer loses genericness; frontend type system |
 | [3992](https://sourceforge.net/p/sdcc/bugs/3992/) | CORE | error 0: Duplicate symbol | spurious duplicate-symbol in nested for-loop scope; frontend symbol table |
 | [3989](https://sourceforge.net/p/sdcc/bugs/3989/) | CORE | function attributes are not handled in type casting | function attributes (__reentrant) dropped in explicit cast; frontend |
-| [3986](https://sourceforge.net/p/sdcc/bugs/3986/) | CORE | error 158: overflow in implicit constant conversion | false overflow warning on in-range uint8_t init; frontend constant folding |
+| [3986](https://sourceforge.net/p/sdcc/bugs/3986/) | CORE | error 158: overflow in implicit constant conversion | false overflow warning on in-range uint8_t init - FIXED (fixupCharLiteralSign, SDCCval.c), same root cause as #2733/#3094 |
 | [3979](https://sourceforge.net/p/sdcc/bugs/3979/) | CORE | error 147: excess elements in struct initializer | false "excess elements" on nested designated union initializer; frontend |
 | [3963](https://sourceforge.net/p/sdcc/bugs/3963/) | CORE | Parameter is not taken as having the unqualified version of its declared type in assignment or initialisation | qualifier-drop not applied to param type in assignment; frontend C23 type rules |
 | [3960](https://sourceforge.net/p/sdcc/bugs/3960/) | CORE | Inconsistent diagnostic messages when constraint on unary & operator is violated | inconsistent & constraint diagnostics; frontend |
@@ -308,15 +308,15 @@ and one shared-glue-code bug (#2354, `SDCCglue.c` linkage-attribute emission).
 | [3226](https://sourceforge.net/p/sdcc/bugs/3226/) | CORE | too many parameters error | K&R-style empty-parens declaration wrongly rejected as too-many-params; frontend |
 | [3172](https://sourceforge.net/p/sdcc/bugs/3172/) | CORE | explicitly cast varargs promoted even in --std-sdccXX mode | explicit cast on vararg still promoted even under strict std mode; frontend |
 | [3121](https://sourceforge.net/p/sdcc/bugs/3121/) | CORE | -:0: error 69: struct/union/array '': initialization needs curly braces | wrong/duplicated diagnostic for nested designated initializer; frontend |
-| [3094](https://sourceforge.net/p/sdcc/bugs/3094/) | CORE | ulong2fs gives incorrect warning 158 overflow in implicit constant conversion | false overflow warning compiling own device/lib source (_ulong2fs.c); frontend constant-conversion check |
+| [3094](https://sourceforge.net/p/sdcc/bugs/3094/) | CORE | ulong2fs gives incorrect warning 158 overflow in implicit constant conversion | false overflow warning compiling own device/lib source (_ulong2fs.c) - FIXED, same root cause as #3986/#2733 |
 | [2976](https://sourceforge.net/p/sdcc/bugs/2976/) | CORE | Support VS Code's $msCompile message format | feature request: VS Code $msCompile-compatible message format; frontend diagnostics output |
 | [2975](https://sourceforge.net/p/sdcc/bugs/2975/) | CORE | Ability to include full path in output messages | feature request: full path in diagnostic messages; frontend diagnostics output |
 | [2952](https://sourceforge.net/p/sdcc/bugs/2952/) | CORE | attribute arguments other than string literals and identifiers | C2X attribute-argument token forms not accepted; frontend parser |
 | [2951](https://sourceforge.net/p/sdcc/bugs/2951/) | CORE | keyword in attributes | keyword-as-identifier in attributes not accepted per C2X; frontend parser |
 | [2893](https://sourceforge.net/p/sdcc/bugs/2893/) | CORE | Bogus error messages when a file starts with a ';' | bogus "empty source file" error when file starts with ';'; frontend |
-| [2877](https://sourceforge.net/p/sdcc/bugs/2877/) | CORE | (Regression) Incorrect overflow warning when adding two numbers  | regression: false overflow warning adding two in-range constants; frontend constant folding |
+| [2877](https://sourceforge.net/p/sdcc/bugs/2877/) | CORE | (Regression) Incorrect overflow warning when adding two numbers  | regression: false overflow warning adding two in-range constants - PARKED, same symptom as #3986/#2733/#3094 but a different root cause (RESULT_TYPE_CHAR pre-truncation), not fixed |
 | [2768](https://sourceforge.net/p/sdcc/bugs/2768/) | CORE | Missing type mismatch report | mistyped initializer accepted without warning in some cases; frontend |
-| [2733](https://sourceforge.net/p/sdcc/bugs/2733/) | CORE | False "overflow in implicit constant conversion" warning | false overflow warning on in-range 1<<7 shift; frontend constant folding |
+| [2733](https://sourceforge.net/p/sdcc/bugs/2733/) | CORE | False "overflow in implicit constant conversion" warning | false overflow warning on in-range 1<<7 shift - FIXED, same root cause as #3986/#3094 |
 | [2663](https://sourceforge.net/p/sdcc/bugs/2663/) | CORE | Function pointer initialization issue | function-pointer-vs-function-value initializer inconsistency; frontend type system |
 | [2660](https://sourceforge.net/p/sdcc/bugs/2660/) | CORE | pointer type incompatible with itself | "pointer types incompatible" on a type against itself; frontend type-name printing/comparison |
 | [2639](https://sourceforge.net/p/sdcc/bugs/2639/) | CORE | FATAL Compiler Internal Error in file 'SDCCast.c' line number '5513' : node PARAM shouldn't be processed here | FATAL ICE in SDCCast.c on malformed call after missing declaration; frontend, confirmed core file |
@@ -596,13 +596,41 @@ other three, not a fourth report of the same thing: #3662 is a
 `flushStatics()`/`outputDebugSymbols()` *timing* bug - static symbols
 silently dropped from `.adb` output, FIXED this pass - while
 #4061/#3153/#3107 are duplicate debug *label* names for inline functions
-under specific conditional/switch control flow, a different mechanism,
-not yet investigated. Related but distinct debug-info bugs exist too
+under specific conditional/switch control flow, a different mechanism -
+investigated this pass, parked (see below). Related but distinct
+debug-info bugs exist too
 (#2229 wrong `.cdb` format, #2700 debug info for multi-iTemp variables,
 #3892 wrong DWARF tag constant [fixed], #2739 missing CDB record for
 `__at`-placed variables) - likely share adjacent code in
 `SDCCdebug.c`/`SDCCdwarf2.c` with #4061/#3153/#3107, but are not the same
 bug and shouldn't be bundled into one fix.
+
+**#4061/#3153/#3107 investigated and PARKED.** Reproduced on i8085 with
+GDB (not just read about): `if (cond) { inline_func(...); } else {
+inline_func(...); }` and `switch` wrongly label debug lines with the
+*header's* file/line instead of the call site's; the same call used
+sequentially does not. Root mechanism found: `cdbWriteCLine()`
+(`cdbFile.c`) skips emitting a label when `ic->inlined` is set, but
+`ic->inlined` comes from a single global toggle (`inlinedActive` in
+`SDCCicode.c`) that `ast2iCode()` only flips when it walks a
+`BLOCK`/`NULLOP` node whose `tree->inlined` is set. `fixupInline()`
+(`SDCCast.c`) marks `tree->inlined = 1` on every node of a duplicated
+inline body, but that marking only has any effect if a `BLOCK`/`NULLOP`
+ancestor is on the path to the generated iCode - for every other node
+type it's silently ignored. Confirmed with GDB: the inline body's iCode
+in the if/else/switch case has `ic->inlined == 0` and a sentinel
+`level == 20000` (an un-fixed-up placeholder); ruled out GCSE as the
+cause (`--nogcse` reproduces identically). What's still missing: *why*
+if/else and switch specifically fail to route through a `BLOCK`/`NULLOP`
+ancestor for the inlined body while sequential code does - that's an
+AST-shape question that could take a while longer to pin down exactly,
+on a bug that's survived three separate upstream reports over ~4 years
+unfixed. Parked because it's `--debug`-output-only (no effect on
+generated code or program behavior) and only bites when linking
+multiple translation units whose block/level counters happen to
+coincide - real but narrow. Pick back up by re-running the repro in
+`/home/neil/.claude/jobs/cb828c82/tmp/bug4061/` (`main.c`/`someheader.h`)
+with the GDB commands above as a starting point, not from scratch.
 
 **Tier 4 - everything else (90 tickets).** Dominated by missing or wrong
 *diagnostic messages* for real-but-narrow C23/`_Optional` constraint
@@ -618,6 +646,42 @@ close together and almost certainly touching the same few
 `SDCCsymt.c`/`SDCCast.c` type-compatibility functions repeatedly - worth
 attacking as one investigation into "how are constraint violations
 diagnosed here," not 20+ separate fixes.
+
+**Tier 4 progress: #3986/#2733/#3094 fixed (one root cause, 3 tickets),
+#2877 parked (different mechanism).** All four report the same visible
+symptom - a false "overflow in implicit constant conversion" warning on
+a small all-literal expression that's actually in range (`30*8-1==239`,
+`1<<7==128`, `24+126==150`, `192+41==233`). Traced three of the four
+(#3986, #2733, #3094 - covering `-`, `<<`, `+`) to a real, shared root
+cause: `valPlus`/`valMinus`/`valShift` (`SDCCval.c`) keep small
+all-literal arithmetic at char width for smaller runtime code, picking
+the folded result's sign from the *operands'* types (to stay safe for
+genuinely unknown runtime values), not the actual computed value - so a
+fully-known compile-time result like 239 can come back typed `signed
+char`, is read back later via a `(signed char)` cast, and silently
+becomes -17. Fixed with `fixupCharLiteralSign()`: once a char-typed
+literal arithmetic result is computed, if it's signed and the value
+doesn't fit signed char but does fit unsigned char (128-255), pick the
+sign that can hold it - the same convention `cheapestVal()` already
+uses for its own int-to-char reduction. Verified empirically with GDB
+on i8085 (not just reasoned about): confirmed the exact mis-signed,
+wrapped value at each of the three call sites before the fix, confirmed
+corrected after; checked for regressions with a second set of genuinely-
+out-of-range/sign-changing test cases (`300` into `unsigned char`,
+`-5` into `unsigned char`, a widening cast, `200` into `signed char`) -
+all four still correctly warn, so this isn't a blanket suppression.
+
+#2877 (`192 + 41`) reproduces the identical symptom through a
+*different* mechanism found but not fixed: GDB showed the literal `192`
+already corrupted to `signed char` value -64 (192 mod 256, reinterpreted
+signed) *before* `valPlus` even runs, apparently via a `RESULT_TYPE_CHAR`
+hint (propagated down from the `uint8_t` assignment target through
+`decorateType`'s `resultTypePropagate`) causing a blind truncating
+pre-cast of each operand ahead of the addition, rather than folding at
+full precision and narrowing once at the end. This is a separate rabbit
+hole from the fixed three - parked rather than chased further this pass.
+Regression test: `support/regression/tests/bug-3986.c` (covers all three
+fixed cases; #2877 is not fixed so isn't asserted there).
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce
