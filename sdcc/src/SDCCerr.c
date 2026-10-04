@@ -795,6 +795,8 @@ struct
      "sizeof applied to a function type", 0},
   {E_NONSCALAR_CONTROLLING_EXPR, ERROR_LEVEL_ERROR,
      "controlling expression does not have scalar type", 0},
+  {E_CAST_PTR_FLOAT, ERROR_LEVEL_ERROR,
+     "illegal cast (a pointer shall not be converted to or from a floating type)", 0},
 };
 
 /* -------------------------------------------------------------------------------

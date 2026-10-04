@@ -281,7 +281,7 @@ and one shared-glue-code bug (#2354, `SDCCglue.c` linkage-attribute emission).
 | [4094](https://sourceforge.net/p/sdcc/bugs/4094/) | CORE | Structure with a flexible array member is accepted as an array element type | frontend type/decl check; array of flexible-array-member struct undiagnosed; reproduces on 18 unrelated ports |
 | [4090](https://sourceforge.net/p/sdcc/bugs/4090/) | CORE | sizeof applied to a function is accepted without a diagnostic | sizeof on function type undiagnosed - FIXED (new E_SIZEOF_FUNCTION, SDCCast.c); also now catches sizeof(&func), consistent with SDCC's own pre-existing "&func == func" design |
 | [4089](https://sourceforge.net/p/sdcc/bugs/4089/) | CORE | Undiagnosed constraint violation on cast from struct to scalar type | undiagnosed struct-to-scalar cast; frontend constraint check; cross-port |
-| [4088](https://sourceforge.net/p/sdcc/bugs/4088/) | CORE | Internal error instead of constraint violation reported when pointer cast to float | ICE instead of diagnostic on pointer-to-float cast; frontend |
+| [4088](https://sourceforge.net/p/sdcc/bugs/4088/) | CORE | Internal error instead of constraint violation reported when pointer cast to float | ICE instead of diagnostic on pointer-to-float cast - FIXED (new E_CAST_PTR_FLOAT, SDCCast.c CAST case, both directions) |
 | [4087](https://sourceforge.net/p/sdcc/bugs/4087/) | CORE | Undiagnosed constraint violation when _Alignof applied to an incomplete type | _Alignof on incomplete type undiagnosed; frontend |
 | [4086](https://sourceforge.net/p/sdcc/bugs/4086/) | CORE | Undiagnosed constraint violation when [] used on an incomplete type | [] on incomplete-type pointer undiagnosed; frontend |
 | [4085](https://sourceforge.net/p/sdcc/bugs/4085/) | CORE | Undiagnosed constraint violations on arithmetic operations | pointer arithmetic constraint violations undiagnosed; frontend |
@@ -724,9 +724,30 @@ Fixed so far:
   `-:0:` - fixed by using the *condition expression's* position
   instead (`tree->left->filename` / `AST_FOR(tree,condExpr)->filename`).
 
-Not yet investigated: the remaining 25. #4088 and #3917 are themselves
-FATAL internal-error crashes (not just missing diagnostics) so should
-be prioritized next over the plain missing-diagnostic ones.
+- **#4088** (ICE on pointer<->float cast, `(float)pointer`) - fixed.
+  `checkTypeSanity`/the CAST case had no check at all for this
+  direction; downstream code then tried to treat the pointer's
+  DECLARATOR as a numeric SPECIFIER via `SPEC_LONG`, crashing with
+  "validateLink failed ... expected SPECIFIER, got DECLARATOR"
+  (SDCCopt.c). Added a dedicated `IS_PTR`/`IS_FLOAT` check for both
+  cast directions, raising a new `E_CAST_PTR_FLOAT` - deliberately
+  *not* reusing the existing `E_CAST_ILLEGAL` ("cast cannot be
+  aggregate"), since that message would be factually wrong for a
+  pointer/float mismatch. Hit the same test-file infrastructure quirk
+  as above a second way: `cases/generate-cases.py`'s naive per-line
+  `name: value` header-comment parser (used to scan for parameterized
+  test substitutions) chokes on any header-comment line with *two or
+  more* colons, not just lines with a colon at all (single-colon lines
+  are harmlessly misparsed as a no-op substitution) - had quoted the
+  crash's own "file:line: message" form verbatim, which broke
+  `cases/MakeList` generation outright (`ValueError: too many values to
+  unpack`) rather than just miscounting a test. Fixed by rewording,
+  not escaping - worth remembering for any future test comment that
+  quotes a compiler diagnostic verbatim.
+
+Not yet investigated: the remaining 24. #3917 is itself a FATAL
+internal-error crash (not just a missing diagnostic) so should be
+prioritized next over the plain missing-diagnostic ones.
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce

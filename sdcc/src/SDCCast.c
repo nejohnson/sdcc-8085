@@ -5128,6 +5128,16 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
           goto errorTreeReturn;
         }
 
+      /* a pointer shall not be converted to a floating type, and a
+         floating type shall not be converted to a pointer type
+         (C17/C23 6.5.4p4) */
+      if ((IS_PTR (LTYPE (tree)) && IS_FLOAT (RTYPE (tree))) ||
+          (IS_FLOAT (LTYPE (tree)) && IS_PTR (RTYPE (tree))))
+        {
+          werrorfl (tree->filename, tree->lineno, E_CAST_PTR_FLOAT);
+          goto errorTreeReturn;
+        }
+
       /* make sure the type is complete and sane */
       if ((resultType == RESULT_TYPE_GPTR) && IS_FUNCPTR (LTYPE (tree)))
         changePointer (LTYPE (tree)->next);
