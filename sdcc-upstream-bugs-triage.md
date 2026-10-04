@@ -156,8 +156,8 @@ Two things worth calling out on their own, not buried in the table:
 | [3957](https://sourceforge.net/p/sdcc/bugs/3957/) | CORE | Indirect assignment of a non-null value through a pointer discards non-null inference | same class, indirect assignment |
 | [3952](https://sourceforge.net/p/sdcc/bugs/3952/) | CORE | No diagnostic message when type constraint on assignment violated | missing diagnostic on assignment type-constraint violation; frontend |
 | [3920](https://sourceforge.net/p/sdcc/bugs/3920/) | CORE | Ascon regression test issues | Ascon crypto test fails across opt8/opt32/bi8 variants; likely shared optimizer |
-| [3917](https://sourceforge.net/p/sdcc/bugs/3917/) | CORE | FATAL Compiler Internal Error caused by typeof_unqual on function (pointer) type names | FATAL ICE, typeof_unqual on fn type; frontend parser |
-| [3916](https://sourceforge.net/p/sdcc/bugs/3916/) | CORE | Syntax error if a function type name is the operand of typeof | syntax error, typeof on fn type; frontend parser |
+| [3917](https://sourceforge.net/p/sdcc/bugs/3917/) | CORE | FATAL Compiler Internal Error caused by typeof_unqual on function (pointer) type names | FATAL ICE, typeof_unqual on fn type - FIXED (SDCC.y grammar, same root cause as #3916) |
+| [3916](https://sourceforge.net/p/sdcc/bugs/3916/) | CORE | Syntax error if a function type name is the operand of typeof | syntax error, typeof on fn type - FIXED, same root cause as #3917 |
 | [3892](https://sourceforge.net/p/sdcc/bugs/3892/) | CORE | Dwarf inlined subroutine tag is wrong | wrong DWARF tag constant in SDCCdwarf2.h; trivially shared, one-line fix |
 | [3877](https://sourceforge.net/p/sdcc/bugs/3877/) | CORE | Duplication of static objects in inline functions | static-object duplication in inline functions; general inlining semantics |
 | [3868](https://sourceforge.net/p/sdcc/bugs/3868/) | CORE | pragma save and pragma restore do not affect pragma disable_warning | pragma save/restore doesn't affect disable_warning; frontend pragma handling |
@@ -745,9 +745,29 @@ Fixed so far:
   not escaping - worth remembering for any future test comment that
   quotes a compiler diagnostic verbatim.
 
-Not yet investigated: the remaining 24. #3917 is itself a FATAL
-internal-error crash (not just a missing diagnostic) so should be
-prioritized next over the plain missing-diagnostic ones.
+- **#3917/#3916 fixed together** - not actually "missing diagnostic"
+  tickets at all: the reporter wants `typeof`/`typeof_unqual` applied
+  to a bare function type (e.g. `typeof_unqual (int (int)) *pfoo;`) to
+  be *accepted*, per C23 - Clang/GCC permit it, SDCC crashed instead.
+  Root cause was in the grammar itself (`SDCC.y`), not the `typeof`
+  handling: `function_abstract_declarator`'s alternative for a bare
+  function type with no preceding pointer/declarator -
+  `'(' parameter_type_list ')'`, exactly the shape of `(int)` in
+  `int (int)` - just discarded the parameter list and returned `NULL`,
+  unlike every sibling alternative (which all build a proper
+  `FUNCTION` `DECLARATOR` link). That `NULL` propagated up through
+  `type_name`'s type-chain-walking code into a malformed type that
+  crashed whatever touched it downstream. Fixed by building the
+  `FUNCTION` declarator the same way the sibling rules do. Verified
+  the resulting type is actually usable, not just non-crashing: wrote
+  a function, declared a pointer to it via
+  `typeof_unqual (int (int)) *`, called it, got the right answer back.
+  Checked for regressions in ordinary (non-`typeof`) function-pointer
+  declarations, including varargs - unaffected. This is a grammar
+  change, so it got the full 3-port regression treatment rather than
+  being assumed safe from the unit-level test alone.
+
+Not yet investigated: the remaining 23.
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce

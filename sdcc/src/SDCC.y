@@ -1931,7 +1931,20 @@ function_abstract_declarator
      }
      $1->next=p;
    }
-   | '(' parameter_type_list ')'    { $$ = NULL;}
+   | '(' parameter_type_list ')'
+       {
+         /* a bare function type with no preceding pointer/declarator,
+            e.g. typeof_unqual (int (int)) - used to just discard the
+            parameter list and return NULL, leaving the overall type
+            chain broken and crashing downstream (upstream bugs
+            #3916/#3917). Build the FUNCTION declarator the same way
+            the sibling alternatives above do. */
+         sym_link *p = newLink (DECLARATOR);
+         DCL_TYPE (p) = FUNCTION;
+         FUNC_HASVARARGS (p) = IS_VARG ($2);
+         FUNC_ARGS (p) = $2;
+         $$ = p;
+       }
    | direct_abstract_declarator '('
         {
           NestLevel += LEVEL_UNIT;
