@@ -240,6 +240,15 @@ _mcs51_genAssemblerStart (FILE * of)
       fprintf (of, "\t.area OSEG\t(REL,OVR,BANK=BDATA)\n");
       fprintf (of, "\t.area ISEG\t(BANK=BDATA)\n");
       fprintf (of, "\t.area SSEG\t(BANK=BDATA)\n");
+
+      /* And the external RAM areas, for the same reason: pdata is the
+         first page of xdata, the initialised xdata has to follow both,
+         and the order cannot be left to whichever module happens to
+         mention one of them first. */
+      fprintf (of, "\t.area PSEG\t(BANK=BXDATA)\n");
+      fprintf (of, "\t.area XSEG\t(BANK=BXDATA)\n");
+      fprintf (of, "\t.area XISEG\t(BANK=BXDATA)\n");
+      fprintf (of, "\t.area XSTK\t(BANK=BXDATA)\n");
     }
 
   if (!options.noOptsdccInAsm)

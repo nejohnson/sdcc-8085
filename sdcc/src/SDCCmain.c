@@ -2001,7 +2001,33 @@ linkEdit (char **envp)
              the best place for xdata */
           if (options.xdata_loc)
             {
-              if (!TARGET_MOS6502_LIKE)
+              if (TARGET_MCS51_LIKE && port->linker.asxxxx)
+                {
+                  /* XSEG and PSEG were both based at the xdata location,
+                     which sdld could carry because it kept one location
+                     counter per address space and the areas it laid out
+                     from it were the ones it had pre-declared.  Here they
+                     are one bank and one chain, and two areas based at the
+                     same address in a chain is not a layout: whichever is
+                     processed last leaves the counter at its own base, and
+                     XISEG - which has no base and so follows - lands on top
+                     of whatever the other one holds.  That is what put a
+                     2-byte initialised __xdata array inside 23 bytes of
+                     pdata in the medium model.
+
+                     Base the first area of the chain instead and let the
+                     rest run on: pdata, then xdata, then the initialised
+                     xdata, each after the last.  pdata occupying the first
+                     page of xdata is what pdata is.
+
+                     The bank itself is deliberately left at 0: basing it
+                     would put its floor above the absolute xdata areas,
+                     which are placed by the programmer and have every
+                     right to be below it - "Base Address of Area[XABS]
+                     less than Bank[BXDATA]". */
+                  WRITE_SEG_LOC (PDATA_NAME, options.xdata_loc);
+                }
+              else if (!TARGET_MOS6502_LIKE)
                 {
                   WRITE_SEG_LOC (XDATA_NAME, options.xdata_loc);
                 }
@@ -2030,7 +2056,7 @@ linkEdit (char **envp)
 
           /* pdata/xstack segment start. If zero, the linker
              chooses the best place for them */
-          if (options.xstack_loc)
+          if (options.xstack_loc && !(TARGET_MCS51_LIKE && port->linker.asxxxx))
             {
               WRITE_SEG_LOC (PDATA_NAME, options.xstack_loc);
             }
