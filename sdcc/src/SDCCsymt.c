@@ -1518,6 +1518,17 @@ addSymChain (symbol **symHead)
     {
       changePointer (sym->type);
       checkTypeSanity (sym->etype, sym->name);
+
+      /* a structure with a flexible array member shall not be an
+         element of an array (N3886 6.7.3.2p3) */
+      if (IS_ARRAY (sym->type))
+        {
+          sym_link *elem = sym->type;
+          while (IS_ARRAY (elem))
+            elem = elem->next;
+          if (IS_SPEC (elem) && IS_STRUCT (elem) && SPEC_STRUCT (elem)->b_flexArrayMember)
+            werror (W_INVALID_FLEXARRAY);
+        }
 #if 0
       printf("addSymChain for %p %s level %ld extern %d\n", sym, sym->name, sym->level, IS_EXTERN (sym->etype));
 #endif

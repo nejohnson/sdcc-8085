@@ -886,10 +886,42 @@ Fixed so far:
   underlying CSE/dataflow pathology is itself better understood. Left
   for Neil to decide rather than picked unilaterally.
 
-Not yet investigated: the remaining 16 (27 total, 10 fixed and
+  Resolved: Neil chose "commit as-is" - the correctness gain stands on
+  its own, and the slowdown only bites inputs already known to be
+  pathological for the pre-existing, separately-tracked CSE/dataflow
+  reason. Committed and pushed (`fb7a9aa8`). A follow-up task was
+  created to revisit the CSE/dataflow performance cluster given this
+  confirmed interaction, deferred until the rest of this C23 sweep is
+  done.
+
+- **#4094** - "Structure with a flexible array member is accepted as
+  an array element type" (N3886 6.7.3.2p3: a structure containing a
+  flexible array member shall not be a member of a structure or an
+  element of an array). This fork already enforced the "member of a
+  structure" half via `checkStructFlexArray()` (SDCCsymt.c), called
+  only from the struct-member grammar path - but the "element of an
+  array" half had no check at all. Fixed in `addSymChain()`
+  (SDCCsymt.c), the central choke point for every ordinary object
+  declaration (globals and locals): after the existing
+  `checkTypeSanity()` call, walk any array-of-array chain down to its
+  element type and raise the existing `W_INVALID_FLEXARRAY` warning if
+  that element is a struct with `b_flexArrayMember` set. Reused the
+  existing warning rather than adding a new error code, since its
+  message ("invalid use of structure with flexible array member") is
+  already generic enough. Verified: `struct flexible array[2];` now
+  warns; a plain (non-array) flex-struct variable, a pointer to one, an
+  array of a *complete* struct, and the pre-existing struct-member
+  check (flex-struct as a struct member, still rejected independently)
+  all continue to behave exactly as before - confirmed via targeted
+  manual compiles of each case before trusting the fix. Regression test
+  `bug-4094.c` added and registered in `MakeList`; full 3-port
+  regression (i8085/i8085-undoc/i8080) on a freshly wiped `gen`/`results`
+  tree came back 0 failures on all three (36417 tests each), including
+  the new test itself passing on all three ports.
+
+Not yet investigated: the remaining 15 (27 total, 12 fixed and
 committed so far: #4090, #4083, #4088, #3917, #3916, #4089, #4087,
-#4086, #4085, #4084; #4072 fixed but pending a commit/park decision -
-see above).
+#4086, #4085, #4084, #4072, #4094).
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce
