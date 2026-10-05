@@ -63,6 +63,10 @@ typedef struct asmop
   bool aop_litimmd_is_gptr : 1;
   bool aop_is_volatile : 1;
   unsigned short allocated;     /* number of times allocated */
+  unsigned int aop_sfr_addr;    /* AOP_SFR: the __at address.  A multi-byte
+                                   __sfr16/__sfr32 is several unrelated
+                                   SFRs, one per byte, and this holds all
+                                   of them - see aopGet(). */
   union
   {
     value *aop_lit;             /* if literal */

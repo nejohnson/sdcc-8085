@@ -1,3 +1,7 @@
+	.bank BCODE
+	.bank BDATA
+	.bank BXDATA
+	.bank BBIT
 ;--------------------------------------------------------------------------
 ;  crtxinit.asm :- C run-time: copy XINIT to XISEG
 ;
@@ -32,17 +36,17 @@
 ; If the derivative has auto-toggle or auto-increment it can be further optimized
 	DUAL_DPTR = 0
 
-	.area CSEG    (CODE)
-	.area GSINIT0 (CODE)
-	.area GSINIT1 (CODE)
-	.area GSINIT2 (CODE)
-	.area GSINIT3 (CODE)
-	.area GSINIT4 (CODE)
-	.area GSINIT5 (CODE)
-	.area GSINIT  (CODE)
-	.area GSFINAL (CODE)
+	.area CSEG    (BANK=BCODE)
+	.area GSINIT0 (BANK=BCODE)
+	.area GSINIT1 (BANK=BCODE)
+	.area GSINIT2 (BANK=BCODE)
+	.area GSINIT3 (BANK=BCODE)
+	.area GSINIT4 (BANK=BCODE)
+	.area GSINIT5 (BANK=BCODE)
+	.area GSINIT  (BANK=BCODE)
+	.area GSFINAL (BANK=BCODE)
 
-	.area GSINIT3 (CODE)
+	.area GSINIT3 (BANK=BCODE)
 
 	.if DUAL_DPTR
 
@@ -55,9 +59,9 @@ __mcs51_genXINIT::
 	jz	00003$
 	mov	r2,#((l_XINIT+255) >> 8)
 	orl	_DPS,#0x01		; set DPSEL, select DPTR1
-	mov	dptr,#s_XINIT		; DPTR1 for code
+	mov	dptr,#a_XINIT		; DPTR1 for code
 	dec	_DPS			; clear DPSEL, select DPTR0
-	mov	dptr,#s_XISEG		; DPTR0 for xdata
+	mov	dptr,#a_XISEG		; DPTR0 for xdata
 00001$:	clr	a
 	inc	_DPS			; set DPSEL, select DPTR1
 	movc	a,@a+dptr
@@ -79,9 +83,9 @@ __mcs51_genXINIT::
 	orl	a,#(l_XINIT >> 8)
 	jz	00003$
 	mov	r2,#((l_XINIT+255) >> 8)
-	mov	dptr,#s_XINIT
-	mov	r0,#s_XISEG
-	mov	__XPAGE,#(s_XISEG >> 8)
+	mov	dptr,#a_XINIT
+	mov	r0,#a_XISEG
+	mov	__XPAGE,#(a_XISEG >> 8)
 00001$:	clr	a
 	movc	a,@a+dptr
 	movx	@r0,a
