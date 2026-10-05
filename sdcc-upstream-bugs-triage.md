@@ -282,7 +282,7 @@ and one shared-glue-code bug (#2354, `SDCCglue.c` linkage-attribute emission).
 | [4090](https://sourceforge.net/p/sdcc/bugs/4090/) | CORE | sizeof applied to a function is accepted without a diagnostic | sizeof on function type undiagnosed - FIXED (new E_SIZEOF_FUNCTION, SDCCast.c); also now catches sizeof(&func), consistent with SDCC's own pre-existing "&func == func" design |
 | [4089](https://sourceforge.net/p/sdcc/bugs/4089/) | CORE | Undiagnosed constraint violation on cast from struct to scalar type | undiagnosed struct-to-scalar cast - FIXED (CAST case, SDCCast.c, source-side IS_STRUCT check; void-discard still valid) |
 | [4088](https://sourceforge.net/p/sdcc/bugs/4088/) | CORE | Internal error instead of constraint violation reported when pointer cast to float | ICE instead of diagnostic on pointer-to-float cast - FIXED (new E_CAST_PTR_FLOAT, SDCCast.c CAST case, both directions) |
-| [4087](https://sourceforge.net/p/sdcc/bugs/4087/) | CORE | Undiagnosed constraint violation when _Alignof applied to an incomplete type | _Alignof on incomplete type undiagnosed; frontend |
+| [4087](https://sourceforge.net/p/sdcc/bugs/4087/) | CORE | Undiagnosed constraint violation when _Alignof applied to an incomplete type | _Alignof on incomplete type undiagnosed - FIXED (alignofOp, SDCCast.c, new E_ALIGNOF_INCOMPLETE_TYPE; _Alignof(void) deliberately left alone, same as sizeof(void)) |
 | [4086](https://sourceforge.net/p/sdcc/bugs/4086/) | CORE | Undiagnosed constraint violation when [] used on an incomplete type | [] on incomplete-type pointer undiagnosed; frontend |
 | [4085](https://sourceforge.net/p/sdcc/bugs/4085/) | CORE | Undiagnosed constraint violations on arithmetic operations | pointer arithmetic constraint violations undiagnosed; frontend |
 | [4084](https://sourceforge.net/p/sdcc/bugs/4084/) | CORE | No diagnostic when the first operand of ?: has struct type | ?: first operand struct type undiagnosed; frontend |
@@ -785,7 +785,25 @@ Fixed so far:
     caught, but better to reach for `IS_STRUCT` directly from the
     start for this class of check.
 
-Not yet investigated: the remaining 22.
+- **#4087** (`_Alignof` on an incomplete type) - fixed the same way
+  as the analogous `sizeof` check: `alignofOp()` already had the type
+  in hand via `checkTypeSanity()`'s call, just needed the same
+  `getSize()==0`-and-not-void incomplete-type test SIZEOF uses, raising
+  a new, dedicated `E_ALIGNOF_INCOMPLETE_TYPE` (reusing
+  `E_SIZEOF_INCOMPLETE_TYPE` would have named the wrong operator in the
+  message - same lesson as `E_CAST_ILLEGAL` earlier in this cluster).
+  `_Alignof(void)` is deliberately left alone, matching this fork's
+  existing `sizeof(void)` behavior (permitted with just a warning, as a
+  GNU-style extension, not the strict standard reading that void is
+  itself incomplete) - not stricter than `sizeof` for no reason. Side
+  note, out of scope for this ticket: `alignofOp()` unconditionally
+  returns the literal constant `1` for every type regardless of its
+  actual alignment - `_Alignof` doesn't compute a real answer on this
+  fork at all. Not touched here; this ticket is only about the missing
+  diagnostic.
+
+Not yet investigated: the remaining 20 (27 total, 7 fixed so far:
+#4090, #4083, #4088, #3917, #3916, #4089, #4087).
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce

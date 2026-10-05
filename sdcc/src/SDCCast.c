@@ -6375,6 +6375,9 @@ alignofOp (sym_link *type)
   /* make sure the type is complete and sane */
   checkTypeSanity (type, "(_Alignof)");
 
+  if (!getSize (type) && !IS_VOID (type))
+    werror (E_ALIGNOF_INCOMPLETE_TYPE);
+
   val = constVal ("1");
 
   return val;

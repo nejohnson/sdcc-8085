@@ -797,6 +797,8 @@ struct
      "controlling expression does not have scalar type", 0},
   {E_CAST_PTR_FLOAT, ERROR_LEVEL_ERROR,
      "illegal cast (a pointer shall not be converted to or from a floating type)", 0},
+  {E_ALIGNOF_INCOMPLETE_TYPE, ERROR_LEVEL_ERROR,
+     "_Alignof applied to an incomplete type", 0},
 };
 
 /* -------------------------------------------------------------------------------
