@@ -838,6 +838,12 @@ aopForSym (iCode * ic, symbol * sym, bool result)
       sym->aop = aop = newAsmop (SPEC_SCLS (getSpec (sym->type)) == S_SFR ? AOP_SFR : AOP_DIR);
       aop->aopu.aop_dir = sym->rname;
       aop->size = getSize (sym->type);
+      /* An __sfr16 or __sfr32 is not one wide register, it is two or four
+         separate SFRs whose addresses are packed into the __at value.
+         Keep that value here so each byte can be named by its own address;
+         see the AOP_SFR cases in aopGet() and aopPut(). */
+      if (aop->type == AOP_SFR && SPEC_ABSA (sym->etype))
+        aop->aop_sfr_addr = SPEC_ADDR (sym->etype);
       aop->aop_is_volatile = IS_VOLATILE (sym->type);
       return aop;
     }
@@ -1691,7 +1697,15 @@ aopGet (asmop *aop, int offset, bool bit16, bool dname)
         case AOP_SFR:
           if (aop->type == AOP_SFR && aop->size > 1)
             {
-              dbuf_printf (&dbuf, "((%s >> %d) & 0xFF)", aop->aopu.aop_dir, offset * 8);
+              /* This byte is its own SFR, so give its address rather than
+                 ask the assembler to shift it out of the packed __at
+                 value.  That only ever worked where the assembler's
+                 arithmetic was wider than its addresses: ASxxxx evaluates
+                 expressions at the address width, so on the 8051 the top
+                 two bytes of an __sfr32 both came out 0x00 and two writes
+                 landed on one address - and SDAS, which has the width, got
+                 the top byte wrong too (0xFF for 0x8C). */
+              dbuf_printf (&dbuf, "0x%02x", (aop->aop_sfr_addr >> (offset * 8)) & 0xFF);
             }
           else if (offset)
             {
@@ -1832,7 +1846,8 @@ aopPut (asmop *aop, const char *s, int offset)
     case AOP_SFR:
       if (aop->type == AOP_SFR && aop->size > 1)
         {
-          dbuf_printf (&dbuf, "((%s >> %d) & 0xFF)", aop->aopu.aop_dir, offset * 8);
+          /* see the matching case in aopGet() */
+          dbuf_printf (&dbuf, "0x%02x", (aop->aop_sfr_addr >> (offset * 8)) & 0xFF);
         }
       else if (offset)
         {

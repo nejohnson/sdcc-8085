@@ -1,3 +1,7 @@
+	.bank BCODE
+	.bank BDATA
+	.bank BXDATA
+	.bank BBIT
 ;--------------------------------------------------------------------------
 ;  atomic_flag_clear.asm - C run-time: C11 atomic flag
 ;
@@ -26,18 +30,18 @@
 ;  might be covered by the GNU General Public License.
 ;--------------------------------------------------------------------------
 
-	.area HOME    (CODE)
-	.area GSINIT0 (CODE)
-	.area GSINIT1 (CODE)
-	.area GSINIT2 (CODE)
-	.area GSINIT3 (CODE)
-	.area GSINIT4 (CODE)
-	.area GSINIT5 (CODE)
-	.area GSINIT  (CODE)
-	.area GSFINAL (CODE)
-	.area CSEG    (CODE)
+	.area HOME    (BANK=BCODE)
+	.area GSINIT0 (BANK=BCODE)
+	.area GSINIT1 (BANK=BCODE)
+	.area GSINIT2 (BANK=BCODE)
+	.area GSINIT3 (BANK=BCODE)
+	.area GSINIT4 (BANK=BCODE)
+	.area GSINIT5 (BANK=BCODE)
+	.area GSINIT  (BANK=BCODE)
+	.area GSFINAL (BANK=BCODE)
+	.area CSEG    (BANK=BCODE)
 
-	.area HOME    (CODE)
+	.area HOME    (BANK=BCODE)
 
 _atomic_flag_clear::
 	mov  r0,dpl

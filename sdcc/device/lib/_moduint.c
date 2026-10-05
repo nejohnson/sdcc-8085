@@ -85,9 +85,9 @@ __modint:			; entry point for __modsint
 
 #if !defined(__SDCC_PARMS_IN_BANK1)
 #if defined(__SDCC_NOOVERLAY)
-	.area DSEG    (DATA)
+	.area DSEG    (BANK=BDATA)
 #else
-	.area OSEG    (OVR,DATA)
+	.area OSEG    (REL,OVR,BANK=BDATA)
 #endif
 
 	.globl __moduint_PARM_2
@@ -97,7 +97,7 @@ __moduint_PARM_2:
 __modsint_PARM_2:
 	.ds	2
 
-	.area CSEG    (CODE)
+	.area CSEG    (BANK=BCODE)
 
 	#define bl      (__moduint_PARM_2)
 	#define bh      (__moduint_PARM_2 + 1)

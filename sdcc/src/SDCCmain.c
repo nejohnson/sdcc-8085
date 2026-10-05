@@ -1930,8 +1930,11 @@ linkEdit (char **envp)
         }
       else                      /* For all the other ports which need linker script */
         {
-          fprintf (lnkfile, "-muwx\n-%c%s%s\n", out_fmt, out_sep, dbuf_c_str (&binFileName));
-          if (TARGET_MCS51_LIKE)
+          /* aslink has no -u (it is sdld's "update" flag) and no -M. */
+          fprintf (lnkfile, "%s\n-%c%s%s\n",
+                   port->linker.asxxxx ? "-mwx" : "-muwx",
+                   out_fmt, out_sep, dbuf_c_str (&binFileName));
+          if (TARGET_MCS51_LIKE && !port->linker.asxxxx)
             fprintf (lnkfile, "-M\n");
         }
 
@@ -1943,7 +1946,12 @@ linkEdit (char **envp)
       if (port->linker.asxxxx)
         fprintf (lnkfile, "-o+%s\n", dstFileName);
 
-      if (!TARGET_Z80_LIKE)   /* Not for the z80 and related */
+      /* -I, -S, -X and -C are sdld's memory-size options and aslink has
+         none of them.  They are not merely diagnostic either - sdld's -S
+         allocates the stack - so a port that drives aslink has to get the
+         same effect from area bases and sizes, and asking for them here
+         would just be an unknown option. */
+      if (!TARGET_Z80_LIKE && !port->linker.asxxxx)
         {
           /* if iram size specified */
           if (options.iram_size)
@@ -1993,7 +2001,33 @@ linkEdit (char **envp)
              the best place for xdata */
           if (options.xdata_loc)
             {
-              if (!TARGET_MOS6502_LIKE)
+              if (TARGET_MCS51_LIKE && port->linker.asxxxx)
+                {
+                  /* XSEG and PSEG were both based at the xdata location,
+                     which sdld could carry because it kept one location
+                     counter per address space and the areas it laid out
+                     from it were the ones it had pre-declared.  Here they
+                     are one bank and one chain, and two areas based at the
+                     same address in a chain is not a layout: whichever is
+                     processed last leaves the counter at its own base, and
+                     XISEG - which has no base and so follows - lands on top
+                     of whatever the other one holds.  That is what put a
+                     2-byte initialised __xdata array inside 23 bytes of
+                     pdata in the medium model.
+
+                     Base the first area of the chain instead and let the
+                     rest run on: pdata, then xdata, then the initialised
+                     xdata, each after the last.  pdata occupying the first
+                     page of xdata is what pdata is.
+
+                     The bank itself is deliberately left at 0: basing it
+                     would put its floor above the absolute xdata areas,
+                     which are placed by the programmer and have every
+                     right to be below it - "Base Address of Area[XABS]
+                     less than Bank[BXDATA]". */
+                  WRITE_SEG_LOC (PDATA_NAME, options.xdata_loc);
+                }
+              else if (!TARGET_MOS6502_LIKE)
                 {
                   WRITE_SEG_LOC (XDATA_NAME, options.xdata_loc);
                 }
@@ -2022,19 +2056,78 @@ linkEdit (char **envp)
 
           /* pdata/xstack segment start. If zero, the linker
              chooses the best place for them */
-          if (options.xstack_loc)
+          if (options.xstack_loc && !(TARGET_MCS51_LIKE && port->linker.asxxxx))
             {
               WRITE_SEG_LOC (PDATA_NAME, options.xstack_loc);
             }
 
-          /* indirect data */
-          if (IDATA_NAME)
+          /* indirect data.  Not for an ASxxxx link: idata shares the
+             internal RAM with the register banks, the bit bank, DSEG,
+             OSEG and SSEG, and under banks they are one chain that lays
+             them out one after another.  Basing ISEG at 0 - which is what
+             an idata_loc of 0 means, since this one is written whether or
+             not a location was asked for - resets that chain back over
+             the register banks.  sdld could do it because it kept a
+             separate location counter per address space; the chain is
+             what replaces those counters here. */
+          if (IDATA_NAME && !(TARGET_MCS51_LIKE && port->linker.asxxxx))
             {
               WRITE_SEG_LOC (IDATA_NAME, options.idata_loc);
             }
 
-          /* bit segment start */
-          WRITE_SEG_LOC (BIT_NAME, 0);
+          /* bit segment start.  For an ASxxxx link the first byte of the
+             bit-addressable region, 0x20, belongs to BIT_BANK - see
+             below - so the user's own __bit variables start at bit 8,
+             in byte 0x21. */
+          WRITE_SEG_LOC (BIT_NAME,
+                         (TARGET_MCS51_LIKE && port->linker.asxxxx) ? 8 : 0);
+
+          /* The eight bit registers the mcs51 allocator spills into live
+             in one byte of BIT_BANK, and SDCCglue.c gives their addresses
+             as the constants 0 to 7 when the assembler is ASxxxx, because
+             ASxxxx has no relocation that converts a byte address into a
+             bit address.  Those constants are only right if the byte is
+             at 0x20, the first bit-addressable one, so say so here rather
+             than leave it to where the area happens to fall.  sdld put it
+             at 0x20 too, after the four register banks - in all 214
+             programs of the regression corpus that used it. */
+          if (TARGET_MCS51_LIKE && port->linker.asxxxx)
+            {
+              fprintf (lnkfile, "-a BIT_BANK = 0x0020\n");
+
+              /* DSEG is deliberately *not* moved above the bit-addressable
+                 region, though that is what sdld's layout amounts to.
+                 sdld keeps BSEG_BYTES between the register banks and DSEG
+                 and sizes it from the bits actually used; aslink cannot
+                 size it - there is no relocation turning a byte address
+                 into a bit address, and nothing to derive the count from -
+                 so the only faithful version reserves all sixteen bytes.
+                 Measured on mcs51-small, that fixes absolute_mem___code
+                 and costs more than it fixes: failing cases go from 13 to
+                 22, picking up bigstack, tst_string and wchar, which is
+                 internal RAM running out.  So __at data in 0x20-0x2F can
+                 still be overlaid by DSEG.  See mcs51-asxxxx-status.md. */
+
+              /* sdld builds the 8051's memory model into the linker:
+                 lkmain.c pre-declares BSEG_BYTES, BIT_BANK, DSEG, OSEG,
+                 ISEG and SSEG, pins the four register banks at 0x00, 0x08,
+                 0x10 and 0x18 and BSEG_BYTES at 0x20, and defines l_IRAM
+                 as the -I size or 0x100.  aslink is target agnostic and
+                 knows none of it, but the link script can say all of it,
+                 which is where it belongs: a linker should not have to
+                 know what an 8051 is.
+
+                 l_IRAM first, because the runtime's crtclear.asm clears
+                 internal RAM with "mov r0,#(l_IRAM-1)" and an undefined
+                 global fails the link.  Only mcs51 proper: aslink's -g
+                 sets the value of a symbol the link already references,
+                 and ds390/ds400 have no crtclear, so asking for it there
+                 is "No definition of symbol l_IRAM". */
+              if (TARGET_IS_MCS51)
+                fprintf (lnkfile, "-g l_IRAM = 0x%04x\n",
+                         (options.iram_size > 0 && options.iram_size <= 0x100) ?
+                         options.iram_size : 0x100);
+            }
 
           /* stack start */
           if ((options.stack_loc) && (options.stack_loc < 0x100) && TARGET_MCS51_LIKE && !TARGET_MOS6502_LIKE)

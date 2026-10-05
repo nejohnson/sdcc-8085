@@ -1183,7 +1183,11 @@ _z80_genAssemblerStart (FILE * of)
   else if (TARGET_IS_TLCS90)
     fprintf (of, "\tby = 0xffed\n");
   else if (TARGET_IS_EZ80)
-    fprintf (of, "\t.ez80\n");
+    /* sdas covers the eZ80 as a mode of asz80 and spells it ".ez80".
+       ASxxxx has a separate asez80 whose modes are ".adl" and ".z80";
+       this port is the eZ80 in Z80 mode, which is also asez80's
+       default, but say so rather than rely on it. */
+    fprintf (of, port->assembler.asxxxx ? "\t.z80\n" : "\t.ez80\n");
   else if (TARGET_IS_R800)
     fprintf (of, "\t.r800\n");
   else if (TARGET_IS_I8080)
@@ -1347,6 +1351,11 @@ static const char *_z80LinkCmd[] = {
    rather than taking the object file name as a separate argument. */
 static const char *_asxxxxZ80AsmCmd[] = {
   "asz80", "$l", "$3", "-o+$1", "$1.asm", NULL
+};
+
+/* The eZ80 has its own ASxxxx assembler rather than a mode of asz80. */
+static const char *_asxxxxEZ80AsmCmd[] = {
+  "asez80", "$l", "$3", "-o+$1", "$1.asm", NULL
 };
 
 static const char *_asxxxxLinkCmd[] = {
@@ -2931,21 +2940,24 @@ PORT ez80_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _z80AsmCmd,
+    _asxxxxEZ80AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx asez80, not sdasz80 */
   },
   {                             /* Linker */
-    _z80LinkCmd,                //NULL,
+    _asxxxxLinkCmd,             //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_ez80,             /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldz80 */
   },
   {                             /* Peephole optimizer */
     _ez80_defaultRules,

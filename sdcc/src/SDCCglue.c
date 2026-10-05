@@ -2336,6 +2336,7 @@ glue (void)
   struct dbuf_s asmFileName;
   FILE *asmFile;
   int mcs51_like;
+  int stack_seg;
   namedspacemap *nm;
 
   dbuf_init (&vBuf, 4096);
@@ -2431,30 +2432,69 @@ glue (void)
           fprintf (asmFile, "%s", iComments2);
           fprintf (asmFile, "; overlayable register banks\n");
           fprintf (asmFile, "%s", iComments2);
+          /* "DATA" is SDAS's address-space tag; ASxxxx spells the same idea
+             with a bank, which is what the mcs51 port's own area strings
+             now use.  These four are built here rather than taken from
+             port->mem, so they need the same treatment. */
+          const char *dseg = port->assembler.asxxxx ? "BANK=BDATA" : "DATA";
           if (RegBankUsed[0])
-            fprintf (asmFile, "\t.area REG_BANK_0\t(REL,OVR,DATA)\n\t.ds 8\n");
+            fprintf (asmFile, "\t.area REG_BANK_0\t(REL,OVR,%s)\n\t.ds 8\n", dseg);
           if (RegBankUsed[1] || options.parms_in_bank1)
-            fprintf (asmFile, "\t.area REG_BANK_1\t(REL,OVR,DATA)\n\t.ds 8\n");
+            fprintf (asmFile, "\t.area REG_BANK_1\t(REL,OVR,%s)\n\t.ds 8\n", dseg);
           if (RegBankUsed[2])
-            fprintf (asmFile, "\t.area REG_BANK_2\t(REL,OVR,DATA)\n\t.ds 8\n");
+            fprintf (asmFile, "\t.area REG_BANK_2\t(REL,OVR,%s)\n\t.ds 8\n", dseg);
           if (RegBankUsed[3])
-            fprintf (asmFile, "\t.area REG_BANK_3\t(REL,OVR,DATA)\n\t.ds 8\n");
+            fprintf (asmFile, "\t.area REG_BANK_3\t(REL,OVR,%s)\n\t.ds 8\n", dseg);
         }
+      /* linkEdit() bases BIT_BANK at 0x20 for an ASxxxx link, and aslink
+         refuses a base for an area no module declares - which is most of
+         them, since only a function that runs the allocator out of
+         ordinary registers ever reaches the bit registers.  Declare the
+         area in every module, empty unless it is used, so the base always
+         has something to apply to.  An empty area costs nothing but the
+         eight bytes sdld would have reclaimed by rolling back an unused
+         top register bank. */
       if (BitBankUsed)
         {
           fprintf (asmFile, "%s", iComments2);
           fprintf (asmFile, "; overlayable bit register bank\n");
           fprintf (asmFile, "%s", iComments2);
-          fprintf (asmFile, "\t.area BIT_BANK\t(REL,OVR,DATA)\n");
+          fprintf (asmFile, "\t.area BIT_BANK\t(REL,OVR,%s)\n",
+                   port->assembler.asxxxx ? "BANK=BDATA" : "DATA");
           fprintf (asmFile, "bits:\n\t.ds 1\n");
-          fprintf (asmFile, "\tb0 = bits[0]\n");
-          fprintf (asmFile, "\tb1 = bits[1]\n");
-          fprintf (asmFile, "\tb2 = bits[2]\n");
-          fprintf (asmFile, "\tb3 = bits[3]\n");
-          fprintf (asmFile, "\tb4 = bits[4]\n");
-          fprintf (asmFile, "\tb5 = bits[5]\n");
-          fprintf (asmFile, "\tb6 = bits[6]\n");
-          fprintf (asmFile, "\tb7 = bits[7]\n");
+          if (port->assembler.asxxxx)
+            {
+              int b;
+
+              /* "bits[n]" is SDAS's operator for bit n of a byte whose
+                 address the linker has yet to choose, and it rests on
+                 sdld's R_BIT relocation, which converts a byte address
+                 into a bit address.  ASxxxx has no such relocation and no
+                 bit-address operator either - a bit is a plain number
+                 there - so the byte cannot be allowed to float.
+
+                 linkEdit() bases BIT_BANK at 0x20, the first
+                 bit-addressable byte, which is where sdld placed it in
+                 every program that used it: it follows the four eight
+                 byte register banks.  The eight bit addresses are then
+                 simply 0 to 7, and they are the same in every module
+                 because the area is OVR.  Pinning it costs at most the
+                 eight bytes sdld would have reclaimed by rolling back an
+                 unused top register bank. */
+              for (b = 0; b < 8; b++)
+                fprintf (asmFile, "\tb%d = 0x%02x\n", b, b);
+            }
+          else
+            {
+              fprintf (asmFile, "\tb0 = bits[0]\n");
+              fprintf (asmFile, "\tb1 = bits[1]\n");
+              fprintf (asmFile, "\tb2 = bits[2]\n");
+              fprintf (asmFile, "\tb3 = bits[3]\n");
+              fprintf (asmFile, "\tb4 = bits[4]\n");
+              fprintf (asmFile, "\tb5 = bits[5]\n");
+              fprintf (asmFile, "\tb6 = bits[6]\n");
+              fprintf (asmFile, "\tb7 = bits[7]\n");
+            }
         }
     }
 
@@ -2492,8 +2532,18 @@ glue (void)
       dbuf_write_and_destroy (&ovrBuf, asmFile);
     }
 
-  /* create the stack segment MOF */
-  if (mainf && IFFUNC_HASBODY (mainf->type))
+  /* create the stack segment MOF.
+     SSEG has to be the last area in internal RAM, because the stack grows
+     up from __start__stack over whatever follows it.  sdld guarantees that
+     by pre-declaring the 8051's areas in a fixed order and putting SSEG at
+     the end of the list (sdas/linksrc/lkmain.c); aslink has no built-in
+     idea of an 8051, so the order the areas are declared in is the order
+     they are laid out, and getting it from here is what replaces that
+     list.  Emitted after idata below when the assembler is ASxxxx - in its
+     historical place otherwise, where it precedes ISEG and the stack
+     would start on top of it. */
+  stack_seg = (mainf && IFFUNC_HASBODY (mainf->type));
+  if (stack_seg && !(port->assembler.asxxxx && TARGET_MCS51_LIKE))
     {
       fprintf (asmFile, "%s", iComments2);
       fprintf (asmFile, "; Stack segment in internal ram\n");
@@ -2508,6 +2558,19 @@ glue (void)
       fprintf (asmFile, "; indirectly addressable internal ram data\n");
       fprintf (asmFile, "%s", iComments2);
       dbuf_write_and_destroy (&idata->oBuf, asmFile);
+    }
+
+  if (stack_seg && port->assembler.asxxxx && TARGET_MCS51_LIKE)
+    {
+      fprintf (asmFile, "%s", iComments2);
+      fprintf (asmFile, "; Stack segment in internal ram\n");
+      fprintf (asmFile, "%s", iComments2);
+      /* The stack lives in internal RAM, so SSEG belongs in the same bank
+         as DSEG, OSEG and the register banks.  Named here rather than
+         taken from port->mem, so it needs the bank naming too - without it
+         the area lands in the default bank, on top of the code. */
+      tfprintf (asmFile, "\t!area\n" "__start__stack:\n\t.ds\t1\n\n",
+                "SSEG    (BANK=BDATA)");
     }
 
   /* create the absolute idata/data segment */
@@ -2525,6 +2588,29 @@ glue (void)
   /* copy the bit segment */
   if (bit)
     {
+      /* and, for an ASxxxx link, reserve the bytes they live in.  See the
+         note in mcs51/main.c: the sum over modules of each one's own
+         ceil(bits/8) is never less than ceil(total bits/8). */
+      if (port->assembler.asxxxx && TARGET_MCS51_LIKE)
+        {
+          symbol *bsym;
+          int bits = 0;
+
+          for (bsym = setFirstItem (bit->syms); bsym; bsym = setNextItem (bit->syms))
+            {
+              if (!SPEC_ABSA (bsym->etype))
+                bits += getSize (bsym->type);
+            }
+          if (bits > 0)
+            {
+              fprintf (asmFile, "%s", iComments2);
+              fprintf (asmFile, "; bytes behind this module's bit data\n");
+              fprintf (asmFile, "%s", iComments2);
+              fprintf (asmFile, "\t.area BSEG_BYTES\t(REL,CON,BANK=BDATA)\n");
+              fprintf (asmFile, "\t.ds %d\n", (bits + 7) / 8);
+            }
+        }
+
       fprintf (asmFile, "%s", iComments2);
       fprintf (asmFile, "; bit data\n");
       fprintf (asmFile, "%s", iComments2);
@@ -2546,7 +2632,8 @@ glue (void)
       fprintf (asmFile, "%s", iComments2);
       fprintf (asmFile, "; external stack\n");
       fprintf (asmFile, "%s", iComments2);
-      fprintf (asmFile, "\t.area XSTK (PAG,XDATA)\n" "__start__xstack:\n\t.ds\t1\n\n");
+      fprintf (asmFile, "\t.area XSTK (PAG,%s)\n" "__start__xstack:\n\t.ds\t1\n\n",
+               port->assembler.asxxxx ? "BANK=BXDATA" : "XDATA");
     }
 
   /* copy external ram data */

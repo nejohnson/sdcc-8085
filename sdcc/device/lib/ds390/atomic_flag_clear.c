@@ -31,7 +31,7 @@
 static void dummy(void) __naked
 {
 	__asm
-	.area HOME    (CODE)
+	.area HOME    (BANK=BCODE)
 
 _atomic_flag_clear::
 	mov  r0,dpl

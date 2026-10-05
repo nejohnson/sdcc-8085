@@ -31,7 +31,7 @@
 static void dummy(void) __naked
 {
 	__asm
-	.area HOME    (CODE)
+	.area HOME    (BANK=BCODE)
 
 _atomic_flag_test_and_set::
 	mov  r2, #1
