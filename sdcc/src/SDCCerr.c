@@ -799,6 +799,8 @@ struct
      "illegal cast (a pointer shall not be converted to or from a floating type)", 0},
   {E_ALIGNOF_INCOMPLETE_TYPE, ERROR_LEVEL_ERROR,
      "_Alignof applied to an incomplete type", 0},
+  {E_SUBSCRIPT_INCOMPLETE_TYPE, ERROR_LEVEL_ERROR,
+     "[] applied to a pointer to an incomplete type", 0},
 };
 
 /* -------------------------------------------------------------------------------

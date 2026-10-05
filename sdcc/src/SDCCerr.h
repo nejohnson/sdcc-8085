@@ -395,6 +395,7 @@ enum {
   E_NONSCALAR_CONTROLLING_EXPR  = 365, // controlling expression of if/while/for/do does not have scalar type
   E_CAST_PTR_FLOAT              = 366, // a pointer shall not be converted to/from a floating type
   E_ALIGNOF_INCOMPLETE_TYPE     = 367, // _Alignof applied to an incomplete type
+  E_SUBSCRIPT_INCOMPLETE_TYPE   = 368, // [] applied to a pointer to an incomplete type
 
   // If you get a merge conflict here, some #pragma disable_warning in support/valdiag and support/regression will likely need to be adapted to the resolution. Check there!
 

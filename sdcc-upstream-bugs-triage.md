@@ -283,7 +283,7 @@ and one shared-glue-code bug (#2354, `SDCCglue.c` linkage-attribute emission).
 | [4089](https://sourceforge.net/p/sdcc/bugs/4089/) | CORE | Undiagnosed constraint violation on cast from struct to scalar type | undiagnosed struct-to-scalar cast - FIXED (CAST case, SDCCast.c, source-side IS_STRUCT check; void-discard still valid) |
 | [4088](https://sourceforge.net/p/sdcc/bugs/4088/) | CORE | Internal error instead of constraint violation reported when pointer cast to float | ICE instead of diagnostic on pointer-to-float cast - FIXED (new E_CAST_PTR_FLOAT, SDCCast.c CAST case, both directions) |
 | [4087](https://sourceforge.net/p/sdcc/bugs/4087/) | CORE | Undiagnosed constraint violation when _Alignof applied to an incomplete type | _Alignof on incomplete type undiagnosed - FIXED (alignofOp, SDCCast.c, new E_ALIGNOF_INCOMPLETE_TYPE; _Alignof(void) deliberately left alone, same as sizeof(void)) |
-| [4086](https://sourceforge.net/p/sdcc/bugs/4086/) | CORE | Undiagnosed constraint violation when [] used on an incomplete type | [] on incomplete-type pointer undiagnosed; frontend |
+| [4086](https://sourceforge.net/p/sdcc/bugs/4086/) | CORE | Undiagnosed constraint violation when [] used on an incomplete type | [] on incomplete-type pointer undiagnosed - FIXED ('[' case, SDCCast.c, new E_SUBSCRIPT_INCOMPLETE_TYPE; void* deliberately left alone) |
 | [4085](https://sourceforge.net/p/sdcc/bugs/4085/) | CORE | Undiagnosed constraint violations on arithmetic operations | pointer arithmetic constraint violations undiagnosed; frontend |
 | [4084](https://sourceforge.net/p/sdcc/bugs/4084/) | CORE | No diagnostic when the first operand of ?: has struct type | ?: first operand struct type undiagnosed; frontend |
 | [4083](https://sourceforge.net/p/sdcc/bugs/4083/) | CORE | Non-scalar type of if or loop controlling expression is not diagnosed | non-scalar if/loop condition undiagnosed - FIXED (new E_NONSCALAR_CONTROLLING_EXPR, SDCCast.c, covers if/while/do/for in two checks since the latter three desugar to one AST shape) |
@@ -802,8 +802,16 @@ Fixed so far:
   fork at all. Not touched here; this ticket is only about the missing
   diagnostic.
 
-Not yet investigated: the remaining 20 (27 total, 7 fixed so far:
-#4090, #4083, #4088, #3917, #3916, #4089, #4087).
+- **#4086** (`[]` on a pointer to an incomplete type) - same shape as
+  #4089/#4087: added a `getSize()==0` incomplete-type check on the
+  pointee type in the `'['` case, alongside the pre-existing "need
+  array or pointer" check, raising a new `E_SUBSCRIPT_INCOMPLETE_TYPE`.
+  `void*[0]` is deliberately left alone - it was already silently
+  accepted before this fix (separate, pre-existing gap, not widened by
+  this change) and is out of scope for this ticket either way.
+
+Not yet investigated: the remaining 19 (27 total, 8 fixed so far:
+#4090, #4083, #4088, #3917, #3916, #4089, #4087, #4086).
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce

@@ -3905,6 +3905,14 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
           goto errorTreeReturn;
         }
 
+      /* [] on a pointer requires the pointee to be a complete object
+         type (N3886 6.5.3.2p2) */
+      if (IS_PTR (LTYPE (tree)) && !getSize (LTYPE (tree)->next) && !IS_VOID (LTYPE (tree)->next))
+        {
+          werrorfl (tree->filename, tree->lineno, E_SUBSCRIPT_INCOMPLETE_TYPE);
+          goto errorTreeReturn;
+        }
+
       /* check the type of the idx */
       if (!IS_INTEGRAL (RTYPE (tree)))
         {
