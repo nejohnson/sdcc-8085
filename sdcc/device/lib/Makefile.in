@@ -330,8 +330,8 @@ objects:
 
 # The mcs51 models link with vendor ASxxxx aslink, whose lklibr.c reads a
 # library as a plain-text list of .rel file names and cannot parse an ar
-# archive at all.  Pinned per model rather than globally, because ds390,
-# ds400, pic and xa51 still build with SDAS and want the configured default.
+# archive at all.  Pinned per model rather than globally, because pic and
+# xa51 still build with SDAS and want the configured default.
 MCS51_LIB_TYPE = LIB_TYPE=ASXVENDOR
 
 models:
@@ -369,14 +369,20 @@ model-mcs51-xstack-auto:
 	  done \
 	fi
 
+# ds390 and ds400 link with vendor aslink, which reads a library as a
+# plain-text list of .rel names and cannot parse an ar archive.  Pinned per
+# model, like MCS51_LIB_TYPE above, so the ports still on SDAS keep the
+# configured default.
+DS390_LIB_TYPE = LIB_TYPE=ASXVENDOR
+
 model-ds390:
 	if grep '^ds390$$' $(top_builddir)/ports.build > /dev/null; then \
-	  $(MAKE) MODELFLAGS="-mds390" PORT=ds390 PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
+	  $(MAKE) $(DS390_LIB_TYPE) MODELFLAGS="-mds390" PORT=ds390 PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
 	fi
 
 model-ds400:
 	if grep '^ds390$$' $(top_builddir)/ports.build > /dev/null; then \
-	  $(MAKE) MODELFLAGS="-mds400" PORT=ds400 PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
+	  $(MAKE) $(DS390_LIB_TYPE) MODELFLAGS="-mds400" PORT=ds400 PORTINCDIR=$(INCDIR)/mcs51 objects || exit 1; \
 	fi
 
 model-xa51:

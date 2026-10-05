@@ -32,7 +32,7 @@
 static void dummy(void) __naked
 {
 	__asm
-	.area HOME    (CODE)
+	.area HOME    (BANK=BCODE)
 
 ; This relies on the restartable implementations being aligned properly.
 

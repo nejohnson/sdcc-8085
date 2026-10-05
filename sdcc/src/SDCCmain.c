@@ -2119,10 +2119,14 @@ linkEdit (char **envp)
 
                  l_IRAM first, because the runtime's crtclear.asm clears
                  internal RAM with "mov r0,#(l_IRAM-1)" and an undefined
-                 global fails the link. */
-              fprintf (lnkfile, "-g l_IRAM = 0x%04x\n",
-                       (options.iram_size > 0 && options.iram_size <= 0x100) ?
-                       options.iram_size : 0x100);
+                 global fails the link.  Only mcs51 proper: aslink's -g
+                 sets the value of a symbol the link already references,
+                 and ds390/ds400 have no crtclear, so asking for it there
+                 is "No definition of symbol l_IRAM". */
+              if (TARGET_IS_MCS51)
+                fprintf (lnkfile, "-g l_IRAM = 0x%04x\n",
+                         (options.iram_size > 0 && options.iram_size <= 0x100) ?
+                         options.iram_size : 0x100);
             }
 
           /* stack start */
