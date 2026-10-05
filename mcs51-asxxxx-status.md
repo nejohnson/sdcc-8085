@@ -133,7 +133,7 @@ this port's problems from the tree's:
 
 | cause | models | whose |
 |---|---|---|
-| `tst_sfr16` — `__sfr16` | all 6 | **ours, the one left** |
+| `tst_sfr16` — `__sfr32`; see §7 | all 6 | diagnosed, not fixed |
 | `rotate` — the spill overflow above | 4 | ours, deliberately left |
 | `tst_p99-conformance` — non-ASCII identifiers | 2 | expected, standing policy |
 | `tst_bug-716242` — compiler *front-end* errors, `error 226`/`error 102` | all 6 | not the toolchain |
@@ -141,8 +141,8 @@ this port's problems from the tree's:
 | `tst_bug-3803` — `r1.c == 0x42` | all 6 | **fails on ucz80 too**, not mcs51 |
 
 Three of the seven are not this migration's.  `absolute` was taken next and is fixed — §6, which also accounts for most
-of the drop from 445 to 75.  `tst_sfr16` is the only cause left that is
-both ours and unexamined.
+of the drop from 445 to 75.  `tst_sfr16` is diagnosed in §7.  Nothing in
+the list is now unexamined.
 
 **Also worth knowing:** `ucz80` measures **2 failures** on this tree where it
 was 0 before the weekend's compiler work.  Not investigated here; flagged
@@ -194,3 +194,45 @@ truncated spill accesses of §4 still in play, shifting the layout by a byte
 changes *which* truncated address happens to be harmless, so a couple of
 cases trade places between runs.  The failure counts are signal; ±2 failing
 cases is not.
+
+## 7. `tst_sfr16`: 32-bit arithmetic on a 16-bit assembler
+
+Only the `__sfr32` half fails; `__sfr16` is fine, because 0x8C8A fits.
+
+SDCC packs the four byte addresses of an `__sfr32` into one symbol and has
+the code generator shift them out:
+
+    _SFR_32  =  0x8c8acdcc
+    mov ((_SFR_32 >> 24) & 0xFF),#0x12
+
+ASxxxx evaluates expressions at the **address width** — `rngchk()` in
+`asxxsrc/asexpr.c` masks every term to `v_mask`, 15 bits plus sign for a
+2-byte target.  That is deliberate, it is how the `<v>` overflow check
+works, and it means a 32-bit constant cannot survive on a 16-bit target.
+The listing says so plainly:
+
+                         CDCC    49  _SFR_32  =  0x8c8acdcc
+
+Assembling the same two lines both ways:
+
+| | `(_SFR_32 >> 24) & 0xFF` | `>> 16` |
+|---|---|---|
+| sdas8051 | 0xFF | 0x8A |
+| vendor as8051 | 0x00 | 0x00 |
+
+**Neither is right** — the top byte should be 0x8C.  sdas is wrong too; it
+passes only because the test writes and reads back the same four addresses,
+so a wrong-but-distinct address is self-consistent.  ASxxxx collapses the
+top two to 0x00, two SFR writes land on one address, and the readback is
+not.
+
+So the representation is the weaker half of the argument: a symbol is being
+used as a container for four packed byte addresses, which works only on an
+assembler with arithmetic wider than its own addresses.  The fix belongs in
+SDCC — emit the four addresses separately, or emit them already evaluated —
+and it touches shared `SDCCglue.c`, the mcs51 back end, and a naming
+convention, to fix one test.  It would also fix the latent sdas wrongness,
+which deserves to be raised on its own terms rather than buried in a port
+migration.
+
+Not attempted.  Recorded here so nobody re-derives it.
