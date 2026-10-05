@@ -27,6 +27,14 @@ warnings in §4.
 single case when the port was first switched over, and stood at 445 before
 §6.
 
+Re-measured on 2026-10-05 after the ds390 work, `mcs51-small` also reports
+**42 abnormal stops** - tests that run to uCsim's cycle limit rather than
+finishing - which the table above does not count and which this document
+had not recorded.  They are not a regression from the ds390 changes: the
+failure count is unchanged at 12 and nothing in those changes reaches the
+mcs51 code path.  `ds390` has none.  Unexplained, and the first thing to
+look at if mcs51 is picked up again.
+
 ## 2. The design: four address spaces are four banks
 
 This is the whole of the area-attribute problem and it is worth stating
