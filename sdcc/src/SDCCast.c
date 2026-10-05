@@ -4666,6 +4666,20 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
           goto errorTreeReturn;
         }
 
+      /* the non-pointer side of pointer arithmetic must be integer,
+         not just arithmetic - a float doesn't count (N3886 6.5.7p2) */
+      if ((IS_PTR (LTYPE (tree)) || IS_ARRAY (LTYPE (tree))) && !IS_INTEGRAL (RTYPE (tree)) && IS_ARITHMETIC (RTYPE (tree)))
+        {
+          werrorfl (tree->filename, tree->lineno, E_PLUS_INVALID, "+");
+          goto errorTreeReturn;
+        }
+
+      if ((IS_PTR (RTYPE (tree)) || IS_ARRAY (RTYPE (tree))) && !IS_INTEGRAL (LTYPE (tree)) && IS_ARITHMETIC (LTYPE (tree)))
+        {
+          werrorfl (tree->filename, tree->lineno, E_PLUS_INVALID, "+");
+          goto errorTreeReturn;
+        }
+
       propagateConstExpr (&tree->left, resultType, reduceTypeAllowed);
       propagateConstExpr (&tree->right, resultType, reduceTypeAllowed);
 
@@ -4809,6 +4823,28 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
         {
           werrorfl (tree->filename, tree->lineno, E_PLUS_INVALID, "-");
           goto errorTreeReturn;
+        }
+
+      /* if both sides are pointers, the pointed-to types must be
+         compatible and complete (N3886 6.5.7p3). void* is left out of
+         both checks, matching this fork's existing permissive void*
+         handling elsewhere. */
+      if ((IS_PTR (LTYPE (tree)) || IS_ARRAY (LTYPE (tree))) && (IS_PTR (RTYPE (tree)) || IS_ARRAY (RTYPE (tree))))
+        {
+          sym_link *lnext = LTYPE (tree)->next;
+          sym_link *rnext = RTYPE (tree)->next;
+
+          if (!IS_VOID (lnext) && !IS_VOID (rnext) && compareType (lnext, rnext, true) != 1)
+            {
+              werrorfl (tree->filename, tree->lineno, E_PLUS_INVALID, "-");
+              goto errorTreeReturn;
+            }
+
+          if ((!getSize (lnext) && !IS_VOID (lnext)) || (!getSize (rnext) && !IS_VOID (rnext)))
+            {
+              werrorfl (tree->filename, tree->lineno, E_PLUS_INVALID, "-");
+              goto errorTreeReturn;
+            }
         }
 
       propagateConstExpr (&tree->left, resultType, reduceTypeAllowed);
