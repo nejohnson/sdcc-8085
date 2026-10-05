@@ -2075,8 +2075,12 @@ linkEdit (char **envp)
               WRITE_SEG_LOC (IDATA_NAME, options.idata_loc);
             }
 
-          /* bit segment start */
-          WRITE_SEG_LOC (BIT_NAME, 0);
+          /* bit segment start.  For an ASxxxx link the first byte of the
+             bit-addressable region, 0x20, belongs to BIT_BANK - see
+             below - so the user's own __bit variables start at bit 8,
+             in byte 0x21. */
+          WRITE_SEG_LOC (BIT_NAME,
+                         (TARGET_MCS51_LIKE && port->linker.asxxxx) ? 8 : 0);
 
           /* The eight bit registers the mcs51 allocator spills into live
              in one byte of BIT_BANK, and SDCCglue.c gives their addresses
@@ -2090,6 +2094,19 @@ linkEdit (char **envp)
           if (TARGET_MCS51_LIKE && port->linker.asxxxx)
             {
               fprintf (lnkfile, "-a BIT_BANK = 0x0020\n");
+
+              /* DSEG is deliberately *not* moved above the bit-addressable
+                 region, though that is what sdld's layout amounts to.
+                 sdld keeps BSEG_BYTES between the register banks and DSEG
+                 and sizes it from the bits actually used; aslink cannot
+                 size it - there is no relocation turning a byte address
+                 into a bit address, and nothing to derive the count from -
+                 so the only faithful version reserves all sixteen bytes.
+                 Measured on mcs51-small, that fixes absolute_mem___code
+                 and costs more than it fixes: failing cases go from 13 to
+                 22, picking up bigstack, tst_string and wchar, which is
+                 internal RAM running out.  So __at data in 0x20-0x2F can
+                 still be overlaid by DSEG.  See mcs51-asxxxx-status.md. */
 
               /* sdld builds the 8051's memory model into the linker:
                  lkmain.c pre-declares BSEG_BYTES, BIT_BANK, DSEG, OSEG,

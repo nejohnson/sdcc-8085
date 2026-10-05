@@ -132,7 +132,7 @@ this port's problems from the tree's:
 
 | cause | models | whose |
 |---|---|---|
-| `absolute` — `__at` placement; `CABS` comes out `ABS,OVR` spanning 51,895 bytes | all 6 | **ours, next job** |
+| `absolute` — `__at` in 0x20-0x2F overlaid by DSEG; see §6 | all 6 | ours, measured and left |
 | `tst_sfr16` — `__sfr16` | 5 | **ours, not yet looked at** |
 | `rotate` — the spill overflow above | 4 | ours, deliberately left |
 | `tst_p99-conformance` — non-ASCII identifiers | 2 | expected, standing policy |
@@ -140,10 +140,45 @@ this port's problems from the tree's:
 | `tst_bug-4090` — `sizeof (fp) == sizeof (void *)` | 5 | a real mcs51 property; test expectation |
 | `tst_bug-3803` — `r1.c == 0x42` | all 6 | **fails on ucz80 too**, not mcs51 |
 
-Three of the seven are not this migration's.  `absolute` is the one to take
-next: it is on every model and it is squarely about how ASxxxx places
-absolute areas.
+Three of the seven are not this migration's.  `absolute` was taken next and is written up in §6: it is fixable, and the
+fix costs more than it buys.
 
 **Also worth knowing:** `ucz80` measures **2 failures** on this tree where it
 was 0 before the weekend's compiler work.  Not investigated here; flagged
 because it is a port nobody is touching.
+
+## 6. `absolute`, and why the bit-addressable region is not reserved
+
+`absolute_mem___code` puts `Byte0` at `__at(0x20)` and asks that setting a
+`__bit` does not disturb it.  Three things were landing on 0x20: that
+`Byte0`, `BSEG`'s bit 0, and `DSEG`.
+
+Built the same module with sdas and sdld to see what the baseline does, and
+it puts `BSEG_BYTES` at **0x0023** — above the absolutely-placed `Byte0`
+(0x20) and `Byte1` (0x22), sized from the bits actually used, with `DSEG`
+after it.  That is the layout aslink cannot reproduce: there is no
+relocation turning a byte address into a bit address, and nothing to derive
+the count from, so the only faithful version reserves the whole
+bit-addressable region, 0x20-0x2F.
+
+Measured on mcs51-small, reserving it:
+
+| | failing cases | cases run | abnormal stops |
+|---|---|---|---|
+| reserved (`-a DSEG = 0x0030`) | 22 | 6,291 | 67 |
+| not reserved | **13** | 6,335 | 36 |
+
+`absolute` passes when the region is reserved, and `bigstack`, `tst_string`
+and `wchar` start failing, which is 128 bytes of internal RAM running out.
+Nine cases lost to buy one.  So it is not reserved, and `__at` data in
+0x20-0x2F can still be overlaid by `DSEG`.
+
+One half of it was kept, because it is correct and free: `BSEG` now starts
+at **bit 8**, so the user's `__bit` variables begin in byte 0x21 and leave
+byte 0x20 to `BIT_BANK`, which is pinned there and has to be.  Before this
+a program using both put its first `__bit` on top of the register
+allocator's bit registers.
+
+This is the same gap as §4's spills in a different guise: sdld sized a
+thing at link time that aslink has no way to size, and every fixed
+substitute is either too small to be correct or too big to afford.
