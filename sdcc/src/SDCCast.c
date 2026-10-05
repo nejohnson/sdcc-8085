@@ -5761,6 +5761,15 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
       /* the type is value of the colon operator (on the right) */
       assert (IS_COLON_OP (tree->right));
 
+      /* the first (controlling) operand of ?: must have scalar type,
+         same constraint as if/while/do/for's controlling expression
+         (N3886 6.5.15p2) */
+      if (LTYPE (tree) && !IS_ARITHMETIC (LETYPE (tree)) && !IS_PTR (LTYPE (tree)) && !IS_NULLPTR (LETYPE (tree)))
+        {
+          werrorfl (tree->filename, tree->lineno, E_NONSCALAR_CONTROLLING_EXPR);
+          goto errorTreeReturn;
+        }
+
       propagateConstExpr (&tree->left, resultType, reduceTypeAllowed);
 
       /* If already known then replace the tree : optimizer will do it
