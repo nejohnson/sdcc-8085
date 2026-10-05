@@ -2247,7 +2247,7 @@ isConformingBody (ast * pbody, symbol * sym, ast * body)
     return TRUE;
 
   /* if anything else is "volatile" */
-  if (isVolatile (TETYPE (pbody)) || isAtomic (TETYPE (pbody)))
+  if (IS_VOLATILE (TETYPE (pbody)) || isAtomic (TETYPE (pbody)))
     return FALSE;
 
   /* we will walk the body in a pre-order traversal for

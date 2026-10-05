@@ -984,7 +984,7 @@ isOperandVolatile (const operand *op, bool chkTemp)
   if (IS_ITEMP (op) && !chkTemp)
     return 0;
 
-  return isVolatile (operandType (op));
+  return IS_VOLATILE (operandType (op));
 }
 
 /*-----------------------------------------------------------------*/
@@ -999,7 +999,7 @@ isOperandVolatileOrAtomic (const operand *op, bool chkTemp)
   if (IS_ITEMP (op) && !chkTemp)
     return 0;
 
-  return isVolatile (operandType (op)) || isAtomic (operandType (op));
+  return IS_VOLATILE (operandType (op)) || isAtomic (operandType (op));
 }
 
 /*-----------------------------------------------------------------*/
@@ -2774,6 +2774,7 @@ geniCodeStruct (operand * left, operand * right, bool islval)
   retype = getSpec (rtype);
   SPEC_SCLS (retype) = SPEC_SCLS (etype);
   SPEC_OCLS (retype) = SPEC_OCLS (etype);
+  rtype->volatileAccess |= etype->volatileAccess;
 
   if (IS_PTR (element->type))
     {

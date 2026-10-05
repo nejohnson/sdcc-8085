@@ -247,6 +247,7 @@ typedef struct sym_link
   SYM_LINK_CLASS xclass;            /* DECLARATOR or SPECIFIER     */
   unsigned tdef:1;                  /* current link created by     */
                                     /* typedef if this flag is set */
+  bool volatileAccess:1;            /* volatile access without a C qualifier */
   union
   {
     specifier s;                    /* if CLASS == SPECIFIER      */
@@ -588,7 +589,7 @@ extern sym_link *validateLink (sym_link * l,
 #define IS_BITINT(x)     (IS_SPEC(x) && x->select.s.noun == V_BITINT)
 #define IS_CHAR(x)       (IS_SPEC(x) && x->select.s.noun == V_CHAR)
 #define IS_EXTERN(x)     (IS_SPEC(x) && x->select.s.b_extern)
-#define IS_VOLATILE(x)   (isVolatile (x))
+#define IS_VOLATILE(x)   (isVolatileAccess (x))
 #define IS_INTEGRAL(x)   (IS_SPEC(x) && (x->select.s.noun == V_INT            || \
                                          x->select.s.noun == V_BITINT         || \
                                          x->select.s.noun == V_BOOL           || \
@@ -774,6 +775,7 @@ sym_link *newEnumType (symbol *enumlist, sym_link *userRequestedType);
 void promoteAnonStructs (int, structdef *);
 bool isConst (sym_link *type);
 bool isVolatile (sym_link *type);
+bool isVolatileAccess (sym_link *type);
 bool isRestrict (sym_link *type);
 bool isAtomic (sym_link *type);
 bool isOptional (sym_link *type);
