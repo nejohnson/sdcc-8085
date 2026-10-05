@@ -1637,7 +1637,15 @@ aopGet (operand * oper, int offset, bool bit16, bool dname, char *saveAcc)
         case AOP_DIR:
           if ((SPEC_SCLS (getSpec (operandType (oper))) == S_SFR) && (aop->size > 1))
             {
-              dbuf_printf (&dbuf, "((%s >> %d) & 0xFF)", aop->aopu.aop_dir, offset * 8);
+              /* An __sfr16 or __sfr32 is not one wide register, it is two
+                 or four separate SFRs whose addresses are packed into the
+                 __at value.  Give each byte its own address rather than
+                 ask the assembler to shift it out of the packed constant:
+                 that only ever worked where the assembler's arithmetic was
+                 wider than its own addresses, and even SDAS got the top
+                 byte of an __sfr32 wrong (0xFF for 0x8D). */
+              dbuf_printf (&dbuf, "0x%02x",
+                           (SPEC_ADDR (getSpec (operandType (oper))) >> (offset * 8)) & 0xFF);
             }
           else if (offset)
             {
@@ -1775,7 +1783,9 @@ aopPut (operand * result, const char *s, int offset)
     case AOP_DIR:
       if ((SPEC_SCLS (getSpec (operandType (result))) == S_SFR) && (aop->size > 1))
         {
-          dbuf_printf (&dbuf, "((%s >> %d) & 0xFF)", aop->aopu.aop_dir, offset * 8);
+          /* see the matching case in aopGet() */
+          dbuf_printf (&dbuf, "0x%02x",
+                       (SPEC_ADDR (getSpec (operandType (result))) >> (offset * 8)) & 0xFF);
         }
       else if (offset)
         {

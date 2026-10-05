@@ -11,14 +11,14 @@ warnings in §4.
 
 | model | failures | failing cases | sdas baseline |
 |---|---|---|---|
-| mcs51-medium | 10 | 7 | 0 |
-| mcs51-huge | 12 | 9 | 3 |
-| mcs51-large-stack-auto | 12 | 10 | 0 |
-| mcs51-small | 13 | 15 | 0 |
-| mcs51-large | 13 | 10 | 3 |
-| mcs51-small-stack-auto | 15 | 8 | 0 |
+| mcs51-medium | 9 | 6 | 0 |
+| mcs51-huge | 11 | 8 | 3 |
+| mcs51-large-stack-auto | 11 | 9 | 0 |
+| mcs51-small | 12 | 14 | 0 |
+| mcs51-large | 12 | 9 | 3 |
+| mcs51-small-stack-auto | 14 | 7 | 0 |
 
-**75 against a baseline of 6.**  Every one of these models failed every
+**69 against a baseline of 6.**  Every one of these models failed every
 single case when the port was first switched over, and stood at 445 before
 §6.
 
@@ -133,7 +133,7 @@ this port's problems from the tree's:
 
 | cause | models | whose |
 |---|---|---|
-| `tst_sfr16` — `__sfr32`; see §7 | all 6 | diagnosed, not fixed |
+| ~~`tst_sfr16`~~ — `__sfr32`; see §7 | - | **fixed** |
 | `rotate` — the spill overflow above | 4 | ours, deliberately left |
 | `tst_p99-conformance` — non-ASCII identifiers | 2 | expected, standing policy |
 | `tst_bug-716242` — compiler *front-end* errors, `error 226`/`error 102` | all 6 | not the toolchain |
@@ -141,8 +141,8 @@ this port's problems from the tree's:
 | `tst_bug-3803` — `r1.c == 0x42` | all 6 | **fails on ucz80 too**, not mcs51 |
 
 Three of the seven are not this migration's.  `absolute` was taken next and is fixed — §6, which also accounts for most
-of the drop from 445 to 75.  `tst_sfr16` is diagnosed in §7.  Nothing in
-the list is now unexamined.
+of the drop from 445 to 75.  `tst_sfr16` is fixed, §7.  Nothing in the
+list is now unexamined and nothing left in it is both ours and open.
 
 **Also worth knowing:** `ucz80` measures **2 failures** on this tree where it
 was 0 before the weekend's compiler work.  Not investigated here; flagged
@@ -235,4 +235,18 @@ convention, to fix one test.  It would also fix the latent sdas wrongness,
 which deserves to be raised on its own terms rather than buried in a port
 migration.
 
-Not attempted.  Recorded here so nobody re-derives it.
+**Fixed**, and entirely inside the two back ends - no shared glue, no
+naming convention.  `aopForSym()` keeps the `__at` value on the asmop
+(mcs51) or reads it back off the operand's own type (ds390, which marks
+SFRs differently), and the `AOP_SFR` cases in `aopGet()`/`aopPut()` emit
+`0x%02x` of the byte they want instead of asking the assembler to shift it
+out.  The four bytes of `SFR_32` now go to 0xCC, 0xCD, 0x8A and 0x8C -
+exactly what `__at 0x8C8ACDCC` says - on either assembler.
+
+ds390 carries the identical bug and is fixed with it, which is a change to
+a port outside this migration, so: the only code path touched is a
+multi-byte SFR, exactly two tests in the whole corpus use one (`sfr16.c`
+and `bug-2235.c`), both pass on ds390 and on every mcs51 model, and none
+of ds390's remaining failures involve an `__sfr16` or `__sfr32`.  `tst_sfr16`
+passed on ds390 before this only by the self-consistency accident; it
+passes now because the addresses are right.
