@@ -1,7 +1,12 @@
 # mcs51 on vendor ASxxxx — where it stands
 
-**Branch:** `feat/mcs51-asxxxx`.  **Not merged**, and must not be: the suite
-does not pass.  Last measured 2026-10-05 on top of `origin/feat/i8085`.
+**Merged into `feat/i8085`** on 2026-10-05, deliberately and with the suite
+not at baseline: **69 failures across six models against a baseline of 6**.
+That is a decision, not an oversight.  The port went from every model
+failing every case to within 63 of the stock toolchain, every remaining
+cause is identified in §5, and none of them is both ours and open — so the
+work is more useful in the branch everyone builds than parked beside it.
+What is left is listed below and should not be mistaken for a clean run.
 
 ## 1. What works
 
