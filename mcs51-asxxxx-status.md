@@ -9,17 +9,18 @@ All six models build their libraries clean — 243 objects each, no assembler
 diagnostics — and programs link with no linker diagnostics except the Page0
 warnings in §4.
 
-| model | failures | sdas baseline |
-|---|---|---|
-| mcs51-small-stack-auto | 9 | 0 |
-| mcs51-small | 28 | 0 |
-| mcs51-huge | 95 | 3 |
-| mcs51-large | 96 | 3 |
-| mcs51-large-stack-auto | 96 | 0 |
-| mcs51-medium | 121 | 0 |
+| model | failures | failing cases | sdas baseline |
+|---|---|---|---|
+| mcs51-medium | 10 | 7 | 0 |
+| mcs51-huge | 12 | 9 | 3 |
+| mcs51-large-stack-auto | 12 | 10 | 0 |
+| mcs51-small | 13 | 15 | 0 |
+| mcs51-large | 13 | 10 | 3 |
+| mcs51-small-stack-auto | 15 | 8 | 0 |
 
-445 against a baseline of 6.  For scale, every one of these models failed
-every single case when the port was first switched over.
+**75 against a baseline of 6.**  Every one of these models failed every
+single case when the port was first switched over, and stood at 445 before
+§6.
 
 ## 2. The design: four address spaces are four banks
 
@@ -132,22 +133,22 @@ this port's problems from the tree's:
 
 | cause | models | whose |
 |---|---|---|
-| `absolute` — `__at` in 0x20-0x2F overlaid by DSEG; see §6 | all 6 | ours, measured and left |
-| `tst_sfr16` — `__sfr16` | 5 | **ours, not yet looked at** |
+| `tst_sfr16` — `__sfr16` | all 6 | **ours, the one left** |
 | `rotate` — the spill overflow above | 4 | ours, deliberately left |
 | `tst_p99-conformance` — non-ASCII identifiers | 2 | expected, standing policy |
 | `tst_bug-716242` — compiler *front-end* errors, `error 226`/`error 102` | all 6 | not the toolchain |
 | `tst_bug-4090` — `sizeof (fp) == sizeof (void *)` | 5 | a real mcs51 property; test expectation |
 | `tst_bug-3803` — `r1.c == 0x42` | all 6 | **fails on ucz80 too**, not mcs51 |
 
-Three of the seven are not this migration's.  `absolute` was taken next and is written up in §6: it is fixable, and the
-fix costs more than it buys.
+Three of the seven are not this migration's.  `absolute` was taken next and is fixed — §6, which also accounts for most
+of the drop from 445 to 75.  `tst_sfr16` is the only cause left that is
+both ours and unexamined.
 
 **Also worth knowing:** `ucz80` measures **2 failures** on this tree where it
 was 0 before the weekend's compiler work.  Not investigated here; flagged
 because it is a port nobody is touching.
 
-## 6. `absolute`, and why the bit-addressable region is not reserved
+## 6. `absolute`: reserving the bytes behind the bits
 
 `absolute_mem___code` puts `Byte0` at `__at(0x20)` and asks that setting a
 `__bit` does not disturb it.  Three things were landing on 0x20: that
@@ -155,30 +156,41 @@ because it is a port nobody is touching.
 
 Built the same module with sdas and sdld to see what the baseline does, and
 it puts `BSEG_BYTES` at **0x0023** — above the absolutely-placed `Byte0`
-(0x20) and `Byte1` (0x22), sized from the bits actually used, with `DSEG`
-after it.  That is the layout aslink cannot reproduce: there is no
-relocation turning a byte address into a bit address, and nothing to derive
-the count from, so the only faithful version reserves the whole
-bit-addressable region, 0x20-0x2F.
+(0x20) and `Byte1` (0x22), **sized from the bits actually used**, with
+`DSEG` after it.  Nothing in this tree was reserving those bytes at all, so
+`DSEG` started at 0x20 and was laid over both them and the `__at` data.
 
-Measured on mcs51-small, reserving it:
+The first attempt reserved the whole bit-addressable region, 0x20-0x2F,
+because that is the only *fixed* size that is always enough.  Measured on
+mcs51-small it fixed `absolute` and cost nine other cases — failing cases
+13 to 22, picking up `bigstack`, `tst_string` and `wchar`, which is 128
+bytes of internal RAM running out.
 
-| | failing cases | cases run | abnormal stops |
-|---|---|---|---|
-| reserved (`-a DSEG = 0x0030`) | 22 | 6,291 | 67 |
-| not reserved | **13** | 6,335 | 36 |
+What makes it affordable is sizing it, and that needs no linker feature at
+all.  **Each module reserves `ceil(its own bit count / 8)` bytes in a `CON`
+area, and the areas add up.**  The sum of the ceilings is never less than
+the ceiling of the sum, so it is always enough; it over-reserves by under a
+byte per bit-using module; and it costs **nothing** when no module declares
+a `__bit`, which is the usual case and is exactly where the fixed 16 bytes
+hurt.
 
-`absolute` passes when the region is reserved, and `bigstack`, `tst_string`
-and `wchar` start failing, which is 128 bytes of internal RAM running out.
-Nine cases lost to buy one.  So it is not reserved, and `__at` data in
-0x20-0x2F can still be overlaid by `DSEG`.
+`BIT_BANK` is now always one byte at 0x20, so its eight bit registers are
+at constants 0-7 whether or not they are used, and `BSEG_BYTES` always
+starts at 0x21 where bit 8 lives.  One byte buys the alignment the rest
+rests on:
 
-One half of it was kept, because it is correct and free: `BSEG` now starts
-at **bit 8**, so the user's `__bit` variables begin in byte 0x21 and leave
-byte 0x20 to `BIT_BANK`, which is pinned there and has to be.  Before this
-a program using both put its first `__bit` on top of the register
-allocator's bit registers.
+    REG_BANK_0  0x0000  8
+    BIT_BANK    0x0020  1      bits 0-7
+    BSEG_BYTES  0x0021  2      for this program's 9 bits
+    BSEG        bit 8          -> byte 0x21, aligned
+    DSEG        0x0023         above all of it
 
-This is the same gap as §4's spills in a different guise: sdld sized a
-thing at link time that aslink has no way to size, and every fixed
-substitute is either too small to be correct or too big to afford.
+This was worth far more than the one test it was chased for: **445 failures
+to 75**, because `DSEG` had been overlapping the bit bytes in every model.
+`absolute` and `reentrant` both pass now.
+
+A caveat on reading small differences after this.  With the ~13,000
+truncated spill accesses of §4 still in play, shifting the layout by a byte
+changes *which* truncated address happens to be harmless, so a couple of
+cases trade places between runs.  The failure counts are signal; ±2 failing
+cases is not.

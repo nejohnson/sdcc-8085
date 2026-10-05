@@ -235,7 +235,21 @@ _mcs51_genAssemblerStart (FILE * of)
       fprintf (of, "\t.area REG_BANK_1\t(REL,OVR,BANK=BDATA)\n");
       fprintf (of, "\t.area REG_BANK_2\t(REL,OVR,BANK=BDATA)\n");
       fprintf (of, "\t.area REG_BANK_3\t(REL,OVR,BANK=BDATA)\n");
+      /* BIT_BANK is pinned at 0x20 and always occupies that byte, so the
+         bit addresses SDCCglue.c gives its eight registers - the constants
+         0 to 7 - are right whether or not anything uses them, and so that
+         BSEG_BYTES below always starts at 0x21, where bit 8 lives.  One
+         byte, and it buys the alignment everything else here rests on. */
       fprintf (of, "\t.area BIT_BANK\t(REL,OVR,BANK=BDATA)\n");
+      fprintf (of, "\t.ds 1\n");
+      /* The bytes behind the bits.  sdld sized this inside the linker from
+         BSEG's bit count; aslink has no way to, so each module reserves
+         the bytes for its own bits and the areas add up (CON).  The sum of
+         the ceilings is never less than the ceiling of the sum, so it is
+         always enough, and it costs nothing at all when no module declares
+         a __bit - which is the usual case, and what makes this affordable
+         where reserving the whole 0x20-0x2F region was not. */
+      fprintf (of, "\t.area BSEG_BYTES\t(REL,CON,BANK=BDATA)\n");
       fprintf (of, "\t.area DSEG\t(BANK=BDATA)\n");
       fprintf (of, "\t.area OSEG\t(REL,OVR,BANK=BDATA)\n");
       fprintf (of, "\t.area ISEG\t(BANK=BDATA)\n");

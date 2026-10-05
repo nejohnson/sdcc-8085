@@ -2588,6 +2588,29 @@ glue (void)
   /* copy the bit segment */
   if (bit)
     {
+      /* and, for an ASxxxx link, reserve the bytes they live in.  See the
+         note in mcs51/main.c: the sum over modules of each one's own
+         ceil(bits/8) is never less than ceil(total bits/8). */
+      if (port->assembler.asxxxx && TARGET_MCS51_LIKE)
+        {
+          symbol *bsym;
+          int bits = 0;
+
+          for (bsym = setFirstItem (bit->syms); bsym; bsym = setNextItem (bit->syms))
+            {
+              if (!SPEC_ABSA (bsym->etype))
+                bits += getSize (bsym->type);
+            }
+          if (bits > 0)
+            {
+              fprintf (asmFile, "%s", iComments2);
+              fprintf (asmFile, "; bytes behind this module's bit data\n");
+              fprintf (asmFile, "%s", iComments2);
+              fprintf (asmFile, "\t.area BSEG_BYTES\t(REL,CON,BANK=BDATA)\n");
+              fprintf (asmFile, "\t.ds %d\n", (bits + 7) / 8);
+            }
+        }
+
       fprintf (asmFile, "%s", iComments2);
       fprintf (asmFile, "; bit data\n");
       fprintf (asmFile, "%s", iComments2);
