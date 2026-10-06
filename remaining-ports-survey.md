@@ -43,7 +43,7 @@ becomes `.abi`, and the directive is part of the PORT-struct switch.
 | **ez80** | 98 / 208 | 260 | `lea rr,ix,#d` spelling, nothing else | SDCC-side only |
 | **r2k, r2ka** | 127 / 208 | 221 | `add sp,#-n` (190), `jp lo/lz` | one ASxxxx fix + condition codes |
 | **r3ka** | 127 / 208 | 203 | same | same |
-| **r4k, r5k, r6k** | 141 / 208 | ~680 | the whole Rabbit 4000 instruction set | large ASxxxx addition |
+| **r4k, r5k, r6k** | 205 / 208 | ~680 | the Rabbit 4000 instruction set - **30 shapes, scoped below** | still parked, but now measured |
 
 ## What is actually common
 
@@ -406,3 +406,75 @@ stops being caught, because nothing could link this far.
 
 SDCC reaches the relocatable form through a `__sfr` with no `__at`, which
 gets a full HRAM address.
+
+## r4k, r5k, r6k: scoped 2026-10-06, still parked
+
+Measured properly rather than estimated.  The earlier note called it "an
+assembler extension on the scale of a new target", which overstates the
+instruction count and understates the structural change.
+
+### What SDCC actually emits
+
+**30 distinct shapes**, not a CPU's worth:
+
+```
+clr hl              ld bcde,#N          neg bcde      push bcde
+cp hl,de            ld bcde,N (sp)      neg hl        push #N
+cp hl,#N            ld bcde,(sym)       neg jkhl      pop bcde
+cp hl,N (sp)        ld jkhl,N (sp)      test bc       rl bc
+jp lt,label         ld N (sp),bcde      test bcde     rr bc
+mulu                ld N (sp),jkhl      test hl       sub hl,de
+                    ld (sym),bcde                     sub hl,N (sp)
+r5k/r6k only:  adc hl,N (sp)   add hl,N (sp)   add iy,#N   or hl,N (sp)
+```
+
+`jp lt` is among them: `lt` is a Rabbit 4000 condition, and vendor `asrab`'s
+`CND[]` carries only the Z80 set plus `NV`/`V` and the `LZ`/`LO` added
+earlier today.
+
+### The structural change is the real cost
+
+`asrab` selects its target with a single flat `mchtyp` compared for equality.
+Today's 3000A work replaced those comparisons with `IS_RABBIT()` and
+`IS_MIN_R3KA()`, which is the first half of what is needed — but the Rabbit
+4000 adds a **second dimension**.  sdas models it as `rab.cpu` × `rab.mode`:
+
+| | |
+|---|---|
+| cpu | `R_2K`, `R_3KA`, `R_4K`, `R_6K` |
+| mode | `R_NOMODE`, `R_MODE00`, `R_MODE01`, `R_MODE10`, `R_MODE11` |
+
+and gates encodings on `IS_MIN_4K`, `IS_MIN_6K`, `IS_MIN_MODE_01`,
+`IS_MODE_10_OR_11` and `IS_MODE_10` — 31 sites in `rabmch.c`.  The mode is
+not cosmetic: `IS_MODE_10` emits a `0x7F` escape prefix before several
+encodings.  Ten directives go with it (`.r4k00/01/10/11`, `.r6k00/01/10/11`,
+`.r4k`, and `.r5k` via `.r4k10`); SDCC emits `.r4k10` for r4k and r5k and
+`.r6k10` for r6k.
+
+**The machine model has to be reworked from one dimension to two before a
+single instruction can be added**, and every `IS_RABBIT()` site from today
+has to be revisited against it.
+
+### How to do it safely when it is picked up
+
+sdas is a complete oracle.  Assemble a file containing every shape with
+`sdasrab` under the right directive, and diff the vendor's bytes against it;
+the reference encodings for the r4k set are already captured.  Six of the
+thirty are rejected by sdas under `.r4k` and need `.r4k10` or `.r6k10`, which
+is itself a useful check that the mode model is right.
+
+**Do not skip the negative cases.**  New operand classes are where silent
+wrong encodings live, and the `bcde`/`jkhl` quads are a new class. The `lda`
+fix earlier today accepted a comma and then encoded whatever register
+followed, so `lda hl,bc,#4` assembled quietly as `lda hl,0 (ix)` - the same
+silent wrong answer that port was being fixed for, reintroduced in the fix,
+and caught only because a negative case was written alongside the gold.
+
+### Why it stays parked
+
+Three ports, against a machine-model rework plus thirty encodings in a new
+operand class.  Every other port in this batch was a day's work or less and
+landed at baseline; this one is not that shape.  It is the last thing on the
+list that is *possible* - stm8 and the pdk family have no ASxxxx target at
+all - so it is worth doing, but worth doing deliberately rather than at the
+end of a long session.
