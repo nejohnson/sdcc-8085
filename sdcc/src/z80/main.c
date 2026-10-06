@@ -1366,6 +1366,11 @@ static const char *_asxxxxRabAsmCmd[] = {
   "asrab", "$l", "$3", "-o+$1", "$1.asm", NULL
 };
 
+/* And the TLCS-90, which also has its own ASxxxx assembler. */
+static const char *_asxxxxT90AsmCmd[] = {
+  "astlcs90", "$l", "$3", "-o+$1", "$1.asm", NULL
+};
+
 static const char *_asxxxxLinkCmd[] = {
   "aslink", "-nf", "$1", "$L", NULL
 };
@@ -2821,21 +2826,24 @@ PORT tlcs90_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _tlcs90AsmCmd,
+    _asxxxxT90AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx astlcs90, not sdastlcs90 */
   },
   {                             /* Linker */
-    _z80LinkCmd,                //NULL,
+    _asxxxxLinkCmd,             //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_tlcs90,               /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldz80 */
   },
   {                             /* Peephole optimizer */
     _tlcs90_defaultRules,
