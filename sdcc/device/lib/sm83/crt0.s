@@ -83,17 +83,30 @@ init:
         jp      _exit
 
         ;; Ordering of segments for the linker.
-        .area	_HOME
+        ;;
+        ;; ASxxxx aslink lays out the areas of a bank consecutively from that
+        ;; bank's base, and packs areas belonging to no bank from address 0 -
+        ;; it does not simply continue from the previous area the way sdld
+        ;; does.  Naming a bank is therefore what keeps this sequence together
+        ;; behind _CODE, instead of every area here landing on top of the ABS
+        ;; _HEADER.  _CODE and _DATA carry no attribute because the assembler
+        ;; predefines them, already in _CSEG and _DSEG respectively (see the
+        ;; area[]/bank[] tables in ASxxxx's <target>pst.c); repeating it here
+        ;; would be a multiple-definition error.  Only the first declaration
+        ;; of an area may carry attributes, and a module that declares an area
+        ;; plainly - as every compiled module does - inherits the bank from
+        ;; whichever module did name one, so this file alone settles the layout.
+        .area	_HOME (BANK=_CSEG)
         .area	_CODE
-        .area	_INITIALIZER
-        .area   _GSINIT
-        .area   _GSFINAL
+        .area	_INITIALIZER (BANK=_CSEG)
+        .area   _GSINIT (BANK=_CSEG)
+        .area   _GSFINAL (BANK=_CSEG)
 
         .area	_DATA
-        .area	_INITIALIZED
-        .area	_BSEG
-        .area   _BSS
-        .area   _HEAP
+        .area	_INITIALIZED (BANK=_DSEG)
+        .area	_BSEG (BANK=_DSEG)
+        .area   _BSS (BANK=_DSEG)
+        .area   _HEAP (BANK=_DSEG)
 
         .area   _CODE
 __clock::
@@ -112,7 +125,7 @@ _exit::
         .area   _GSINIT
 gsinit::
         ; Default-initialized global variables.
-        ld      hl, #s__DATA
+        ld      hl, #a__DATA
         ld      bc, #l__DATA + 0x0101
         xor     a, a
         jr      loop_implicit_compare
@@ -125,8 +138,8 @@ loop_implicit_compare:
         jr      NZ, loop_implicit
 zeroed_data:
         ; Explicitly initialized global variables.
-        ld	de, #s__INITIALIZED
-        ld	hl, #s__INITIALIZER
+        ld	de, #a__INITIALIZED
+        ld	hl, #a__INITIALIZER
         ld	bc, #l__INITIALIZER + 0x0101
         jr      loop_explicit_compare
 loop_explicit:

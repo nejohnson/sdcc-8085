@@ -37,7 +37,7 @@ becomes `.abi`, and the directive is part of the PORT-struct switch.
 
 | port | objects affected | error lines | what it is | size |
 |---|---|---|---|---|
-| **sm83** | **0 / 210** | **0** | nothing. The assembler side is clean | linker only |
+| **sm83** | **0 / 210** | **0** | **migrated**, 2026-10-06. 3 failures: 2 baseline and one understood. The "linker only" verdict was wrong - see below. |
 | **r800** | 12 / 207 | 35 | `multuw hl,bc`, `multu a,c` | small ASxxxx addition |
 | **tlcs90** | 20 / 208 | 83 | **migrated**, 2026-10-06. 3 failures, the z80-family baseline. The survey undercounted this one badly - see below. |
 | **ez80** | 98 / 208 | 260 | `lea rr,ix,#d` spelling, nothing else | SDCC-side only |
@@ -332,3 +332,79 @@ whatever register followed.  The register index is masked to two bits on the
 way out, so `lda hl,bc,#4` assembled quietly as `lda hl,0 (ix)` - the same
 silent wrong answer this port was being fixed for, reintroduced in the fix.
 The negative case in `astest/cases/t90lda` is there because of it.
+
+## sm83, finished 2026-10-06
+
+**3 failures**: `tst_bug-3803` and `tst_p99-conformance`, which are baseline,
+and `tst_bug-3997`, which is not and is diagnosed below.  No abnormal stops,
+no undefined globals.  `malloc.c` passes here, where `ucz180`, `ez80`, `r800`
+and `tlcs90` all fail it.
+
+### The survey's verdict on this port was wrong
+
+It said sm83 was blocked "entirely on the linker side", because `sdldgb`
+"builds the Game Boy ROM header".  **It does not.**  The ROM header - the
+logo, the title, the cartridge bytes and the checksums - is built by
+`support/makebin/makebin.c`, a separate post-processing tool that is not part
+of the linker at all.
+
+What `sdldgb` actually does that aslink does not is **ROM/RAM banking**:
+`lkarea.c` gives an area named `_CODE_<n>` a default base of
+`(n << 16) + 0x4000` and `_DATA_<n>` one of `(n << 16) + 0xA000`, and
+`lkout.c` translates those virtual bank addresses into ROM file offsets on
+the way out.  Everything else under `TARGET_IS_GB` is sdld saying "behave
+like an ordinary linker", which aslink already does.
+
+**The regression exercises none of it** - no `_CODE_<n>` anywhere in the
+crt0 or the suite - which is why the port migrated without any linker work.
+
+### The banking gap is real, and is not measured here
+
+SDCC supports banked Game Boy ROMs through `--codeseg` and banked functions.
+Under `sdldgb` a `_CODE_3` area is based automatically; under aslink it is
+not, and the banks would be laid out consecutively from zero instead.  **A
+banked ROM built this way would be wrong, and nothing would say so.**
+
+That is not something the suite can catch, so it is stated here rather than
+measured.  The ASxxxx-shaped answer is not to teach aslink what a Game Boy
+cartridge is - that is the same target-specific lump the project refused for
+the 8051's memory map - but for SDCC to write the bank bases into the link
+script, which it already does for mcs51's areas.  The newly added base range
+check helps: `(n << 16) + 0x4000` does not fit a 16-bit address space, so if
+SDCC ever does emit those bases, aslink will say so rather than truncate.
+
+### `tst_bug-3997`: the relocatable `ldh`, diagnosed and left
+
+The absolute form is fixed (`asxxxx` `ce6624f`): `ldh a,(0xFF42)` tested `v1`
+where it meant `v2`, and `v1` is the A register in that branch, so a full
+I/O address was always "not in range" - while the store form, with the same
+two tests against a `v1` that really is the address, always worked.  That
+cleared four of the six failures.
+
+What is left is the **relocatable** form, and it is a separate bug:
+
+```
+ldh  a,(_sym + 0)     ->  F0 *00, plus R_PAGN with 0xFF00 added to _sym
+```
+
+`asgb` assumes a relocatable operand is an offset, adds `0xFF00` and emits
+`R_PAGN`.  `R4_PAGN` checks `(relv & ~p_mask) == sdp.s_addr`, and **`asgb`
+has no `.setdp` directive**, so `sdp.s_addr` is always zero and the check can
+only pass if the symbol plus `0xFF00` lands in page zero.  **The path cannot
+link cleanly for any ordinary symbol**, and the vendor's own `tgb.asm` never
+reaches it - its `n8` is an absolute equate, so nothing is relocated.
+
+SDCC makes it worse by using the other convention: `__sfr` variables with no
+`__at` get a full HRAM address, so `0xFF00` is added to something that is
+already `0xFF42`.
+
+Three ways out, none of them obviously right, which is why this is written
+down rather than guessed at:
+
+1. **Emit a plain low-byte relocation**, as SDAS does.  Works, matches both
+   SDAS and SDCC, and drops a range check that currently cannot fire anyway.
+2. **Give `asgb` a `.setdp`** and stop adding `0xFF00`, so `R_PAGN` checks
+   what it was meant to check.  Most correct, most surgery.
+3. Leave it; one test in 6404.
+
+Measured cost today: one case.
