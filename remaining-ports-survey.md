@@ -39,7 +39,7 @@ becomes `.abi`, and the directive is part of the PORT-struct switch.
 |---|---|---|---|---|
 | **sm83** | **0 / 210** | **0** | nothing. The assembler side is clean | linker only |
 | **r800** | 12 / 207 | 35 | `multuw hl,bc`, `multu a,c` | small ASxxxx addition |
-| **tlcs90** | 20 / 208 | 83 | `lda rr,ix,#d` spelling — **plus a silent defect** | small, but see below |
+| **tlcs90** | 20 / 208 | 83 | **migrated**, 2026-10-06. 3 failures, the z80-family baseline. The survey undercounted this one badly - see below. |
 | **ez80** | 98 / 208 | 260 | `lea rr,ix,#d` spelling, nothing else | SDCC-side only |
 | **r2k, r2ka** | 127 / 208 | 221 | `add sp,#-n` (190), `jp lo/lz` | one ASxxxx fix + condition codes |
 | **r3ka** | 127 / 208 | 203 | same | same |
@@ -275,3 +275,60 @@ from `z80/crt0.s` rather than left to be rediscovered.
 **The z80 family is now genuinely complete** - z80, z180, z80n, ez80 and
 r800 - which is the claim an earlier note made prematurely while ez80 and
 r800 were still naming `sdasz80`.
+
+## tlcs90, finished 2026-10-06
+
+**3 failures** - `tst_bug-3803`, `tst_p99-conformance` and `malloc.c`, the
+same three `ucz180`, `ez80` and `r800` produce - with no abnormal stops and
+no undefined globals.  Bytes and ticks are within half a percent of the sdas
+baseline.  In September this port was reverted at **4759 failures out of
+4759**.
+
+Four ASxxxx changes, two of them spellings the survey never saw:
+
+| change | sites | how it was found |
+|---|---|---|
+| `jp`/`call` take a register operand written either way | - | the September revert |
+| `lda` takes its displacement as one operand or as two | 83 | the library sweep |
+| `rrd`/`rld` with no operand | 3663 | **the suite** |
+| `a(hl)` for `(hl+a)` | 27 | **the suite** |
+
+### `jp (hl)` was the one that mattered
+
+`S_JP` handled a register operand only after a condition, and for the
+unconditional form went straight to `expr()`.  `(hl)` is a perfectly good
+parenthesised expression naming a symbol `hl`, so `jp (hl)` assembled with
+**no diagnostic at all** as `1A` plus a relocatable word - an absolute jump
+to an undefined global - and then linked, because an undefined global is a
+warning.  That is why 84 of 202 library objects were wrong in September with
+nothing to show for it.
+
+### The survey was wrong about this port, three times over
+
+It reported 83 error lines, all `lda`.  The real figure was 83 plus 3690
+more that the library cannot contain: `rrd`/`rld` (3663) and `a(hl)` (27)
+appear nowhere in `device/lib/*.c` and everywhere in the suite.  That is the
+third, fourth and fifth instance in this batch of the same thing - after
+`lsidr` and `ipset` on the Rabbit.
+
+**A library sweep is a floor.**  It finds what the library happens to
+contain.  Run the suite before believing a port is nearly done.
+
+### Two smaller things
+
+- `.t90` is an SDAS directive.  Vendor `astlcs90` assembles the TLCS-90 and
+  nothing else, so there is no CPU to select and no directive; it is dropped
+  from the two hand-written `crt0` files.
+- `-I<dir>` in the library makefile is an SDAS extension meaning "add an
+  include search path".  ASxxxx's `-I` means "list include files", so `-I./`
+  parsed as three options and then found no input file.  ASxxxx resolves
+  `.include` relative to the including file, which is what `t90regs.s`
+  needs, so the flag is simply dropped.
+
+### One mistake worth recording
+
+The first draft of the `lda` change accepted the comma and then encoded
+whatever register followed.  The register index is masked to two bits on the
+way out, so `lda hl,bc,#4` assembled quietly as `lda hl,0 (ix)` - the same
+silent wrong answer this port was being fixed for, reintroduced in the fix.
+The negative case in `astest/cases/t90lda` is there because of it.
