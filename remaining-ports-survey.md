@@ -37,7 +37,7 @@ becomes `.abi`, and the directive is part of the PORT-struct switch.
 
 | port | objects affected | error lines | what it is | size |
 |---|---|---|---|---|
-| **sm83** | **0 / 210** | **0** | **migrated**, 2026-10-06. 3 failures: 2 baseline and one understood. The "linker only" verdict was wrong - see below. |
+| **sm83** | **0 / 210** | **0** | **migrated**, 2026-10-06. **2 failures** - `tst_bug-3803` and `tst_p99-conformance`, the same two `ucz80` fails. The cleanest port in the family. |
 | **r800** | 12 / 207 | 35 | `multuw hl,bc`, `multu a,c` | small ASxxxx addition |
 | **tlcs90** | 20 / 208 | 83 | **migrated**, 2026-10-06. 3 failures, the z80-family baseline. The survey undercounted this one badly - see below. |
 | **ez80** | 98 / 208 | 260 | `lea rr,ix,#d` spelling, nothing else | SDCC-side only |
@@ -335,10 +335,10 @@ The negative case in `astest/cases/t90lda` is there because of it.
 
 ## sm83, finished 2026-10-06
 
-**3 failures**: `tst_bug-3803` and `tst_p99-conformance`, which are baseline,
-and `tst_bug-3997`, which is not and is diagnosed below.  No abnormal stops,
-no undefined globals.  `malloc.c` passes here, where `ucz180`, `ez80`, `r800`
-and `tlcs90` all fail it.
+**2 failures**: `tst_bug-3803` and `tst_p99-conformance`, the same two
+`ucz80` fails.  No abnormal stops, no undefined globals.  `malloc.c` passes
+here, where `ucz180`, `ez80`, `r800` and `tlcs90` all fail it, so sm83 is the
+cleanest port in the z80 family.
 
 ### The survey's verdict on this port was wrong
 
@@ -373,38 +373,36 @@ script, which it already does for mcs51's areas.  The newly added base range
 check helps: `(n << 16) + 0x4000` does not fit a 16-bit address space, so if
 SDCC ever does emit those bases, aslink will say so rather than truncate.
 
-### `tst_bug-3997`: the relocatable `ldh`, diagnosed and left
+### `ldh`: two bugs, both fixed
 
-The absolute form is fixed (`asxxxx` `ce6624f`): `ldh a,(0xFF42)` tested `v1`
-where it meant `v2`, and `v1` is the A register in that branch, so a full
-I/O address was always "not in range" - while the store form, with the same
-two tests against a `v1` that really is the address, always worked.  That
-cleared four of the six failures.
+**The absolute form** (`asxxxx` `ce6624f`) was a one-character typo:
+`ldh a,(0xFF42)` tested `v1` where it meant `v2`, and `v1` is the A register
+in that branch, so a full I/O address was always "not in range" - while the
+store form, with the same two tests against a `v1` that really is the
+address, always worked.  Four of the six failures were that.
 
-What is left is the **relocatable** form, and it is a separate bug:
+**The relocatable form** (`asxxxx` `8b83c64`) could not link at all.  `asgb`
+added `0xFF00` to the operand and emitted `R_PAGN`; `R4_PAGN` checks
+`(relv & ~p_mask) == sdp.s_addr`, `sdp.s_addr` comes from a `P` record, a `P`
+record comes from `.setdp` - and **`asgb` has no `.setdp`**.  So `sdp.s_addr`
+was always zero and the check could not pass for any ordinary symbol.
 
-```
-ldh  a,(_sym + 0)     ->  F0 *00, plus R_PAGN with 0xFF00 added to _sym
-```
+Nothing had noticed because nothing reached it.  `tgb.asm` exercises the
+form, but its `n8` is an absolute equate, so the value resolves at assembly
+time and no relocation is emitted.  The four `ld a,(nn)` sites above it carry
+the same `R_PAGN` against a raw address and are equally unreachable.
 
-`asgb` assumes a relocatable operand is an offset, adds `0xFF00` and emits
-`R_PAGN`.  `R4_PAGN` checks `(relv & ~p_mask) == sdp.s_addr`, and **`asgb`
-has no `.setdp` directive**, so `sdp.s_addr` is always zero and the check can
-only pass if the symbol plus `0xFF00` lands in page zero.  **The path cannot
-link cleanly for any ordinary symbol**, and the vendor's own `tgb.asm` never
-reaches it - its `n8` is an absolute equate, so nothing is relocated.
+All seven sites are now a plain low-byte relocation, which is what SDAS emits
+and what the instruction actually wants: LDH takes an eight-bit offset from
+`0xFF00`, and both spellings of it - the offset `0x42` and the full address
+`0xFF42` - have the same low byte.  There is nothing to disambiguate.
 
-SDCC makes it worse by using the other convention: `__sfr` variables with no
-`__at` get a full HRAM address, so `0xFF00` is added to something that is
-already `0xFF42`.
+**What is given up**, stated plainly: a symbol resolving outside both pages
+is no longer diagnosed.  ASxxxx has no relocation mode for "page 0 or page
+0xFF", and either mode it does have would reject one of the two spellings the
+assembler already accepts when the value is absolute - where the check is
+kept, because there the value can be seen.  Nothing that used to be caught
+stops being caught, because nothing could link this far.
 
-Three ways out, none of them obviously right, which is why this is written
-down rather than guessed at:
-
-1. **Emit a plain low-byte relocation**, as SDAS does.  Works, matches both
-   SDAS and SDCC, and drops a range check that currently cannot fire anyway.
-2. **Give `asgb` a `.setdp`** and stop adding `0xFF00`, so `R_PAGN` checks
-   what it was meant to check.  Most correct, most surgery.
-3. Leave it; one test in 6404.
-
-Measured cost today: one case.
+SDCC reaches the relocatable form through a `__sfr` with no `__at`, which
+gets a full HRAM address.
