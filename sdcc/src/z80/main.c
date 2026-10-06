@@ -1358,6 +1358,13 @@ static const char *_asxxxxEZ80AsmCmd[] = {
   "asez80", "$l", "$3", "-o+$1", "$1.asm", NULL
 };
 
+/* The Rabbit likewise: asrab covers the Rabbit 2000, 3000 and 3000A, the
+   Z80 and the Z180.  It does not cover the Rabbit 4000 and later, so r4k,
+   r5k and r6k stay on sdasrab. */
+static const char *_asxxxxRabAsmCmd[] = {
+  "asrab", "$l", "$3", "-o+$1", "$1.asm", NULL
+};
+
 static const char *_asxxxxLinkCmd[] = {
   "aslink", "-nf", "$1", "$L", NULL
 };
@@ -1843,20 +1850,24 @@ PORT r2k_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _r2kAsmCmd,
+    _asxxxxRabAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"},
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx asrab, not sdasrab */
+  },
   {                             /* Linker */
-    _z80LinkCmd,                //NULL,
+    _asxxxxLinkCmd,             //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_r2k,                  /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldz80 */
   },
   {                             /* Peephole optimizer */
     _r2k_defaultRules,
@@ -1979,21 +1990,24 @@ PORT r2ka_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _r2kAsmCmd,
+    _asxxxxRabAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx asrab, not sdasrab */
   },
   {                             /* Linker */
-    _z80LinkCmd,                //NULL,
+    _asxxxxLinkCmd,             //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_r2ka,                 /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldz80 */
   },
   {                             /* Peephole optimizer */
     _r2k_defaultRules,
@@ -2116,21 +2130,24 @@ PORT r3ka_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _r2kAsmCmd,
+    _asxxxxRabAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx asrab, not sdasrab */
   },
   {                             /* Linker */
-    _z80LinkCmd,                //NULL,
+    _asxxxxLinkCmd,             //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_r3ka,                 /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldz80 */
   },
   {                             /* Peephole optimizer */
     _r2k_defaultRules,
