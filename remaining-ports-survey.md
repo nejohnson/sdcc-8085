@@ -228,10 +228,26 @@ So placing `__far` on the Rabbit needs a decision about how a >64K physical
 space is expressed to a 16-bit linker at all, and that is a design question,
 not a patch.
 
-**Recommended next step, and it is small:** `-a AREA = <value>` with a value
-that does not fit the address space truncates in silence.  That is the same
-family as the three sign-extension bugs already fixed (`79c25e7` and the two
-before it) - the map prints the masked value, so it reads correctly while
-the placement is wrong.  Making aslink report it turns these two silent
-misplacements into two reported link errors, which is the answer the project
-has taken every other time: a refused link beats a wrong one.
+**The base range check is done** (`asxxxx` `7de9475`).  `-a AREA = <value>`
+and `-b BANK = <value>` beyond the address space no longer truncate in
+silence - the same family as the three sign-extension bugs already fixed
+(`79c25e7` and the two before it).  The check has to be made on the digits
+as they are scanned rather than on the value `expr()` returns, because
+`expr()` sign-extends and a legitimate base in the top half of memory
+(`0xFF80` on a 16-bit target) comes back as `0xFFFFFF80`; `nmbr()` records
+the loss in `expr_ovf` and `setarea()`/`setbank()` ask afterwards.
+
+**What it immediately found is worth recording.**  The first run with it in
+place failed **every single r2k test, 4785 of them** - because
+`-a _XDATA = 0x84000` is in every Rabbit link script, not only the ones that
+use `__far`.  It had always been impossible; it was simply harmless whenever
+`_XDATA` was empty, which is almost always.  SDCC no longer asks for a base
+it cannot honour (`fix/rabbit-xdata-base`): for an ASxxxx Rabbit the
+`_XDATA` base is skipped when it does not fit, with the reasoning in the
+comment.
+
+`__far` is **still** broken on the Rabbit and is unchanged by any of this -
+40005 bytes of `_XDATA` have nowhere to go in a 64K space,
+which is precisely why extended memory exists.  The two abnormal stops
+remain.  What has changed is that the impossible base is now impossible to
+reintroduce silently.
