@@ -919,9 +919,71 @@ Fixed so far:
   tree came back 0 failures on all three (36417 tests each), including
   the new test itself passing on all three ports.
 
-Not yet investigated: the remaining 15 (27 total, 12 fixed and
+- **#4093** - "Overflow in an integer constant expression is accepted
+  without a diagnostic" (N3886 6.6.1p20). More involved than the rest
+  of this cluster: the reporter's own first patch (signed-int-only)
+  was withdrawn after review flagged it as incomplete (missed
+  unsigned int wraparound too), and the reporter split the real fix
+  into three separate precondition tickets rather than attach a
+  "rather big and complicated" combined patch. Neil chose to port all
+  three preconditions plus a proper fix for #4093 itself, rather than
+  skip or apply the withdrawn partial patch:
+  - **#4100** (closed-fixed upstream) - unsigned `_BitInt` negation
+    (`valUnaryPM`, SDCCval.c) didn't mask the negated result to the
+    type's declared bit width, e.g. `-(unsigned _BitInt(8))1` produced
+    the 64-bit pattern instead of wrapping to 255. Ported directly
+    (our `valUnaryPM` matched upstream's at this point): mask with
+    `SPEC_BITINTWIDTH` when `IS_BITINT`.
+  - **#4101** (closed-fixed upstream) - a constant `?:` expression's
+    literal-condition fast path (`decorateType`'s `'?'` case,
+    SDCCast.c) truncated the condition to `int` via
+    `(int) ulFromVal(...)` before testing truthiness, so a wide
+    constant like `4294967296ULL` (2^32, truncates to 0) or a
+    fractional float like `0.5f` (truncates to 0 via `ulFromVal`)
+    wrongly took the false branch. Ported directly: replaced with
+    `!isEqualVal(valFromType(LETYPE(tree)), 0)`, which tests the
+    value's own full representation.
+  - **#4102** (open upstream, patch attached) - folding a constant
+    `unsigned int * unsigned int` multiplication (`valMult`,
+    SDCCval.c) cast both 16-bit operands to `TYPE_TARGET_UINT`
+    (`uint16_t`) *before* multiplying; `uint16_t * uint16_t` promotes
+    to the HOST's native `int` under the host compiler's own
+    promotion rules, so `65535 * 65535` overflowed a 32-bit signed
+    host `int` - undefined behaviour in the compiler itself, not just
+    a missing diagnostic. Ported directly: widen each operand to
+    `TYPE_TARGET_ULONG` (`uint32_t`) before multiplying.
+  - **#4093 itself**: fixed `valPlus`'s plain int/unsigned-int branch
+    (SDCCval.c) - the only branch with no overflow check at all (the
+    `SPEC_LONG`/`SPEC_LONGLONG`/`IS_BITINT` branches already handle
+    their own wraparound). Rather than port the withdrawn
+    signed-only patch, extended the existing widen-and-compare idiom
+    already used by `valMult`'s own unsigned-overflow check (just
+    above `valPlus` in the same file) to both the signed and unsigned
+    case: widen each already-narrowed operand to the next-larger
+    target type (`TYPE_TARGET_LONG`/`TYPE_TARGET_ULONG`, each wide
+    enough to hold the sum of any two 16-bit operands without host
+    overflow), add, and compare the widened sum's truncation back to
+    the narrow type against itself, warning `W_INT_OVL` on mismatch.
+    This closes the exact gap the withdrawn patch's own reviewer
+    flagged (unsigned wraparound, e.g. `65535u + 1u`), not just the
+    signed case from the ticket's literal repro.
+  Verified all four fixes individually against every case from
+  upstream's own test files (`32767+1` warns, `32767+0` doesn't,
+  `-32767+-1` doesn't - it's exactly `INT_MIN` - `65535u+1u` now also
+  warns, the `_BitInt` negation/`?:` truthiness/unsigned-multiply
+  repro cases all match expected results) plus targeted non-regressing
+  cases (ordinary runtime addition/multiplication, in-range constants,
+  signed `_BitInt` negation, non-wide/non-float `?:` conditions).
+  Regression tests `bug-4100.c`, `bug-4101.c`, `bug-4102.c`, and
+  `bug-4093.c` added and registered in `MakeList`; full 3-port
+  regression (i8085/i8085-undoc/i8080) on a freshly wiped
+  `gen`/`results` tree pending - see commit for the result.
+
+Not yet investigated: the remaining 11 (27 total, 13 fixed and
 committed so far: #4090, #4083, #4088, #3917, #3916, #4089, #4087,
-#4086, #4085, #4084, #4072, #4094).
+#4086, #4085, #4084, #4072, #4094, #4093 - the last of which also
+brought in 3 upstream preconditions, #4100/#4101/#4102, outside the
+original 27).
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce
