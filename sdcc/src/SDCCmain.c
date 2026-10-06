@@ -2141,7 +2141,18 @@ linkEdit (char **envp)
         {
           WRITE_SEG_LOC ("_CODE", options.code_loc);
           WRITE_SEG_LOC ("_DATA", options.data_loc);
-          if (TARGET_RABBIT_LIKE)
+          /* The Rabbit reaches extended memory through an MMU, and the
+             default xdata location is the physical 0x84000 - outside the
+             16 bit space the linker places areas in.  sdld masked it and
+             placed _XDATA at 0x4000, over the data area, silently; aslink
+             reports a base that does not fit, which would refuse every
+             link rather than only the ones that use __far.  Neither is a
+             way to place extended memory, so do not ask for a base that
+             cannot be honoured.  __far is unsupported on the ASxxxx
+             Rabbit ports until there is an answer for how a >64K physical
+             space is expressed to a 16 bit linker at all. */
+          if (TARGET_RABBIT_LIKE &&
+              !(port->linker.asxxxx && options.xdata_loc > 0xFFFF))
             WRITE_SEG_LOC ("_XDATA", options.xdata_loc);
         }
 
