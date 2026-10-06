@@ -29,7 +29,7 @@
 .module __mulsint2slong
 
 .r800
-.optsdcc -mr800 sdcccall(1)
+.abi -mr800 sdcccall(1)
 
 .globl ___mulsint2slong
 

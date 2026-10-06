@@ -1343,12 +1343,13 @@ static const char *_z80LinkCmd[] = {
   "sdldz80", "-nf", "$1", "$L", NULL
 };
 
-/* Alan Baldwin's ASxxxx tools, which the z80, z180 and z80n ports use in
-   place of the sdas/sdld forks.  asz80 assembles all three instruction
-   sets (it has the Z180 mlt/in0/out0 and the Z80N swapnib/ldix), but not
-   the R800's multuw/mulub, so r800 stays on sdasz80.  The assembler
-   differs in one spelling: it derives every output file name from -o+base
-   rather than taking the object file name as a separate argument. */
+/* Alan Baldwin's ASxxxx tools, which the z80, z180, z80n and r800 ports
+   use in place of the sdas/sdld forks.  asz80 assembles all four
+   instruction sets: the Z180 mlt/in0/out0, the Z80N swapnib/ldix, and -
+   since the .r800 machine type was added upstream - the R800's multu and
+   multuw together with the IX/IY half registers.  The assembler differs
+   in one spelling: it derives every output file name from -o+base rather
+   than taking the object file name as a separate argument. */
 static const char *_asxxxxZ80AsmCmd[] = {
   "asz80", "$l", "$3", "-o+$1", "$1.asm", NULL
 };
@@ -3097,21 +3098,24 @@ PORT r800_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _z80AsmCmd,
+    _asxxxxZ80AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx asz80, not sdasz80 */
   },
   {                             /* Linker */
-    _z80LinkCmd,                //NULL,
+    _asxxxxLinkCmd,             //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_r800,                 /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldz80 */
   },
   {                             /* Peephole optimizer */
     _z80_defaultRules,
