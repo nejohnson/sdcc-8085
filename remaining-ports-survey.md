@@ -135,7 +135,7 @@ memory map out of aslink and in the link script.
 |---|---|---|
 | **ez80** | **0 / 208** | **migrated.** `ucez80` 3 failures, which is exactly what `ucz180` fails on this tree - `tst_bug-3803`, `tst_p99-conformance` and `malloc.c`. `ucz80` fails the first two. At baseline. |
 | **r2k, r2ka, r3ka** | **0 / 208** | **migrated**, 2026-10-06. 2 failures each, which is the z80-family baseline - but **2 new abnormal stops each**, from `__far`. See below. |
-| **r800** | 0 / 207 expected | `asz80` now has `.r800`, `multu` and `multuw`; not yet re-measured or switched. |
+| **r800** | **0 / 207** | **migrated**, 2026-10-06. 3 failures - `tst_bug-3803`, `tst_p99-conformance`, `malloc.c` - which is exactly what `ucz180` and `ez80` fail. No abnormal stops. At baseline. |
 | **sm83** | 0 / 210 | unchanged - it was always clean. Still blocked on the ROM header. |
 | **tlcs90** | 83 | unchanged. Needs the `jp (hl)` fix first. |
 | **r4k, r5k, r6k** | ~480 each | parked. Was ~680; `add sp` and the conditions helped, the Rabbit 4000 instruction set did not go away. |
@@ -251,3 +251,27 @@ comment.
 which is precisely why extended memory exists.  The two abnormal stops
 remain.  What has changed is that the impossible base is now impossible to
 reintroduce silently.
+
+## r800, finished 2026-10-06
+
+The last of the z80 family.  3 failures, no abnormal stops, no undefined
+globals: `tst_bug-3803`, `tst_p99-conformance` and `malloc.c`, which is the
+identical set `ucz180` and `ez80` produce on this tree.  `ucz180` is
+migrated and has not been touched, so that is the baseline and r800 is at
+it.
+
+Nothing new was needed.  The assembler work had already landed with the
+Rabbit batch (`.r800`, `multu`, `multuw`, and the IX/IY half registers that
+come with the machine type), and a re-sweep with it in place put r800 at
+**0 substantive error lines** across the 207 shared library sources - only
+`.optsdcc`, which the PORT flag turns into `.abi`.
+
+The library side was the same four things every port in this batch has
+needed: `LIB_TYPE = ASXVENDOR`, `SAS = bin/asz80`, `crt0.s` naming area
+starts `a_` and carrying the bank attributes, and one stray `.optsdcc`.
+The explanatory comment about why the banks are needed was copied across
+from `z80/crt0.s` rather than left to be rediscovered.
+
+**The z80 family is now genuinely complete** - z80, z180, z80n, ez80 and
+r800 - which is the claim an earlier note made prematurely while ez80 and
+r800 were still naming `sdasz80`.
