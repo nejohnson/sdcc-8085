@@ -7,7 +7,7 @@
 // When adding a port here, also adjust EXCLUDE_extra in Makefile.in!
 #define NUM_BASEPORTS 37
 const char *baseports[NUM_BASEPORTS] = {
-  "ds390", "f8", "f8l", "hc08", "mcs51-huge", "mcs51-large", "mcs51-large-stack-auto", "mcs51-medium",
+  "ds390", "hc08", "mcs51-huge", "mcs51-large", "mcs51-large-stack-auto", "mcs51-medium",
   "mcs51-small", "mcs51-small-stack-auto", "pdk14", "pdk15", "pdk15-stack-auto", "s08", "s08-stack-auto", "stm8",
   "stm8-large", "tlcs90", "uc6502", "uc6502-stack-auto", "uc65c02", "ucez80", "ucgbz80", "ucr2k",
   "ucr2ka", "ucr3ka", "ucr4k", "ucr5k", "ucr6k", "ucr800", "ucz180", "ucz180-resiy",

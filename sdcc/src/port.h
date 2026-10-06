@@ -38,8 +38,6 @@ enum target {
   TARGET_ID_PDK16,
   TARGET_ID_MOS6502,
   TARGET_ID_MOS65C02,
-  TARGET_ID_F8,
-  TARGET_ID_F8L,
   TARGET_ID_PIC14,
   TARGET_ID_PIC16    
 };
@@ -74,8 +72,6 @@ enum target {
 #define TARGET_IS_PDK16    (port->id == TARGET_ID_PDK16)
 #define TARGET_IS_MOS6502  (port->id == TARGET_ID_MOS6502)
 #define TARGET_IS_MOS65C02 (port->id == TARGET_ID_MOS65C02)
-#define TARGET_IS_F8       (port->id == TARGET_ID_F8)
-#define TARGET_IS_F8L      (port->id == TARGET_ID_F8L)
 #define TARGET_IS_PIC14    (port->id == TARGET_ID_PIC14)
 #define TARGET_IS_PIC16    (port->id == TARGET_ID_PIC16)
 
@@ -87,7 +83,6 @@ enum target {
 #define TARGET_PIC_LIKE    (TARGET_IS_PIC14 || TARGET_IS_PIC16)
 #define TARGET_PDK_LIKE    (TARGET_IS_PDK13 || TARGET_IS_PDK14 || TARGET_IS_PDK15 || TARGET_IS_PDK16)
 #define TARGET_MOS6502_LIKE (TARGET_IS_MOS6502 || TARGET_IS_MOS65C02)
-#define TARGET_F8_LIKE     (TARGET_IS_F8 || TARGET_IS_F8L)
 
 /* is using sdas / sdld assembler / linker */
 #define IS_SDASLD          (TARGET_Z80_LIKE || TARGET_MCS51_LIKE || TARGET_HC08_LIKE)

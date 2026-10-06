@@ -217,6 +217,11 @@ needs a migrated port.
 
 ## 7. Baselines
 
+> **`f8` and `f8l` appear below and in §6 because they existed when this
+> was measured on 2026-10-01.  The port was removed from this fork
+> afterwards - see the README - so those two rows are history, not a
+> baseline anything can be compared against now.
+
 All 41 ports, 2026-10-01, sdas/sdld toolchain except where a port has been
 migrated.  0 failures unless noted: ds390, f8, f8l, i8080, i8085,
 i8085-undoc, mcs51-small, mcs51-medium, mcs51-small-stack-auto,

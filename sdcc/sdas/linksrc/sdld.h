@@ -30,7 +30,6 @@ enum sdld_target_e {
   TARGET_ID_PDK13,
   TARGET_ID_PDK14,
   TARGET_ID_PDK15,
-  TARGET_ID_F8,
 };
 
 void sdld_init (char *path);
@@ -51,5 +50,4 @@ int is_sdld_target_8051_like(void);
    get_sdld_target() == TARGET_ID_PDK13 || \
    get_sdld_target() == TARGET_ID_PDK14 || \
    get_sdld_target() == TARGET_ID_PDK15)
-#define TARGET_IS_F8  (get_sdld_target() == TARGET_ID_F8)
 #endif  /* __SDLD_H */
