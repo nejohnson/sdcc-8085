@@ -1042,11 +1042,26 @@ redundant inserts (e.g., check both directions' skip conditions before
 deciding to add once) or restructure the skip itself - real, but needs
 careful, supervised work, not attempted further tonight.
 
-Not yet investigated: the remaining 11 (27 total, 13 fixed and
+- **#4071 - not applicable to this fork.** "Array conversion of an
+  array reached through a generic pointer produces an
+  address-space-specific pointer" - closed-fixed upstream, but it's
+  about mcs51/ds390-style ports that have multiple address spaces
+  (`__data`/`__xdata`/generic), where an address-space-specific
+  pointer can lose its generic-pointer provenance on array-to-pointer
+  decay. i8085 has a flat memory model: `src/i8085/main.c` treats
+  every unqualified pointer as already generic (`GPOINTER`), so there
+  is no address-space-specific-vs-generic distinction for this bug to
+  manifest in. Confirmed directly: the ticket's own repro (`_Generic`
+  on `p->m` vs `*p` for a pointer-to-array parameter) compiles clean
+  on i8085, no warning, matching the "same type" expectation already.
+
+Not yet investigated: the remaining 13 (27 total, 13 fixed and
 committed so far: #4090, #4083, #4088, #3917, #3916, #4089, #4087,
 #4086, #4085, #4084, #4072, #4094, #4093 - the last of which also
 brought in 3 upstream preconditions, #4100/#4101/#4102, outside the
-original 27).
+original 27; plus #4071 found not applicable, see above). Remaining:
+#4006, #4005, #4004, #4003, #4002, #3963, #3962, #3960, #3958, #3957,
+#3955, #3954, #3952.
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce
