@@ -505,13 +505,6 @@ struct cpu_entry cpus_avr[]= {
 };
 
 
-struct cpu_entry cpus_f8[]=
-  {
-    {"F8"	, CPU_F8, 0		, "F8", ""},
-
-    {NULL, CPU_NONE, 0, "", ""}
-  };
-
 struct cpu_entry cpus_i8048[]=
   {
     {"I8050"	, CPU_I8050, 0		, "I8050", ""},
@@ -788,7 +781,6 @@ struct cpu_collection cpus_coll[]=
     { "mcs51"	, "ucsim_51"		, cpus_51	},
     { "stm8"	, "ucsim_stm8"		, cpus_stm8	},
     { "avr"	, "ucsim_avr"		, cpus_avr	},
-    { "f8"	, "ucsim_f8"		, cpus_f8	},
     { "mcs48"	, "ucsim_i8048"		, cpus_i8048	},
     { "mcs85"	, "ucsim_i8085"		, cpus_i8085	},
     { "m6800"	, "ucsim_m6800"		, cpus_m6800	},

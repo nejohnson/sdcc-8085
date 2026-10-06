@@ -266,7 +266,7 @@ static void set_spilt(G_t &G, const I_t &I, SI_t &scon)
           if (TARGET_PDK_LIKE && G[i].ic->op == GET_VALUE_AT_ADDRESS && getSize(scon[result].sym->type) > 2)
             scon[(boost::add_edge(result, left, scon)).first].alignment_conflict_only = false;
 
-          // Byte shifting in shift by constant might fail for partially spilt variables. Currently only the stm8 and f8 register allocators might partially spill variables.
+          // Byte shifting in shift by constant might fail for partially spilt variables. Currently only the stm8 register allocator might partially spill variables.
           if (TARGET_IS_STM8 &&
             (G[i].ic->op == RIGHT_OP || G[i].ic->op == LEFT_OP || G[i].ic->op == ROT) &&
             IS_OP_LITERAL(IC_RIGHT(G[i].ic)) && ulFromVal (OP_VALUE_CONST (IC_RIGHT(G[i].ic))) > 4)
