@@ -43,7 +43,7 @@ becomes `.abi`, and the directive is part of the PORT-struct switch.
 | **ez80** | 98 / 208 | 260 | `lea rr,ix,#d` spelling, nothing else | SDCC-side only |
 | **r2k, r2ka** | 127 / 208 | 221 | `add sp,#-n` (190), `jp lo/lz` | one ASxxxx fix + condition codes |
 | **r3ka** | 127 / 208 | 203 | same | same |
-| **r4k, r5k, r6k** | 205 / 208 | ~680 | the Rabbit 4000 instruction set - **30 shapes, scoped below** | still parked, but now measured |
+| **r4k, r5k, r6k** | **0 / 208** | **0** | the Rabbit 4000/6000 is **implemented**. Ports switched, libraries clean. **145/145/163 failures**, all `ldf` - see below |
 
 ## What is actually common
 
@@ -478,3 +478,71 @@ landed at baseline; this one is not that shape.  It is the last thing on the
 list that is *possible* - stm8 and the pdk family have no ASxxxx target at
 all - so it is worth doing, but worth doing deliberately rather than at the
 end of a long session.
+
+## r4k, r5k, r6k: the Rabbit 4000 and 6000, done except for `ldf`
+
+The machine model, the instruction set and the three ports all landed
+2026-10-06.  The libraries build clean - 201 members each, no diagnostics -
+and the suites run **145, 145 and 163 failures** against a family baseline of
+2.  Every one of those is the same thing, and it is the thing that was
+already open before this started.
+
+### What was built
+
+`asrab` selected its target with a single flat `mchtyp`.  The Rabbit 4000
+needs two dimensions, because its two mode bits select between register
+mappings and several encodings differ by them - mode 10 puts a `0x7F` escape
+in front of a bare HL form.  `mchtyp` still records the directive for the
+listing; `rabcpu` and `rabmode` are what the instructions ask about, through
+`IS_MIN_R4K()`, `IS_MIN_R6K()`, `IS_MIN_MODE01()`, `IS_MODE10_OR_11()` and
+`IS_MODE10()`.  Ten directives; `.r5k` is `.r4k10` and `.r4k` is `.r4k11`.
+
+The instruction set turned out smaller than its reputation because the 32-bit
+pairs **reuse the Z80's index prefixes** - `BCDE` is `0xDD` and `JKHL` is
+`0xFD` in front of the opcode that does the same thing to `HL`.  The quad
+loads are entirely regular: the prefix says which pair, the second byte says
+which index register and which direction (`CE/CF` for IX, `DE/DF` for IY,
+`EE/EF` for SP).
+
+It is all in one function, `r4k()`, rather than threaded through the existing
+cases.  Every shape it takes is one the assembler rejected outright before,
+so nothing that already assembled can change meaning.
+
+**79 encodings are verified byte-identical to SDAS** across nine reference
+files.  astest is 45 cases.
+
+### Three things that cost time, all worth remembering
+
+1. **`addr()` evaluates.** The first cut probed with `addr()` and backed out
+   when the shape did not match - and `push ip` became an undefined global,
+   because evaluating had already interned the symbol.  The shape is now
+   established with `admode()`, which only matches register names, and
+   `addr()` is called once the form is certain.
+2. **A class filter has to come first.** Without one, every mnemonic with no
+   operand - `nop`, `ldir`, `ldi`, bare `neg` - had `addr()` run against what
+   followed it.
+3. **Two range checks were wrong in the same way.** `cp hl,#n` takes -128 to
+   255, and the quad load displacement takes a whole byte: a stack offset is
+   written unsigned (`ld bcde,136 (sp)`), an index offset is usually negative
+   (`ld -6 (ix),bcde`). Both halves are meant - the same conclusion as
+   `add sp,n`.
+
+### `ldf` is the whole of what is left, and it is the `__far` problem
+
+707 errors, and the suite's remaining failures are all of them.
+
+The encodings are known and regular - `7F 9A` for `ldf a,(far)`, `ED 0A` for
+`bc`, `DD 0A` for `bcde`, and so on, each followed by a **three-byte**
+address.  It was implemented and then reverted, because the three bytes do
+not survive:
+
+- `outr3b()` writes the T-record data with `a_bytes`, which is 2 on this
+  target, so only two of the three go out.
+- And if that were forced, the linker would then have to **place** a 20-bit
+  address, which it cannot: `.24bit` is commented out in `asrab/rabpst.c`,
+  and a base beyond the address space is now - correctly - an error.
+
+So `ldf` is not a missing instruction.  It is the same structural problem as
+`__far` on r2k/r2ka/r3ka: **a >64K physical space that a 16-bit ASxxxx link
+has no way to express.**  Answering that question unblocks `ldf` on
+r4k/r5k/r6k and the two abnormal stops on r2k together; nothing else will.
