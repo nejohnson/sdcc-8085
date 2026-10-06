@@ -97,19 +97,19 @@ skip_gsinit:
 
 	;; Ordering of segments for the linker.
 	.area	_IIVT (ABS)
-	.area	_HOME
+	.area	_HOME (BANK=_CSEG)
 	.area	_CODE
-	.area	_INITIALIZER
-	.area   _GSINIT
-	.area   _GSFINAL
+	.area	_INITIALIZER (BANK=_CSEG)
+	.area   _GSINIT (BANK=_CSEG)
+	.area   _GSFINAL (BANK=_CSEG)
 
 	.area	_DATA
-	.area	_INITIALIZED
-	.area	_BSEG
-	.area   _BSS
-	.area   _HEAP
-	.area   _HEAP_END
-	.area   _SSEG
+	.area	_INITIALIZED (BANK=_DSEG)
+	.area	_BSEG (BANK=_DSEG)
+	.area   _BSS (BANK=_DSEG)
+	.area   _HEAP (BANK=_DSEG)
+	.area   _HEAP_END (BANK=_DSEG)
+	.area   _SSEG (BANK=_DSEG)
 
 	.area   _XCONST
 
@@ -130,7 +130,7 @@ gsinit::
 	ld	a, b
 	or	a, c
 	jr	Z, zeroed_data
-	ld	hl,	#s__DATA
+	ld	hl,	#a__DATA
 	ld	(hl), #0x00
 	dec	bc
 	ld	a, b
@@ -148,8 +148,8 @@ zeroed_data:
 	ld	a, b
 	or	a, c
 	jr	Z, gsinit_next
-	ld	de, #s__INITIALIZED
-	ld	hl, #s__INITIALIZER
+	ld	de, #a__INITIALIZED
+	ld	hl, #a__INITIALIZER
 copy_loop:
 	ldi	; Work around new ldir wait state bug.
 	jp	LO, copy_loop

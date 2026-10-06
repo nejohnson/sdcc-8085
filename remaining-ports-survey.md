@@ -134,7 +134,7 @@ memory map out of aslink and in the link script.
 | port | assembler errors | state |
 |---|---|---|
 | **ez80** | **0 / 208** | **migrated.** `ucez80` 3 failures, which is exactly what `ucz180` fails on this tree - `tst_bug-3803`, `tst_p99-conformance` and `malloc.c`. `ucz80` fails the first two. At baseline. |
-| **r2k, r2ka, r3ka** | **0 / 208** | assembler-clean. The port switch, the library wiring and the link-time work are still to do. |
+| **r2k, r2ka, r3ka** | **0 / 208** | **migrated**, 2026-10-06. 2 failures each, which is the z80-family baseline - but **2 new abnormal stops each**, from `__far`. See below. |
 | **r800** | 0 / 207 expected | `asz80` now has `.r800`, `multu` and `multuw`; not yet re-measured or switched. |
 | **sm83** | 0 / 210 | unchanged - it was always clean. Still blocked on the ROM header. |
 | **tlcs90** | 83 | unchanged. Needs the `jp (hl)` fix first. |
@@ -164,3 +164,74 @@ Six lines in the assembler instead.  Same decision as `tst a,n` (`d02ee7a`):
 when the two spellings are the same instruction and the same bytes, the
 assembler is the cheaper place to accept both.  **Expect this to come up
 again on tlcs90**, which is the same instruction wearing a different name.
+
+## The Rabbit ports, finished 2026-10-06
+
+All three run **2 failures** - `tst_bug-3803` and `tst_p99-conformance`, the
+same two `ucz80` fails on this tree - and **2 abnormal stops**, which are
+new and are this migration's.
+
+Three more ASxxxx changes were needed beyond the two the survey predicted:
+
+| change | why |
+|---|---|
+| the **Rabbit 3000A** (`.r3ka`, 13 instructions, `push/pop su`) | SDCC emits `lsidr` in place of `ldir` on r3ka and later - a Rabbit 2000 `ldir` has a wait-state bug across memory types |
+| `rabadr.c` and the cycle table, missed by the above | 19 `ld n (sp), hl` refused under `.r3ka` that assembled fine under `.r2k` |
+| `ipset0`..`ipset3` beside `ipset n` | three suite cases; `peep.c` matches those four by instruction name in six places |
+
+The library side was the same four things ez80 needed: `LIB_TYPE =
+ASXVENDOR`, `SAS = bin/asrab`, `crt0.s` naming area starts `a_` and carrying
+the bank attributes, and one stray `.optsdcc`.
+
+### What the sweep missed, and why
+
+The survey said r2k and r3ka were assembler-clean at 0 error lines.  Both
+statements were true and both were incomplete:
+
+- **`lsidr` is never emitted by the 208 library sources**, because none of
+  them copies a block.  It is emitted by the regression suite constantly.
+- **`ipset0` likewise** - it appears in three suite cases and nowhere in the
+  library.
+
+An assembler sweep over the library is a floor, not a ceiling.  It finds
+what the library happens to contain, which is arithmetic and string code,
+and misses whatever the code generator emits only for constructs the
+library does not use.
+
+### The open item: `__far` cannot be placed
+
+Both abnormal stops are the same cause, and it is structural rather than an
+oversight.
+
+The Rabbit reaches extended memory through an MMU, and SDCC models it as a
+flat address above 64K: the link script says `-a _XDATA = 0x84000`.  The
+link is 16-bit, so that base **silently truncates to 0x4000**, and `_XDATA`
+- 40005 bytes of it in `tst_far_rabbit_fields` - is laid over `_DATA` at
+0xA000.  The program links, exit 0, and then runs until uCsim's cycle limit.
+Between them the two tests burn 2.4 billion ticks: ucr2k went from 897M on
+the sdas baseline to 3,363M.
+
+Two things were tried and neither works:
+
+1. **`(BANK=_XSEG)` on `_XCONST` and `_XDATA` in `crt0.s`** has no effect,
+   because aslink takes an area's attributes from wherever it is *first*
+   declared across the whole link, and the test framework is linked first.
+   Doing it properly means the `BANK=` going into the port's area strings in
+   `src/z80/main.c`, the way mcs51 does it.
+2. **Widening the link with `.24bit`** is not available: the directive is
+   **commented out** in both `asrab/rabpst.c` and `asz80/z80pst.c`.  Baldwin
+   disabled address-width changes for these targets deliberately - they are
+   16-bit machines, and the Rabbit's 20-bit physical space is an MMU
+   artefact rather than an address width.
+
+So placing `__far` on the Rabbit needs a decision about how a >64K physical
+space is expressed to a 16-bit linker at all, and that is a design question,
+not a patch.
+
+**Recommended next step, and it is small:** `-a AREA = <value>` with a value
+that does not fit the address space truncates in silence.  That is the same
+family as the three sign-extension bugs already fixed (`79c25e7` and the two
+before it) - the map prints the masked value, so it reads correctly while
+the placement is wrong.  Making aslink report it turns these two silent
+misplacements into two reported link errors, which is the answer the project
+has taken every other time: a refused link beats a wrong one.
