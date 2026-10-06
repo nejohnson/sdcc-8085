@@ -1371,6 +1371,11 @@ static const char *_asxxxxT90AsmCmd[] = {
   "astlcs90", "$l", "$3", "-o+$1", "$1.asm", NULL
 };
 
+/* And the SM83, the Game Boy's processor, whose ASxxxx assembler is asgb. */
+static const char *_asxxxxGBAsmCmd[] = {
+  "asgb", "$l", "$3", "-o+$1", "$1.asm", NULL
+};
+
 static const char *_asxxxxLinkCmd[] = {
   "aslink", "-nf", "$1", "$L", NULL
 };
@@ -2688,22 +2693,24 @@ PORT sm83_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _gbAsmCmd,
+    _asxxxxGBAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
     ".asm",
-    NULL                        /* no do_assemble function */
+    NULL,                       /* no do_assemble function */
+    TRUE,                       /* ASxxxx asgb, not sdasgb */
   },
   {                             /* Linker */
-    _gbLinkCmd,                 //NULL,
+    _asxxxxLinkCmd,             //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_sm83,                 /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldgb */
   },
   {                             /* Peephole optimizer */
     _sm83_defaultRules,
