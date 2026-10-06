@@ -63,7 +63,7 @@ tracker, or to ask questions on the user mailing list. See:
  https://sourceforge.net/p/sdcc/mailman/
 
 Notes:
-* The ds400, f8, pic14 and pic16 are currently experimental, but work is in
+* The ds400, pic14 and pic16 are currently experimental, but work is in
 progress. Please check https://sdcc.sourceforge.net/snap.php for snapshots.
 * The TININative, avr and xa51 targets are no longer maintained.
 

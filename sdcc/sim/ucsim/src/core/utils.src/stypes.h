@@ -284,8 +284,6 @@ enum cpu_type {
   CPU_PDK16     = 0x0008,
   CPU_PDKX      = 0x0010,
   
-  CPU_F8	= 0x0001,
-
   CPU_P1516	= 0x0001,
   CPU_P2223	= 0x0002,
 
