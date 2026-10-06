@@ -1518,6 +1518,17 @@ addSymChain (symbol **symHead)
     {
       changePointer (sym->type);
       checkTypeSanity (sym->etype, sym->name);
+
+      /* a structure with a flexible array member shall not be an
+         element of an array (N3886 6.7.3.2p3) */
+      if (IS_ARRAY (sym->type))
+        {
+          sym_link *elem = sym->type;
+          while (IS_ARRAY (elem))
+            elem = elem->next;
+          if (IS_SPEC (elem) && IS_STRUCT (elem) && SPEC_STRUCT (elem)->b_flexArrayMember)
+            werror (W_INVALID_FLEXARRAY);
+        }
 #if 0
       printf("addSymChain for %p %s level %ld extern %d\n", sym, sym->name, sym->level, IS_EXTERN (sym->etype));
 #endif
@@ -1780,6 +1791,7 @@ structElemType (sym_link * stype, value * id)
               etype = getSpec (type);
               SPEC_SCLS (etype) = (SPEC_SCLS (petype) == S_REGISTER ? SPEC_SCLS (etype) : SPEC_SCLS (petype));
               SPEC_OCLS (etype) = (SPEC_SCLS (petype) == S_REGISTER ? SPEC_OCLS (etype) : SPEC_OCLS (petype));
+              type->volatileAccess |= stype->volatileAccess;
               /* find the first non-array link */
               t = type;
               while (IS_ARRAY (t))
@@ -1854,7 +1866,9 @@ compStructSize (int su, structdef * sdef)
           sum = 0;
           bitOffset = 0;
         }
-      SPEC_VOLATILE (loop->etype) |= (su == UNION ? 1 : 0);
+      /* Keep union accesses volatile for optimization without changing
+         the member's C type. */
+      loop->type->volatileAccess |= (su == UNION ? 1 : 0);
 
       /* if this is a bit field  */
       if (loop->bitVar)
@@ -3633,6 +3647,11 @@ aggregateToPointer (value *val)
 {
   if (IS_ARRAY (val->type))
     {
+      /* The array node becomes a pointer node. Preserve its internal
+         volatile-access property on the referenced element type. */
+      val->type->next->volatileAccess |= val->type->volatileAccess;
+      val->type->volatileAccess = false;
+
       /* change to a pointer depending on the */
       /* storage class specified        */
       switch (SPEC_SCLS (val->etype))
@@ -5495,6 +5514,29 @@ isVolatile (sym_link *type)
     return SPEC_VOLATILE (type);
   else
     return DCL_PTR_VOLATILE (type);
+}
+
+/*-------------------------------------------------------------------*/
+/* isVolatileAccess - check for qualified or internal volatility     */
+/*-------------------------------------------------------------------*/
+bool
+isVolatileAccess (sym_link *type)
+{
+  bool volatileAccess = false;
+
+  if (!type)
+    return 0;
+
+  while (IS_ARRAY (type))
+    {
+      volatileAccess |= type->volatileAccess;
+      type = type->next;
+    }
+
+  if (IS_SPEC (type))
+    return volatileAccess || type->volatileAccess || SPEC_VOLATILE (type);
+  else
+    return volatileAccess || type->volatileAccess || DCL_PTR_VOLATILE (type);
 }
 
 /*-------------------------------------------------------------------*/

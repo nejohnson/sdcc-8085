@@ -1385,7 +1385,7 @@ algebraicOpts (iCode *ic, eBBlock *ebp)
             // Don't remove _Optional to target - would mess up diagnostics
             (!(IS_PTR (operandType (ic->result)) && isOptional (operandType (ic->result)->next) && !ic->result->isOptionalEliminated) || IS_PTR (operandType (ic->right)) && isOptional (operandType (ic->right)->next) && !ic->right->isOptionalEliminated) && 
             // Don't remove volatile - could result in wrong code
-            (!(IS_PTR (operandType (ic->result)) && isVolatile (operandType (ic->result)->next)) || IS_PTR (operandType (ic->right)) && isVolatile (operandType (ic->right)->next)))
+            (!(IS_PTR (operandType (ic->result)) && IS_VOLATILE (operandType (ic->result)->next)) || IS_PTR (operandType (ic->right)) && IS_VOLATILE (operandType (ic->right)->next)))
             {
               ic->op = '=';
               IC_LEFT (ic) = NULL;

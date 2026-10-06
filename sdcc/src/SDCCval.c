@@ -2414,7 +2414,11 @@ valUnaryPM (value * val, bool reduceType)
   else if (SPEC_LONGLONG (val->etype) || SPEC_NOUN (val->etype) == V_BITINT)
     {
       if (SPEC_USIGN (val->etype))
-        SPEC_CVAL (val->etype).v_ulonglong = 0 - SPEC_CVAL (val->etype).v_ulonglong;
+        {
+          SPEC_CVAL (val->etype).v_ulonglong = 0 - SPEC_CVAL (val->etype).v_ulonglong;
+          if (IS_BITINT (val->etype))
+            SPEC_CVAL (val->etype).v_ulonglong &= 0xffffffffffffffffull >> (64 - SPEC_BITINTWIDTH (val->etype));
+        }
       else
         SPEC_CVAL (val->etype).v_longlong = -SPEC_CVAL (val->etype).v_longlong;
     }
@@ -2563,7 +2567,8 @@ valMult (value * lval, value * rval, bool reduceType)
     SPEC_CVAL (val->type).v_ulong = (TYPE_TARGET_ULONG) ulFromVal (lval) * (TYPE_TARGET_ULONG) ulFromVal (rval);
   else if (SPEC_USIGN (val->type))      /* unsigned int */
     {
-      TYPE_TARGET_ULONG ul = (TYPE_TARGET_UINT) ulFromVal (lval) * (TYPE_TARGET_UINT) ulFromVal (rval);
+      TYPE_TARGET_ULONG ul = (TYPE_TARGET_ULONG) (TYPE_TARGET_UINT) ulFromVal (lval) *
+        (TYPE_TARGET_ULONG) (TYPE_TARGET_UINT) ulFromVal (rval);
 
       SPEC_CVAL (val->type).v_uint = (TYPE_TARGET_UINT) ul;
       if (ul != (TYPE_TARGET_UINT) ul)
@@ -2797,9 +2802,23 @@ valPlus (value * lval, value * rval, bool reduceType)
   else
     {
       if (SPEC_USIGN (val->type))
-        SPEC_CVAL (val->type).v_uint =  (TYPE_TARGET_UINT)(ulFromVal (lval) + ulFromVal (rval));
+        {
+          TYPE_TARGET_ULONG ul = (TYPE_TARGET_ULONG) (TYPE_TARGET_UINT) ulFromVal (lval) +
+            (TYPE_TARGET_ULONG) (TYPE_TARGET_UINT) ulFromVal (rval);
+
+          SPEC_CVAL (val->type).v_uint = (TYPE_TARGET_UINT) ul;
+          if (ul != (TYPE_TARGET_UINT) ul)
+            werror (W_INT_OVL);
+        }
       else
-        SPEC_CVAL (val->type).v_int =  (TYPE_TARGET_INT)(ulFromVal (lval) + ulFromVal (rval));
+        {
+          TYPE_TARGET_LONG l = (TYPE_TARGET_LONG) (TYPE_TARGET_INT) ulFromVal (lval) +
+            (TYPE_TARGET_LONG) (TYPE_TARGET_INT) ulFromVal (rval);
+
+          SPEC_CVAL (val->type).v_int = (TYPE_TARGET_INT) l;
+          if (l != (TYPE_TARGET_INT) l)
+            werror (W_INT_OVL);
+        }
     }
   fixupCharLiteralSign (val);
   return reduceType ? cheapestVal (val) : val;

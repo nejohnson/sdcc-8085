@@ -135,7 +135,7 @@ Two things worth calling out on their own, not buried in the table:
 |---:|---|---|---|
 | [4093](https://sourceforge.net/p/sdcc/bugs/4093/) | CORE | Overflow in an integer constant expression is accepted without a diagnostic | integer constant-expr overflow undiagnosed; constraint check spans 15+ unrelated ports |
 | [4077](https://sourceforge.net/p/sdcc/bugs/4077/) | CORE | No diagnostic for missing static function definition and false linkage to definition in another TU | no diagnostic for false internal/external linkage resolution; frontend symbol table |
-| [4072](https://sourceforge.net/p/sdcc/bugs/4072/) | CORE | _Generic incorrectly sees an unqualified union array member as volatile | _Generic misjudges volatile on union array member; frontend type system |
+| [4072](https://sourceforge.net/p/sdcc/bugs/4072/) | CORE | _Generic incorrectly sees an unqualified union array member as volatile | _Generic misjudges volatile on union array member - fix ready (ported upstream's reviewed patch), but confirmed ~3.4x compile-time slowdown on an already-pathological CSE case - pending commit/park decision |
 | [4064](https://sourceforge.net/p/sdcc/bugs/4064/) | CORE | Incorrect code generated for assembly inline functions | inline param elimination too eager; reproduces on 2 unrelated backend families |
 | [4061](https://sourceforge.net/p/sdcc/bugs/4061/) | CORE | Multiple definition error for header inline funcs in conditionals in multiple source files | duplicate inline-fn debug labels under conditional flow; cluster w/ #3153/#3107 (NOT #3662, different mechanism), cross-family |
 | [4051](https://sourceforge.net/p/sdcc/bugs/4051/) | CORE | Internal error: validateLink failed | Internal error in SDCCsymt.c (confirmed core file) |
@@ -810,8 +810,180 @@ Fixed so far:
   accepted before this fix (separate, pre-existing gap, not widened by
   this change) and is out of scope for this ticket either way.
 
-Not yet investigated: the remaining 19 (27 total, 8 fixed so far:
-#4090, #4083, #4088, #3917, #3916, #4089, #4087, #4086).
+- **#4072** (`_Generic` sees an unqualified union member as volatile) -
+  fixed differently from the rest of this cluster: rather than writing
+  a fix from scratch, found and ported upstream's own reviewed patch
+  (the ticket's status is `pending-fixed`; the fix just hasn't reached
+  this fork via a sync yet). The upstream discussion is worth reading
+  for the "why" - the maintainers went through two review rounds
+  before settling on a new `sym_link::volatileAccess` flag that marks
+  a union member as volatile for *internal optimization purposes only*
+  (keeping one member's write from invalidating cached knowledge about
+  others), without changing the member's actual C-visible type -
+  `_Generic`, `_Static_assert`, etc. now see the true, unqualified
+  type. An earlier, simpler attempt (just keeping `SPEC_VOLATILE` set,
+  which is what this fork had) was rejected because it's visible to
+  `_Generic`; a different simple attempt the reporter tried instead
+  was found to silently let a union member's value escape through a
+  non-volatile pointer with no diagnostic - confirmed that specific
+  gap already exists on this fork's *unpatched* baseline too (plain
+  non-union `volatile char[]` to non-volatile pointer), so it's a
+  separate, pre-existing, broader issue, not something this patch
+  introduced or was meant to fix.
+
+  Ported the patch's hunks to `SDCCast.c`/`SDCCcse.c`/`SDCCicode.c`/
+  `SDCCsalloc.hpp` cleanly (`git apply`); `SDCCsymt.c`/`SDCCsymt.h`
+  needed manual adaptation since this fork's `compStructSize()` has a
+  different signature (`int su` parameter vs. upstream's
+  `sdef->type`) - same fix, adjusted to match. The patch's own 8
+  per-port `ralloc.c` hunks (clearing the new flag in
+  `createStackSpil()`, so a spilled temporary doesn't inherit a
+  union's volatile-for-optimization marking) don't apply to this fork
+  at all (none of those backends are built here) - added the
+  equivalent one-line fix to our own independent `i8085/ralloc.c`
+  instead, the only port that actually needed it. Verified our i8085
+  backend has no other direct `isVolatile`/`IS_VOLATILE` call sites
+  that would need touching beyond what the shared-code hunks already
+  cover.
+
+  Full 3-port regression: 0 failures, and generated code across the
+  whole suite came out very slightly smaller and faster than the
+  pre-fix baseline (8215190->8214118 bytes, ~20M fewer ticks) -
+  consistent with the fix correctly letting the optimizer treat
+  genuinely-non-volatile union accesses as non-volatile again,
+  something the old blunt "mark the whole member volatile" hack was
+  unnecessarily blocking.
+
+  But the same regression run took far longer than this session's
+  norm (previous full runs finished in well under an hour; this one
+  needed the full 2-hour background ceiling), entirely due to the
+  `asconaead128`/`asconhash256` crypto test family. Measured directly,
+  isolating the variable (same file, same machine, nothing else
+  running): compiling `asconaead128_op_encrypt_impl_opt8_lowsize.c`
+  takes 47s without this fix and **2m41s with it - a confirmed ~3.4x
+  slowdown**, not a pre-existing condition. Ordinary files are
+  unaffected (confirmed by watching the regression move at normal
+  speed through everything else once past this one test family).
+  Likely cause: `IS_VOLATILE` now calls the new `isVolatileAccess()`,
+  which walks array-type-derivation chains, from a hot loop in
+  `SDCCcse.c`'s `algebraicOpts` - ascon's heavy use of large
+  byte-array unions means that chain-walk runs very often on long
+  chains, in code this fork's own triage already flagged as having a
+  separate, serious CSE/dataflow performance pathology (`#2815`
+  hangs/unbounded-allocates, `#3884` fixed this pass, `#2686`/`#2555`
+  excessive-but-finite memory - all four are this exact shared code).
+  This fix plausibly makes that pre-existing pathology meaningfully
+  worse on the specific inputs that already trigger it, without
+  affecting anything else.
+
+  Decision point, not yet resolved: correctness gain (and even a
+  slight general speedup) against a real, confirmed ~3.4x slowdown
+  that only bites on inputs already known to be pathological for an
+  unrelated reason. Options: (a) commit as-is, since it doesn't harm
+  anything outside the already-flagged-pathological case; (b) commit
+  and flag the interaction with `#2815`/`#3884`/`#2686`/`#2555` as a
+  reason to revisit that cluster's priority; (c) park #4072 until the
+  underlying CSE/dataflow pathology is itself better understood. Left
+  for Neil to decide rather than picked unilaterally.
+
+  Resolved: Neil chose "commit as-is" - the correctness gain stands on
+  its own, and the slowdown only bites inputs already known to be
+  pathological for the pre-existing, separately-tracked CSE/dataflow
+  reason. Committed and pushed (`fb7a9aa8`). A follow-up task was
+  created to revisit the CSE/dataflow performance cluster given this
+  confirmed interaction, deferred until the rest of this C23 sweep is
+  done.
+
+- **#4094** - "Structure with a flexible array member is accepted as
+  an array element type" (N3886 6.7.3.2p3: a structure containing a
+  flexible array member shall not be a member of a structure or an
+  element of an array). This fork already enforced the "member of a
+  structure" half via `checkStructFlexArray()` (SDCCsymt.c), called
+  only from the struct-member grammar path - but the "element of an
+  array" half had no check at all. Fixed in `addSymChain()`
+  (SDCCsymt.c), the central choke point for every ordinary object
+  declaration (globals and locals): after the existing
+  `checkTypeSanity()` call, walk any array-of-array chain down to its
+  element type and raise the existing `W_INVALID_FLEXARRAY` warning if
+  that element is a struct with `b_flexArrayMember` set. Reused the
+  existing warning rather than adding a new error code, since its
+  message ("invalid use of structure with flexible array member") is
+  already generic enough. Verified: `struct flexible array[2];` now
+  warns; a plain (non-array) flex-struct variable, a pointer to one, an
+  array of a *complete* struct, and the pre-existing struct-member
+  check (flex-struct as a struct member, still rejected independently)
+  all continue to behave exactly as before - confirmed via targeted
+  manual compiles of each case before trusting the fix. Regression test
+  `bug-4094.c` added and registered in `MakeList`; full 3-port
+  regression (i8085/i8085-undoc/i8080) on a freshly wiped `gen`/`results`
+  tree came back 0 failures on all three (36417 tests each), including
+  the new test itself passing on all three ports.
+
+- **#4093** - "Overflow in an integer constant expression is accepted
+  without a diagnostic" (N3886 6.6.1p20). More involved than the rest
+  of this cluster: the reporter's own first patch (signed-int-only)
+  was withdrawn after review flagged it as incomplete (missed
+  unsigned int wraparound too), and the reporter split the real fix
+  into three separate precondition tickets rather than attach a
+  "rather big and complicated" combined patch. Neil chose to port all
+  three preconditions plus a proper fix for #4093 itself, rather than
+  skip or apply the withdrawn partial patch:
+  - **#4100** (closed-fixed upstream) - unsigned `_BitInt` negation
+    (`valUnaryPM`, SDCCval.c) didn't mask the negated result to the
+    type's declared bit width, e.g. `-(unsigned _BitInt(8))1` produced
+    the 64-bit pattern instead of wrapping to 255. Ported directly
+    (our `valUnaryPM` matched upstream's at this point): mask with
+    `SPEC_BITINTWIDTH` when `IS_BITINT`.
+  - **#4101** (closed-fixed upstream) - a constant `?:` expression's
+    literal-condition fast path (`decorateType`'s `'?'` case,
+    SDCCast.c) truncated the condition to `int` via
+    `(int) ulFromVal(...)` before testing truthiness, so a wide
+    constant like `4294967296ULL` (2^32, truncates to 0) or a
+    fractional float like `0.5f` (truncates to 0 via `ulFromVal`)
+    wrongly took the false branch. Ported directly: replaced with
+    `!isEqualVal(valFromType(LETYPE(tree)), 0)`, which tests the
+    value's own full representation.
+  - **#4102** (open upstream, patch attached) - folding a constant
+    `unsigned int * unsigned int` multiplication (`valMult`,
+    SDCCval.c) cast both 16-bit operands to `TYPE_TARGET_UINT`
+    (`uint16_t`) *before* multiplying; `uint16_t * uint16_t` promotes
+    to the HOST's native `int` under the host compiler's own
+    promotion rules, so `65535 * 65535` overflowed a 32-bit signed
+    host `int` - undefined behaviour in the compiler itself, not just
+    a missing diagnostic. Ported directly: widen each operand to
+    `TYPE_TARGET_ULONG` (`uint32_t`) before multiplying.
+  - **#4093 itself**: fixed `valPlus`'s plain int/unsigned-int branch
+    (SDCCval.c) - the only branch with no overflow check at all (the
+    `SPEC_LONG`/`SPEC_LONGLONG`/`IS_BITINT` branches already handle
+    their own wraparound). Rather than port the withdrawn
+    signed-only patch, extended the existing widen-and-compare idiom
+    already used by `valMult`'s own unsigned-overflow check (just
+    above `valPlus` in the same file) to both the signed and unsigned
+    case: widen each already-narrowed operand to the next-larger
+    target type (`TYPE_TARGET_LONG`/`TYPE_TARGET_ULONG`, each wide
+    enough to hold the sum of any two 16-bit operands without host
+    overflow), add, and compare the widened sum's truncation back to
+    the narrow type against itself, warning `W_INT_OVL` on mismatch.
+    This closes the exact gap the withdrawn patch's own reviewer
+    flagged (unsigned wraparound, e.g. `65535u + 1u`), not just the
+    signed case from the ticket's literal repro.
+  Verified all four fixes individually against every case from
+  upstream's own test files (`32767+1` warns, `32767+0` doesn't,
+  `-32767+-1` doesn't - it's exactly `INT_MIN` - `65535u+1u` now also
+  warns, the `_BitInt` negation/`?:` truthiness/unsigned-multiply
+  repro cases all match expected results) plus targeted non-regressing
+  cases (ordinary runtime addition/multiplication, in-range constants,
+  signed `_BitInt` negation, non-wide/non-float `?:` conditions).
+  Regression tests `bug-4100.c`, `bug-4101.c`, `bug-4102.c`, and
+  `bug-4093.c` added and registered in `MakeList`; full 3-port
+  regression (i8085/i8085-undoc/i8080) on a freshly wiped
+  `gen`/`results` tree pending - see commit for the result.
+
+Not yet investigated: the remaining 11 (27 total, 13 fixed and
+committed so far: #4090, #4083, #4088, #3917, #3916, #4089, #4087,
+#4086, #4085, #4084, #4072, #4094, #4093 - the last of which also
+brought in 3 upstream preconditions, #4100/#4101/#4102, outside the
+original 27).
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce

@@ -55,14 +55,14 @@ static bool clash (const symbol *s1, const symbol *s2)
   wassert(s1);
   wassert(s2);
 
-  if(!s1->isspilt && !(IS_AGGREGATE(s1->type) || s1->allocreq && (s1->addrtaken || isVolatile(s1->type)))) // Spill location
+  if(!s1->isspilt && !(IS_AGGREGATE(s1->type) || s1->allocreq && (s1->addrtaken || IS_VOLATILE(s1->type)))) // Spill location
     {
       for(const symbol *s = (const symbol *)setFirstItem (s1->usl.itmpStack); s; s = (const symbol *)setNextItem (s1->usl.itmpStack))
         if(clash(s, s2))
            return(true);
       return(false);
     }
-  if(!s2->isspilt && !(IS_AGGREGATE(s2->type) || s2->allocreq && (s2->addrtaken || isVolatile(s2->type)))) // Spill location
+  if(!s2->isspilt && !(IS_AGGREGATE(s2->type) || s2->allocreq && (s2->addrtaken || IS_VOLATILE(s2->type)))) // Spill location
     {
       for(const symbol *s = (const symbol *)setFirstItem (s2->usl.itmpStack); s; s = (const symbol *)setNextItem (s2->usl.itmpStack))
         if(clash(s1, s))
@@ -103,7 +103,7 @@ static void set_spilt(G_t &G, const I_t &I, SI_t &scon)
       if(/*!(IS_AGGREGATE(sym->type) || sym->allocreq && (sym->addrtaken || isVolatile(sym->type)))*/sym->for_newralloc)
         continue;
 
-      if(!sym->isspilt && !(IS_AGGREGATE(sym->type) || sym->allocreq && (sym->addrtaken || isVolatile(sym->type)))) // Looks like a spill location - check if it is already covered by live ranges below.
+      if(!sym->isspilt && !(IS_AGGREGATE(sym->type) || sym->allocreq && (sym->addrtaken || IS_VOLATILE(sym->type)))) // Looks like a spill location - check if it is already covered by live ranges below.
         {
           bool covered = true;
           for (const symbol *s = (const symbol *)setFirstItem (sym->usl.itmpStack); s; s = (const symbol *)setNextItem (sym->usl.itmpStack))
@@ -204,7 +204,7 @@ static void set_spilt(G_t &G, const I_t &I, SI_t &scon)
       {
         if (i == j)
           continue;
-        if(!scon[i].sym->isspilt && !(IS_AGGREGATE(scon[i].sym->type) || scon[i].sym->allocreq && (scon[i].sym->addrtaken || isVolatile(scon[i].sym->type)))) // Spill location
+        if(!scon[i].sym->isspilt && !(IS_AGGREGATE(scon[i].sym->type) || scon[i].sym->allocreq && (scon[i].sym->addrtaken || IS_VOLATILE(scon[i].sym->type)))) // Spill location
           {
             if (clash (scon[i].sym, scon[j].sym))
               boost::add_edge(i, j, scon);

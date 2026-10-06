@@ -2247,7 +2247,7 @@ isConformingBody (ast * pbody, symbol * sym, ast * body)
     return TRUE;
 
   /* if anything else is "volatile" */
-  if (isVolatile (TETYPE (pbody)) || isAtomic (TETYPE (pbody)))
+  if (IS_VOLATILE (TETYPE (pbody)) || isAtomic (TETYPE (pbody)))
     return FALSE;
 
   /* we will walk the body in a pre-order traversal for
@@ -5783,7 +5783,7 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
           tree->right = decorateType (tree->right, resultTypeProp, reduceTypeAllowed);
           --noAlloc;
 
-          if (((int) ulFromVal (valFromType (LETYPE (tree)))) != 0)
+          if (!isEqualVal (valFromType (LETYPE (tree)), 0))
             heir = tree->right->left;
           else
             heir = tree->right->right;
