@@ -30,10 +30,13 @@ single case when the port was first switched over, and stood at 445 before
 Re-measured on 2026-10-05 after the ds390 work, `mcs51-small` also reports
 **42 abnormal stops** - tests that run to uCsim's cycle limit rather than
 finishing - which the table above does not count and which this document
-had not recorded.  They are not a regression from the ds390 changes: the
-failure count is unchanged at 12 and nothing in those changes reaches the
-mcs51 code path.  `ds390` has none.  Unexplained, and the first thing to
-look at if mcs51 is picked up again.
+had not recorded.
+
+**Diagnosed on 2026-10-07 - see §8.  They are programs whose directly
+addressed internal data was placed above 0x7F, where the 8051 reads and
+writes SFRs instead of RAM.**  §8 also replaces the "sdas baseline" column
+above, which was never measured like for like: a pre-migration worktree
+measures `mcs51-small` at **5 failures and 0 abnormal stops**, not 0.
 
 ## 2. The design: four address spaces are four banks
 
@@ -106,6 +109,26 @@ with `Base Address of Area[XABS] less than Bank[BXDATA]`.  Absolute xdata is
 placed by the programmer and may sit below where the compiler starts.
 
 ## 4. The spills: diagnosed, measured, deliberately left
+
+**Withdrawn on 2026-10-07.  The premise was wrong.**  `rotate_size_64`'s
+352 bytes of `OSEG` were not an unbounded spill set; they were one
+assembler bug, counted 44 times.  SDCC gives each function its own block
+of the overlay area - one `.area OSEG` per function - and relies on them
+all beginning at the area's base, which is what makes an overlay an
+overlay.  ASxxxx re-entered the area where it had left off instead, so a
+module's overlay came out as the *sum* of every function's block rather
+than the largest: 44 functions x 8 bytes = 352, where 16 were called for.
+Fixed in ASxxxx `c082027`; the same module now asks for 16.  See §8.
+
+The three-placement table below was measured with that bug present, so it
+was measuring the wrong thing, and the conclusion drawn from it - that the
+spill set needs bounding in `ralloc.c` - does not follow.  It is kept
+because the Page0 observation in it stands on its own: removing every
+Page0 warning made the suite dramatically worse, so the warnings are not
+what the failures are made of.
+
+The original text follows.
+
 
 `src/mcs51/ralloc.c` forces every spill into internal RAM in every memory
 model, and says so:
@@ -263,3 +286,124 @@ and `bug-2235.c`), both pass on ds390 and on every mcs51 model, and none
 of ds390's remaining failures involve an `__sfr16` or `__sfr32`.  `tst_sfr16`
 passed on ds390 before this only by the self-consistency accident; it
 passes now because the addresses are right.
+
+
+## 8. The 42 abnormal stops: direct data above 0x7F, where the SFRs are
+
+Measured on 2026-10-07.  This is the fault §1 recorded as unexplained, and
+it is also what §4 was looking at from the wrong end.
+
+### What goes wrong
+
+The 8051 reaches internal RAM two ways.  A direct operand carries an eight
+bit address, and above 0x7F that address names an **SFR, not RAM**.  Only
+`@Ri` reaches RAM from 0x80 to 0xFF.  So every area the compiler addresses
+directly - the register banks, `BIT_BANK`, `BSEG_BYTES`, `DSEG`, `OSEG` -
+has to end by 0x80.  Nothing in the ASxxxx link said so, and 30 of
+`mcs51-small`'s 2868 programs ran past it.
+
+Traced end to end on `itoa_test_itoa_part_1`, which loops forever and
+prints line 46 as `4^`:
+
+- `__moduint_PARM_2` links at **0x89**.  uCsim disassembles `_moduint`'s
+  first instruction as `MOV A,0x89 <TMOD>`.
+- So the divisor reads as 0, `_moduint` takes its `jz div_by_0` path and
+  returns the dividend unchanged.  `n % 10` yields `n`, `'0' + 46` is
+  `0x5E` which is `^`, and `__uitoa`'s `while (value != 0)` never ends.
+- `_moduint`'s own bytes are byte-perfect against its listing - all 77 were
+  compared.  Nothing is miscompiled or misassembled.  Only the placement
+  is wrong.
+
+### What sdld does instead
+
+`lnksect2()` in `sdas/linksrc/lkarea.c` is a bitmap allocator over the 256
+bytes of internal RAM, with the comment *"Notice that only ISEG and SSEG
+can be in the indirectly addressable internal RAM"*.  It caps every other
+area at 0x80, reports `Could not get N consecutive bytes in internal RAM
+for area X` when it will not fit, and **packs each module's chunk into free
+space** - so `DSEG` fills the hole between register bank 0 and the bit
+bytes.  Same program, same symbols:
+
+| symbol | sdld | aslink |
+|---|---|---|
+| `___numTests` | 0x08 | 0x22 |
+| `__moduint_PARM_2` | **0x12** | **0x89 (TMOD)** |
+| `___itoa_PARM_2` | 0x7A | 0x85 |
+
+§2's "four address spaces are four banks" is true and incomplete: it misses
+the 0x80 limit on direct data, and it misses the packing.  One location
+counter per bank cannot use 0x08-0x1F at all, because `BIT_BANK` is based
+at 0x20 and an area is laid out contiguously - 25 of the 119 usable bytes,
+21%, abandoned.
+
+### The baseline, measured properly
+
+A worktree at `99819dea^` (pre-migration), configured and built, full
+suite:
+
+| | sdas/sdld | ours, 2026-10-07 | after the overlay fix |
+|---|---|---|---|
+| failures | **5** | 12 | **6** |
+| abnormal stops | **0** | 42 | 42 |
+| test cases | 6382 | 6334 | 6334 |
+| programs with direct data past 0x7F | 0 | 30 | **25** |
+
+§1's "sdas baseline 0" for `mcs51-small` is wrong - it is 5 - and the
+comparison was never like for like: a program sdld refuses to link never
+runs, produces no `--- Summary:` line, and so is counted neither as a
+failure nor as an abnormal stop.
+
+### What is fixed
+
+ASxxxx `c082027` makes a module re-entering an `OVR` area restart at its
+base and sizes the area by its largest block, which is what the ASxxxx
+manual describes and what SDAS does.  That removes the gross overshoot -
+`rotate_size_64` from 352 bytes of `OSEG` to 16 - and takes failures from
+12 to 6 against a baseline of 5.  `rotate` and `checkedint` pass.
+
+### What is left
+
+25 programs still put direct data past 0x7F, by **7 to 22 bytes**, against
+the **25 bytes** wasted at 0x08-0x1F.  Every one of them would fit if that
+hole could be used, which needs placement at areax (per-module) granularity
+- `itoa`'s own chunk is 78 bytes and needs the big space, but testfwk's 10
+and `__itoa`'s 16 fit the hole exactly.  aslink lays an area out
+contiguously, so this is a real feature, not a tweak, and it costs the
+contiguity of a `CON` area - which is why sdld's map reports `DSEG` as
+"addr 0 size 128" rather than as a span.
+
+The alternatives are to need fewer direct bytes (compiler work) or to make
+the overflow an error rather than silence.  The second was prototyped - a
+`BDATA (base=0, size=0x80)` bank for the direct areas and `BIDATA
+(base=0x80, size=0x80)` for `ISEG`/`SSEG`, which aslink already checks and
+reports as `Addresses in Area[OSEG] overflow Bank[BDATA] region` - and it
+is honest but turns 25 silent miscompiles into 25 link errors that sdld
+builds.  Not landed.
+
+## 9. The library could not be rebuilt at all
+
+Found while measuring the above, and a prerequisite for any of it.
+
+`device/lib/printf_large.c` for `--model-small` ended in
+
+    printf_large.c:877: error 9: FATAL Compiler Internal Error in file
+    'gen.c' line number '2009' : code generator internal error
+
+Bisected to `37a01812`, which ported upstream's fix for #4072 and said of
+the rest of it: *"The patch's 8 per-port ralloc.c hunks ... don't apply
+here - added the equivalent one-line fix to our own independent
+i8085/ralloc.c instead, the only port this fork actually builds."*  True of
+i8085 and false of the other seven: `createStackSpil()` clears
+`SPEC_VOLATILE` on the spill location but nothing cleared `volatileAccess`,
+so a temporary spilled out of a union inherits the optimizer's internal
+volatile marking and mcs51's `aopPut()` falls off the end of its switch.
+
+**The whole mcs51 library has been unbuildable since 5 October**, and
+nothing noticed, because `make` sees the `.rel` files as current against
+the `.c` files - the intermediate `.asm` are deleted after each build.
+Every mcs51 measurement between then and 7 October was made against a
+library built before the fix landed.  Deleting `device/lib/small` and
+`device/lib/build/small` is what finds it.
+
+Fixed in `d60d9ee8` for ds390, mcs51, z80, stm8, mos6502, hc08 and pdk,
+which with i8085 is the eight hunks upstream's patch had.
