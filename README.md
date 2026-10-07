@@ -110,6 +110,8 @@ This fork's toolchain is migrating fully onto the vendor **ASxxxx** assembler/li
 
 Rather than carry that ambiguity forward, **this fork has removed SDCC's `f8`/`f8l` port entirely** — the compiler backend, its runtime library, its regression-suite port, ucsim's `f8` simulator, and every build-system reference to it. `sdcc -mf8` / `-mf8l` are no longer valid options in this fork. This is a deliberate **removal of functionality**, not a bug.
 
+**ASxxxx's `asf8` is untouched, and the real F8 is not off the table.** What was removed is SDCC's port, not F8 support in general: `vendor/asxxxx/asf8` remains a complete ASxxxx target — `f8adr.c`, `f8mch.c`, `f8pst.c` and its own `tf8seq`/`tf8ext`/`tf8err` test sources. So if anyone ever writes an SDCC backend for the **actual Fairchild F8 / Mostek 3870**, the assembler and linker are already here and already in the same family of tools every other port in this fork now drives. That is a better starting position than several of the ports already migrated here started from.
+
 If SDCC's `f8` author wants it reinstated here, the bar is: (a) pick a name that doesn't collide with a real chip ASxxxx already supports, and (b) port the instruction set into ASxxxx itself under that name, so the compiler and the toolchain agree on what the name means. This fork stays private (per standing project practice), so this isn't a patch proposed upstream — it's a decision for this fork only.
 
 Nothing else changed: this has zero effect on `-mi8085`/`-mi8080`, which share no code with the removed port, and the full regression suite confirms it.

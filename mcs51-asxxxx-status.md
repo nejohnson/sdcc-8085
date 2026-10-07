@@ -1,39 +1,64 @@
 # mcs51 on vendor ASxxxx — where it stands
 
-**Merged into `feat/i8085`** on 2026-10-05, deliberately and with the suite
-not at baseline: **69 failures across six models against a baseline of 6**.
-That is a decision, not an oversight.  The port went from every model
-failing every case to within 63 of the stock toolchain, every remaining
-cause is identified in §5, and none of them is both ours and open — so the
-work is more useful in the branch everyone builds than parked beside it.
+**Merged into `feat/i8085`** on 2026-10-05 with the suite not at baseline,
+and re-measured on 2026-10-07 after two bugs were found that most of the
+analysis below had been reading backwards: **45 failures across six models
+against a measured baseline of 40**, where it used to say 69 against 6.
+
+The "6" was never measured like for like.  A pre-migration worktree,
+configured and built, is in §8;  it gives 40, and the gap it does not give
+is counted separately as abnormal stops, because a program sdld refuses to
+link never runs, prints no summary line, and is counted as neither.
+
 What is left is listed below and should not be mistaken for a clean run.
 
 ## 1. What works
 
-All six models build their libraries clean — 243 objects each, no assembler
+All six models build their libraries clean — 237 objects each, no assembler
 diagnostics — and programs link with no linker diagnostics except the Page0
 warnings in §4.
 
-| model | failures | failing cases | sdas baseline |
-|---|---|---|---|
-| mcs51-medium | 9 | 6 | 0 |
-| mcs51-huge | 11 | 8 | 3 |
-| mcs51-large-stack-auto | 11 | 9 | 0 |
-| mcs51-small | 12 | 14 | 0 |
-| mcs51-large | 12 | 9 | 3 |
-| mcs51-small-stack-auto | 14 | 7 | 0 |
+Measured 2026-10-07, libraries rebuilt from empty against the fixed
+assembler, baseline from the pre-migration worktree of §8:
 
-**69 against a baseline of 6.**  Every one of these models failed every
-single case when the port was first switched over, and stood at 445 before
-§6.
+| model | failures | sdas baseline | abnormal stops | programs past 0x7F |
+|---|---|---|---|---|
+| mcs51-small | 6 | 5 | 42 | 58 |
+| mcs51-medium | 6 | 5 | 0 | 0 |
+| mcs51-large | 9 | 9 | 0 | 1 |
+| mcs51-huge | 8 | 8 | 1 | 1 |
+| mcs51-small-stack-auto | 6 | 6 | 4 | 6 |
+| mcs51-large-stack-auto | 10 | 7 | 0 | 0 |
+| **total** | **45** | **40** | **47** | **66** |
+
+**Every difference is accounted for, and one of them is open.**
+
+- `mcs51-large`, `mcs51-huge`, `mcs51-small-stack-auto` fail on **exactly
+  the same case names** as the baseline.  Nothing of ours is in them.
+- `mcs51-medium` adds `tst_p99-conformance`, which is the ASCII non-goal:
+  sdas accepts UTF-8 in identifiers and ASxxxx does not, by standing
+  decision.
+- `mcs51-small` adds `bug-3495411`, `gcc-torture-execute-pr43236` and
+  `gcc-torture-execute-pr69320-3`.  All three put direct data past 0x7F -
+  by 2, 13 and 2 bytes - so they are §8, not a separate fault.
+- `mcs51-large-stack-auto` adds `gcc-torture-execute-mode-dependent-address`,
+  `qct/0080-arrays` and `reentrant_type_signed_long_long`.  **These are §8
+  as well** - chased on 2026-10-07 and written up in §11.  The same 25
+  bytes, reaching the stack instead of the direct data.
+
+Every one of these models failed every single case when the port was first
+switched over, and stood at 445 before §6.
 
 Re-measured on 2026-10-05 after the ds390 work, `mcs51-small` also reports
 **42 abnormal stops** - tests that run to uCsim's cycle limit rather than
 finishing - which the table above does not count and which this document
-had not recorded.  They are not a regression from the ds390 changes: the
-failure count is unchanged at 12 and nothing in those changes reaches the
-mcs51 code path.  `ds390` has none.  Unexplained, and the first thing to
-look at if mcs51 is picked up again.
+had not recorded.
+
+**Diagnosed on 2026-10-07 - see §8.  They are programs whose directly
+addressed internal data was placed above 0x7F, where the 8051 reads and
+writes SFRs instead of RAM.**  §8 also replaces the "sdas baseline" column
+above, which was never measured like for like: a pre-migration worktree
+measures `mcs51-small` at **5 failures and 0 abnormal stops**, not 0.
 
 ## 2. The design: four address spaces are four banks
 
@@ -106,6 +131,26 @@ with `Base Address of Area[XABS] less than Bank[BXDATA]`.  Absolute xdata is
 placed by the programmer and may sit below where the compiler starts.
 
 ## 4. The spills: diagnosed, measured, deliberately left
+
+**Withdrawn on 2026-10-07.  The premise was wrong.**  `rotate_size_64`'s
+352 bytes of `OSEG` were not an unbounded spill set; they were one
+assembler bug, counted 44 times.  SDCC gives each function its own block
+of the overlay area - one `.area OSEG` per function - and relies on them
+all beginning at the area's base, which is what makes an overlay an
+overlay.  ASxxxx re-entered the area where it had left off instead, so a
+module's overlay came out as the *sum* of every function's block rather
+than the largest: 44 functions x 8 bytes = 352, where 16 were called for.
+Fixed in ASxxxx `c082027`; the same module now asks for 16.  See §8.
+
+The three-placement table below was measured with that bug present, so it
+was measuring the wrong thing, and the conclusion drawn from it - that the
+spill set needs bounding in `ralloc.c` - does not follow.  It is kept
+because the Page0 observation in it stands on its own: removing every
+Page0 warning made the suite dramatically worse, so the warnings are not
+what the failures are made of.
+
+The original text follows.
+
 
 `src/mcs51/ralloc.c` forces every spill into internal RAM in every memory
 model, and says so:
@@ -263,3 +308,252 @@ and `bug-2235.c`), both pass on ds390 and on every mcs51 model, and none
 of ds390's remaining failures involve an `__sfr16` or `__sfr32`.  `tst_sfr16`
 passed on ds390 before this only by the self-consistency accident; it
 passes now because the addresses are right.
+
+
+## 8. The 42 abnormal stops: direct data above 0x7F, where the SFRs are
+
+Measured on 2026-10-07.  This is the fault §1 recorded as unexplained, and
+it is also what §4 was looking at from the wrong end.
+
+### What goes wrong
+
+The 8051 reaches internal RAM two ways.  A direct operand carries an eight
+bit address, and above 0x7F that address names an **SFR, not RAM**.  Only
+`@Ri` reaches RAM from 0x80 to 0xFF.  So every area the compiler addresses
+directly - the register banks, `BIT_BANK`, `BSEG_BYTES`, `DSEG`, `OSEG` -
+has to end by 0x80.  Nothing in the ASxxxx link said so, and 30 of
+`mcs51-small`'s 2868 programs ran past it.
+
+Traced end to end on `itoa_test_itoa_part_1`, which loops forever and
+prints line 46 as `4^`:
+
+- `__moduint_PARM_2` links at **0x89**.  uCsim disassembles `_moduint`'s
+  first instruction as `MOV A,0x89 <TMOD>`.
+- So the divisor reads as 0, `_moduint` takes its `jz div_by_0` path and
+  returns the dividend unchanged.  `n % 10` yields `n`, `'0' + 46` is
+  `0x5E` which is `^`, and `__uitoa`'s `while (value != 0)` never ends.
+- `_moduint`'s own bytes are byte-perfect against its listing - all 77 were
+  compared.  Nothing is miscompiled or misassembled.  Only the placement
+  is wrong.
+
+### What sdld does instead
+
+`lnksect2()` in `sdas/linksrc/lkarea.c` is a bitmap allocator over the 256
+bytes of internal RAM, with the comment *"Notice that only ISEG and SSEG
+can be in the indirectly addressable internal RAM"*.  It caps every other
+area at 0x80, reports `Could not get N consecutive bytes in internal RAM
+for area X` when it will not fit, and **packs each module's chunk into free
+space** - so `DSEG` fills the hole between register bank 0 and the bit
+bytes.  Same program, same symbols:
+
+| symbol | sdld | aslink |
+|---|---|---|
+| `___numTests` | 0x08 | 0x22 |
+| `__moduint_PARM_2` | **0x12** | **0x89 (TMOD)** |
+| `___itoa_PARM_2` | 0x7A | 0x85 |
+
+§2's "four address spaces are four banks" is true and incomplete: it misses
+the 0x80 limit on direct data, and it misses the packing.  One location
+counter per bank cannot use 0x08-0x1F at all, because `BIT_BANK` is based
+at 0x20 and an area is laid out contiguously - 25 of the 119 usable bytes,
+21%, abandoned.
+
+### The baseline, measured properly
+
+A worktree at `99819dea^` (pre-migration), configured and built, full
+suite:
+
+| `mcs51-small` | sdas/sdld | ours, 2026-10-07 | after the overlay fix |
+|---|---|---|---|
+| failures | **5** | 12 | **6** |
+| abnormal stops | **0** | 42 | 42 |
+| test cases | 6382 | 6334 | 6334 |
+| programs with direct data past 0x7F | 0 | 30 | **25** |
+
+(That last row counts only the generated multi-case directories, which is
+how it was first measured.  Counting every map in the model it is **58**,
+and 66 over all six models;  §1 has the per-model figures.  The baseline
+is 0 by construction - sdld refuses to place them.)
+
+All six models were measured both ways on 2026-10-07.  The baseline is 40
+failures and no abnormal stops at all;  §1 has the table and accounts for
+each of the five differences.
+
+§1's "sdas baseline 0" for `mcs51-small` is wrong - it is 5 - and the
+comparison was never like for like: a program sdld refuses to link never
+runs, produces no `--- Summary:` line, and so is counted neither as a
+failure nor as an abnormal stop.
+
+### What is fixed
+
+ASxxxx `c082027` makes a module re-entering an `OVR` area restart at its
+base and sizes the area by its largest block, which is what the ASxxxx
+manual describes and what SDAS does.  That removes the gross overshoot -
+`rotate_size_64` from 352 bytes of `OSEG` to 16 - and takes failures from
+12 to 6 against a baseline of 5.  `rotate` and `checkedint` pass.
+
+### What is left
+
+25 programs still put direct data past 0x7F, by **7 to 22 bytes**, against
+the **25 bytes** the chain cannot reach: the 24 at 0x08-0x1F, abandoned the
+moment `BIT_BANK` is based at 0x20, and one more because `BIT_BANK` is
+pinned whether or not anything uses it, where sdld puts `BSEG_BYTES` at
+0x20 and starts `DSEG` at 0x21.  Every one of them would fit if that
+hole could be used, which needs placement at areax (per-module) granularity
+- `itoa`'s own chunk is 78 bytes and needs the big space, but testfwk's 10
+and `__itoa`'s 16 fit the hole exactly.  aslink lays an area out
+contiguously, so this is a real feature, not a tweak, and it costs the
+contiguity of a `CON` area - which is why sdld's map reports `DSEG` as
+"addr 0 size 128" rather than as a span.
+
+The alternatives are to need fewer direct bytes (compiler work) or to make
+the overflow an error rather than silence.  The second was prototyped - a
+`BDATA (base=0, size=0x80)` bank for the direct areas and `BIDATA
+(base=0x80, size=0x80)` for `ISEG`/`SSEG`, which aslink already checks and
+reports as `Addresses in Area[OSEG] overflow Bank[BDATA] region` - and it
+is honest but turns 25 silent miscompiles into 25 link errors that sdld
+builds.  Not landed.
+
+## 9. The library could not be rebuilt at all
+
+Found while measuring the above, and a prerequisite for any of it.
+
+`device/lib/printf_large.c` for `--model-small` ended in
+
+    printf_large.c:877: error 9: FATAL Compiler Internal Error in file
+    'gen.c' line number '2009' : code generator internal error
+
+Bisected to `37a01812`, which ported upstream's fix for #4072 and said of
+the rest of it: *"The patch's 8 per-port ralloc.c hunks ... don't apply
+here - added the equivalent one-line fix to our own independent
+i8085/ralloc.c instead, the only port this fork actually builds."*  True of
+i8085 and false of the other seven: `createStackSpil()` clears
+`SPEC_VOLATILE` on the spill location but nothing cleared `volatileAccess`,
+so a temporary spilled out of a union inherits the optimizer's internal
+volatile marking and mcs51's `aopPut()` falls off the end of its switch.
+
+**The whole mcs51 library has been unbuildable since 5 October**, and
+nothing noticed, because `make` sees the `.rel` files as current against
+the `.c` files - the intermediate `.asm` are deleted after each build.
+Every mcs51 measurement between then and 7 October was made against a
+library built before the fix landed.  Deleting `device/lib/small` and
+`device/lib/build/small` is what finds it.
+
+Fixed in `d60d9ee8` for ds390, mcs51, z80, stm8, mos6502, hc08 and pdk,
+which with i8085 is the eight hunks upstream's patch had.
+
+
+## 10. The same ASxxxx fix, measured on the other two ports that overlay
+
+`OSEG (REL,OVR)` is used by mos6502 and hc08 as well, so `c082027` reaches
+them.  Both had a conclusion on record that had been drawn while the
+overlay was being summed, and both were re-measured rather than assumed.
+
+**mos6502: fixed.**  `rotate/rotate_size_64_msb_{0,1}` - recorded on
+2026-09-28 as an unbounded zero-page spill set, deliberately left failing,
+annotated "do not re-measure" - now link and pass.  All three ports
+(`uc6502`, `uc65c02`, `uc6502-stack-auto`) measure **2 failures**, and both
+are `tst_bug-716242` (K&R declarations, which the pre-migration compiler
+rejects identically) and `tst_p99-conformance`.  Neither is the toolchain's.
+`--no-zp-spill` is not needed and must not be made the default.
+
+**hc08: tried and reverted.**  The demand really was inflated - the largest
+`OSEG` over the corpus is **68 bytes, not the 144** once recorded - but it
+still does not fit.  `--data-loc 0x80` leaves 128 bytes of direct page,
+about 122 once `___SDCC_hc08_ret*` is in, and `DSEG` plus a 68-byte overlay
+exceeds it.  Putting spills back there measures:
+
+| spills go to | failures | bytes | ticks |
+|---|---|---|---|
+| extended space (as shipped) | **7** | 9,586,024 | 662,286,745 |
+| direct page | 21 | 8,805,992 | 514,964,781 |
+
+-8.1% bytes and -22.2% ticks, which is exactly what the workaround costs,
+against **9465 Page0 relocation errors** and 14 more failing cases - ascon
+x9, `rotate` x2, two gcc-torture cases and `tst_rabbit`, all refusing to
+link.  A translation unit still cannot see what the others have put in
+`DSEG`, so there is no sound compile-time budget.  The September decision
+stands;  its arithmetic did not.
+
+
+## 11. The three on mcs51-large-stack-auto: the same 25 bytes, on the stack
+
+§1 said §8 did not explain these, on the grounds that the model has no
+program with direct data past 0x7F.  That was the wrong test.  The waste
+is the same;  what it runs out of is different.  `SSEG` is the last area
+in the chain, so every byte abandoned at 0x08-0x1F is a byte the stack
+does not get.
+
+The code is not in question.  The two trees generate byte-identical
+assembly for `reentrant_type_signed_long_long`, and of the 155 bytes that
+differ in the linked images **every one is an address operand** - 0x21
+where the baseline has 0x08, 0x27 for 0x0E, 0x2D for 0x14.
+
+| test | our SSEG | baseline SSEG | our SP high | baseline SP high |
+|---|---|---|---|---|
+| `qct/0080-arrays` | 0x2E | 0x15 | **0xFF** | 0xE6 |
+| `reentrant_type_signed_long_long` | 0x2E | 0x21 | **0x100** | 0xF8 |
+| `gcc-torture-execute-mode-dependent-address` | 0x2E | 0x15 | 0x100 | - |
+
+The third is the clearest.  `testTortureExecute` holds a 96 element
+initialised `int correct[]`, so its prologue is
+
+    mov  a,sp
+    mov  _bp,a
+    add  a,#0xce
+    mov  sp,a
+
+and SP at that instruction is **0x32**.  0x32 + 206 is 0x100, which an
+eight bit SP cannot hold:  it wraps to 0x00 and a 206 byte frame is laid
+over the register banks.  That is also why its failure message printed
+several hundred bytes of rubbish - `szFile` was being read through a
+clobbered pointer.  With the stack 25 bytes lower SP there is 0x19 and
+the frame ends at 0xE7.
+
+Proved by relinking the existing objects with nothing but `-a`, giving
+each the layout sdld chose:
+
+| test | relinked as | result |
+|---|---|---|
+| `qct/0080-arrays` | ISEG=0x09, SSEG=0x22 | **0 failed of 1** |
+| `reentrant_type_signed_long_long` | DSEG=0x08, ISEG=0x09, SSEG=0x21 | **0 failed of 4** |
+| `gcc-torture-execute-mode-dependent-address` | DSEG=0x08, ISEG=0x09, SSEG=0x15 | **0 failed of 0**, as the baseline |
+
+`reentrant` is the one that shows how fine the margin is: SSEG at 0x22
+fails and SSEG at 0x21 passes.  One byte.  Moving `_bp` alone, leaving
+the stack at 0x22, does not help, so it is the stack base and nothing
+else.
+
+### What it says about the fix
+
+The two manifestations want different things, which is worth knowing
+before anyone reaches for a cheap version.
+
+**The stack-auto three** are fixed by putting `ISEG` - and `DSEG`, which
+in that model is one byte, `_bp` - below the bit-addressable region.
+Our chain can do that today by *declaration order*, with no linker
+change at all: `BIT_BANK` is explicitly based at 0x20, so anything
+declared before it is laid out from 0x08 and the base then resets the
+counter.  13 bytes, and all three pass.
+
+**The 58 on mcs51-small cannot be.**  There the area past 0x7F is `DSEG`
+itself, around a hundred bytes, and moving `ISEG` below the bit bytes
+does not move `DSEG`'s start at all - it is still the first area after
+`BIT_BANK` and `BSEG_BYTES`.  Measured over the model:
+
+| spare bytes | programs fixed |
+|---|---|
+| 4 | 8 of 58 |
+| 8 | 17 |
+| 12 | 24 |
+| 16 | 41 |
+| 24 | 56 |
+| 28 | 58 |
+
+Nothing short of the whole hole clears it, and the whole hole needs
+`DSEG` split across it - which is areax granularity, which is §8's open
+item.  Declaration order would also have to be conditional: 13 bytes of
+`ISEG` plus `_bp` fits under 0x20, a hundred bytes of `DSEG` does not,
+and nothing today would say so - it would silently overlay `BIT_BANK`.
+A bank with a size would catch that, at the price of refusing links that
+work now.
