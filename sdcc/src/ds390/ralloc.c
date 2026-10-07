@@ -553,6 +553,7 @@ createStackSpil (symbol * sym)
   SPEC_EXTR (sloc->etype) = 0;
   SPEC_STAT (sloc->etype) = 0;
   SPEC_VOLATILE (sloc->etype) = 0;
+  sloc->type->volatileAccess = false;
   SPEC_ABSA (sloc->etype) = 0;
 
   /* we don't allow it to be allocated
