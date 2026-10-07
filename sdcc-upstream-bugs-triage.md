@@ -1133,13 +1133,84 @@ recheck first.
   tonight - this needs Neil's input on scope and approach, not a solo
   overnight guess.
 
-Not yet investigated: the remaining 11 (27 total, 13 fixed and
+**The `_Optional`-TS cluster, picked up with Neil directly (same
+session).** Mapped the real dependency chain by reading each ticket's
+own patch, not just its stated "order": the chain is actually
+`#4109 -> #4004 -> #3952 -> #4003 -> #4005 -> #4006`. cs99cjb's own
+"tested application order" note on the #4006 thread omitted #4004 only
+because it had already been merged separately by the time that note
+was written - #3952's own patch calls a helper
+(`argumentTypeAfterDecay`) that doesn't exist anywhere in this fork,
+and tracing it back led straight to #4004.
+
+- **#4109 - FIXED.** "No recommended diagnostic for &* when its result
+  is returned through a local pointer." `&*` on an `_Optional` pointer
+  removes the `_Optional` qualifier and marks the operand
+  (`isSemDeref`) so `checkStaticArrayParams` (SDCCopt.c) can warn (355)
+  if the pointer isn't proven non-null at that point - but CSE could
+  replace a local pointer at its use without carrying the marker, and
+  `killDeadCode` then deleted the marked assignment before the
+  diagnostic pass ever ran, so the warning was lost whenever the
+  dereferenced result was returned through a local pointer instead of
+  used directly. Fixed by keeping a marked instruction alive through
+  dead-code elimination until the diagnostic pass runs, then clearing
+  the markers and running dead-code elimination once more so none of
+  this adds actual generated code. Ported directly from upstream's own
+  patch (merged as r16961, confirmed no code-size regression there
+  either); our SDCCopt.c matched upstream's pre-patch state at every
+  touched point. Regression test folds in all 8 of upstream's own
+  valdiag coverage cases (this fork has no separate valdiag suite) as
+  real, runtime-asserted functions - 3 that must still warn no matter
+  how the pointer flows afterwards, and 5 that correctly must not.
+  Full 3-port regression: 0 failures. Committed as `91f06a01`.
+
+- **#4004 - FIXED.** "Missing diagnostic when qualifier is discarded
+  from pointer target on function call." Not `_Optional`-specific
+  despite its title - the general case (`volatile char *`/`const
+  char *` passed where an unqualified pointer is expected, even to
+  `void *`) was undiagnosed too. `processParms` (SDCCast.c) only
+  rejected completely incompatible pointer types; it never compared
+  qualifiers on the referenced type at all. Fixed by adding
+  `checkPtrTargetQualifiers`, `compatibleStdQualifiers`,
+  `compatibleInnerQualifiers`, `sameQualifiers`, and
+  `argumentTypeAfterDecay` (all new, static, in `SDCCast.c`) - the
+  last one is also the exact helper #3952's patch depends on, applying
+  array-to-pointer decay to an argument's type before comparison so an
+  array argument is checked against the type it will actually have at
+  the call, not its undecayed array type.
+
+  This went through 7 upstream patch revisions over a month (the
+  maintainer's last visible review comment, asking for a rename and a
+  move to SDCCsymt.c, has no visible follow-up confirming what the
+  final merged shape actually was) - ported from the latest available
+  revision as the closest approximation to what's actually merged
+  upstream, per Neil's explicit call to proceed on that basis.
+
+  Verified: the ticket's own repro (`f(t)`/`g(t)`/`h(t)` for a
+  `volatile char *`, and the same for `const char *`) now warns on all
+  6 previously-silent calls; common valid patterns (`T* -> void*`,
+  `NULL` to any pointer, `T* -> const T*`, exact matches) stay silent.
+  Full 3-port regression: 0 failures, byte-identical output - but the
+  diagnostic is genuinely active, firing ~12000 times across the
+  existing suite (all warnings, never a failure) on files that already
+  had implicit incompatible-pointer-argument calls: `bitfields-bits1`,
+  `bitfields-bits2`, `largeoddstruct`, `memory`, `bug-2590`,
+  `bug-3495411`, `bug-3560`, `bug-3685`, `far_rabbit_pointers`,
+  `strnlen`, `wcsnlen`, and one gcc-torture case. None of these are
+  failures, so they're not a blocker for this fix landing - Neil chose
+  to commit as-is and track the per-file triage (cast vs.
+  `#pragma disable_warning 196`, the same case-by-case judgment call
+  upstream went through) as a separate follow-up task rather than
+  doing it inline.
+
+Not yet investigated: the remaining 10 (27 total, 14 fixed and
 committed so far: #4090, #4083, #4088, #3917, #3916, #4089, #4087,
-#4086, #4085, #4084, #4072, #4094, #4093 - the last of which also
-brought in 3 upstream preconditions, #4100/#4101/#4102, outside the
-original 27; plus #4071 and #3954 found not applicable, see above;
-#3960 attempted and reverted, see above - not counted as fixed; #4004
-confirmed reproducing but deferred, see above). Remaining, all part of
+#4086, #4085, #4084, #4072, #4094, #4093, #4004 - #4093 also brought
+in 3 upstream preconditions outside the original 27, #4100/#4101/
+#4102; #4109 is a 4th out-of-list ticket, fixed separately as the
+first link in the `_Optional`-TS chain above; plus #4071 and #3954
+found not applicable, see above; #3960 attempted and reverted, see
+above - not counted as fixed). Remaining, all part of
 or adjacent to the interdependent `_Optional`-TS cluster, needs
 supervised work: #4006, #4005, #4004, #4003, #4002, #3963, #3962,
 #3960, #3958, #3957, #3955, #3952.

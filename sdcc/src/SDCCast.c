@@ -942,6 +942,117 @@ reverseParms (ast * ptree, int r)
   return;
 }
 
+static bool compatibleStdQualifiers (sym_link *, sym_link *);
+
+static bool
+sameQualifiers (sym_link *target, sym_link *source)
+{
+  return isAtomic (target) == isAtomic (source) &&
+         isConst (target) == isConst (source) &&
+         isVolatile (target) == isVolatile (source) &&
+         isRestrict (target) == isRestrict (source) &&
+         isOptional (target) == isOptional (source);
+}
+
+/* Compare nested qualification, ignoring outer qualifiers and atomicity. */
+static bool
+compatibleInnerQualifiers (sym_link *target, sym_link *source)
+{
+  /* Structural compatibility is checked separately by compareType. */
+  if (!target || !source)
+    return true;
+
+  /* isConst and the other qualifier queries already look through arrays.
+     Skip matching array layers so their element qualification is not checked twice. */
+  while (IS_ARRAY (target) || IS_ARRAY (source))
+    {
+      if (IS_ARRAY (target) != IS_ARRAY (source))
+        return false;
+      target = target->next;
+      source = source->next;
+    }
+
+  if (IS_FUNC (target) && IS_FUNC (source))
+    {
+      value *targetArg, *sourceArg;
+      for (targetArg = FUNC_ARGS (target), sourceArg = FUNC_ARGS (source);
+           targetArg && sourceArg; targetArg = targetArg->next, sourceArg = sourceArg->next)
+        {
+          /* Parameter compatibility ignores outer qualifiers, but retains atomicity. */
+          if (isAtomic (targetArg->type) != isAtomic (sourceArg->type) ||
+              !compatibleInnerQualifiers (targetArg->type, sourceArg->type))
+            return false;
+        }
+
+      /* A function returns the unqualified, non-atomic version of its type. */
+      return compatibleInnerQualifiers (target->next, source->next);
+    }
+
+  return compatibleStdQualifiers (target->next, source->next);
+}
+
+/* Compare qualification at this and every deeper level of the types. */
+static bool
+compatibleStdQualifiers (sym_link *target, sym_link *source)
+{
+  if (!target || !source)
+    return true;
+
+  return sameQualifiers (target, source) && compatibleInnerQualifiers (target, source);
+}
+
+/* Diagnose incompatible qualification and discarded object-target qualifiers. */
+static bool
+checkPtrTargetQualifiers (sym_link *target, sym_link *source)
+{
+  sym_link *sourceTarget = IS_FUNC (source) ? source : source->next;
+
+  if (!IS_VOID (target->next) && !IS_VOID (sourceTarget) &&
+      (isAtomic (target->next) != isAtomic (sourceTarget) ||
+       !compatibleInnerQualifiers (target->next, sourceTarget)))
+    {
+      werror (W_INCOMPAT_PTYPES);
+      printFromToType (source, target);
+      return false;
+    }
+
+  if (IS_FUNC (source))
+    return true;
+
+  if (!IS_FUNCPTR (target))
+    {
+      if (!isConst (target->next) && isConst (source->next))
+        werror (W_TARGET_LOST_QUALIFIER, "const");
+      if (!isVolatile (target->next) && isVolatile (source->next))
+        werror (W_TARGET_LOST_QUALIFIER, "volatile");
+      if (!isRestrict (target->next) && isRestrict (source->next))
+        werror (W_TARGET_LOST_QUALIFIER, "restrict");
+    }
+  return true;
+}
+
+/*-----------------------------------------------------------------*/
+/* argumentTypeAfterDecay - apply array-to-pointer conversion      */
+/*-----------------------------------------------------------------*/
+static sym_link *
+argumentTypeAfterDecay (sym_link *type, value **converted)
+{
+  *converted = NULL;
+  if (!IS_ARRAY (type))
+    return type;
+
+  type = (*converted = aggregateToPointer (valFromType (type)))->type;
+
+  /* Unlike parameter-declaration adjustment, expression decay removes
+     _Optional from the referenced array type. */
+  if (IS_SPEC (type->next))
+    SPEC_OPTIONAL (type->next) = false;
+  else
+    DCL_PTR_OPTIONAL (type->next) = false;
+
+  return type;
+}
+
 /*-----------------------------------------------------------------*/
 /* processParms  - makes sure the parameters are okay and do some  */
 /*                 processing with them                            */
@@ -952,6 +1063,9 @@ processParms (ast * func, value * defParm, ast ** actParm, int *parmNumber,     
 {
   RESULT_TYPE resultType;
   sym_link *functype;
+  sym_link *actualType;
+  value *convertedActual;
+  int typecompat;
 
   /* if none of them exist */
   if (!defParm && !*actParm)
@@ -1100,17 +1214,37 @@ processParms (ast * func, value * defParm, ast ** actParm, int *parmNumber,     
     }
   resolveSymbols (*actParm);
 
+  actualType = argumentTypeAfterDecay ((*actParm)->ftype, &convertedActual);
+
   /* the parameter type must be at least castable */
-  if (compareType (defParm->type, (*actParm)->ftype, false) == 0)
+  typecompat = compareType (defParm->type, actualType, false);
+  if (typecompat == 0)
     {
       werror (E_INCOMPAT_TYPES);
-      printFromToType ((*actParm)->ftype, defParm->type);
+      printFromToType (actualType, defParm->type);
+      if (convertedActual)
+        {
+          Safe_free (convertedActual->type);
+          Safe_free (convertedActual);
+        }
       return 1;
     }
 
+  if (IS_PTR (defParm->type) && (IS_PTR (actualType) || IS_FUNC (actualType)))
+    {
+      if (checkPtrTargetQualifiers (defParm->type, actualType) &&
+          !IS_FUNC (actualType) && !isOptional (defParm->type->next) && isOptional (actualType->next))
+        werror (W_TARGET_LOST_QUALIFIER, "_Optional");
+    }
+
+  if (convertedActual)
+    {
+      Safe_free (convertedActual->type);
+      Safe_free (convertedActual);
+    }
+
   /* if the parameter is castable then add the cast */
-  if ((IS_ARRAY((*actParm)->ftype) && IS_PTR(defParm->type)) ||
-      (compareType (defParm->type, (*actParm)->ftype, false) == -1))
+  if ((IS_ARRAY((*actParm)->ftype) && IS_PTR(defParm->type)) || typecompat == -1)
     {
       ast *pTree;
 
