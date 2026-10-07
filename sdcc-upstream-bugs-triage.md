@@ -1105,14 +1105,44 @@ missing-diagnostic bug is real and independently confirmed - but needs
 a fix that also audits or removes the `=` case's redundant post-rewrite
 recheck first.
 
-Not yet investigated: the remaining 13 (27 total, 13 fixed and
+- **#3954 - not applicable to this fork, already correct.** "Mismatch
+  in generic selection when array-to-pointer decay expected" -
+  closed-fixed upstream. Confirmed directly: the ticket's own repro
+  (`_Generic` on a plain array `acc` vs. `*pacc` for a pointer-to-array
+  parameter, both `const char (*)[64]`-derived) compiles clean with
+  both `_Static_assert`s passing on i8085 - this fork's array-to-pointer
+  decay already produces the same type in both forms, nothing to fix.
+
+- **#4004 - confirmed reproducing, deferred, not attempted.** "Missing
+  diagnostic when qualifier is discarded from pointer target on
+  function call" (the `_Optional`/`typeof`/`optional_cast` macro
+  example from the `_Optional` TS). Confirmed directly: the ticket's
+  repro compiles with no diagnostic at all for the `const`-qualifier
+  loss passed into `free()`. Unlike #3954/#4071, this one genuinely
+  reproduces - but it sits squarely inside the same tangled
+  `_Optional`-TS checker cluster as #4002/#4003/#4005/#4006/#3952/
+  #3955/#3957/#3958 (parameter/argument qualifier checking interacting
+  with `_Optional`, `typeof`, and macro-expanded casts), which cs99cjb
+  themselves spent months restructuring across multiple interdependent
+  tickets (including one, #4109, outside this fork's original 27).
+  Given tonight already produced two fix attempts (the `ralloc2.cc`
+  conflict-graph optimization and #3960's `CALL`-node rvalue fix) that
+  each passed careful manual testing but were caught by the full
+  regression hiding a real correctness bug, deliberately not
+  attempting a fix for #4004 or the rest of this cluster unsupervised
+  tonight - this needs Neil's input on scope and approach, not a solo
+  overnight guess.
+
+Not yet investigated: the remaining 11 (27 total, 13 fixed and
 committed so far: #4090, #4083, #4088, #3917, #3916, #4089, #4087,
 #4086, #4085, #4084, #4072, #4094, #4093 - the last of which also
 brought in 3 upstream preconditions, #4100/#4101/#4102, outside the
-original 27; plus #4071 found not applicable, see above; #3960
-attempted and reverted, see above - not counted as fixed). Remaining:
-#4006, #4005, #4004, #4003, #4002, #3963, #3962, #3960, #3958, #3957,
-#3955, #3954, #3952.
+original 27; plus #4071 and #3954 found not applicable, see above;
+#3960 attempted and reverted, see above - not counted as fixed; #4004
+confirmed reproducing but deferred, see above). Remaining, all part of
+or adjacent to the interdependent `_Optional`-TS cluster, needs
+supervised work: #4006, #4005, #4004, #4003, #4002, #3963, #3962,
+#3960, #3958, #3957, #3955, #3952.
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce
