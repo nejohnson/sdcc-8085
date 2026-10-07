@@ -364,7 +364,10 @@ manual describes and what SDAS does.  That removes the gross overshoot -
 ### What is left
 
 25 programs still put direct data past 0x7F, by **7 to 22 bytes**, against
-the **25 bytes** wasted at 0x08-0x1F.  Every one of them would fit if that
+the **25 bytes** the chain cannot reach: the 24 at 0x08-0x1F, abandoned the
+moment `BIT_BANK` is based at 0x20, and one more because `BIT_BANK` is
+pinned whether or not anything uses it, where sdld puts `BSEG_BYTES` at
+0x20 and starts `DSEG` at 0x21.  Every one of them would fit if that
 hole could be used, which needs placement at areax (per-module) granularity
 - `itoa`'s own chunk is 78 bytes and needs the big space, but testfwk's 10
 and `__itoa`'s 16 fit the hole exactly.  aslink lays an area out
@@ -407,3 +410,36 @@ library built before the fix landed.  Deleting `device/lib/small` and
 
 Fixed in `d60d9ee8` for ds390, mcs51, z80, stm8, mos6502, hc08 and pdk,
 which with i8085 is the eight hunks upstream's patch had.
+
+
+## 10. The same ASxxxx fix, measured on the other two ports that overlay
+
+`OSEG (REL,OVR)` is used by mos6502 and hc08 as well, so `c082027` reaches
+them.  Both had a conclusion on record that had been drawn while the
+overlay was being summed, and both were re-measured rather than assumed.
+
+**mos6502: fixed.**  `rotate/rotate_size_64_msb_{0,1}` - recorded on
+2026-09-28 as an unbounded zero-page spill set, deliberately left failing,
+annotated "do not re-measure" - now link and pass.  All three ports
+(`uc6502`, `uc65c02`, `uc6502-stack-auto`) measure **2 failures**, and both
+are `tst_bug-716242` (K&R declarations, which the pre-migration compiler
+rejects identically) and `tst_p99-conformance`.  Neither is the toolchain's.
+`--no-zp-spill` is not needed and must not be made the default.
+
+**hc08: tried and reverted.**  The demand really was inflated - the largest
+`OSEG` over the corpus is **68 bytes, not the 144** once recorded - but it
+still does not fit.  `--data-loc 0x80` leaves 128 bytes of direct page,
+about 122 once `___SDCC_hc08_ret*` is in, and `DSEG` plus a 68-byte overlay
+exceeds it.  Putting spills back there measures:
+
+| spills go to | failures | bytes | ticks |
+|---|---|---|---|
+| extended space (as shipped) | **7** | 9,586,024 | 662,286,745 |
+| direct page | 21 | 8,805,992 | 514,964,781 |
+
+-8.1% bytes and -22.2% ticks, which is exactly what the workaround costs,
+against **9465 Page0 relocation errors** and 14 more failing cases - ascon
+x9, `rotate` x2, two gcc-torture cases and `tst_rabbit`, all refusing to
+link.  A translation unit still cannot see what the others have put in
+`DSEG`, so there is no sound compile-time budget.  The September decision
+stands;  its arithmetic did not.
