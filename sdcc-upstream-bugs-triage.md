@@ -1055,11 +1055,62 @@ careful, supervised work, not attempted further tonight.
   on `p->m` vs `*p` for a pointer-to-array parameter) compiles clean
   on i8085, no warning, matching the "same type" expectation already.
 
+**#3960 attempted and REVERTED - exposed a latent dead-check bug in
+the `=` case, not fixed.** "Inconsistent diagnostic messages when
+constraint on unary & operator is violated": `&f(0)` (address of a
+function call's result) was silently accepted while `&(const int)i`
+correctly errors with "'lvalue' required for 'address of' operation" -
+confirmed directly on i8085, and the ticket's own "wrong code" angle
+also reproduced (`char *j = &f(0); *j = 1;` silently misinterprets the
+returned `char` as a pointer). Root cause: `decorateType`'s `CALL`
+case (`SDCCast.c`) never sets `tree->rvalue`, so `LRVAL(tree)` reads
+false for any CALL operand and the unary `&` case's existing lvalue
+check never fires for it. The obvious, minimal fix - `TRVAL(tree) = 1`
+at the end of the `CALL` case, mirroring every other
+non-lvalue-producing operator in the same switch - looked correct and
+passed every hand-written test (both the bad cases and a broad set of
+valid ones: `&function` without a call, using a call result without
+`&`, calling through a function pointer). **The full regression caught
+71 failures on all 3 ports** that none of that manual testing surfaced:
+every struct assignment (`g->f = t;` for struct-typed `f`) started
+failing with "'lvalue' required for '=' operation".
+
+Root cause, isolated with a minimal repro: `rewriteStructAssignment`
+(`SDCCast.c` ~3616) rewrites a struct assignment into
+`(__memcpy(&dest, &src, size), *dest)` - a comma expression whose left
+child is a `CALL` node - and returns that rewritten, fully-decorated
+tree in place of the original `=` node. Back in the outer `case '=':`
+block, a *second* lvalue check unconditionally runs on whatever `tree`
+now is: `if (TRVAL(tree) = LRVAL(tree))` (note: assignment, not
+comparison) reads `tree->left->rvalue` - which, after the rewrite, is
+the `memcpy` call's own rvalue flag, not anything about the user's
+original left-hand side. Before this fix, `CALL` never set `rvalue`,
+so this check was always false here - dead code, silently never
+firing, for every struct assignment on this fork. Making `CALL`
+correctly report rvalue=1 (semantically correct on its own) exposed
+that this post-rewrite recheck was never actually validating what it
+appears to validate, and started firing on every single struct
+assignment instead.
+
+Reverted cleanly (`SDCCast.c` back to its already-regression-confirmed
+state; the untracked, not-yet-committed `bug-3960.c` test was deleted
+and `MakeList` regenerated) rather than attempt a same-night fix to
+this second, more tangled issue unsupervised - the `=` case's
+post-struct-rewrite check needs either removing (if it's genuinely
+inert/unneeded after the rewrite, since `rewriteStructAssignment`
+already fully decorates its own result) or rewriting to check the
+*right* thing, and that call deserves Neil's input rather than a guess
+at 1am. #3960 itself is still worth fixing - the underlying
+missing-diagnostic bug is real and independently confirmed - but needs
+a fix that also audits or removes the `=` case's redundant post-rewrite
+recheck first.
+
 Not yet investigated: the remaining 13 (27 total, 13 fixed and
 committed so far: #4090, #4083, #4088, #3917, #3916, #4089, #4087,
 #4086, #4085, #4084, #4072, #4094, #4093 - the last of which also
 brought in 3 upstream preconditions, #4100/#4101/#4102, outside the
-original 27; plus #4071 found not applicable, see above). Remaining:
+original 27; plus #4071 found not applicable, see above; #3960
+attempted and reverted, see above - not counted as fixed). Remaining:
 #4006, #4005, #4004, #4003, #4002, #3963, #3962, #3960, #3958, #3957,
 #3955, #3954, #3952.
 
