@@ -42,10 +42,9 @@ assembler, baseline from the pre-migration worktree of §8:
   `gcc-torture-execute-pr69320-3`.  All three put direct data past 0x7F -
   by 2, 13 and 2 bytes - so they are §8, not a separate fault.
 - `mcs51-large-stack-auto` adds `gcc-torture-execute-mode-dependent-address`,
-  `qct/0080-arrays` and `reentrant_type_signed_long_long`.  **These are
-  open.**  They link cleanly, run, and return wrong answers -
-  `div2n(128, 7) == 1` fails - and that model has *no* program past 0x7F,
-  so §8 does not explain them.  Nothing else here is both ours and open.
+  `qct/0080-arrays` and `reentrant_type_signed_long_long`.  **These are §8
+  as well** - chased on 2026-10-07 and written up in §11.  The same 25
+  bytes, reaching the stack instead of the direct data.
 
 Every one of these models failed every single case when the port was first
 switched over, and stood at 445 before §6.
@@ -475,3 +474,86 @@ x9, `rotate` x2, two gcc-torture cases and `tst_rabbit`, all refusing to
 link.  A translation unit still cannot see what the others have put in
 `DSEG`, so there is no sound compile-time budget.  The September decision
 stands;  its arithmetic did not.
+
+
+## 11. The three on mcs51-large-stack-auto: the same 25 bytes, on the stack
+
+§1 said §8 did not explain these, on the grounds that the model has no
+program with direct data past 0x7F.  That was the wrong test.  The waste
+is the same;  what it runs out of is different.  `SSEG` is the last area
+in the chain, so every byte abandoned at 0x08-0x1F is a byte the stack
+does not get.
+
+The code is not in question.  The two trees generate byte-identical
+assembly for `reentrant_type_signed_long_long`, and of the 155 bytes that
+differ in the linked images **every one is an address operand** - 0x21
+where the baseline has 0x08, 0x27 for 0x0E, 0x2D for 0x14.
+
+| test | our SSEG | baseline SSEG | our SP high | baseline SP high |
+|---|---|---|---|---|
+| `qct/0080-arrays` | 0x2E | 0x15 | **0xFF** | 0xE6 |
+| `reentrant_type_signed_long_long` | 0x2E | 0x21 | **0x100** | 0xF8 |
+| `gcc-torture-execute-mode-dependent-address` | 0x2E | 0x15 | 0x100 | - |
+
+The third is the clearest.  `testTortureExecute` holds a 96 element
+initialised `int correct[]`, so its prologue is
+
+    mov  a,sp
+    mov  _bp,a
+    add  a,#0xce
+    mov  sp,a
+
+and SP at that instruction is **0x32**.  0x32 + 206 is 0x100, which an
+eight bit SP cannot hold:  it wraps to 0x00 and a 206 byte frame is laid
+over the register banks.  That is also why its failure message printed
+several hundred bytes of rubbish - `szFile` was being read through a
+clobbered pointer.  With the stack 25 bytes lower SP there is 0x19 and
+the frame ends at 0xE7.
+
+Proved by relinking the existing objects with nothing but `-a`, giving
+each the layout sdld chose:
+
+| test | relinked as | result |
+|---|---|---|
+| `qct/0080-arrays` | ISEG=0x09, SSEG=0x22 | **0 failed of 1** |
+| `reentrant_type_signed_long_long` | DSEG=0x08, ISEG=0x09, SSEG=0x21 | **0 failed of 4** |
+| `gcc-torture-execute-mode-dependent-address` | DSEG=0x08, ISEG=0x09, SSEG=0x15 | **0 failed of 0**, as the baseline |
+
+`reentrant` is the one that shows how fine the margin is: SSEG at 0x22
+fails and SSEG at 0x21 passes.  One byte.  Moving `_bp` alone, leaving
+the stack at 0x22, does not help, so it is the stack base and nothing
+else.
+
+### What it says about the fix
+
+The two manifestations want different things, which is worth knowing
+before anyone reaches for a cheap version.
+
+**The stack-auto three** are fixed by putting `ISEG` - and `DSEG`, which
+in that model is one byte, `_bp` - below the bit-addressable region.
+Our chain can do that today by *declaration order*, with no linker
+change at all: `BIT_BANK` is explicitly based at 0x20, so anything
+declared before it is laid out from 0x08 and the base then resets the
+counter.  13 bytes, and all three pass.
+
+**The 58 on mcs51-small cannot be.**  There the area past 0x7F is `DSEG`
+itself, around a hundred bytes, and moving `ISEG` below the bit bytes
+does not move `DSEG`'s start at all - it is still the first area after
+`BIT_BANK` and `BSEG_BYTES`.  Measured over the model:
+
+| spare bytes | programs fixed |
+|---|---|
+| 4 | 8 of 58 |
+| 8 | 17 |
+| 12 | 24 |
+| 16 | 41 |
+| 24 | 56 |
+| 28 | 58 |
+
+Nothing short of the whole hole clears it, and the whole hole needs
+`DSEG` split across it - which is areax granularity, which is §8's open
+item.  Declaration order would also have to be conditional: 13 bytes of
+`ISEG` plus `_bp` fits under 0x20, a hundred bytes of `DSEG` does not,
+and nothing today would say so - it would silently overlay `BIT_BANK`.
+A bank with a size would catch that, at the price of refusing links that
+work now.
