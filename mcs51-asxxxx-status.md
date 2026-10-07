@@ -1,31 +1,54 @@
 # mcs51 on vendor ASxxxx — where it stands
 
-**Merged into `feat/i8085`** on 2026-10-05, deliberately and with the suite
-not at baseline: **69 failures across six models against a baseline of 6**.
-That is a decision, not an oversight.  The port went from every model
-failing every case to within 63 of the stock toolchain, every remaining
-cause is identified in §5, and none of them is both ours and open — so the
-work is more useful in the branch everyone builds than parked beside it.
+**Merged into `feat/i8085`** on 2026-10-05 with the suite not at baseline,
+and re-measured on 2026-10-07 after two bugs were found that most of the
+analysis below had been reading backwards: **45 failures across six models
+against a measured baseline of 40**, where it used to say 69 against 6.
+
+The "6" was never measured like for like.  A pre-migration worktree,
+configured and built, is in §8;  it gives 40, and the gap it does not give
+is counted separately as abnormal stops, because a program sdld refuses to
+link never runs, prints no summary line, and is counted as neither.
+
 What is left is listed below and should not be mistaken for a clean run.
 
 ## 1. What works
 
-All six models build their libraries clean — 243 objects each, no assembler
+All six models build their libraries clean — 237 objects each, no assembler
 diagnostics — and programs link with no linker diagnostics except the Page0
 warnings in §4.
 
-| model | failures | failing cases | sdas baseline |
-|---|---|---|---|
-| mcs51-medium | 9 | 6 | 0 |
-| mcs51-huge | 11 | 8 | 3 |
-| mcs51-large-stack-auto | 11 | 9 | 0 |
-| mcs51-small | 12 | 14 | 0 |
-| mcs51-large | 12 | 9 | 3 |
-| mcs51-small-stack-auto | 14 | 7 | 0 |
+Measured 2026-10-07, libraries rebuilt from empty against the fixed
+assembler, baseline from the pre-migration worktree of §8:
 
-**69 against a baseline of 6.**  Every one of these models failed every
-single case when the port was first switched over, and stood at 445 before
-§6.
+| model | failures | sdas baseline | abnormal stops | programs past 0x7F |
+|---|---|---|---|---|
+| mcs51-small | 6 | 5 | 42 | 58 |
+| mcs51-medium | 6 | 5 | 0 | 0 |
+| mcs51-large | 9 | 9 | 0 | 1 |
+| mcs51-huge | 8 | 8 | 1 | 1 |
+| mcs51-small-stack-auto | 6 | 6 | 4 | 6 |
+| mcs51-large-stack-auto | 10 | 7 | 0 | 0 |
+| **total** | **45** | **40** | **47** | **66** |
+
+**Every difference is accounted for, and one of them is open.**
+
+- `mcs51-large`, `mcs51-huge`, `mcs51-small-stack-auto` fail on **exactly
+  the same case names** as the baseline.  Nothing of ours is in them.
+- `mcs51-medium` adds `tst_p99-conformance`, which is the ASCII non-goal:
+  sdas accepts UTF-8 in identifiers and ASxxxx does not, by standing
+  decision.
+- `mcs51-small` adds `bug-3495411`, `gcc-torture-execute-pr43236` and
+  `gcc-torture-execute-pr69320-3`.  All three put direct data past 0x7F -
+  by 2, 13 and 2 bytes - so they are §8, not a separate fault.
+- `mcs51-large-stack-auto` adds `gcc-torture-execute-mode-dependent-address`,
+  `qct/0080-arrays` and `reentrant_type_signed_long_long`.  **These are
+  open.**  They link cleanly, run, and return wrong answers -
+  `div2n(128, 7) == 1` fails - and that model has *no* program past 0x7F,
+  so §8 does not explain them.  Nothing else here is both ours and open.
+
+Every one of these models failed every single case when the port was first
+switched over, and stood at 445 before §6.
 
 Re-measured on 2026-10-05 after the ds390 work, `mcs51-small` also reports
 **42 abnormal stops** - tests that run to uCsim's cycle limit rather than
@@ -341,12 +364,21 @@ at 0x20 and an area is laid out contiguously - 25 of the 119 usable bytes,
 A worktree at `99819dea^` (pre-migration), configured and built, full
 suite:
 
-| | sdas/sdld | ours, 2026-10-07 | after the overlay fix |
+| `mcs51-small` | sdas/sdld | ours, 2026-10-07 | after the overlay fix |
 |---|---|---|---|
 | failures | **5** | 12 | **6** |
 | abnormal stops | **0** | 42 | 42 |
 | test cases | 6382 | 6334 | 6334 |
 | programs with direct data past 0x7F | 0 | 30 | **25** |
+
+(That last row counts only the generated multi-case directories, which is
+how it was first measured.  Counting every map in the model it is **58**,
+and 66 over all six models;  §1 has the per-model figures.  The baseline
+is 0 by construction - sdld refuses to place them.)
+
+All six models were measured both ways on 2026-10-07.  The baseline is 40
+failures and no abnormal stops at all;  §1 has the table and accounts for
+each of the five differences.
 
 §1's "sdas baseline 0" for `mcs51-small` is wrong - it is 5 - and the
 comparison was never like for like: a program sdld refuses to link never
