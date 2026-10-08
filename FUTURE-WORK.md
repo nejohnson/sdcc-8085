@@ -15,34 +15,92 @@ Ordered by size, not priority.
 four bytes.  `asmop.aopu.aop_reg` is `reg_info *[4]`
 (`src/pic14/gen.h:85`) while `sym->nRegs` is `getSize (sym->type)`
 (`src/pic14/ralloc.c:2468`), which is 8 for a `long long`.  The port's
-size table declared 8 bytes for it with no runtime to match: the pic14
+size table declares 8 bytes for it with no runtime to match: the pic14
 and pic16 libraries contain **zero** `long long` helper objects, against
 16 for mcs51-small, 15 for hc08 and 11 for z80.
 
-Three symptoms, one cause: the `allocated more than 4 or 0 registers`
-warning at `ralloc.c:2480`, the `assert (rsize > 0 && rsize <= 4)` at
-`gen.c:1924` (8 of the 69 internal errors in the first baseline), and
-heap corruption - `malloc(): corrupted top size`, SIGABRT - from writing
-eight pointers into the four-pointer array.  Valgrind named it exactly:
-20 invalid writes in one compilation of `gte/pr57860.c`, *"0 bytes after
-a block of size 40"*, at `pic14AopOp (gen.c:712)`.
+The overrun that followed is fixed: see `pic14: refuse an operand too
+wide for the asmop`.  The register allocator had been saying
+`allocated more than 4 or 0 registers for type longlong-int fixed`
+and then letting code generation run on anyway, eight pointers into a
+four-pointer array, which glibc reported much later as
+`malloc(): corrupted top size`.  Valgrind named it exactly: 20 invalid
+writes in one compilation of `gte/pr57860.c`, *"0 bytes after a block
+of size 40"*, at `pic14AopOp`.
 
-**What was done instead.**  The overrun is guarded and the port now
-declines `long long` honestly - `error 369: 'long long' is not supported
-by this target` - rather than corrupting memory.  Note the front end was
-*already* refusing it, with `!TARGET_IS_PIC14` hardcoded in `mergeSpec`
-and reported as `E_SHORTLONG`, "Invalid combination of short / long";
-that refusal did not stop code generation, which is how a `long long`
-still reached the register allocator.
+**What was tried and reverted.**  Declaring the type unsupported -
+`port->s.longlong_size = 0` plus a refusal in `mergeSpec`, reported as
+`'long long' is not supported by this target`.  It is worse than what it
+replaces, and the measurement is the reason this entry exists:
 
-**What it would take.**  Widen `aop_reg` and every `offset < 4`
-assumption in `src/pic14/gen.c` (7993 lines), then build the `long long`
-runtime for PIC.  pic16 shows it is possible - `PIC16_MAX_ASMOP_REGS` is
-8 there, and pic16 compiles *and links* a `long long` divide today.
+|                   | baseline | with the refusal |
+| ----------------- | -------: | ---------------: |
+| failures          | **2074** |         **2395** |
+| files refused     |        0 |          **201** |
+| refusal sites     |        0 |             1965 |
+
+**+321 failures across 201 files.**  Those are programs that compile
+today and would stop compiling.  Two attempts at the refusal were
+measured; the first also returned a zero-sized type, which reads as
+*incomplete*, and took the compiler down with it - `error 176` 295
+times and six SIGSEGVs where the baseline had four.  Demoting to plain
+`long` instead cleared that (`error 176` 295 -> 3) but did nothing for
+the 321, because the 321 are not error recovery.  They are the refusal.
+
+**What this means.**  The premise was that pic14's `long long` is broken
+and should be declined.  The failure delta says otherwise: most of it
+works, by way of SDCC's generic multi-byte lowering, and only operands
+that reach `pic14AopOp` in registers cannot be encoded.  Exactly one
+file in the 4809-case corpus reaches that path.
+
+**The open question, to answer by measurement and not by assumption:**
+*which* `long long` operations does pic14 currently get right?  The way
+to find out is to enumerate the suite's `long long` cases and check
+them against the simulator, not to reason from the size table.  Until
+someone does that, neither "it works" nor "it is broken" is a claim
+this project can make.
+
+**What a real implementation would take.**  Widen `aop_reg` and every
+`offset < 4` assumption in `src/pic14/gen.c` (8013 lines), then build
+the `long long` runtime for PIC.  pic16 shows it is possible -
+`PIC16_MAX_ASMOP_REGS` is 8 there, and pic16 compiles *and links* a
+`long long` divide today.
 
 **Why parked.**  Nobody has asked for `long long` on a 16F877, and the
 1703 compile failures in `pic14-baseline.md` are mostly other things.
-Measure which of them are downstream of this before starting.
+
+---
+
+## pic14 cannot return a value wider than four bytes (2026-10-08)
+
+**What is known.**  `assignResultValue` asserts on the size of a called
+function's return type:
+
+    int rsize = getSize (ftype->next);
+    assert (rsize > 0 && rsize <= 4);        /* src/pic14/gen.c:1944 */
+
+8 of the baseline's 69 internal compiler errors are this assert, and
+they are **not** `long long` cases, which is what an earlier draft of
+this document claimed.  They are struct and `long` returns:
+
+    dynamiccstructret_rtype_signed_long.c
+    dynamiccstructret_rtype_unsigned_long.c
+    structreturn_type_long.c
+    gte/pr58365.c
+    gcc-torture-execute-20131127-1.c
+    gcc-torture-execute-950628-1.c
+    gcc-torture-execute-980223.c
+    gcc-torture-execute-990525-2.c
+
+The count is unchanged by the asmop fix - 69 before, 69 after - because
+it is a different bug reached by a different path.  It is listed
+separately now so that the next person does not fix `long long` and
+expect these eight to move.
+
+**Why parked.**  Not investigated beyond identifying it.  An assert in
+a release build is a crash with better manners, so it is worth doing,
+but it wants its own measurement first: whether the four-byte limit is
+real in `assignResultValue` or just unexamined.
 
 ---
 
