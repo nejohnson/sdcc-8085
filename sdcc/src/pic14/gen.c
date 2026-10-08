@@ -707,6 +707,26 @@ pic14AopOp (operand *op, iCode *ic, bool result)
   /* must be in a register */
   DEBUGpic14_emitcode (";", "%d register type nRegs=%d", __LINE__, sym->nRegs);
   sym->aop = op->aop = aop = newAsmop (AOP_REG);
+  /* aop_reg holds four.  A symbol wants getSize() of them, so anything
+     wider than a long - a long long, say - used to be written straight
+     past the end of the asmop and into the heap, which glibc reported
+     as "malloc(): corrupted top size" somewhere else entirely.  The
+     port cannot encode such an operand either way;  this only makes it
+     say so instead of corrupting memory. */
+  if (sym->nRegs > (int) (sizeof (aop->aopu.aop_reg) / sizeof (aop->aopu.aop_reg[0])))
+    {
+      int max = (int) (sizeof (aop->aopu.aop_reg) / sizeof (aop->aopu.aop_reg[0]));
+
+      werror (E_TOO_MANY_REGS_FOR_OPERAND, sym->name ? sym->name : "", sym->nRegs, max);
+      /* The diagnostic has already failed the compile, so nothing below
+         will be emitted for real.  Hand back a full asmop of the width we
+         can hold rather than an empty one:  every caller indexes aop_reg
+         by the operand's own size and would walk off a zero-sized aop. */
+      aop->size = max;
+      for (i = 0; i < max; i++)
+        aop->aopu.aop_reg[i] = sym->regs[i];
+      return;
+    }
   aop->size = sym->nRegs;
   for (i = 0; i < sym->nRegs; i++)
     aop->aopu.aop_reg[i] = sym->regs[i];

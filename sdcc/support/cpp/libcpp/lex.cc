@@ -4058,15 +4058,23 @@ _cpp_lex_direct (cpp_reader *pfile)
         {
           if (CPP_OPTION (pfile, preproc_asm))
             {
-					// ignore, go on.
+              /* The block's tokens are lexed one by one, so __endasm
+                 will be seen and will clear the flag again.  Mark the
+                 lines between the two as assembler.  */
+              result->flags |= ENTER_ASM;
             }else{
               comment_start = buffer->cur;
               result->type = CPP_ASM;
               _sdcpp_skip_asm_block (pfile);
               /* Save the __asm block as a token in its own right.  */
               _sdcpp_save_asm (pfile, result, comment_start, result->val.node.node == pfile->spec_nodes.n__asm);
+              /* The whole block, __endasm and all, is this one token,
+                 so there is nothing after it to mark - and no __endasm
+                 left to be lexed, which is why ENTER_ASM must not be
+                 set here.  Setting it left _in_asm stuck at one and put
+                 the marker byte on every line of C that followed, which
+                 the compiler then reported as a stray character.  */
 				}
-          result->flags |= ENTER_ASM;
         }
       else if (result->val.node.node == pfile->spec_nodes.n__endasm)
         {

@@ -801,6 +801,8 @@ struct
      "_Alignof applied to an incomplete type", 0},
   {E_SUBSCRIPT_INCOMPLETE_TYPE, ERROR_LEVEL_ERROR,
      "[] applied to a pointer to an incomplete type", 0},
+  { E_TOO_MANY_REGS_FOR_OPERAND, ERROR_LEVEL_ERROR,
+     "operand '%s' needs %d registers, this target holds at most %d", 0},
 };
 
 /* -------------------------------------------------------------------------------
