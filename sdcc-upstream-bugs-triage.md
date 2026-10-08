@@ -1203,17 +1203,57 @@ and tracing it back led straight to #4004.
   upstream went through) as a separate follow-up task rather than
   doing it inline.
 
-Not yet investigated: the remaining 10 (27 total, 14 fixed and
+- **#3952 - FIXED.** "No diagnostic message when type constraint on
+  assignment violated." C23 6.7.2 says two types are compatible only
+  if they're the same, so e.g. `return i;` from a function returning
+  `float *` when `i` is `int *` is a constraint violation - but
+  `compareType` (SDCCsymt.c) never actually compared the *referenced*
+  type of two pointers for assignment/initialisation/return/argument
+  compatibility, only checked for complete incompatibility (pointer
+  vs. non-pointer), so this went entirely undiagnosed.
+
+  Fixed by adding `diagnoseDissimilarPtrTargetTypes` (SDCCsymt.c, with
+  its helpers `similarTypes`/`similarPtrTargetTypes`/
+  `compatibleTypes`), called from `decorateType`'s `'='` and `RETURN`
+  cases and from `processParms` (argument passing). It applies
+  array-to-pointer decay to the source via `argumentTypeAfterDecay` -
+  the exact helper #4004 introduced, which had to be made non-static
+  and moved into `SDCCsymt.h` since #4004 originally left it `static`
+  to `SDCCast.c` but #3952 needs to call it from `SDCCsymt.c` too
+  (discovering this mismatch, by tracing why #3952's own patch
+  referenced a function that didn't exist anywhere in this fork, is
+  what led to #4004 in the first place - see above). Also tightened
+  `compareFuncType` (now requires compatible return types via a new
+  `compatibleFunctionReturnTypes`, and checks parameter atomicity) and
+  re-enabled two blocks of dead code in `compareTypeExact` that had
+  been disabled (`#if 0`) for unknown reasons, replacing them with
+  calls to the new `similarTypes`.
+
+  Ported from upstream's own, several-times-reworked patch for this
+  ticket (the same patch #4003/#4005/#4006 build on next). Verified:
+  the ticket's own repro (`return i;` for `int*`→`float*`, `t = f;`
+  for `float*`→`int*`, `t = itof(f);` for both an incompatible
+  argument and an incompatible result) now warns on all 4 previously-
+  silent cases; common valid patterns (`void*` conversions, `NULL`,
+  exact matches) stay silent; a maintainer-flagged case from the
+  ticket's own discussion (`volatile int *f2(void)` redefining a
+  function declared `const int *f2(void)`) is now correctly diagnosed
+  as a declaration conflict too. Full 3-port regression: 0 failures -
+  the diagnostic is genuinely active (186 new "incompatible pointer
+  types" warnings across ~23 existing test files, largely overlapping
+  #4004's own fallout), never a failure. Folded into the same Task #2
+  follow-up as #4004's warning triage.
+
+Not yet investigated: the remaining 10 (27 total, 15 fixed and
 committed so far: #4090, #4083, #4088, #3917, #3916, #4089, #4087,
-#4086, #4085, #4084, #4072, #4094, #4093, #4004 - #4093 also brought
-in 3 upstream preconditions outside the original 27, #4100/#4101/
-#4102; #4109 is a 4th out-of-list ticket, fixed separately as the
-first link in the `_Optional`-TS chain above; plus #4071 and #3954
-found not applicable, see above; #3960 attempted and reverted, see
-above - not counted as fixed). Remaining, all part of
-or adjacent to the interdependent `_Optional`-TS cluster, needs
-supervised work: #4006, #4005, #4004, #4003, #4002, #3963, #3962,
-#3960, #3958, #3957, #3955, #3952.
+#4086, #4085, #4084, #4072, #4094, #4093, #4004, #3952 - #4093 also
+brought in 3 upstream preconditions outside the original 27,
+#4100/#4101/#4102; #4109 is a 4th out-of-list ticket, fixed separately
+as the first link in the `_Optional`-TS chain above; plus #4071 and
+#3954 found not applicable, see above). Remaining, all part of
+or adjacent to the interdependent `_Optional`-TS cluster except #3960
+(independent, attempted and reverted - see above): #4006, #4005,
+#4003, #4002, #3963, #3962, #3960, #3958, #3957, #3955.
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce
