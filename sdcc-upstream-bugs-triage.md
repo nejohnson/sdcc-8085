@@ -1317,16 +1317,54 @@ and tracing it back led straight to #4004.
   trusting the full regression. Full 3-port regression: 0 failures,
   including `union-volatile` itself.
 
-Not yet investigated: the remaining 8 (27 total, 17 fixed and
+- **#4006 - FIXED. This is the last link in the `_Optional`-TS chain:
+  `#4109 -> #4004 -> #3952 -> #4003 -> #4005 -> #4006`, all now
+  landed.** "Loss of qualifiers from pointer target is not reported
+  in cases of array-to-pointer decay." The old iCode-level qualifier
+  checker (`checkPtrQualifiers`, SDCCicode.c) only ever saw array
+  decay through a documented workaround ("also checking array rtypes
+  is a hack") that happened to catch struct-member access but not a
+  pointer-to-array or a static array returned directly - so of three
+  equivalent forms, only one was diagnosed.
+
+  Fixed by removing that checker entirely (along with its now-unused
+  `isRestrictEliminated` flag) and replacing it with
+  `checkPtrTargetQualifiersAfterDecay`, called uniformly from
+  `decorateType`'s `'='` and `RETURN` cases - applying the same
+  array decay #4005 centralised, then running the existing qualifier
+  check (#4004) consistently, but only when #3952's
+  `diagnoseDissimilarPtrTargetTypes` didn't already diagnose the same
+  mismatch (avoiding double diagnostics between fundamentally
+  dissimilar referenced types).
+
+  Ported directly from upstream's own, final merged patch (confirmed
+  merged as r16984, no open review comments, depending exactly on
+  #4109/#3952/#4003/#4005 in the order already ported here). Placed
+  the new function in this fork's `SDCCast.c` alongside
+  `checkPtrTargetQualifiers` (which our ported #4004 already put
+  there) rather than `SDCCsymt.c`, since that's where its only caller
+  lives and no cross-file declaration is needed.
+
+  Verified: all three forms from the ticket now warn uniformly
+  (previously only the struct-member case did); re-checked every one
+  of #4072's own union-member volatile/non-volatile distinction cases
+  from upstream's own valdiag coverage (plain vs. explicitly-volatile
+  vs. volatile-qualified-pointer access to the same union) and all
+  five still behave exactly as upstream intends; explicit casts still
+  exempt qualifier removal; dissimilar referenced types still produce
+  exactly one diagnostic, confirmed directly (not a duplicate). Full
+  3-port regression: 0 failures, including `union-volatile` itself.
+
+Not yet investigated: the remaining 7 (27 total, 18 fixed and
 committed so far: #4090, #4083, #4088, #3917, #3916, #4089, #4087,
-#4086, #4085, #4084, #4072, #4094, #4093, #4004, #3952, #4003, #4005 -
-#4093 also brought in 3 upstream preconditions outside the original
-27, #4100/#4101/#4102; #4109 is a 4th out-of-list ticket, fixed
-separately as the first link in the `_Optional`-TS chain above; plus
-#4071 and #3954 found not applicable, see above). Remaining, all part
-of or adjacent to the interdependent `_Optional`-TS cluster except
-#3960 (independent, attempted and reverted - see above): #4006,
-#4002, #3963, #3962, #3960, #3958, #3957, #3955.
+#4086, #4085, #4084, #4072, #4094, #4093, #4004, #3952, #4003, #4005,
+#4006 - #4093 also brought in 3 upstream preconditions outside the
+original 27, #4100/#4101/#4102; #4109 is a 4th out-of-list ticket,
+fixed separately as the first link in the `_Optional`-TS chain above;
+plus #4071 and #3954 found not applicable, see above). Remaining, all
+independent of the now-fully-resolved `_Optional`-TS chain except
+#3960 (also independent, attempted and reverted - see above): #4002,
+#3963, #3962, #3960, #3958, #3957, #3955.
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce
