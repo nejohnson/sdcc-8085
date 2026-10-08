@@ -9,7 +9,9 @@ endif
 
 EMU = $(GPSIM)
 EMU_FLAGS = -i -s
-EMU_INPUT = -c $(PORTS_DIR)/pic16/gpsim.cmd
+# -I rather than -c: -c changes directory to the command file's own,
+# after which the relative paths the harness passes stop resolving.
+EMU_INPUT = -I $(PORTS_DIR)/pic16/gpsim.cmd
 
 ifndef SDCC_BIN_PATH
   ifndef CROSSCOMPILING
