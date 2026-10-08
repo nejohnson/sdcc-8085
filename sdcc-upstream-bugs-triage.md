@@ -1244,16 +1244,58 @@ and tracing it back led straight to #4004.
   #4004's own fallout), never a failure. Folded into the same Task #2
   follow-up as #4004's warning triage.
 
-Not yet investigated: the remaining 10 (27 total, 15 fixed and
+- **#4003 - FIXED.** "Wrong diagnostic message when adding 0 to a
+  pointer to an `_Optional` type." `algebraicOpts` (SDCCcse.c) folded
+  `pointer + 0`/`pointer - 0` into a plain assignment or cast
+  immediately, before the dataflow pass that raises the `_Optional`
+  non-null diagnostic ever saw the arithmetic operation - so instead
+  of the correct recommended diagnostic (359, "could not be proven to
+  be non-null at pointer arithmetic"), SDCC produced a bogus one (196,
+  "pointer target lost `_Optional` qualifier") at the enclosing RETURN
+  statement, even though `+`/`-` already correctly remove the
+  `_Optional` qualifier from their result.
+
+  Fixed by deferring the fold: `algebraicOpts` (via a new
+  `foldAdditiveIdentity`) now skips it entirely when the non-literal
+  operand has pointer or array type, letting the arithmetic iCode
+  survive long enough for `checkStaticArrayParams`'s diagnostic pass
+  to see it. A new pass, `foldPointerZeroArithmetic`, runs once per
+  `eBBlockFromiCode` right after that diagnostic pass (same place
+  #4109's own cleanup pass already runs) and performs the fold that
+  would have happened immediately before this fix - generated code is
+  unaffected, only diagnostic timing changes. `geniCodeAdd`
+  (SDCCicode.c) got the identical pointer/array exclusion for its own
+  short-circuit, for the same reason.
+
+  This one got extra scrutiny before porting: the upstream discussion
+  thread's *last visible message* (from the maintainer, on the exact
+  patch revision being ported) reported a test failure
+  (`bug3475630.c` on `mcs51-medium`) with no resolution shown in the
+  thread - an explicit, unresolved regression report, not just
+  uncertainty about final shape like #4004/#3952. Neil chose to port
+  anyway and let the regression be the judge. Verified: the ticket's
+  own repro now produces the correct warning 359 at the arithmetic
+  (not the bogus 196 at the return); a guard that proves non-null
+  before the arithmetic correctly stays silent; the upstream test's
+  own `_Generic`-based qualifier-preservation checks (`const volatile
+  int *`, `int *restrict *`, both operand orders) all pass; plain
+  non-`_Optional` pointer and non-pointer zero-arithmetic still fold
+  and compute correctly. `bug3475630.c` specifically - the file the
+  maintainer found broken - was manually re-verified to compile clean
+  (modulo the already-tracked, unrelated #3952 fallout) and the full
+  3-port regression confirms it passes at runtime too, all 40
+  assertions, on all 3 ports. Full 3-port regression: 0 failures.
+
+Not yet investigated: the remaining 9 (27 total, 16 fixed and
 committed so far: #4090, #4083, #4088, #3917, #3916, #4089, #4087,
-#4086, #4085, #4084, #4072, #4094, #4093, #4004, #3952 - #4093 also
-brought in 3 upstream preconditions outside the original 27,
+#4086, #4085, #4084, #4072, #4094, #4093, #4004, #3952, #4003 - #4093
+also brought in 3 upstream preconditions outside the original 27,
 #4100/#4101/#4102; #4109 is a 4th out-of-list ticket, fixed separately
 as the first link in the `_Optional`-TS chain above; plus #4071 and
 #3954 found not applicable, see above). Remaining, all part of
 or adjacent to the interdependent `_Optional`-TS cluster except #3960
 (independent, attempted and reverted - see above): #4006, #4005,
-#4003, #4002, #3963, #3962, #3960, #3958, #3957, #3955.
+#4002, #3963, #3962, #3960, #3958, #3957, #3955.
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce

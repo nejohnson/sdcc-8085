@@ -995,6 +995,41 @@ fixPointerReads (iCode *ic)
 }
 
 /*-----------------------------------------------------------------*/
+/* foldAdditiveIdentity - turn addition or subtraction of zero     */
+/*                        into assignment or cast                  */
+/*-----------------------------------------------------------------*/
+static void
+foldAdditiveIdentity (iCode *ic, operand *source)
+{
+  int typematch = compareType (operandType (IC_RESULT (ic)),
+                               operandType (source), false);
+
+  detachiCodeOperand (&IC_LEFT (ic), ic);
+  detachiCodeOperand (&IC_RIGHT (ic), ic);
+
+  if (typematch < 0 || IS_TRUE_SYMOP (source))
+    {
+      ic->op = CAST;
+      attachiCodeOperand (operandFromLink (operandType (IC_RESULT (ic))),
+                          &IC_LEFT (ic), ic);
+    }
+  else
+    {
+      ic->op = '=';
+      if (typematch == 0)
+        {
+          /* For completely different types, preserve the source type. */
+          source = operandFromOperand (source);
+          setOperandType (source, operandType (IC_RESULT (ic)));
+        }
+    }
+
+  attachiCodeOperand (source, &IC_RIGHT (ic), ic);
+  SET_ISADDR (IC_RIGHT (ic), 0);
+  SET_ISADDR (IC_RESULT (ic), 0);
+}
+
+/*-----------------------------------------------------------------*/
 /* algebraicOpts - does some algebraic optimizations               */
 /*-----------------------------------------------------------------*/
 static void
@@ -1065,57 +1100,19 @@ algebraicOpts (iCode *ic, eBBlock *ebp)
       /* if addition then check if one of them is a zero */
       /* if yes turn it into assignment or cast */
       if (IS_OP_LITERAL (IC_LEFT (ic)) &&
-          isEqualVal (OP_VALUE (IC_LEFT (ic)), 0))
+          isEqualVal (OP_VALUE (IC_LEFT (ic)), 0) &&
+          !(IS_PTR (operandType (IC_RIGHT (ic))) ||
+            IS_ARRAY (operandType (IC_RIGHT (ic)))))
         {
-          int typematch;
-          typematch = compareType (operandType (IC_RESULT (ic)),
-                                   operandType (IC_RIGHT (ic)), false);
-          if ((typematch<0) || (IS_TRUE_SYMOP (IC_RIGHT (ic))))
-            {
-              ic->op = CAST;
-              IC_LEFT (ic) = operandFromLink (operandType (IC_RESULT (ic)));
-            }
-          else
-            {
-              ic->op = '=';
-              IC_LEFT (ic) = NULL;
-              if (typematch==0)
-                {
-                  /* for completely different types, preserve the source type */
-                  IC_RIGHT (ic) = operandFromOperand (IC_RIGHT (ic));
-                  setOperandType (IC_RIGHT (ic), operandType (IC_RESULT (ic)));
-                }
-            }
-          SET_ISADDR (IC_RESULT (ic), 0);
-          SET_ISADDR (IC_RIGHT (ic), 0);
+          foldAdditiveIdentity (ic, IC_RIGHT (ic));
           return;
         }
       if (IS_OP_LITERAL (IC_RIGHT (ic)) &&
-          isEqualVal (OP_VALUE (IC_RIGHT (ic)), 0))
+          isEqualVal (OP_VALUE (IC_RIGHT (ic)), 0) &&
+          !(IS_PTR (operandType (IC_LEFT (ic))) ||
+            IS_ARRAY (operandType (IC_LEFT (ic)))))
         {
-          int typematch;
-          typematch = compareType (operandType (IC_RESULT (ic)),
-                                   operandType (IC_LEFT (ic)), false);
-          if ((typematch<0) || (IS_TRUE_SYMOP (IC_LEFT (ic))))
-            {
-              ic->op = CAST;
-              IC_RIGHT (ic) = IC_LEFT (ic);
-              IC_LEFT (ic) = operandFromLink (operandType (IC_RESULT (ic)));
-            }
-          else
-            {
-              ic->op = '=';
-              IC_RIGHT (ic) = IC_LEFT (ic);
-              IC_LEFT (ic) = NULL;
-              if (typematch==0)
-                {
-                  /* for completely different types, preserve the source type */
-                  IC_RIGHT (ic) = operandFromOperand (IC_RIGHT (ic));
-                  setOperandType (IC_RIGHT (ic), operandType (IC_RESULT (ic)));
-                }
-            }
-          SET_ISADDR (IC_RIGHT (ic), 0);
-          SET_ISADDR (IC_RESULT (ic), 0);
+          foldAdditiveIdentity (ic, IC_LEFT (ic));
           return;
         }
       break;
@@ -1136,16 +1133,16 @@ algebraicOpts (iCode *ic, eBBlock *ebp)
       /* is zero then depending on which operand change  */
       /* to assignment or unary minus                    */
       if (IS_OP_LITERAL (IC_RIGHT (ic)) &&
-          isEqualVal (OP_VALUE (IC_RIGHT (ic)), 0))
+          isEqualVal (OP_VALUE (IC_RIGHT (ic)), 0) &&
+          !(IS_PTR (operandType (IC_LEFT (ic))) ||
+            IS_ARRAY (operandType (IC_LEFT (ic)))))
         {
-          bool semderef = IS_PTR (operandType (ic->left)) && isOptional (operandType (ic->left)->next); // Preserve +0 as semantic dereference for _Optional.
           /* right side zero change to assignment */
           ic->op = '=';
           IC_RIGHT (ic) = IC_LEFT (ic);
           IC_LEFT (ic) = NULL;
           SET_ISADDR (IC_RIGHT (ic), 0);
           SET_ISADDR (IC_RESULT (ic), 0);
-          ic->result->isSemDeref |= semderef;
           return;
         }
       if (IS_OP_LITERAL (IC_LEFT (ic)) &&
@@ -1634,6 +1631,39 @@ algebraicOpts (iCode *ic, eBBlock *ebp)
     }
 
   return;
+}
+
+/*-----------------------------------------------------------------*/
+/* foldPointerZeroArithmetic - eliminate addition or subtraction   */
+/*                             of zero after related diagnostics   */
+/*-----------------------------------------------------------------*/
+bool
+foldPointerZeroArithmetic (eBBlock **ebbs, int count)
+{
+  bool change = false;
+
+  for (int i = 0; i < count; ++i)
+    for (iCode *ic = ebbs[i]->sch; ic; ic = ic->next)
+      {
+        operand *source = NULL;
+
+        if (ic->op == '+' && IS_OP_LITERAL (IC_LEFT (ic)) &&
+            isEqualVal (OP_VALUE (IC_LEFT (ic)), 0))
+          source = IC_RIGHT (ic);
+        else if ((ic->op == '+' || ic->op == '-') &&
+                 IS_OP_LITERAL (IC_RIGHT (ic)) &&
+                 isEqualVal (OP_VALUE (IC_RIGHT (ic)), 0))
+          source = IC_LEFT (ic);
+
+        if (source && (IS_PTR (operandType (source)) ||
+                       IS_ARRAY (operandType (source))))
+          {
+            foldAdditiveIdentity (ic, source);
+            change = true;
+          }
+      }
+
+  return change;
 }
 
 #define OTHERS_PARM(s) (s->_isparm && !s->ismyparm)
