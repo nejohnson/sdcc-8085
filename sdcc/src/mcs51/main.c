@@ -250,9 +250,19 @@ _mcs51_genAssemblerStart (FILE * of)
          a __bit - which is the usual case, and what makes this affordable
          where reserving the whole 0x20-0x2F region was not. */
       fprintf (of, "\t.area BSEG_BYTES\t(REL,CON,BANK=BDATA)\n");
-      fprintf (of, "\t.area DSEG\t(BANK=BDATA)\n");
-      fprintf (of, "\t.area OSEG\t(REL,OVR,BANK=BDATA)\n");
-      fprintf (of, "\t.area ISEG\t(BANK=BDATA)\n");
+      /* DSEG, OSEG and ISEG are offered the gap that pinning BIT_BANK
+         at 0x20 leaves behind it - 0x08 to 0x1F, the three register
+         banks almost nothing uses.  FIT is a hint: an area that does
+         not fit the gap is laid down exactly where it would have been,
+         so a module with a hundred bytes of data or idata is placed as
+         before and one with twelve takes the space.  Twenty five bytes
+         of a hundred and twenty eight, and because SSEG is last in the
+         chain it is the stack that gets them back.  sdld reclaimed the
+         same space with a bitmap allocator built into the linker for
+         this one target; this says it in the area attributes instead. */
+      fprintf (of, "\t.area DSEG\t(FIT,BANK=BDATA)\n");
+      fprintf (of, "\t.area OSEG\t(REL,OVR,FIT,BANK=BDATA)\n");
+      fprintf (of, "\t.area ISEG\t(FIT,BANK=BDATA)\n");
       fprintf (of, "\t.area SSEG\t(BANK=BDATA)\n");
 
       /* And the external RAM areas, for the same reason: pdata is the
@@ -1100,15 +1110,15 @@ PORT mcs51_port =
     "XSTK    (PAG,BANK=BXDATA)",      // xstack_name
     "STACK   (BANK=BDATA)",           // istack_name
     "CSEG    (BANK=BCODE)",           // code_name
-    "DSEG    (BANK=BDATA)",           // data_name
-    "ISEG    (BANK=BDATA)",           // idata_name
+    "DSEG    (FIT,BANK=BDATA)",       // data_name
+    "ISEG    (FIT,BANK=BDATA)",       // idata_name
     "PSEG    (BANK=BXDATA)",      // pdata_name
     "XSEG    (BANK=BXDATA)",          // xdata_name
     NULL,                       // xconst_name
     "BSEG    (BANK=BBIT)",            // bit_name
     "RSEG    (ABS,BANK=BDATA)",       // reg_name
     "GSINIT  (BANK=BCODE)",           // static_name
-    "OSEG    (REL,OVR,BANK=BDATA)",   // overlay_name
+    "OSEG    (REL,OVR,FIT,BANK=BDATA)", // overlay_name
     "GSFINAL (BANK=BCODE)",           // post_static_name
     "HOME    (BANK=BCODE)",           // home_name
     "XISEG   (BANK=BXDATA)",          // xidata_name - initialized xdata
