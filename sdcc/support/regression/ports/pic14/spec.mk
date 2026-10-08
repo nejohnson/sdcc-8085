@@ -7,8 +7,17 @@ else
   GPSIM = gpsim$(EXEEXT)
 endif
 
-EMU_INPUT = $(PORTS_DIR)/$(PORT_BASE)/gpsim.cmd
-EMU_FLAGS = -i -c
+# The generic rule puts EMU_FLAGS before the image and EMU_INPUT after
+# it, which suits uCsim, where EMU_INPUT is a "< file" redirect.  gpsim
+# takes both as options, so the image needs -s and the command file -I:
+# with "-i -c" the -c landed immediately before the image and gpsim took
+# the .cod as its command file, then sat at an interactive prompt until
+# the timeout, writing "**gpsim>" forever - 36MB per test.
+#
+# -I rather than -c because -c changes directory to the command file's
+# own, after which the relative paths the harness passes stop resolving.
+EMU_INPUT = -I $(PORTS_DIR)/$(PORT_BASE)/gpsim.cmd
+EMU_FLAGS = -i -s
 EMU = ${WINE} ${GPSIM}
 
 ifndef SDCC_BIN_PATH
