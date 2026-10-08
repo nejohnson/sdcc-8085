@@ -1286,15 +1286,46 @@ and tracing it back led straight to #4004.
   3-port regression confirms it passes at runtime too, all 40
   assertions, on all 3 ports. Full 3-port regression: 0 failures.
 
-Not yet investigated: the remaining 9 (27 total, 16 fixed and
+- **#4005 - FIXED.** "Array to pointer conversion does not remove the
+  `_Optional` qualifier from the element type." Array-to-pointer decay
+  logic was scattered across several call sites (`checkPtrCast`,
+  `_Generic`'s controlling-expression handling, and
+  `argumentTypeAfterDecay`), each calling `aggregateToPointer`
+  directly, which strips no qualifiers at all - so decaying an
+  `_Optional`-qualified array member kept the `_Optional` qualifier on
+  the result, and `_Generic` dispatched to the wrong association.
+
+  Fixed by centralising expression array decay in a new
+  `convertArrayToPointerType` (SDCCsymt.c), sharing its pointer-kind
+  logic with `aggregateToPointer` via an extracted
+  `adjustArrayTypeToPointer` helper - which also had to carry forward
+  this fork's own #4072 volatile-access preservation (our
+  `aggregateToPointer` already had that addition at a spot upstream's
+  own "current implementation" had moved away from by the time this
+  patch was written), so that fix's protection now applies uniformly
+  to every decay site, not just the original one.
+  `geniCodeArray2Ptr` (SDCCicode.c) got the equivalent removal for the
+  iCode-level conversion.
+
+  Ported directly from upstream's own, final merged patch (confirmed
+  merged as r16983, no open review comments - unlike #4004/#3952's
+  less certain final shape). Verified: the ticket's own repro and the
+  upstream test's three qualifier-preservation checks (`const`,
+  `const volatile`, `restrict`) all pass; re-ran the existing
+  `union-volatile.c` (#4072) test standalone to confirm that
+  protection still works through the refactored shared helper before
+  trusting the full regression. Full 3-port regression: 0 failures,
+  including `union-volatile` itself.
+
+Not yet investigated: the remaining 8 (27 total, 17 fixed and
 committed so far: #4090, #4083, #4088, #3917, #3916, #4089, #4087,
-#4086, #4085, #4084, #4072, #4094, #4093, #4004, #3952, #4003 - #4093
-also brought in 3 upstream preconditions outside the original 27,
-#4100/#4101/#4102; #4109 is a 4th out-of-list ticket, fixed separately
-as the first link in the `_Optional`-TS chain above; plus #4071 and
-#3954 found not applicable, see above). Remaining, all part of
-or adjacent to the interdependent `_Optional`-TS cluster except #3960
-(independent, attempted and reverted - see above): #4006, #4005,
+#4086, #4085, #4084, #4072, #4094, #4093, #4004, #3952, #4003, #4005 -
+#4093 also brought in 3 upstream preconditions outside the original
+27, #4100/#4101/#4102; #4109 is a 4th out-of-list ticket, fixed
+separately as the first link in the `_Optional`-TS chain above; plus
+#4071 and #3954 found not applicable, see above). Remaining, all part
+of or adjacent to the interdependent `_Optional`-TS cluster except
+#3960 (independent, attempted and reverted - see above): #4006,
 #4002, #3963, #3962, #3960, #3958, #3957, #3955.
 
 **Before fixing anything:** for every tier, check it against this fork's

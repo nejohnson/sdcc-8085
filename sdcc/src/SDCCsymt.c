@@ -3795,6 +3795,58 @@ diagnoseDissimilarPtrTargetTypes (sym_link *dest, sym_link *src, const char *fil
 }
 
 /*-----------------------------------------------------------------*/
+/* adjustArrayTypeToPointer: change an array type to a pointer     */
+/*-----------------------------------------------------------------*/
+static void
+adjustArrayTypeToPointer (sym_link *type, sym_link *etype)
+{
+  /* The array node becomes a pointer node. Preserve its internal
+     volatile-access property on the referenced element type. */
+  type->next->volatileAccess |= type->volatileAccess;
+  type->volatileAccess = false;
+
+  /* change to a pointer depending on the storage class specified */
+  switch (SPEC_SCLS (etype))
+    {
+    case S_IDATA:
+      DCL_TYPE (type) = IPOINTER;
+      break;
+    case S_PDATA:
+      DCL_TYPE (type) = PPOINTER;
+      break;
+    case S_FIXED:
+      if (SPEC_OCLS (etype))
+        {
+          DCL_TYPE (type) = PTR_TYPE (SPEC_OCLS (etype));
+        }
+      else
+        {                       // this happens for (external) function parameters
+          DCL_TYPE (type) = port->unqualified_pointer;
+        }
+      break;
+    case S_AUTO:
+      DCL_TYPE (type) = PTR_TYPE (SPEC_OCLS (etype));
+      break;
+    case S_DATA:
+    case S_REGISTER:
+      DCL_TYPE (type) = POINTER;
+      break;
+    case S_CODE:
+      DCL_TYPE (type) = CPOINTER;
+      break;
+    case S_XDATA:
+      DCL_TYPE (type) = FPOINTER;
+      break;
+    case S_EEPROM:
+      DCL_TYPE (type) = EEPPOINTER;
+      break;
+    default:
+      DCL_TYPE (type) = port->unqualified_pointer;
+    }
+  DCL_TYPE_IMPLICITINTRINSIC (type) = SPEC_SCLS_IMPLICITINTRINSIC (etype);
+}
+
+/*-----------------------------------------------------------------*/
 /* aggregateToPointer:     change an aggregate type function       */
 /*                         argument to a pointer to that type.     */
 /*-----------------------------------------------------------------*/
@@ -3803,51 +3855,7 @@ aggregateToPointer (value *val)
 {
   if (IS_ARRAY (val->type))
     {
-      /* The array node becomes a pointer node. Preserve its internal
-         volatile-access property on the referenced element type. */
-      val->type->next->volatileAccess |= val->type->volatileAccess;
-      val->type->volatileAccess = false;
-
-      /* change to a pointer depending on the */
-      /* storage class specified        */
-      switch (SPEC_SCLS (val->etype))
-        {
-        case S_IDATA:
-          DCL_TYPE (val->type) = IPOINTER;
-          break;
-        case S_PDATA:
-          DCL_TYPE (val->type) = PPOINTER;
-          break;
-        case S_FIXED:
-          if (SPEC_OCLS (val->etype))
-            {
-              DCL_TYPE (val->type) = PTR_TYPE (SPEC_OCLS (val->etype));
-            }
-          else
-            {                   // this happens for (external) function parameters
-              DCL_TYPE (val->type) = port->unqualified_pointer;
-            }
-          break;
-        case S_AUTO:
-          DCL_TYPE (val->type) = PTR_TYPE (SPEC_OCLS (val->etype));
-          break;
-        case S_DATA:
-        case S_REGISTER:
-          DCL_TYPE (val->type) = POINTER;
-          break;
-        case S_CODE:
-          DCL_TYPE (val->type) = CPOINTER;
-          break;
-        case S_XDATA:
-          DCL_TYPE (val->type) = FPOINTER;
-          break;
-        case S_EEPROM:
-          DCL_TYPE (val->type) = EEPPOINTER;
-          break;
-        default:
-          DCL_TYPE (val->type) = port->unqualified_pointer;
-        }
-      DCL_TYPE_IMPLICITINTRINSIC (val->type) = SPEC_SCLS_IMPLICITINTRINSIC (val->etype);
+      adjustArrayTypeToPointer (val->type, val->etype);
 
       /* is there is a symbol associated then */
       /* change the type of the symbol as well */
@@ -3858,6 +3866,25 @@ aggregateToPointer (value *val)
         }
     }
   return val;
+}
+
+/*-----------------------------------------------------------------*/
+/* convertArrayToPointerType: apply expression array conversion    */
+/*-----------------------------------------------------------------*/
+void
+convertArrayToPointerType (sym_link *type)
+{
+  if (!IS_ARRAY (type))
+    return;
+
+  adjustArrayTypeToPointer (type, getSpec (type));
+
+  /* Expression array-to-pointer conversion removes _Optional from
+     the referenced element type. */
+  if (IS_SPEC (type->next))
+    SPEC_OPTIONAL (type->next) = false;
+  else
+    DCL_PTR_OPTIONAL (type->next) = false;
 }
 
 /*------------------------------------------------------------------*/
