@@ -37,7 +37,7 @@ endif
 
 SDCCFLAGS += -mpic14 -pp16f877 --less-pedantic
 SDCCFLAGS += --no-warn-non-free
-LINKFLAGS += libsdcc.lib libm.lib
+LINKFLAGS += libsdcc.lib libc.lib libm.lib
 
 OBJEXT = .o
 BINEXT = .cod
