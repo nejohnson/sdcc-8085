@@ -60,6 +60,7 @@ bitVect *bitVectCopy (const bitVect *);
 int bitVectIsZero (const bitVect *);
 int bitVectnBitsOn (const bitVect *);
 int bitVectFirstBit (const bitVect *);
+int bitVectNextSetBit (const bitVect *, int);
 void bitVectClear (bitVect *bvp);
 void bitVectDebugOn (const bitVect *, FILE *);
 void bitVectPrint (FILE *, const bitVect *);

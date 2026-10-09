@@ -729,22 +729,16 @@ computeClash (eBBlock ** ebbs, int count)
 	  int key1, key2;
 
 	  /* for all iTemps alive at this iCode */
-	  for (key1 = 1; key1 < ic->rlive->size; key1++)
+	  for (key1 = bitVectNextSetBit (ic->rlive, 1); key1 >= 0; key1 = bitVectNextSetBit (ic->rlive, key1 + 1))
 	    {
-	      if (!bitVectBitValue(ic->rlive, key1))
-	        continue;
-
 	      sym1 = hTabItemWithKey(liveRanges, key1);
 
 	      if (!sym1->isitmp)
 	        continue;
 
 	      /* for all other iTemps alive at this iCode */
-	      for (key2 = key1+1; key2 < ic->rlive->size; key2++)
+	      for (key2 = bitVectNextSetBit (ic->rlive, key1 + 1); key2 >= 0; key2 = bitVectNextSetBit (ic->rlive, key2 + 1))
 	        {
-		  if (!bitVectBitValue(ic->rlive, key2))
-		    continue;
-
 		  sym2 = hTabItemWithKey(liveRanges, key2);
 
 		  if (!sym2->isitmp)

@@ -502,6 +502,49 @@ bitVectFirstBit (const bitVect * bvp)
 }
 
 /*-----------------------------------------------------------------*/
+/* bitVectNextSetBit - returns the position of the first set bit   */
+/* at or after 'from', or -1 if there is none. Whole zero words are */
+/* skipped rather than tested bit-by-bit, so a loop that calls this */
+/* with the previous result + 1 each time is O(allocSize + popcount) */
+/* overall, instead of the O(size) a naive per-bit scan costs.      */
+/*-----------------------------------------------------------------*/
+int
+bitVectNextSetBit (const bitVect *bvp, int from)
+{
+  unsigned int index;
+  unsigned int word;
+
+  assert (from >= 0);
+  if (!bvp || from >= bvp->size)
+    return -1;
+
+  index = from / BIT_SIZEOF_ELEMENT;
+  word = bvp->vect[index] & (~0u << (from % BIT_SIZEOF_ELEMENT));
+
+  for (;;)
+    {
+      if (word)
+        {
+          unsigned int bit = index * BIT_SIZEOF_ELEMENT;
+#ifdef __GNUC__
+          bit += __builtin_ctz (word);
+#else
+          while (!(word & 1u))
+            {
+              word >>= 1;
+              bit++;
+            }
+#endif
+          return (bit < (unsigned int) bvp->size) ? (int) bit : -1;
+        }
+      index++;
+      if (index >= (unsigned int) bvp->allocSize)
+        return -1;
+      word = bvp->vect[index];
+    }
+}
+
+/*-----------------------------------------------------------------*/
 /* bitVectClear - clear all bits                                   */
 /*-----------------------------------------------------------------*/
 void
