@@ -50,7 +50,22 @@ operator != (const valinfo &v0, const valinfo &v1)
 struct valinfos
 {
   std::map <int, struct valinfo> map;
+  std::map <int, struct valinfo> referencedValues;
 };
+
+static bool
+typeMayContainPointer (sym_link *type)
+{
+  if (IS_PTR (type))
+    return true;
+  if (IS_ARRAY (type))
+    return typeMayContainPointer (type->next);
+  if (IS_STRUCT (type))
+    for (symbol *field = SPEC_STRUCT (type)->fields; field; field = field->next)
+      if (typeMayContainPointer (field->type))
+        return true;
+  return false;
+}
 
 struct cfg_genconstprop_node
 {
@@ -335,6 +350,17 @@ valinfos_unions (iCode *ic, const struct valinfos &v)
   bool change = false;
   for (auto i = v.map.begin(); i != v.map.end(); ++i)
     change |= valinfos_union (ic, i->first, i->second);
+  for (auto i = v.referencedValues.begin(); i != v.referencedValues.end(); ++i)
+    {
+      std::map<int, struct valinfo>::iterator current = ic->valinfos->referencedValues.find (i->first);
+      if (current != ic->valinfos->referencedValues.end ())
+        change |= valinfo_union (&current->second, i->second);
+      else
+        {
+          ic->valinfos->referencedValues[i->first] = i->second;
+          change = true;
+        }
+    }
   return (change);
 }
 
@@ -789,6 +815,117 @@ static void update_out_edges (cfg_t &G, unsigned int i, int key_false, int key_t
       G[*out].map[opkey] = v_false;
 }
 
+static void update_referenced_value_out_edges (cfg_t &G, unsigned int i, int key_false, int key_true, const valinfo &v_false, const valinfo &v_true, int opkey)
+{
+  typedef /*typename*/ boost::graph_traits<cfg_t>::out_edge_iterator out_iter_t;
+  out_iter_t out, out_end;
+  boost::tie(out, out_end) = boost::out_edges(i, G);
+  for(; out != out_end; ++out)
+    if (G[boost::target(*out, G)].ic->key == key_true)
+      G[*out].referencedValues[opkey] = v_true;
+    else if (G[boost::target(*out, G)].ic->key == key_false)
+      G[*out].referencedValues[opkey] = v_false;
+}
+
+static sym_link *
+argumentParameterType (const iCode *ic)
+{
+  if ((ic->op == IPUSH || ic->op == SEND) && ic->right)
+    return operandType (ic->right);
+  if (ic->op == '=' && ic->result && IS_PARM (ic->result))
+    return operandType (ic->result);
+  return 0;
+}
+
+static operand *
+argumentOperand (const iCode *ic)
+{
+  return ic->op == '=' ? ic->right : ic->left;
+}
+
+static bool
+isConstIndirectArgument (const iCode *ic)
+{
+  sym_link *type = argumentParameterType (ic);
+  return type && IS_PTR (type) && isConst (type->next);
+}
+
+static iCode *
+uniqueDefinition (operand *op)
+{
+  if (!op || !IS_SYMOP (op) || bitVectnBitsOn (OP_DEFS (op)) != 1)
+    return 0;
+  return (iCode *)hTabItemWithKey (iCodehTab, bitVectFirstBit (OP_DEFS (op)));
+}
+
+static iCode *
+addressDefinition (operand *op)
+{
+  iCode *def = uniqueDefinition (op);
+  while (def && (def->op == '=' || def->op == CAST) && !POINTER_SET (def))
+    def = uniqueDefinition (def->right);
+  return def && def->op == ADDRESS_OF ? def : 0;
+}
+
+/* Return true if the address of OBJECT has not been made available for writing
+   before CALL.  This is deliberately conservative: unrecognised uses retain
+   the normal call invalidation. */
+static bool
+objectAddressIsReadOnlyAtCall (const operand *object, const iCode *call)
+{
+  std::set<int> addresses;
+  const iCode *first = call;
+  while (first->prev)
+    first = first->prev;
+
+  for (const iCode *ic = first; ic != call; ic = ic->next)
+    {
+      if (ic->op == ADDRESS_OF && ic->left && isOperandEqual (ic->left, object) &&
+          ic->result && IS_SYMOP (ic->result))
+        {
+          addresses.insert (ic->result->key);
+          continue;
+        }
+
+      operand *source = (ic->op == SEND || ic->op == IPUSH) ? ic->left : ic->right;
+      const bool source_is_address = source && IS_SYMOP (source) && addresses.find (source->key) != addresses.end ();
+      const bool result_is_address = ic->result && IS_SYMOP (ic->result) && addresses.find (ic->result->key) != addresses.end ();
+
+      if (!source_is_address && !result_is_address)
+        continue;
+      if ((ic->op == SEND || ic->op == IPUSH || ic->op == '=' && ic->result && IS_PARM (ic->result)) &&
+          source_is_address && isConstIndirectArgument (ic))
+        continue;
+      if ((ic->op == '=' && !POINTER_SET (ic) || ic->op == CAST) && source_is_address &&
+          ic->result && IS_SYMOP (ic->result))
+        {
+          addresses.insert (ic->result->key);
+          if (!IS_ITEMP (ic->result))
+            return false;
+          continue;
+        }
+      return false;
+    }
+  return true;
+}
+
+static std::set<int>
+constProtectedObjectsAtCall (const iCode *call)
+{
+  std::set<int> protected_objects;
+  for (const iCode *arg = call->prev; arg && argumentParameterType (arg); arg = arg->prev)
+    if (isConstIndirectArgument (arg))
+      {
+        iCode *addrdef = addressDefinition (argumentOperand (arg));
+        if (addrdef && addrdef->left && IS_SYMOP (addrdef->left) &&
+            (OP_SYMBOL_CONST (addrdef->left)->islocal || OP_SYMBOL_CONST (addrdef->left)->ismyparm) &&
+            !IS_STATIC (OP_SYMBOL_CONST (addrdef->left)->etype) &&
+            objectAddressIsReadOnlyAtCall (addrdef->left, call))
+          protected_objects.insert (addrdef->left->key);
+      }
+  return protected_objects;
+}
+
 static void
 recompute_node (cfg_t &G, unsigned int i, ebbIndex *ebbi, std::pair<std::queue<unsigned int>, std::set<unsigned int> > &todo, const valinfos &global_operands, const std::map <int, sym_link *>& global_types, bool externchange, int end_it_quickly)
 {
@@ -873,6 +1010,14 @@ recompute_node (cfg_t &G, unsigned int i, ebbIndex *ebbi, std::pair<std::queue<u
                     }
                 }
               update_out_edges (G, i, key_false, key_true, v_false, v_true, ic->left->key);
+              if (bitVectnBitsOn (OP_DEFS (ic->left)) == 1)
+                {
+                  iCode *def = (iCode *)hTabItemWithKey (iCodehTab, bitVectFirstBit (OP_DEFS (ic->left)));
+                  if (def && def->op == GET_VALUE_AT_ADDRESS && IS_SYMOP (def->left) &&
+                      !IS_OP_VOLATILE (ic->left) &&
+                      !isVolatile (operandType (def->left)->next))
+                    update_referenced_value_out_edges (G, i, key_false, key_true, v_false, v_true, def->left->key);
+                }
             }
           if (IS_SYMOP (ic->left) && !OP_SYMBOL (ic->left)->addrtaken && !IS_OP_VOLATILE (ic->left) &&
             (bitVectnBitsOn (OP_DEFS (ic->left)) == 1 && !OP_SYMBOL (ic->left)->ismyparm || ic->prev && !POINTER_SET (ic->prev) && isOperandEqual (ic->left, ic->prev->result)))
@@ -912,11 +1057,17 @@ recompute_node (cfg_t &G, unsigned int i, ebbIndex *ebbi, std::pair<std::queue<u
       if (ic->resultvalinfo)
         G[*out].map[ic->result->key] = *ic->resultvalinfo;
 
+      if (resultsym && G[*out].referencedValues.find (ic->result->key) != G[*out].referencedValues.end ())
+        G[*out].referencedValues[ic->result->key].nonnull = false;
+
       // Invalidate valinfo for operands that might have been written via pointer, from other functions, etc.
       if (ic->op == SET_VALUE_AT_ADDRESS || POINTER_SET (ic) || ic->op == FUNCTION || (ic->op == CALL || ic->op == PCALL) && (!IS_SYMOP (ic->left) || !OP_SYMBOL (ic->left)->funcPure))
         {
+          const std::set<int> const_protected = ic->op == CALL || ic->op == PCALL ? constProtectedObjectsAtCall (ic) : std::set<int> ();
           for (std::map <int, struct valinfo>::const_iterator i = global_operands.map.begin(); i != global_operands.map.end(); ++i)
-            if (ic->op == SET_VALUE_AT_ADDRESS || POINTER_SET (ic))
+            if (const_protected.find (i->first) != const_protected.end ())
+              continue;
+            else if (ic->op == SET_VALUE_AT_ADDRESS || POINTER_SET (ic))
               {
                 wassert (global_types.find (i->first) != global_types.end());
                 valinfo v;
@@ -925,6 +1076,29 @@ recompute_node (cfg_t &G, unsigned int i, ebbIndex *ebbi, std::pair<std::queue<u
               }
             else
               G[*out].map[i->first] = i->second;
+
+          /* A pointer-valued indirect write can only invalidate non-null
+             knowledge for aliases when the stored value might be null.
+             Individual structure members and array elements are not tracked
+             as such, so an aggregate write containing pointer subobjects may
+             invalidate facts in referencedValues. Writes through character
+             types may likewise modify an aliased pointer object. Calls remain
+             fully conservative. */
+          sym_link *storedtype = (ic->op == SET_VALUE_AT_ADDRESS || POINTER_SET (ic)) && ic->result &&
+                                 IS_PTR (operandType (ic->result)) ?
+                                 operandType (ic->result)->next : 0;
+          if (ic->op == FUNCTION || ic->op == CALL || ic->op == PCALL ||
+              storedtype && (IS_CHAR (storedtype) ||
+                             IS_PTR (storedtype) &&
+                             (rightvalinfo.anything || !rightvalinfo.nonnull) ||
+                             IS_AGGREGATE (storedtype) && typeMayContainPointer (storedtype)))
+            for (std::map<int, struct valinfo>::iterator v = G[*out].referencedValues.begin ();
+                 v != G[*out].referencedValues.end (); ++v)
+              v->second.nonnull = false;
+          if (storedtype && IS_PTR (storedtype) &&
+              !rightvalinfo.anything && rightvalinfo.nonnull &&
+              G[*out].referencedValues.find (ic->result->key) != G[*out].referencedValues.end ())
+            G[*out].referencedValues[ic->result->key].nonnull = true;
         }
 
       if (resultsym)
@@ -1017,6 +1191,12 @@ recompute_node (cfg_t &G, unsigned int i, ebbIndex *ebbi, std::pair<std::queue<u
             }
           resultvalinfo.max -= resultvalinfo.minsize;
         }
+      else if (ic->op == GET_VALUE_AT_ADDRESS && IS_SYMOP (ic->left) &&
+               !IS_OP_VOLATILE (ic->result) &&
+               !isVolatile (operandType (ic->left)->next) &&
+               ic->valinfos->referencedValues.find (ic->left->key) != ic->valinfos->referencedValues.end () &&
+               ic->valinfos->referencedValues[ic->left->key].nonnull)
+        resultvalinfo.nonnull = true;
       else if (ic->op == '!')
         {
           resultvalinfo.nothing = leftvalinfo.nothing;
@@ -1170,6 +1350,9 @@ recomputeValinfos (iCode *sic, ebbIndex *ebbi, const char *suffix)
         G[0].ic->valinfos->map[G[i].ic->right->key] = getParamValinfo (G[i].ic->right);
       if (POINTER_SET (G[i].ic) && IS_SYMOP (G[i].ic->result) && OP_SYMBOL (G[i].ic->result)->ismyparm)
         G[0].ic->valinfos->map[G[i].ic->result->key] = getParamValinfo (G[i].ic->result);
+      if (G[i].ic->op == GET_VALUE_AT_ADDRESS && IS_SYMOP (G[i].ic->left) &&
+          IS_PTR (operandType (G[i].ic->result)))
+        G[0].ic->valinfos->referencedValues[G[i].ic->left->key] = getTypeValinfo (operandType (G[i].ic->result), true);
       // Need to include static objects here, since they might revert their state via setjmp/longjmp.
       if (G[i].ic->left && !IS_ITEMP(G[i].ic->left) && IS_SYMOP (G[i].ic->left) &&
         (!OP_SYMBOL_CONST (G[i].ic->left)->islocal && !OP_SYMBOL_CONST (G[i].ic->left)->ismyparm || OP_SYMBOL_CONST (G[i].ic->left)->addrtaken || IS_STATIC (OP_SYMBOL_CONST (G[i].ic->left)->etype)))

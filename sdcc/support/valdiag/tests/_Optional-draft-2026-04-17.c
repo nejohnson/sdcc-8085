@@ -1196,7 +1196,7 @@ void spinner(_Optional int *poi)
 
   *poi = 1;    // no recommended diagnostic
   omega(&poi); // non-null constraint on poi is unaffected
-  *poi = 2;    // no recommended diagnostic /* IGNORE */ TODO: maybe improve analysis?
+  *poi = 2;    // no recommended diagnostic
   ppoi = &poi; // address of poi escapes this function
   omega(&poi); /* analysis discards constraint on poi because
                   omega could modify *ppoi (aka poi) */
@@ -1269,7 +1269,7 @@ void rachel(_Optional int **ppoi_1, _Optional int **ppoi_2)
 
   **ppoi_1 = 1; // no recommended diagnostic
   *ppoi_2 = &i; // non-null constraint on *ppoi_1 is unaffected
-  **ppoi_1 = 2; // no recommended diagnostic /* IGNORE */ TODO: improve analysis?
+  **ppoi_1 = 2; // no recommended diagnostic
 }
 #endif
 

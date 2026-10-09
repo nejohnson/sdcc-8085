@@ -212,15 +212,24 @@ testmodes = {
     },
     "pdk13":{
         "compiler":sdcc,
-        "port":"pdk13"
+        "port":"pdk13",
+        "extra-defines": {
+            "__has_reentrant":"1"
+        }
     },
     "pdk14":{
         "compiler":sdcc,
-        "port":"pdk14"
+        "port":"pdk14",
+        "extra-defines": {
+            "__has_reentrant":"1"
+        }
     },
     "pdk15":{
         "compiler":sdcc,
-        "port":"pdk15"
+        "port":"pdk15",
+        "extra-defines": {
+            "__has_reentrant":"1"
+        }
     },
     "pic14":{
         "compiler":sdcc,
