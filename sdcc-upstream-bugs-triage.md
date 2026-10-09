@@ -1145,6 +1145,59 @@ missing-diagnostic bug is real and independently confirmed - but needs
 a fix that also audits or removes the `=` case's redundant post-rewrite
 recheck first.
 
+**#3960, second attempt (2026-10-09) - also REVERTED, found a deeper,
+not-yet-understood interaction.** Picked back up with Neil directly.
+Fixed the first-attempt's exact bug precisely: captured whether an
+assignment was a struct assignment *before* `rewriteStructAssignment`
+ran (`bool isStructAssign = IS_STRUCT (LTYPE (tree));`), and skipped
+only the now-meaningless post-rewrite lvalue recheck for that case,
+leaving everything else - including the `E_CODE_WRITE`/
+`E_CONST_EXPECTED` checks, confirmed to already be semantically inert
+post-rewrite for unrelated reasons, so deliberately left untouched -
+exactly as before. The targeted `g->f = t;` repro from the first
+revert, and the exact `gte_20041218-1.c` file that broke then, both
+compiled clean with this fix in place.
+
+The full regression still found failures - 34 this time, a different
+set and a different file (`gte_991019-1.c`, among others) than the
+first attempt's 71. Root cause this time: `rewriteStructAssignment`
+itself constructs `src = newNode('&', tree->right, NULL)` - taking
+the address of the assignment's *source* for the `memcpy` call it
+builds - and when the source is itself a function call returning the
+struct by value (`x = foo(1.0);` where `foo` returns a `material_type`
+struct), this wraps the same now-rvalue-marked `CALL` node in `&`,
+hitting the exact same "lvalue required for address of" check #3960's
+own fix added - this time for a compiler-internal `&`, not user code.
+
+Tried a fix: temporarily clear `tree->right->rvalue` before
+constructing `src`, restore it after `rewriteStructAssignment`'s own
+recursive `decorateType` call returns - reasoning that whatever made
+the source an rvalue, the compiler's own internal address-taking for
+struct-copy purposes shouldn't be held to the user-facing constraint.
+Debug instrumentation (removed before reverting) showed this *partly*
+worked - but surfaced something not yet understood: the exact same
+`CALL` node went through the unary `&` check **twice** in the same
+compile, with `LRVAL` reading `0` (suppressed, as intended) the first
+time and `1` (firing the error) the second. Something re-marks or
+re-visits the same shared node a second time before the restore runs,
+and it wasn't clear from the debug trace alone what - a strong
+candidate is the `for`-loop desugaring this fork's own triage notes
+already flagged elsewhere as duplicating/sharing AST structure (see
+the #4090/IFX notes earlier in this document), but that's a guess, not
+confirmed.
+
+Reverted cleanly again (`git checkout -- SDCCast.c`, confirmed zero
+diff; the untracked `bug-3960.c` test deleted, `MakeList` regenerated;
+rebuilt and manually re-verified `gte_991019-1.c` compiles clean on
+the reverted tree) rather than land a fix whose full mechanism isn't
+understood. #3960 now has two independently-discovered, genuinely
+different second-order interactions (struct assignment's post-rewrite
+recheck, and struct assignment's *own* internal `&`-of-call
+construction when the source is itself a struct-returning call) -
+worth attempting a third time with Neil present to dig into the
+duplicate-visit question directly (e.g. with gdb breakpoints on the
+`&` case, not just printf) rather than guessing further solo.
+
 - **#3954 - not applicable to this fork, already correct.** "Mismatch
   in generic selection when array-to-pointer decay expected" -
   closed-fixed upstream. Confirmed directly: the ticket's own repro
