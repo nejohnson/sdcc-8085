@@ -294,7 +294,7 @@ and one shared-glue-code bug (#2354, `SDCCglue.c` linkage-attribute emission).
 | [3986](https://sourceforge.net/p/sdcc/bugs/3986/) | CORE | error 158: overflow in implicit constant conversion | false overflow warning on in-range uint8_t init - FIXED (fixupCharLiteralSign, SDCCval.c), same root cause as #2733/#3094 |
 | [3979](https://sourceforge.net/p/sdcc/bugs/3979/) | CORE | error 147: excess elements in struct initializer | false "excess elements" on nested designated union initializer; frontend |
 | [3963](https://sourceforge.net/p/sdcc/bugs/3963/) | CORE | Parameter is not taken as having the unqualified version of its declared type in assignment or initialisation | qualifier-drop not applied to param type in assignment; frontend C23 type rules |
-| [3960](https://sourceforge.net/p/sdcc/bugs/3960/) | CORE | Inconsistent diagnostic messages when constraint on unary & operator is violated | inconsistent & constraint diagnostics; frontend |
+| [3960](https://sourceforge.net/p/sdcc/bugs/3960/) | CORE | Inconsistent diagnostic messages when constraint on unary & operator is violated | FIXED - CALL case now sets rvalue=1 (SDCCast.c); compiler-internal `&` nodes (struct-copy source, `.`-member-access desugaring in SDCC.y) marked `implicitAddressOf` to stay exempt |
 | [3955](https://sourceforge.net/p/sdcc/bugs/3955/) | CORE | Inconsistent production of warnings about optional-qualified return types | inconsistent _Optional-qualified-return warnings; frontend C23 |
 | [3954](https://sourceforge.net/p/sdcc/bugs/3954/) | CORE | Mismatch in generic selection when array-to-pointer decay expected | _Generic array-decay mismatch; frontend type system |
 | [3902](https://sourceforge.net/p/sdcc/bugs/3902/) | CORE | Overlong identifier issue | overlong identifier silently truncated with no warning; frontend lexer |
@@ -1198,6 +1198,85 @@ worth attempting a third time with Neil present to dig into the
 duplicate-visit question directly (e.g. with gdb breakpoints on the
 `&` case, not just printf) rather than guessing further solo.
 
+**#3960, third attempt (2026-10-09) - LANDED.** Picked back up directly
+with Neil, using gdb from the start this time instead of printf. The
+"duplicate visit" mystery from the second attempt's debug trace was
+real and is now fully explained: `processParms`'s implicit-cast
+insertion (`pTree = resolveSymbols (copyAst (*actParm)); *actParm =
+newNode (CAST, ...); *actParm = decorateType (*actParm, ...);`) clones
+an *already-decorated* argument subtree via `copyAst`, and `copyAst`
+(SDCCast.c) does not preserve `decorated` or `rvalue` in its explicit
+per-node field-copy list - both reset to zero on every clone (`Safe_alloc`
+zero-initializes), so the clone is independently re-decorated from
+scratch with no memory of any transient fix applied to the original
+object. A transient clear/restore of `rvalue` (the second attempt's
+approach) is therefore structurally unable to survive this clone path.
+
+Fix: a new persistent `ast` field, `implicitAddressOf` (added to the
+explicit per-node list `copyAst` already carries, right after
+`initMode`, so it *does* survive cloning), set on a unary `&` AST node
+at the point it is *constructed* by the compiler for its own internal
+purposes, and checked by the unary `&` case's lvalue requirement
+(`if (LRVAL (tree) && !tree->implicitAddressOf)`) to exempt exactly
+those compiler-synthesized nodes, never a user-written `&expr`.
+
+Two internal construction sites needed marking, and gdb found both
+precisely instead of by further guessing:
+
+1. `rewriteStructAssignment`'s own `src = newNode ('&', tree->right,
+   NULL)` (the struct-copy's source address, for its `memcpy` call) -
+   this is the second attempt's case (`x = foo(1.0);`, `foo` returning
+   a struct by value). Marked on `src` itself (the `&` node), not on
+   `tree->right` as the second attempt tried - marking the wrapper
+   rather than the wrapped operand is what makes the later rename to
+   `implicitAddressOf` coherent (see below).
+
+2. A third, much higher-blast-radius site gdb's first backtrace led
+   straight to: `SDCC.y`'s own grammar action for `postfix_expression
+   '.' identifier` *unconditionally* desugars `expr.member` into
+   `(&expr)->member` at parse time (`newNode (PTR_OP, newNode ('&',
+   $1, NULL), ...)`) - meaning *every* `.`-member access in the
+   language, not just struct-copy machinery, already took the address
+   of its left operand internally. This was *also* silently dead code
+   before this fix (`CALL` never set `rvalue`, so it never fired for
+   `f().member`), and making `CALL` correctly rvalue=1 broke the
+   extremely common, perfectly legal pattern of accessing a member of
+   a struct-returning function's result directly (`f().a + f().b`,
+   confirmed as the exact failure in `structreturn_type_char.c` and
+   17 similar files - 19 failures on each of i8085/i8085-undoc in the
+   first full-regression run of this attempt). Fixed by marking the
+   grammar-synthesized `&` node right there in `SDCC.y`, at the point
+   it's built, with a comment explaining why: it is compiler syntax
+   sugar for member access, not a user-facing address-of, so it must
+   not be held to the lvalue requirement that genuine `&expr` is.
+
+Given a second, structurally different internal-`&`-construction site
+turned up from a single gdb session (vs. none found by hours of manual
+testing across the first two attempts), the fix was redesigned around
+*marking the `&` node itself* rather than marking its operand (the
+second attempt's `implicitStructCopySource` approach, which only
+worked because `rewriteStructAssignment` controls both the node and
+its operand) - this is what let the `SDCC.y` site reuse the exact same
+mechanism trivially, since the grammar action only ever sees the `&`
+node it just built, never needing to reach into or know anything about
+its (not-yet-decorated) operand.
+
+Verified: all three forms from the two reverted attempts (`g->f = t;`
+struct-pointer assignment, `x = foo(1.0);` struct-returning-call
+assignment, `f().a + f().b` direct member access on a struct-returning
+call) now compile and run correctly; the original ticket repro (`&f(0)`
+on a scalar-returning function) still correctly errors. Full regression
+(i8085 + i8085-undoc; i8080 deferred to final sanity check
+per standing scope) came back **0 failures on both ports** after the
+fix (36480 tests each, up from 36445/19-failing on the broken
+intermediate build - the 19 failures were exactly `structreturn`,
+`funptrsstructreturn` and `bigreturn-remat`, all member-access-on- or
+assignment-from-struct-returning-calls). New regression test
+`bug-3960.c` added (struct-pointer assignment + struct-returning-call
+assignment in a loop; the member-access form isn't separately covered
+since the fix for it lives in the grammar layer shared by every other
+struct member access in the suite already).
+
 - **#3954 - not applicable to this fork, already correct.** "Mismatch
   in generic selection when array-to-pointer decay expected" -
   closed-fixed upstream. Confirmed directly: the ticket's own repro
@@ -1448,16 +1527,15 @@ and tracing it back led straight to #4004.
   exactly one diagnostic, confirmed directly (not a duplicate). Full
   3-port regression: 0 failures, including `union-volatile` itself.
 
-Not yet investigated: the remaining 7 (27 total, 18 fixed and
+Not yet investigated: the remaining 6 (27 total, 19 fixed and
 committed so far: #4090, #4083, #4088, #3917, #3916, #4089, #4087,
 #4086, #4085, #4084, #4072, #4094, #4093, #4004, #3952, #4003, #4005,
-#4006 - #4093 also brought in 3 upstream preconditions outside the
-original 27, #4100/#4101/#4102; #4109 is a 4th out-of-list ticket,
+#4006, #3960 - #4093 also brought in 3 upstream preconditions outside
+the original 27, #4100/#4101/#4102; #4109 is a 4th out-of-list ticket,
 fixed separately as the first link in the `_Optional`-TS chain above;
 plus #4071 and #3954 found not applicable, see above). Remaining, all
-independent of the now-fully-resolved `_Optional`-TS chain except
-#3960 (also independent, attempted and reverted - see above): #4002,
-#3963, #3962, #3960, #3958, #3957, #3955.
+independent of the now-fully-resolved `_Optional`-TS chain and of the
+now-also-fixed #3960: #4002, #3963, #3962, #3958, #3957, #3955.
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce
