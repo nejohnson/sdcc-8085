@@ -145,25 +145,47 @@ crash attribution from a parallel log** - compile the case alone.
 
 ## What still cannot link (2026-10-09)
 
-133 tests, after `libc.lib` was added.  None of them is the same bug:
+133 tests, after `libc.lib` was added.  **None of it is a harness or
+packaging defect.  All of it is pic14 port capability**, and none of it
+can be fixed in `support/regression`.
 
-| symbol | tests | what it is |
+| symbol | tests | why |
 |---|---|---|
-| `___setjmp`, `_longjmp` | 56 | genuinely unimplemented;  `device/include/pic14/setjmp.h` says so in a `#warning` |
-| `_printf` | 52 | **in `libc.lib` as a member, absent from its archive symbol index** |
+| `___setjmp`, `_longjmp` | 56 | unimplemented;  `device/include/pic14/setjmp.h` says so in a `#warning` |
+| `_printf` | 52 | **pic14 has no varargs** - see below |
 | `_sprintf` | 13 | same |
-| `_qsort`, `_memalignment`, `_memccpy`, `_get_indexed` | 3/3/2/2 | same |
+| `_qsort` | 3 | **pic14 has no calls through function pointers** |
+| `_memalignment`, `_memccpy`, `_get_indexed` | 3/2/2 | no source in the pic14 library at all |
 
-The second row is a real and separate defect, and it is easy to get
-wrong:  grepping `libc.lib` for `_printf` finds it, because the string
-occurs inside member objects' own symbol tables.  Parsing the archive
-index - the leading member, before `libc_a-__assert.o/` - gives 96
-exported symbols, and `_printf`, `_sprintf` and `_qsort` are not among
-them while `_vprintf`, `___memcpy` and `_memset` are.  `libc_a-printf.o`
-is in the archive;  nothing points at it.
+The printf family is compiled out at source, by a capability guard:
 
-Not investigated further.  Whoever picks it up should start by asking
-why `sdcclib`/`gplib` indexed some members and not others.
+```c
+/* device/lib/pic14/libc/printf.c:35, and sprintf, fprintf, printfl, __assert */
+#if !(defined(__SDCC_pic14) && !defined(__SDCC_PIC14_HAS_VARARGS))
+```
+
+`__SDCC_PIC14_HAS_VARARGS` is **never defined anywhere in the tree** -
+not in `src/`, not in any header - so on pic14 the guard is always
+false.  `qsort.c:33` is the same construction under
+`__SDCC_PIC14_HAS_PCALL`, also never defined.  `gpvo -s` confirms the
+result: `libc_a-printf.o`, `-sprintf.o`, `-fprintf.o`, `-printfl.o`,
+`-__assert.o` and `-qsort.o` all have **`Size of Section 0`**.
+
+**A correction, because the first version of this section sent the
+reader somewhere wrong.**  It said the symbols were "in `libc.lib` as a
+member, absent from its archive symbol index", called that "a real and
+separate defect", and suggested starting with why `gplib` indexed some
+members and not others.  That is not what is happening.  `gplib` is
+correct;  an empty object exports no symbols, so there is nothing to
+index.  The mistake was reasoning from an absence - the symbol is not in
+the index - without checking whether the member it should have come from
+contained anything.  `gpvo -s <member>` answers it in one command, and
+the string search that suggested the symbol was present was matching
+*references* inside other members' symbol tables, not a definition.
+
+So `printf` on pic14 is not a build fix.  It is varargs support in the
+port, and `qsort` is indirect calls - both real features, neither
+small.
 
 ## What it means for moving PIC off gputils
 
