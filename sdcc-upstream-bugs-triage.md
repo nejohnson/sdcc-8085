@@ -1751,6 +1751,61 @@ this fork's build runs them. Full i8085 + i8085-undoc regression
 - expected, since this change only sharpens an existing diagnostic's
 precision and touches no codegen decision.
 
+**Performance: `computeClash`'s O(size²) scan fixed, `bitVectNextSetBit`
+added (2026-10-09).** Follow-up to the ralloc2.cc conflict-graph fix's
+own exploratory pass (which flagged four candidates without touching
+code - see the earlier session's findings). Dug into candidate #3,
+"`bitVect` has no fast iterate-set-bits primitive," with real
+profiling data rather than just reading the code this time.
+
+`gprof` on a heavy, iTemp-rich file (`asconaead128`'s reference AEAD
+implementation) showed `bitVectBitValue` at 12.3 million calls, 7.6%
+of self-time - second only to one unrelated codegen helper. Tracing
+the call graph (not just the flat profile) found ~80% of those calls
+(9.8M) traced to one function: `computeClash` (`SDCClrange.c`,
+inlined into its caller `computeLiveRanges`, which is why the flat
+profile attributed the cost there). `computeClash` is shared frontend
+code - every port runs it, not just i8085.
+
+Root cause: `computeClash` builds each symbol's `clashes`
+(interference) bitvector with a double loop over `1..ic->rlive->size`
+for *every* iCode in *every* function, testing `bitVectBitValue` at
+every position to find the (usually few) alive iTemps - O(size²)
+when only a handful of positions are ever set. Confirmed `sym->clashes`
+isn't dead weight for i8085 either - `i8085/ralloc.c`'s `noOverLap`
+(spill-location-sharing) genuinely reads it - so the computation
+itself can't be skipped, only made efficient.
+
+Fix: a new `bitVectNextSetBit (bvp, from)` (`SDCCbitv.h`/`.c`),
+returning the first set bit at or after `from` or -1, skipping whole
+zero words (`__builtin_ctz` on GCC, a portable bit-shift fallback
+otherwise - this is the one place in `SDCCbitv.c` to use a
+compiler-specific builtin, matching existing precedent for `__GNUC__`
+conditional code in `SDCClex.c`) instead of testing one bit at a
+time - O(allocSize + popcount) amortized over a full iteration,
+instead of O(size). `computeClash`'s double loop now walks
+`bitVectNextSetBit (ic->rlive, key+1)` instead of `key++` plus a
+`bitVectBitValue` guard - visits exactly the same `(key1, key2)`
+pairs in the same order, so it's a pure iteration-order change, not a
+logic change (lower risk than the earlier ralloc2.cc fix, which did
+change the edge-survival logic).
+
+Verified: re-profiling the same file post-fix shows total
+`bitVectBitValue` calls dropped from 12.3M to 4.0M (the remaining 4M
+are other call sites, untouched); the new `bitVectNextSetBit` itself
+costs 147K calls at ~0% self-time. Generated assembly for that file
+is byte-identical (`md5sum` match) before/after. Full i8085 +
+i8085-undoc regression: **0 failures**, byte- and tick-identical to
+the pre-fix baseline (36480 tests each, same `bytes`/`ticks` totals
+in both `.sum` files) - confirms the fix changed nothing observable
+about codegen, anywhere in the suite, not just the one profiled file.
+
+Scope note: this fixes the one call site that profiling identified as
+dominant. The other ~260 `bitVectBitValue` call sites across the
+codebase (mostly in backends this fork doesn't build) were not
+touched - migrating them is a separate, larger project if ever
+wanted, not part of this fix.
+
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce
 here, either because the fork has diverged in the relevant file or because
