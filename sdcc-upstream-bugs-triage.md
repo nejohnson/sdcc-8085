@@ -1042,6 +1042,46 @@ redundant inserts (e.g., check both directions' skip conditions before
 deciding to add once) or restructure the skip itself - real, but needs
 careful, supervised work, not attempted further tonight.
 
+**`ralloc2.cc` conflict-graph fix, retried and LANDED (2026-10-09).**
+Picked back up with Neil directly, after finishing the `_Optional`-TS
+chain. Implemented exactly the "careful, supervised work" the earlier
+attempt was left needing: a small static helper,
+`is_ic_result_operand(ic, operands, v)`, precomputed once per outer
+loop variable `v` instead of being checked only there via `goto`. The
+inner loop now walks only the upper triangle (`v2 = v + 1`) as before,
+but decides whether to add the edge via
+`!v_is_result || !is_ic_result_operand(ic, operands, *v2)` - true
+unless *both* `v` and `v2` are the node's own result operand, which is
+exactly the original two-direction loop's net effect (an edge survived
+unless *both* directions were blocked, not just one). The common case
+(`v_is_result == false`, true for the vast majority of variables)
+short-circuits before ever computing `v2`'s status, so the inner loop
+costs no more than the original per-pair cost in the typical case.
+
+Verified before trusting it: proved the OR-logic equivalence
+algebraically first (both directions' independent success conditions
+combine to the same disjunction the new single-pass code computes);
+then confirmed byte-identical `.rel` output against an isolated,
+reverted-then-restored baseline on the same slow ascon file used
+throughout this investigation (same method as the first attempt); then
+ran the full 3-port regression, with particular attention on
+`coremark_mem_method_MEM_STACK`/`MEM_STATIC` - the exact two cases the
+first, buggy attempt broke. Result: 0 failures on all 3 ports,
+byte-identical total bytes/ticks to the pre-fix baseline, `coremark`
+passing all 4 cases on every port.
+
+The speedup was far larger than the first (buggy) attempt's measured
+~14%: the same slow ascon file dropped from 2m41s to **41.9s** - not
+just faster than the buggy 2m18s, but faster than even the pre-#4072
+baseline of 47.3s. The exact mechanism for why removing the redundant
+half of the insert *attempts* (not just half the real inserts) yields
+a bigger-than-2x win isn't fully characterized, but byte-identical
+codegen and a clean full regression confirm it's a pure performance
+win with no behavior change - the quadratic conflict-graph
+construction's constant factor was worse than a naive 2x estimate
+would suggest, likely from `std::set`-backed duplicate-insert checks
+scaling with current degree on an already-dense graph.
+
 - **#4071 - not applicable to this fork.** "Array conversion of an
   array reached through a generic pointer produces an
   address-space-specific pointer" - closed-fixed upstream, but it's

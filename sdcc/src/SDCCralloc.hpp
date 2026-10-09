@@ -346,6 +346,22 @@ static bool liverange_connected(const cfg_t &cfg, var_t v)
 }
 #endif
 
+// True if v is one of the variables that ic writes as its own result
+// operand (conflicts for those are handled separately, by
+// add_operand_conflicts_in_node()).
+static bool
+is_ic_result_operand(const iCode *ic, const operand_map_t &operands, var_t v)
+{
+  if (ic->op == IFX || ic->op == JUMPTABLE || !IC_RESULT (ic) || !IS_SYMOP (IC_RESULT (ic)))
+    return false;
+
+  operand_map_t::const_iterator oi, oi_end;
+  for (boost::tie (oi, oi_end) = operands.equal_range (OP_SYMBOL_CONST (IC_RESULT (ic))->key); oi != oi_end; ++oi)
+    if (oi->second == v)
+      return true;
+  return false;
+}
+
 // A quick-and-dirty function to get the CFG from sdcc.
 static iCode *
 create_cfg(cfg_t &cfg, con_t &con, ebbIndex *ebbi)
@@ -574,32 +590,32 @@ create_cfg(cfg_t &cfg, con_t &con, ebbIndex *ebbi)
       for (v = cfg[i].alive.begin(), v_end = cfg[i].alive.end(); v != v_end; ++v)
         {
           cfg_alive_t::const_iterator v2, v2_end;
-          
+
           // Conflict between operands are handled by add_operand_conflicts_in_node().
           if (cfg[i].dying.find (*v) != cfg[i].dying.end())
             continue;
-          if (ic->op != IFX && ic->op != JUMPTABLE && IC_RESULT(ic) && IS_SYMOP(IC_RESULT(ic)))
+
+          const bool v_is_result = is_ic_result_operand (ic, cfg[i].operands, *v);
+
+          // con is undirected and alive holds no duplicates, so pairing v
+          // only with the variables after it (instead of all of
+          // cfg[i].alive) still adds every conflict edge exactly once
+          // instead of twice - but is_ic_result_operand's skip is
+          // asymmetric (only ever checked for the outer variable in the
+          // original two-direction loop), so a pair is skipped here only
+          // when BOTH v and v2 are the node's own result operand, same
+          // as the original: each direction independently added the
+          // edge unless its own outer variable was the result operand,
+          // so the edge survived unless neither direction's checks
+          // passed.
+          for (v2 = v + 1, v2_end = cfg[i].alive.end(); v2 != v2_end; ++v2)
             {
-              operand_map_t::const_iterator oi, oi_end; 
-              for(boost::tie(oi, oi_end) = cfg[i].operands.equal_range(OP_SYMBOL_CONST(IC_RESULT(ic))->key); oi != oi_end; ++oi)
-                if(oi->second == *v)
-                  goto next_var;
-            }
-          
-          // Here, v is a variable that survives cfg[i].
-          // TODO: Check if we can use v, ++v2 instead of cfg[i].alive.begin() to speed things up.
-          for (v2 = cfg[i].alive.begin(), v2_end = cfg[i].alive.end(); v2 != v2_end; ++v2)
-            {
-              if(*v == *v2)
-                continue;
               if (cfg[i].dying.find (*v2) != cfg[i].dying.end())
                 continue;
 
-              boost::add_edge(*v, *v2, con);
+              if (!v_is_result || !is_ic_result_operand (ic, cfg[i].operands, *v2))
+                boost::add_edge (*v, *v2, con);
             }
-          
-          next_var:
-            ;
         }
     }
 
