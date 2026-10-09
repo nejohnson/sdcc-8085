@@ -6,7 +6,7 @@
 
 #include <string.h>
 
-const unsigned char star_star_filename[] = { '*', '.', '*', 0xff };
+const char star_star_filename[] = { '*', '.', '*', 0xff };
 
 void
 dos_catalog(const char *filename)

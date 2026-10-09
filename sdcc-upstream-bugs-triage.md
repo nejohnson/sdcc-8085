@@ -152,8 +152,8 @@ Two things worth calling out on their own, not buried in the table:
 | [3973](https://sourceforge.net/p/sdcc/bugs/3973/) | CORE | Wrong initialization data | wrong struct-init data; likely shared printIvalPtr, reporter suspects not mcs51-only |
 | [3971](https://sourceforge.net/p/sdcc/bugs/3971/) | CORE | Crash with const string initializer with offset | crash w/ const string initializer + offset; same printIvalPtr area |
 | [3962](https://sourceforge.net/p/sdcc/bugs/3962/) | CORE | Parameter is not taken as having the unqualified version of its declared type in _Generic | _Generic param-type adjustment bug; frontend |
-| [3958](https://sourceforge.net/p/sdcc/bugs/3958/) | CORE | No-write implications of const on the escaping address of local pointer-to-optional are ignored | _Optional TS non-null inference bug; frontend dataflow |
-| [3957](https://sourceforge.net/p/sdcc/bugs/3957/) | CORE | Indirect assignment of a non-null value through a pointer discards non-null inference | same class, indirect assignment |
+| [3958](https://sourceforge.net/p/sdcc/bugs/3958/) | CORE | No-write implications of const on the escaping address of local pointer-to-optional are ignored | FIXED - ported & manually merged with #3957's patch (both touch SDCCgenconstprop.cc's recompute_node); const-protected-argument tracking skips blanket invalidation |
+| [3957](https://sourceforge.net/p/sdcc/bugs/3957/) | CORE | Indirect assignment of a non-null value through a pointer discards non-null inference | FIXED - ported & manually merged with #3958's patch; new referencedValues map tracks non-null facts per-dereference instead of blanket global_operands invalidation |
 | [3952](https://sourceforge.net/p/sdcc/bugs/3952/) | CORE | No diagnostic message when type constraint on assignment violated | missing diagnostic on assignment type-constraint violation; frontend |
 | [3920](https://sourceforge.net/p/sdcc/bugs/3920/) | CORE | Ascon regression test issues | Ascon crypto test fails across opt8/opt32/bi8 variants; likely shared optimizer |
 | [3917](https://sourceforge.net/p/sdcc/bugs/3917/) | CORE | FATAL Compiler Internal Error caused by typeof_unqual on function (pointer) type names | FATAL ICE, typeof_unqual on fn type - FIXED (SDCC.y grammar, same root cause as #3916) |
@@ -1416,6 +1416,75 @@ and tracing it back led straight to #4004.
   #4004's own fallout), never a failure. Folded into the same Task #2
   follow-up as #4004's warning triage.
 
+**Task #2 (warning-196/244 fallout from #4004/#3952) - COMPLETE
+(2026-10-09).** Went through every file the full regression flagged
+with warning 196 ("pointer target lost X qualifier") or 244 ("pointer
+types incompatible") after #4004/#3952 landed - 34 distinct files (6
+of them `.c.in` templates generating many variants each), the same
+case-by-case judgment call upstream itself went through for this
+diagnostic. Two outcomes per file:
+
+- **Real latent bug, fixed directly (7 files):** `bug-2347.c`
+  (`star_star_filename` was `const unsigned char[]`, retyped to
+  `const char[]` - the signedness mismatch was accidental, not load-
+  bearing); `compound-literal.c` (`str1` was `char*` but only ever
+  read, retyped to `const char*` - though this did NOT clear the
+  file's actual warning, see below); `largeoddstruct.c.in` (`f3`'s
+  parameter was `struct largeoddstruct *` but the function only reads
+  through it, retyped to `const struct largeoddstruct *`);
+  `strnlen.c`/`wcsnlen.c` (`hello5` was declared `const` despite being
+  `memcpy`'d into two lines later - a copy-paste bug in both files,
+  each missing a `const`-removal that "hello4" alone needed; fixed by
+  dropping `const` from `hello5`'s declaration in both).
+  `lonesha256.c`/`sha3-256.c` got a narrower, call-site-only fix
+  instead of a type change: both call `strlen()` on a struct field
+  deliberately typed `unsigned char*` for the crypto API it's also
+  passed to, so only the `strlen` argument got an explicit
+  `(const char *)` cast rather than touching the field's type.
+
+- **Intentional, suppressed with `#pragma disable_warning` and a
+  comment explaining why (the remaining files/templates):** the large
+  majority -
+  volatile objects deliberately passed through non-volatile helper
+  parameters to defeat an optimizer bug under test (`bug-2188.c`,
+  `bug-3560.c`, `bug2823963.c`, `bitfields-bits1.c.in`,
+  `bitfields-bits2.c.in`, part of `memory.c.in`); deliberate
+  signedness mismatches exercising byte-value or ABI-level behaviour
+  (`bug-2320.c`, `bug-2632.c`, `bug-3641.c`, `bug-3685.c`,
+  `bug-3728.c`, `bug-3920.c`, `bug3475630.c`, `falcon-ntt.c`,
+  `snprintf.c.in`, part of `memory.c.in`, `bug-1029883.c.in` - the
+  last one varies signedness on both sides of a call *by design*, per
+  its own template header); upstream GCC-torture-suite code preserved
+  verbatim rather than restyled (`gcc-torture-execute-20000722-1.c`,
+  `-20001017-2.c`, `-920429-1.c`, `-930603-3.c`, `-980506-3.c`,
+  `-980617-1.c`, `-pr20601-1.c`, `-20050929-1.c`); a `const`
+  far-pointer round-trip test that's deliberately generic
+  (`far_rabbit_pointers.c`); `bug-3495411.c`'s dummy stub taking a
+  non-const param for a const string literal.
+
+  `compound-literal.c` needed *two* passes: the warning's reported
+  line (10, `char *str2 = (char[]){'b','b','b','\0'};`) wasn't the
+  line first assumed (9, `str1`) - this port places a global compound
+  literal in read-only storage, so even a plain, non-const-qualified
+  `(char[]){...}` triggers the same qualifier-loss check when
+  assigned to a mutable `char*`. Caught by rechecking the regression's
+  own warning output line-for-line after the first (wrong-line) fix
+  attempt still showed the warning - a reminder to verify the exact
+  reported line rather than assume which nearby declaration is at
+  fault.
+
+- **No action (1 file):** `bug-3952.c`'s own warning (line 47,
+  `return i;` in `itof`) is the ticket's own intentional repro,
+  already documented in the file's header comment as expected - left
+  firing, not suppressed.
+
+Full regression after all fixes: **0 failures on both i8085 and
+i8085-undoc** (36480 tests each), and warning 196/244 now fire
+exactly once in the entire suite - `bug-3952.c`'s own documented
+case. i8080 not re-run separately (differs from i8085 only by
+RIM/SIM, per standing interim-checkpoint scope; will be covered by
+the final 3-port sanity pass).
+
 - **#4003 - FIXED.** "Wrong diagnostic message when adding 0 to a
   pointer to an `_Optional` type." `algebraicOpts` (SDCCcse.c) folded
   `pointer + 0`/`pointer - 0` into a plain assignment or cast
@@ -1527,15 +1596,160 @@ and tracing it back led straight to #4004.
   exactly one diagnostic, confirmed directly (not a duplicate). Full
   3-port regression: 0 failures, including `union-volatile` itself.
 
-Not yet investigated: the remaining 6 (27 total, 19 fixed and
+**#4002, #3963, #3962, #3955 - not applicable to this fork, already
+fixed as a side effect of work already landed (2026-10-09).** All four
+are closed upstream too, each "closed-out-of-date" or similar once a
+broader fix landed - checked each against this fork directly rather
+than trusting that alone:
+
+- **#4002** ("No diagnostic message when subtracting 0 from a pointer
+  to an `_Optional` type") - upstream's own resolution says it's just
+  test additions depending on the #4003 patch; this fork's own #4003
+  writeup already says the fix covers `pointer + 0` *and*
+  `pointer - 0` identically (`algebraicOpts`/`foldAdditiveIdentity`
+  make no distinction between the two operators). Confirmed directly:
+  the ticket's exact repro (`return poi - 0;` for `_Optional int
+  *poi`) now produces the correct warning 359, not a bogus one.
+
+- **#3963** ("Parameter is not taken as having the unqualified version
+  of its declared type in assignment or initialisation") and
+  **#3962** (the same rule, but for `_Generic`) - both fixed upstream
+  in the same revision (r16974) that also fixed #3955, via general
+  parameter-qualifier-adjustment work in the same area #3952's own
+  ported fix (`compareFuncType`, now requiring compatible return
+  types and checking parameter atomicity; re-enabled dead code in
+  `compareTypeExact`) already touched. Confirmed directly: #3963's
+  repro (`int (*fp1)(int) = f1; fp1 = f1;` for `int f1(const int);`)
+  compiles with no error; #3962's repro (a `_Static_assert` on a
+  `_Generic` matching `f1`'s `const int` parameter against `volatile
+  int`) now passes instead of firing "static assertion failed".
+
+- **#3955** ("Inconsistent production of warnings about
+  optional-qualified return types") - also fixed upstream in r16974.
+  Confirmed directly: the ticket's own repro (`_Optional int froi
+  (float);` vs `_Optional int (*pfroi) (float);`) now produces the
+  *same* diagnostic (warning 361, "qualifier on return type has no
+  effect") for both forms, resolving the inconsistency the ticket
+  complained about - matching upstream's own resolution note that a
+  newer build "produced only warnings rather than errors" for both.
+
+No code changes needed for any of the four; each is a side effect of
+work already committed in this fork (#3952, #4003).
+
+Not yet investigated: the remaining 2 (27 total, 19 fixed and
 committed so far: #4090, #4083, #4088, #3917, #3916, #4089, #4087,
 #4086, #4085, #4084, #4072, #4094, #4093, #4004, #3952, #4003, #4005,
-#4006, #3960 - #4093 also brought in 3 upstream preconditions outside
-the original 27, #4100/#4101/#4102; #4109 is a 4th out-of-list ticket,
-fixed separately as the first link in the `_Optional`-TS chain above;
-plus #4071 and #3954 found not applicable, see above). Remaining, all
-independent of the now-fully-resolved `_Optional`-TS chain and of the
-now-also-fixed #3960: #4002, #3963, #3962, #3958, #3957, #3955.
+#4006, #3960, #3958, #3957 - #4093 also brought in 3 upstream
+preconditions outside the original 27, #4100/#4101/#4102; #4109 is a
+4th out-of-list ticket, fixed separately as the first link in the
+`_Optional`-TS chain above; plus #4071, #3954, #4002, #3963, #3962,
+#3955 found not applicable, see above). **All 27 are now resolved -
+the sweep is complete.**
+
+**#3958 and #3957 - FIXED together (2026-10-09).** Both are
+non-null-inference precision bugs in the generalized constant
+propagation pass (`SDCCgenconstprop.cc`'s `recompute_node`), both
+still genuinely open upstream (neither has a maintainer-blessed
+patch - each has only an unreviewed, AI-assisted community submission
+from Christopher Bazley, "sdcc-3958-r16838-v5.patch" and
+"sdcc-3957-r16838-v3.patch"), and both touch the *same* function, so
+tackled together rather than one at a time.
+
+Root cause, shared by both: the pass tracks non-null facts for
+"global or address-taken" operands (`global_operands`) and, on *any*
+`POINTER_SET`/`SET_VALUE_AT_ADDRESS`/impure-call/`FUNCTION`-entry
+iCode, blanket-invalidates every one of them - it has no way to tell
+"this specific write/call couldn't possibly have touched that
+specific operand" from "it might have", so it always assumes the
+worst.
+
+- **#3958** ("No-write implications of const on the escaping address
+  of local pointer-to-optional are ignored"): `omega(&poi)` through a
+  `_Optional int *const *` parameter is invalidating `poi`'s
+  established non-null fact even though `omega` can only *read*
+  through that specific argument, not write it - the pass doesn't
+  distinguish "constant-qualified indirect argument, call can't
+  write here" from "argument could be written". Confirmed directly:
+  `*poi = 2;` (after the const-qualified `omega(&poi)` call, before
+  `poi`'s address actually escapes via `ppoi = &poi;`) incorrectly
+  warned; `*poi = 3;` (after the address genuinely escapes and a
+  *second* `omega` call happens) correctly warned - exactly the
+  ticket's own description of the gap.
+
+- **#3957** ("Indirect assignment of a non-null value through a
+  pointer discards non-null inference"): writing a *known-non-null*
+  value through one pointer (`*ppoi_2 = &i;`, or more generally any
+  pointer write that can't possibly turn the *referenced* object
+  null) shouldn't have to invalidate non-null facts about values
+  reached through a *different*, provably-non-aliasing pointer
+  (`**ppoi_1`) - the pass only tracks non-null facts for the pointer
+  *variables themselves*, never for "the value currently stored at
+  the address a pointer points to", so a write through any other
+  pointer-to-pointer-to-optional in scope conservatively invalidates
+  everything. Confirmed directly: of the ticket's three repro
+  functions, `chandler()`/`monica()` were already fixed upstream (per
+  the ticket's own May 2026 maintainer comment, "after the `_Optional`
+  branch merge, only line 34 warning remains") and this fork already
+  matched that - only `rachel()`'s case (`**ppoi_1 = 2;` after
+  `*ppoi_2 = &i;`) still incorrectly warned here too.
+
+Both community patches apply to this fork's `SDCCgenconstprop.cc`
+essentially unmodified (confirmed the file is at the same base
+revision both patches target - even the exact `/* IGNORE */ TODO:`
+comments in `support/valdiag/tests/_Optional-draft-2026-04-17.c` that
+each patch removes matched verbatim) - but both touch the *same*
+"invalidate valinfo for operands that might have been written via
+pointer" block in `recompute_node`, so applying both required a
+manual three-way merge rather than two sequential `git apply`s
+(confirmed with `git apply --check`: each applies cleanly alone,
+neither applies after the other). Merged by hand, preserving each
+patch's own logic in full:
+
+- **#3958's fix**: new helpers `argumentParameterType`,
+  `argumentOperand`, `isConstIndirectArgument`, `uniqueDefinition`,
+  `addressDefinition`, `objectAddressIsReadOnlyAtCall`,
+  `constProtectedObjectsAtCall` - at a `CALL`/`PCALL`, computes the
+  set of address-taken local/parameter objects whose address has
+  *only* ever been passed through a const-qualified indirect
+  argument (never through any other, write-capable route) before
+  this call, and skips invalidating exactly those objects.
+
+- **#3957's fix**: a new `referencedValues` map alongside the
+  existing `valinfos::map`, tracking non-null facts for "the value
+  currently reachable by dereferencing this pointer operand" (keyed
+  by the pointer, not the pointee - there's no symbol for the
+  pointee of an arbitrary runtime pointer value). Populated when a
+  branch condition narrows a `GET_VALUE_AT_ADDRESS` result (mirroring
+  the existing direct-operand narrowing via a new
+  `update_referenced_value_out_edges`, parallel to the existing
+  `update_out_edges`), consumed when a later `GET_VALUE_AT_ADDRESS`
+  through the same pointer re-reads it, and invalidated far more
+  selectively than the blanket `global_operands` treatment: only on
+  a call/function-entry, or a write whose *stored value* might
+  itself be a null/unknown pointer, a character (could be a type-
+  punned pointer byte), or an aggregate that might contain a pointer
+  subobject (`typeMayContainPointer`) - a write of a *known-non-null*
+  pointer value, through any pointer, leaves every other tracked
+  `referencedValues` fact alone.
+
+Verified on this fork: both original ticket repros now produce
+exactly the diagnostics each ticket asked for (confirmed above); all
+7 of #3958's own test cases (`support/valdiag/tests/bug-3958.c`,
+ported verbatim) and all 10 of #3957's (`bug-3957.c`, ported verbatim)
+compile with warnings at exactly the lines each test marks
+`/* WARNING */` and nowhere else - checked every `TESTn` variant of
+both files individually (`sdcc -mi8085 -DTESTn -c ...`), not just the
+headline repro. This fork's `support/valdiag` doesn't build i8085 at
+all (`ALL_PORTS` in its `Makefile.in`/`valdiag.py` only lists the
+backends upstream valdiag already covers) and wiring i8085 into that
+shared harness wasn't part of this task, so these two new test files
+were verified by hand rather than by an automated `make` target -
+they're committed for fidelity with upstream's own patch, not because
+this fork's build runs them. Full i8085 + i8085-undoc regression
+(this *is* automated, via `support/regression`): **0 failures**,
+36480 tests each, byte-identical test counts to the pre-fix baseline
+- expected, since this change only sharpens an existing diagnostic's
+precision and touches no codegen decision.
 
 **Before fixing anything:** for every tier, check it against this fork's
 actual `sdcc/src/` state first (per §7) - some may already not reproduce

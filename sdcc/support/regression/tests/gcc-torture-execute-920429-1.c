@@ -4,6 +4,7 @@
 
 #include <testfwk.h>
 #pragma disable_warning 196
+#pragma disable_warning 244 /* p0="ab" - const char* string literal vs const t* (unsigned char*) - upstream torture test code, preserved as-is */
 
 #ifdef __SDCC
 #pragma std_c99

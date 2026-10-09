@@ -4,6 +4,8 @@
 
 #include <testfwk.h>
 
+#pragma disable_warning 196 /* p is only used for a pointer-identity comparison below; dropping volatile into void* is harmless here */
+
 typedef struct xLIST_ITEM
 {
 	unsigned short xItemValue;

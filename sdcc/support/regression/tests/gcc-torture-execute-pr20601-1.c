@@ -7,6 +7,7 @@
 #ifdef __SDCC
 #pragma std_c11
 #pragma disable_warning 85
+#pragma disable_warning 244 /* const char** <-> char** interchange (e/f/h/i/t.t3) throughout - upstream torture test code for PR tree-optimization/20601, preserved as-is */
 #endif
 
 /* PR tree-optimization/20601 */

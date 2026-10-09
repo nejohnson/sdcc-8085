@@ -6,6 +6,7 @@
 
 #ifdef __SDCC
 #pragma std_c99
+#pragma disable_warning 244 /* &i (int*) passed to foo's unsigned int* param - upstream torture test code, preserved as-is */
 #endif
 
 void foo (unsigned int * p)

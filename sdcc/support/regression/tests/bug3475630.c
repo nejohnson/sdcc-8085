@@ -60,6 +60,7 @@ typedef struct {
 
 
 #pragma disable_warning 85 // Unreferenced function arguments in fd_read_sector(), my_strncpy().
+#pragma disable_warning 244 // my_strncpy's char* params vs the on-disk structs' unsigned char fname[] fields - incidental signedness mismatch, not a bug in this filesystem-parsing test
 extern char fd_read_sector ( unsigned int block, void* dma )
 {
     unsigned char i;

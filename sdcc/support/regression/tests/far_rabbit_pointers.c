@@ -2,6 +2,8 @@
 
 #include <testfwk.h>
 
+#pragma disable_warning 196 /* to_far/from_far deliberately use plain void* so both const and non-const objects (&ci, carray) exercise the same far-pointer round-trip - the qualifier drop is the point of this test, not a bug */
+
 #include <stdbool.h>
 
 #if !defined(__SDCC_r2k) && !defined(__SDCC_r2ka) && !defined(__SDCC_r3ka) && !defined(__SDCC_r4k) && !defined(__SDCC_r5k) && !defined(__SDCC_r6k) && !defined(__SDCC_tlcs90) /*&& !defined(__SDCC_ez80) TODO bug #3882*/

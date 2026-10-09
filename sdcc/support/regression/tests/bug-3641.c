@@ -4,6 +4,8 @@
 
 #include <testfwk.h>
 
+#pragma disable_warning 244 /* &c (char*) passed to loopm2's unsigned char* param - incidental signedness mismatch, unrelated to the _BitInt assignment bug under test */
+
 #include <stdint.h>
 
 #if __SDCC_BITINT_MAXWIDTH >= 32 // TODO: When we can regression-test in --std-c23 mode, use the standard macro from limits.h instead!

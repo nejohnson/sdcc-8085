@@ -9,6 +9,8 @@
 
 #include <testfwk.h>
 
+#pragma disable_warning 244 /* buf is int16_t[] while mq_NTT/mq_iNTT take uint16_t* - upstream Falcon reference code's modular-arithmetic convention, preserved as-is */
+
 // Compared to other PQC signature schemes, Falcon has low memory requirements, but still too much for some targets.
 #if defined(__SDCC_pdk13) || defined(__SDCC_pdk14) || defined(__SDCC_pdk15) \
   || defined(__SDCC_mcs51) && !defined(__SDCC_MODEL_LARGE) && !defined(__SDCC_MODEL_HUGE)

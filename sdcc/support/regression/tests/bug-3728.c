@@ -5,6 +5,8 @@
 #include <testfwk.h>
 #include <string.h>
 
+#pragma disable_warning 244 /* s0/s1/s100/s200 are deliberately unsigned char[] to hold byte values > 127 - passing them to str{,n}cmp/memcmp's const char* params is the exact scenario #3728 tests, not a bug */
+
 const unsigned char s0[] = {0, 0};
 const unsigned char s1[] = {1, 0};
 const unsigned char s100[] = {100, 0};
