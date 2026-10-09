@@ -225,7 +225,14 @@ postfix_expression
                         ignoreTypedefType = 0;
                         $4 = newSymbol($4->name,NestLevel);
                         $4->implicit = 1;
-                        $$ = newNode(PTR_OP,newNode('&',$1,NULL),newAst_VALUE(symbolVal($4)));
+                        /* "expr.member" is desugared to "(&expr)->member" here -
+                           this '&' is compiler-synthesized, not user-written, so
+                           it must not be held to the unary & lvalue requirement:
+                           "f().member" is valid even though f()'s result isn't
+                           an lvalue. */
+                        ast *amp = newNode('&',$1,NULL);
+                        amp->implicitAddressOf = true;
+                        $$ = newNode(PTR_OP,amp,newAst_VALUE(symbolVal($4)));
                       }
    | postfix_expression PTR_OP { ignoreTypedefType = 1; } identifier
                       {

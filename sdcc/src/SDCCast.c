@@ -254,6 +254,7 @@ copyAst (ast * src)
   dest->reversed = src->reversed;
   dest->inlined = src->inlined;
   dest->initMode = src->initMode;
+  dest->implicitAddressOf = src->implicitAddressOf;
 
   if (src->ftype)
     dest->etype = getSpec (dest->ftype = copyLinkChain (src->ftype));
@@ -1029,6 +1030,23 @@ checkPtrTargetQualifiers (sym_link *target, sym_link *source)
         werror (W_TARGET_LOST_QUALIFIER, "restrict");
     }
   return true;
+}
+
+/* Check referenced-type qualifiers after array type conversion. */
+static void
+checkPtrTargetQualifiersAfterDecay (sym_link *target, sym_link *source)
+{
+  value *converted;
+
+  source = argumentTypeAfterDecay (source, &converted);
+  if (IS_PTR (target) && (IS_PTR (source) || IS_FUNC (source)))
+    checkPtrTargetQualifiers (target, source);
+
+  if (converted)
+    {
+      Safe_free (converted->type);
+      Safe_free (converted);
+    }
 }
 
 /*-----------------------------------------------------------------*/
@@ -3752,7 +3770,18 @@ rewriteStructAssignment (ast *tree)
   copyAstLoc (dest, tree->left);
 
   /* prepare remaining arguments */
+  /* Taking the address of the source for the memcpy call below is an
+     internal implementation detail of struct assignment, not a
+     user-facing "&expr" - this matters when the source is itself a
+     non-lvalue (e.g. a function returning the struct by value), which
+     would otherwise fail the same lvalue-required check a user's own
+     &call() does. Mark the '&' node itself (rather than its operand,
+     and rather than just clearing rvalue here) so the exemption
+     survives copyAst - processParms's implicit-cast insertion clones
+     this subtree and re-decorates the clone from scratch, which would
+     silently lose a transient fix. */
   ast *src = newNode ('&', tree->right, NULL);
+  src->implicitAddressOf = true;
   copyAstLoc (src, tree->right);
   ast *size = newNode (SIZEOF, NULL, tree->left);
   copyAstLoc (size, tree->left);
@@ -4302,7 +4331,7 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
           werror (E_SFR_POINTER);
         }
 
-      if (LRVAL (tree))
+      if (LRVAL (tree) && !tree->implicitAddressOf)
         {
           werrorfl (tree->filename, tree->lineno, E_LVALUE_REQUIRED, "address of");
           goto errorTreeReturn;
@@ -6250,8 +6279,12 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
       else if (IS_ARRAY (RTYPE (tree)) && IS_REGISTER (RTYPE (tree)->next))
         werrorfl (tree->filename, tree->lineno, E_ILLEGAL_ADDR, "address of register variable");
 
-      diagnoseDissimilarPtrTargetTypes (LTYPE (tree), RTYPE (tree), tree->filename,
-                                      tree->lineno ? tree->lineno : tree->right->lineno);
+      /* Report each atomic or nested qualifier mismatch once. */
+      if (!diagnoseDissimilarPtrTargetTypes (LTYPE (tree), RTYPE (tree),
+                                            tree->filename,
+                                            tree->lineno ? tree->lineno :
+                                              tree->right->lineno))
+        checkPtrTargetQualifiersAfterDecay (LTYPE (tree), tree->right->ftype);
 
       /* if the left side of the tree is of type void
          then report error */
@@ -6262,25 +6295,28 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
         }
 
       TETYPE (tree) = getSpec (TTYPE (tree) = LTYPE (tree));
-      if (IS_STRUCT (LTYPE (tree)))
-        tree = rewriteStructAssignment (tree);
-      else
-        {
-          TRVAL(tree) = RRVAL (tree) = 1;
-          LLVAL (tree) = 1;
-        }
-      if (!tree->initMode)
-        {
-          if (IS_CONSTANT (LTYPE (tree)))
-            werrorfl (tree->filename, tree->lineno, E_CODE_WRITE, "=");
-        }
-      if (tree->initMode && SPEC_STAT (getSpec (LTYPE (tree))) && !constExprTree (tree->right))
-        werrorfl (tree->filename, tree->lineno, E_CONST_EXPECTED, "=");
-      if (TRVAL(tree) = LRVAL (tree))
-        {
-          werrorfl (tree->filename, tree->lineno, E_LVALUE_REQUIRED, "=");
-          goto errorTreeReturn;
-        }
+      {
+        bool isStructAssign = IS_STRUCT (LTYPE (tree));
+        if (isStructAssign)
+          tree = rewriteStructAssignment (tree);
+        else
+          {
+            TRVAL(tree) = RRVAL (tree) = 1;
+            LLVAL (tree) = 1;
+          }
+        if (!tree->initMode)
+          {
+            if (IS_CONSTANT (LTYPE (tree)))
+              werrorfl (tree->filename, tree->lineno, E_CODE_WRITE, "=");
+          }
+        if (tree->initMode && SPEC_STAT (getSpec (LTYPE (tree))) && !constExprTree (tree->right))
+          werrorfl (tree->filename, tree->lineno, E_CONST_EXPECTED, "=");
+        if (!isStructAssign && (TRVAL(tree) = LRVAL (tree)))
+          {
+            werrorfl (tree->filename, tree->lineno, E_LVALUE_REQUIRED, "=");
+            goto errorTreeReturn;
+          }
+      }
 
       if (IS_PTR (LTYPE (tree)) && !isConst (LTYPE (tree)->next) && IS_AST_SYM_VALUE (tree->right) && AST_SYMBOL (tree->right)->isstrlit)
         werrorfl (tree->filename, tree->lineno, W_NONCONST_STRINGLIT);
@@ -6348,6 +6384,8 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
           TETYPE (tree) = getSpec (TTYPE (tree));
           SPEC_SCLS (TETYPE (tree)) = S_FIXED;
         }
+      /* a function call's result is not an lvalue (C23 6.5.4.2p1 constraint on unary &) */
+      TRVAL (tree) = 1;
       return tree;
 
       /*------------------------------------------------------------------*/
@@ -6370,10 +6408,14 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
 
           typecompat = compareType (currFunc->type->next, RTYPE (tree), false);
 
-          diagnoseDissimilarPtrTargetTypes (currFunc->type->next, RTYPE (tree),
-                                          tree->filename, tree->lineno);
-
           propagateConstExpr (&tree->right, resultType, reduceTypeAllowed);
+
+          /* Report each atomic or nested qualifier mismatch once. */
+          if (!diagnoseDissimilarPtrTargetTypes (currFunc->type->next,
+                                                RTYPE (tree), tree->filename,
+                                                tree->lineno))
+            checkPtrTargetQualifiersAfterDecay (currFunc->type->next,
+                                              tree->right->ftype);
 
           /* if there is going to be a casting required then add it */
           if (typecompat == -1)

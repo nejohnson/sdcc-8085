@@ -51,6 +51,7 @@ typedef struct ast
   unsigned initMode:1;
   unsigned reversed:1;
   unsigned inlined:1;
+  unsigned implicitAddressOf:1; /* set on a '&' node synthesized internally by the compiler (struct member access desugaring, struct-copy construction), not written by the user; exempts it from the unary & lvalue check. Must survive copyAst, unlike rvalue. */
   long level;                   /* level for expr */
   int block;                    /* block number   */
   int seqPoint;                 /* sequence point */
