@@ -803,6 +803,8 @@ struct
      "[] applied to a pointer to an incomplete type", 0},
   { E_TOO_MANY_REGS_FOR_OPERAND, ERROR_LEVEL_ERROR,
      "operand '%s' needs %d registers, this target holds at most %d", 0},
+  { E_RETURN_VALUE_TOO_WIDE, ERROR_LEVEL_ERROR,
+     "function '%s' returns %d bytes, this target can return at most %d", 0},
 };
 
 /* -------------------------------------------------------------------------------

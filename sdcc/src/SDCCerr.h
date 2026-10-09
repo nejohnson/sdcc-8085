@@ -397,6 +397,7 @@ enum {
   E_ALIGNOF_INCOMPLETE_TYPE     = 367, // _Alignof applied to an incomplete type
   E_SUBSCRIPT_INCOMPLETE_TYPE   = 368, // [] applied to a pointer to an incomplete type
   E_TOO_MANY_REGS_FOR_OPERAND   = 369, // an operand needs more registers than the back end can hold
+  E_RETURN_VALUE_TOO_WIDE       = 370, // a function's return value is wider than the back end's return mechanism can carry
 
   // If you get a merge conflict here, some #pragma disable_warning in support/valdiag and support/regression will likely need to be adapted to the resolution. Check there!
 

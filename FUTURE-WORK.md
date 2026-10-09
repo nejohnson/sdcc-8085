@@ -79,9 +79,9 @@ function's return type:
     int rsize = getSize (ftype->next);
     assert (rsize > 0 && rsize <= 4);        /* src/pic14/gen.c:1944 */
 
-8 of the baseline's 69 internal compiler errors are this assert, and
+8 of the baseline's 69 internal compiler errors were this assert, and
 they are **not** `long long` cases, which is what an earlier draft of
-this document claimed.  They are struct and `long` returns:
+this document claimed.  They were struct and `long` returns:
 
     dynamiccstructret_rtype_signed_long.c
     dynamiccstructret_rtype_unsigned_long.c
@@ -92,15 +92,41 @@ this document claimed.  They are struct and `long` returns:
     gcc-torture-execute-980223.c
     gcc-torture-execute-990525-2.c
 
-The count is unchanged by the asmop fix - 69 before, 69 after - because
-it is a different bug reached by a different path.  It is listed
-separately now so that the next person does not fix `long long` and
-expect these eight to move.
+The count was unchanged by the asmop fix - 69 before, 69 after -
+because it is a different bug reached by a different path.
 
-**Why parked.**  Not investigated beyond identifying it.  An assert in
-a release build is a crash with better manners, so it is worth doing,
-but it wants its own measurement first: whether the four-byte limit is
-real in `assignResultValue` or just unexamined.
+**Fixed (2026-10-09): same answer as the asmop overrun, same shape of
+fix.** The four-byte limit is real, not unexamined: the return value
+is carried through `get_return_val_pcop()`'s handful of fixed
+pseudo-stack registers (a device-dependent shared-RAM region, not an
+arbitrary number), and nothing past 4 bytes fits through it today.
+Confirmed directly for both of the above two file classes
+(`dynamiccstructret`'s `struct s2 {char c; long i;}` is 5 bytes,
+`structreturn`'s `struct s {long a; long b;}` is 8), and all eight
+files turned out to share this one cause - checked each individually,
+not assumed from two examples.
+
+`assignResultValue`'s `assert(rsize > 0 && rsize <= 4)`
+(`src/pic14/gen.c:1944`) is now `werror (E_RETURN_VALUE_TOO_WIDE, ...)`
+(error 370) with `rsize` clamped into range afterward, same reasoning
+as the asmop fix: the port cannot return such a value whatever happens
+here, so the only question is whether it says so or crashes.
+
+Measured over support/regression for pic14, full corpus (not the
+8-file subset): internal compiler errors 69 -> **61**, exactly the
+eight; SIGABRT 0 -> 0, SIGSEGV 4 -> 4, `validateOpType` failures 48 ->
+48, all unchanged - the fix touches nothing but this one path. Error
+370 fires exactly 10 times (two files return through two call sites
+each). Overall failure/test-case counts moved far more than 8 in this
+same run (test cases 4967 -> 6019, failures 2117 -> 1039), but that is
+the corpus drift this project's own handoff doc already named - new
+shared regression tests landing from unrelated work, not this fix -
+and is not claimed as this fix's effect.
+
+**What is still open:** this makes the crash go away; it does not make
+returning a wide struct or `long long` by value work on pic14. That
+remains the question above - whether to widen the return path at all,
+parked for the same reason.
 
 ---
 

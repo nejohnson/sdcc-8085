@@ -1941,7 +1941,21 @@ assignResultValue (iCode *ic)
       sym_link *ftype = operandType (IC_LEFT (ic));
       /* the size of the return value */
       int rsize = getSize (ftype->next);
-      assert(rsize > 0 && rsize <= 4);
+      /* The return value is carried through a handful of fixed pseudo-
+         stack registers (see get_return_val_pcop()); this port cannot
+         return more than 4 bytes through that mechanism - a struct or
+         long long return wider than that used to hit this as a hard
+         assert, a crash with better manners than a wrong answer but
+         still a crash.  Say so instead, and clamp rsize so the loop
+         below still runs on the bytes we *can* return - the diagnostic
+         has already failed the compile, same as pic14AopOp's own
+         too-wide-operand case. */
+      if (rsize < 1 || rsize > 4)
+        {
+          symbol *fsym = IS_SYMOP (IC_LEFT (ic)) ? OP_SYMBOL (IC_LEFT (ic)) : NULL;
+          werror (E_RETURN_VALUE_TOO_WIDE, fsym && fsym->name ? fsym->name : "", rsize, 4);
+          rsize = rsize < 1 ? 1 : 4;
+        }
       if (rsize > size)
         {
           offset += rsize - size;
