@@ -7,6 +7,7 @@
 #include <testfwk.h>
 
 #pragma disable_warning 85
+#pragma disable_warning 196 /* pixels/colours are const uint8_t *const [] decaying to const uint8_t *const * vs vdu_image_put's const uint8_t ** params - an incidental array-qualifier mismatch, unrelated to the iy-register addition bug under test */
 
 #include <stdint.h>
 #include <stdbool.h>

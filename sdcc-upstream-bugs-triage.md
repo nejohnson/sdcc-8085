@@ -1416,6 +1416,75 @@ and tracing it back led straight to #4004.
   #4004's own fallout), never a failure. Folded into the same Task #2
   follow-up as #4004's warning triage.
 
+**Task #2 (warning-196/244 fallout from #4004/#3952) - COMPLETE
+(2026-10-09).** Went through every file the full regression flagged
+with warning 196 ("pointer target lost X qualifier") or 244 ("pointer
+types incompatible") after #4004/#3952 landed - 34 distinct files (6
+of them `.c.in` templates generating many variants each), the same
+case-by-case judgment call upstream itself went through for this
+diagnostic. Two outcomes per file:
+
+- **Real latent bug, fixed directly (7 files):** `bug-2347.c`
+  (`star_star_filename` was `const unsigned char[]`, retyped to
+  `const char[]` - the signedness mismatch was accidental, not load-
+  bearing); `compound-literal.c` (`str1` was `char*` but only ever
+  read, retyped to `const char*` - though this did NOT clear the
+  file's actual warning, see below); `largeoddstruct.c.in` (`f3`'s
+  parameter was `struct largeoddstruct *` but the function only reads
+  through it, retyped to `const struct largeoddstruct *`);
+  `strnlen.c`/`wcsnlen.c` (`hello5` was declared `const` despite being
+  `memcpy`'d into two lines later - a copy-paste bug in both files,
+  each missing a `const`-removal that "hello4" alone needed; fixed by
+  dropping `const` from `hello5`'s declaration in both).
+  `lonesha256.c`/`sha3-256.c` got a narrower, call-site-only fix
+  instead of a type change: both call `strlen()` on a struct field
+  deliberately typed `unsigned char*` for the crypto API it's also
+  passed to, so only the `strlen` argument got an explicit
+  `(const char *)` cast rather than touching the field's type.
+
+- **Intentional, suppressed with `#pragma disable_warning` and a
+  comment explaining why (the remaining files/templates):** the large
+  majority -
+  volatile objects deliberately passed through non-volatile helper
+  parameters to defeat an optimizer bug under test (`bug-2188.c`,
+  `bug-3560.c`, `bug2823963.c`, `bitfields-bits1.c.in`,
+  `bitfields-bits2.c.in`, part of `memory.c.in`); deliberate
+  signedness mismatches exercising byte-value or ABI-level behaviour
+  (`bug-2320.c`, `bug-2632.c`, `bug-3641.c`, `bug-3685.c`,
+  `bug-3728.c`, `bug-3920.c`, `bug3475630.c`, `falcon-ntt.c`,
+  `snprintf.c.in`, part of `memory.c.in`, `bug-1029883.c.in` - the
+  last one varies signedness on both sides of a call *by design*, per
+  its own template header); upstream GCC-torture-suite code preserved
+  verbatim rather than restyled (`gcc-torture-execute-20000722-1.c`,
+  `-20001017-2.c`, `-920429-1.c`, `-930603-3.c`, `-980506-3.c`,
+  `-980617-1.c`, `-pr20601-1.c`, `-20050929-1.c`); a `const`
+  far-pointer round-trip test that's deliberately generic
+  (`far_rabbit_pointers.c`); `bug-3495411.c`'s dummy stub taking a
+  non-const param for a const string literal.
+
+  `compound-literal.c` needed *two* passes: the warning's reported
+  line (10, `char *str2 = (char[]){'b','b','b','\0'};`) wasn't the
+  line first assumed (9, `str1`) - this port places a global compound
+  literal in read-only storage, so even a plain, non-const-qualified
+  `(char[]){...}` triggers the same qualifier-loss check when
+  assigned to a mutable `char*`. Caught by rechecking the regression's
+  own warning output line-for-line after the first (wrong-line) fix
+  attempt still showed the warning - a reminder to verify the exact
+  reported line rather than assume which nearby declaration is at
+  fault.
+
+- **No action (1 file):** `bug-3952.c`'s own warning (line 47,
+  `return i;` in `itof`) is the ticket's own intentional repro,
+  already documented in the file's header comment as expected - left
+  firing, not suppressed.
+
+Full regression after all fixes: **0 failures on both i8085 and
+i8085-undoc** (36480 tests each), and warning 196/244 now fire
+exactly once in the entire suite - `bug-3952.c`'s own documented
+case. i8080 not re-run separately (differs from i8085 only by
+RIM/SIM, per standing interim-checkpoint scope; will be covered by
+the final 3-port sanity pass).
+
 - **#4003 - FIXED.** "Wrong diagnostic message when adding 0 to a
   pointer to an `_Optional` type." `algebraicOpts` (SDCCcse.c) folded
   `pointer + 0`/`pointer - 0` into a plain assignment or cast

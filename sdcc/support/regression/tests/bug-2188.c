@@ -9,6 +9,8 @@
 #include <testfwk.h>
 #include <stdint.h>
 
+#pragma disable_warning 196 /* inline_ptr_fnc intentionally returns a plain int32_t * from volatile globals - this test is about inlining miscompilation, not pointer-qualifier correctness */
+
 volatile int32_t glob_var32_a = 0x12345678;
 volatile int32_t glob_var32_b = 0x0abcdef0;
 

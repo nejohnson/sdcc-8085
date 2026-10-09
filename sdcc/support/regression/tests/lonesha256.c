@@ -199,7 +199,7 @@ testSha (void)
 
     for (i = 0; i < sizeof(pairs)/sizeof(pairs[0]); i++) {
       unsigned char out[32];
-      ASSERT(!lonesha256(out, pairs[i].in, strlen(pairs[i].in)));
+      ASSERT(!lonesha256(out, pairs[i].in, strlen((const char *)pairs[i].in)));
       ASSERT(!memcmp(out, pairs[i].out, sizeof(out)));
     }
 #endif

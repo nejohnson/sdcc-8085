@@ -6,6 +6,7 @@
 
 #pragma disable_warning 85
 #pragma disable_warning 283
+#pragma disable_warning 244 /* buffer is cast from an __xdata-qualified, unsigned char pointer to set up a fixed test address; the signedness/address-space mismatch is incidental to this z80 regalloc test */
 
 void as(char *c1, const char *c2, unsigned int i)
 {

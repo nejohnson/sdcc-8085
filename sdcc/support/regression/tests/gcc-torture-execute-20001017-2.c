@@ -7,6 +7,7 @@
 #ifdef __SDCC
 #pragma std_c99
 #pragma disable_warning 85
+#pragma disable_warning 244 /* &b/&c (unsigned long*) passed to fn_4parms' long* params - upstream torture test code, preserved as-is */
 #endif
 
 void

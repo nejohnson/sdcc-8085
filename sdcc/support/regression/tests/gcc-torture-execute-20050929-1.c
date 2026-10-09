@@ -6,6 +6,7 @@
 
 #ifdef __SDCC
 #pragma std_c99
+#pragma disable_warning 196 /* the nested compound literals initializing struct C e are placed in read-only storage by this port, so taking their address for e.c/e.d's non-const pointer fields drops const - an implementation detail, not a bug in this upstream torture test */
 #endif
 
 /* PR middle-end/24109 */

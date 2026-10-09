@@ -5,8 +5,9 @@
 #include <string.h>
 
 #pragma disable_warning 360
+#pragma disable_warning 196 /* str2's global compound literal is placed in read-only storage by this port, so initializing the plain (mutable) char* str2 from it drops const - an implementation detail, not a bug; C99 permits a non-const-qualified compound literal to be mutable */
 
-char *str1 = "aaa";
+const char *str1 = "aaa";
 char *str2 = (char[]){'b', 'b', 'b', '\0'};
 
 struct s {

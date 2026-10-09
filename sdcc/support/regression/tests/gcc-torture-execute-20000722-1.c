@@ -7,6 +7,7 @@
 #ifdef __SDCC
 #pragma std_c99
 #pragma disable_warning 360
+#pragma disable_warning 196 /* "hi" initializing struct s::p (char*, not const char*) - upstream torture test code, preserved as-is */
 #endif
 
 struct s { char *p; int t; };

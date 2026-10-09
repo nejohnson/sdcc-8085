@@ -5,6 +5,7 @@
 #include <testfwk.h>
 
 #pragma disable_warning 85
+#pragma disable_warning 196 /* next is deliberately volatile to defeat the over-eager loop optimization this test reproduces; passing &next to possible()'s non-volatile parameter is intentional */
 
 #include <stdint.h>
 

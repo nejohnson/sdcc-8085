@@ -6,6 +6,8 @@
  
 #include <testfwk.h>
 
+#pragma disable_warning 244 /* p is char* while ABSORB/ascon_update take unsigned char* - incidental signedness mismatch, unrelated to the postfix-operator/inlining bug under test */
+
 char *p;
 
 extern void ABSORB(unsigned char* s, const unsigned char* d);

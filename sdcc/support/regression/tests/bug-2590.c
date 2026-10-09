@@ -5,6 +5,7 @@
 #include <testfwk.h>
 
 #pragma disable_warning 85
+#pragma disable_warning 196 /* passing the const source pointer to msx_vwrite_direct's void* parameter is the intended usage here, not a qualifier bug */
 
 const unsigned char *letras_tiles01;
 

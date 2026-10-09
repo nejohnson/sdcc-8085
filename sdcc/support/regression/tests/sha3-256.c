@@ -224,7 +224,7 @@ testSha (void)
 
     for (i = 0; i < sizeof(pairs)/sizeof(pairs[0]); i++) {
       unsigned char out[32];
-      sha3_256_digest(pairs[i].in, strlen(pairs[i].in), out);
+      sha3_256_digest(pairs[i].in, strlen((const char *)pairs[i].in), out);
       ASSERT(!memcmp(out, pairs[i].out, sizeof(out)));
     }
 #endif

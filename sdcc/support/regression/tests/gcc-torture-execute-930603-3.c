@@ -6,6 +6,7 @@
 
 #ifdef __SDCC
 #pragma std_c99
+#pragma disable_warning 244 /* buf (char[]) passed to f's unsigned char* param - upstream torture test code, preserved as-is */
 #endif
 
 int f (unsigned char *b, int c)
