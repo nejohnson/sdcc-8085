@@ -4775,6 +4775,15 @@ static void FixRegisterBanking(pBlock *pb)
 		    // reg->alias == 0: reg is in only one bank, we do not know which (may be any bank)
 		    // reg->alias != 0: reg is in 2/4/8/2**N banks, we select one of them
 		    new_mask = reg->alias;
+		} else if (pci->pcop && pci->pcop->type == PO_LITERAL) {
+		    // A literal operand (e.g. "name" is just its printed value,
+		    // like "0x00") has no register and no bank to select -
+		    // insertBankSel() would cast it to pCodeOpReg and read past
+		    // the actual (differently-shaped) allocation, eventually
+		    // dereferencing whatever garbage came out the other end.
+		    // getRegFromInstruction() already special-cases PO_LITERAL
+		    // the same way, returning no register for it.
+		    continue;
 		} else if (pci->pcop && pci->pcop->name) {
 		    new_bank = pci->pcop->name;
 		    new_mask = 0; // unknown, assume worst case

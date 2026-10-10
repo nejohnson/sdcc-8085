@@ -208,6 +208,55 @@ once the crashing optimization is skipped rather than approximated.
 
 ---
 
+## pic14's four SIGSEGV crashes (2026-10-10) - FIXED, one shared cause
+
+**What was known.** `pic14-baseline.md`'s four SIGSEGVs, re-measured
+fresh rather than trusted from the original list (two had drifted to
+different files - corpus movement, as warned about elsewhere in this
+document): `satcounteroverflow_type_unsigned_{char,int,long}.c` and
+`gcc-torture-execute-pr68506.c`.
+
+**Root cause, found with gdb (`-O0` rebuild, optimized-out arguments
+in the normal `-O2` build made this necessary).** `FixRegisterBanking`
+(`pic14/pcode.c`) walks instructions needing a possible `BANKSEL` and
+falls back to `insertBankSel (pci, pci->pcop->name)` whenever
+`getRegFromInstruction()` can't find a register but `pci->pcop` still
+has a name. `insertBankSel` then unconditionally does
+`popCopyReg (PCOR (pci->pcop))` - a bare cast to `pCodeOpReg*`, no
+type check - and `popCopyReg` reads `pc->r`. Confirmed directly with a
+breakpoint at the call site: the crashing operand's type is
+`PO_LITERAL` (`pci->pcop->name` is literally the printed value, e.g.
+`"0x00"`) - allocated as a different, smaller struct that has no `r`
+field at that offset, so the cast reads past the real allocation.
+`popCopyReg`'s own `if (pcor->r) pcor->r->wasUsed=1;` null check
+doesn't help: the garbage read is non-null, just not a valid pointer,
+so it crashes one dereference later, in a different function, which
+is why the original baseline doc described this as needing a `-O0`
+rebuild to debug rather than a quick printf trace.
+
+**Fix:** a literal operand has no register and nothing to bank-select
+- `getRegFromInstruction()` already special-cases `PO_LITERAL` the
+same way, returning no register for it (`case PO_LITERAL: break;`).
+Added the matching check in `FixRegisterBanking` itself, `continue`ing
+past the instruction before it ever reaches `insertBankSel` with a
+literal operand, rather than trying to make `insertBankSel` itself
+safe for every possible operand shape.
+
+Verified: i8085 + i8085-undoc full regression byte- and tick-identical
+to baseline (this file is pic14-only, touches nothing shared - a
+sanity check on the rebuild, not a test of the fix). pic14 full
+regression: SIGSEGV 4 -> **0**, clearing the entire category; failures
+1037 -> 1033 (exactly the four) - all four now fully pass, not just
+avoid crashing; `FATAL`/`validateOpType` unchanged, test cases stable
+at 6019.
+
+**Every crash category from the original pic14 baseline is now
+clear**: FATAL internal errors 69 -> 0, SIGABRT 1 -> 0, SIGSEGV
+4 -> 0. What remains of that baseline is `validateOpType` (48,
+not yet investigated) and ordinary compile/assertion failures.
+
+---
+
 ## PIC off gputils (2026-10-08)
 
 **What is known.**  `aspic` is a genuine Microchip PIC assembler -
