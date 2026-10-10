@@ -7027,9 +7027,20 @@ genPointerSet (iCode * ic)
       genGenPointerSet (right, result, ic);
       break;
 
+    case CPOINTER:
+      /* Writing through a pointer into code space - syntactically
+         valid (e.g. *(char *)"c" = 0;) but undefined behaviour if
+         ever executed. Code space on this port cannot be written by
+         a plain store either way, so there is no codegen to emit;
+         warn and move on rather than fail the compile, same as
+         mcs51's genPointerSet. */
+      werror (W_CODEMEM_WRITE);
+      break;
+
     default:
+      /* werror (E_INTERNAL_ERROR, ...) already halts the compile; the
+         exit() this line used to have right after it was unreachable. */
       werror (E_INTERNAL_ERROR, __FILE__, __LINE__, "genPointerSet: illegal pointer type");
-      exit (1);
     }
 }
 

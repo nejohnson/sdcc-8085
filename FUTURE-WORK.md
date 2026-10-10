@@ -163,11 +163,48 @@ actually compiles instead of failing cleanly. Not attempted: it is
 shared-frontend, cross-port design work, a different scale of change
 from converting an unconditional crash into a diagnostic.
 
-**The two FATAL errors this doesn't touch**, pic14's remaining
-internal-compiler-error count after both fixes above: `gen.c:7031`,
-`genPointerSet: illegal pointer type` (`gte/bug-3023.c`), and
-`SDCCsymt.c:1083`, `code generator internal error`
-(`gte/bug-3855.c`). Different causes, not investigated.
+**Both of the remaining FATAL errors are now fixed too (2026-10-10) -
+pic14's baseline internal-compiler-error count is fully cleared.**
+Two unrelated causes, each its own small fix:
+
+- `gen.c:7031`, `genPointerSet: illegal pointer type`
+  (`gte/bug-3023.c`, `*(char *)"c" = 0;` - writing through a cast
+  string literal, syntactically valid, undefined behaviour if
+  executed, "should still compile" per the test's own comment).
+  pic14's `genPointerSet` switch had no `case CPOINTER:` - a string
+  literal lives in code space, so the storage-class-derived pointer
+  type is `CPOINTER`, and the switch fell to `default` and called
+  `exit (1)` right after an already-fatal `werror`. mcs51 already has
+  exactly this case (`werror (W_CODEMEM_WRITE); break;` - warn, emit
+  nothing, move on, since code space can't be written by a plain store
+  on this kind of target either way) - ported it verbatim, and dropped
+  the unreachable `exit (1)` in `default` (the preceding
+  `werror (E_INTERNAL_ERROR, ...)` already halts the compile, same as
+  every `wassertl` in this file).
+
+- `SDCCsymt.c:1083`, `code generator internal error`
+  (`gte/bug-3855.c`, plain `long` division - no `_BitInt` anywhere in
+  the source). `SDCCgenconstprop.cc`'s `optimizeMult` synthesizes a
+  16-bit `_BitInt` to narrow a multiplication's operand/result types,
+  and unlike the two other `newBitIntLink()` call sites in the same
+  file, this one had no `if (width > port->s.bitint_maxwidth) return;`
+  guard first. pic14's own `.s` struct literal sets `_BitInt` max
+  width to a literal `0` (`pic14/main.c`, with a comment naming the
+  field) - a deliberate "no `_BitInt` support" choice, not an
+  oversight - so this specific optimization could never run on pic14
+  without hitting the assert. Added the missing guard, matching the
+  other two sites exactly.
+
+Verified both: i8085 + i8085-undoc full regression for each fix is
+byte- and tick-identical to baseline (the guard can only ever trigger
+when a port's `bitint_maxwidth` is below 16, which no port but pic14
+sets - true no-op everywhere else). pic14 full regression: FATAL
+internal compiler errors 2 -> **0** - the entire baseline category is
+now clear. Failures 1039 -> 1037 (exactly the two), test cases
+unchanged (6019, clean comparison) - both files now fully pass, not
+just fail more gracefully: `bug-3023.c`'s test body is empty (only
+needed to compile), and `bug-3855.c`'s arithmetic was already correct
+once the crashing optimization is skipped rather than approximated.
 
 ---
 

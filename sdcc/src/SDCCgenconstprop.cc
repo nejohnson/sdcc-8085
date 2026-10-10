@@ -1796,6 +1796,15 @@ optimizeMult (iCode *ic)
     }
   else
     {
+      /* Needs a 16-bit _BitInt to represent the narrowed operand/result
+         types - unlike the two call sites above, this one had no check
+         against the port's actual bitint_maxwidth before calling
+         newBitIntLink(), which asserts on exactly this. A port that
+         declares no _BitInt support at all (bitint_maxwidth 0, e.g.
+         pic14) hit that assert unconditionally; skip the optimization
+         instead, same as the guarded call sites already do. */
+      if (16 > port->s.bitint_maxwidth)
+        return;
       newoptype = newBitIntLink (16);
       SPEC_USIGN (newoptype) = true;
       newresulttype = newBitIntLink (16);
