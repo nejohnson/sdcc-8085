@@ -1212,9 +1212,19 @@ processParms (ast * func, value * defParm, ast ** actParm, int *parmNumber,     
 
   if (FUNC_NOPROTOTYPE (functype))
     {
-      // Todo: implement this! Idea: build a temporarty function type that can be used for processFunc, which then can be used here.
-      wassertl (0, "Setting of register parameter vs. other parameter not yet implemented for functions without prototype.");
-      return 0;
+      /* Calling a function with no prototype, with at least one
+         argument, that isn't itself a varargs call (that case already
+         returned at line ~1210 above): deciding which of this
+         argument's bytes go through registers vs. the stack needs a
+         defined parameter to consult, same as a real prototype would
+         give us, and nothing synthesizes one for this case yet.
+         Every target hit this unconditionally - it was a crash with
+         better manners than a wrong answer, but still a crash. Say so
+         instead. Todo: implement this - build a temporary function
+         type that can be used for processFunc, which then can be used
+         here. */
+      werror (E_NOPROTO_PARM_UNSUPPORTED, IS_AST_SYM_VALUE (func) ? AST_SYMBOL (func)->name : "");
+      return 1;
     }
 
   /* if defined parameters ended but actual has not & */

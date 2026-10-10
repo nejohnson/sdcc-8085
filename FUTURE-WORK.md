@@ -130,6 +130,47 @@ parked for the same reason.
 
 ---
 
+## Calling a no-prototype function with an argument (2026-10-09)
+
+**What is known.** `processParms` (`src/SDCCast.c:1216`, shared frontend
+- not pic14-specific) has a `wassertl (0, "Setting of register
+parameter vs. other parameter not yet implemented for functions
+without prototype.")`, unconditional whenever it is reached: calling a
+function that has no prototype (K&R-style implicit declaration), with
+at least one argument, where the call itself isn't variadic. Confirmed
+directly on i8085 too (`exit(0)` with no `<stdlib.h>` in scope hits the
+identical crash) - not a pic14 bug, every port can reach it, pic14's
+corpus just exercises it far more (59 of the baseline's 69 internal
+compiler errors).
+
+**Fixed (2026-10-09), same shape as the other two crashes above.**
+`wassertl` always fired here, so no port could ever have compiled
+anything that reached this path - converting it to
+`werror (E_NOPROTO_PARM_UNSUPPORTED, ...)` (error 371) can only turn
+"always crashes" into "always a clean diagnostic," never break a
+currently-passing file. Verified on both i8085 (the `exit(0)` repro,
+plus full i8085 + i8085-undoc regression: 0 failures, byte- and
+tick-identical to baseline) and pic14 (full regression, same test/case
+counts as the prior run - a clean comparison, no corpus drift this
+time): internal compiler errors 61 -> 2, exactly the 59; everything
+else (SIGABRT 0, SIGSEGV 4, `validateOpType` 48, overall failure count
+1039) unchanged.
+
+**What is still open:** the real feature - "build a temporary function
+type that can be used for processFunc, which then can be used here,"
+per the original TODO - so that a no-prototype call with arguments
+actually compiles instead of failing cleanly. Not attempted: it is
+shared-frontend, cross-port design work, a different scale of change
+from converting an unconditional crash into a diagnostic.
+
+**The two FATAL errors this doesn't touch**, pic14's remaining
+internal-compiler-error count after both fixes above: `gen.c:7031`,
+`genPointerSet: illegal pointer type` (`gte/bug-3023.c`), and
+`SDCCsymt.c:1083`, `code generator internal error`
+(`gte/bug-3855.c`). Different causes, not investigated.
+
+---
+
 ## PIC off gputils (2026-10-08)
 
 **What is known.**  `aspic` is a genuine Microchip PIC assembler -

@@ -805,6 +805,8 @@ struct
      "operand '%s' needs %d registers, this target holds at most %d", 0},
   { E_RETURN_VALUE_TOO_WIDE, ERROR_LEVEL_ERROR,
      "function '%s' returns %d bytes, this target can return at most %d", 0},
+  { E_NOPROTO_PARM_UNSUPPORTED, ERROR_LEVEL_ERROR,
+     "call to '%s', which has no prototype, with an argument: not yet supported by this front end", 0},
 };
 
 /* -------------------------------------------------------------------------------
