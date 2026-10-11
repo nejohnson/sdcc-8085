@@ -9,7 +9,59 @@ Ordered by size, not priority.
 
 ---
 
-## `long long` on pic14 (2026-10-08)
+## `long long` on pic14 (2026-10-08) - IMPLEMENTED 2026-10-11
+
+**Resolution (2026-10-11).** `long long` now works on pic14. The history
+below is kept because the measurement in it still holds: refusing the
+type would have cost 321 failures.
+
+- **Front end.** `mergeSpec` no longer rejects `long long` for pic14
+  (`SDCCsymt.c`), and `stdint.h` defines `__SDCC_LONGLONG` for it, so
+  `int64_t`/`uint64_t` exist.
+- **Width.** `asmop.aop_reg`/`aop_str` hold 8 (`gen.h`). Literals are
+  read with `ullFromVal`. glue.c emits 8-byte initialisers.
+  `__gptrget8`/`__gptrput8` exist in all three libsdcc variants
+  (regular, enhanced, enhanced-no-xinst) for 8-byte access through a
+  generic pointer.
+- **Returns.** A value comes back in WREG plus the STKnn registers, so
+  the limit is now `pic14_stackSize () + 1` (14 bytes on a 16F877)
+  instead of 4. That lifts the old "return wider than four bytes" error
+  too, so 5- and 9-byte struct returns work.
+- **Arguments past the pseudo-stack.** `_pic14_regparm` used to pass
+  every parameter in WREG/STKnn, and more than 14 bytes was a hard
+  "Out of stack Space". From the first parameter that would not fit,
+  parameters now go in the callee's own `_f_PARM_n` variables, the
+  mcs51 model for non-reentrant functions. That is what lets
+  `_mullonglong (long long, long long)` be called at all.
+  `aopForSym` records such parameters, and glue.c declares the ones
+  whose function is not defined in the module `extern`. Before that
+  fix, a caller in another module filled a private copy of
+  `_f_PARM_n`, linked cleanly and computed the wrong answer.
+- **Runtime.** libsdcc gains `_mul/_divs/_divu/_mods/_modu` `longlong`,
+  `__mul{s,u}long2{s,u}longlong` and the four float conversions, all
+  from the generic `device/lib` sources. `_fs2slonglong.c` and
+  `_slonglong2fs.c` now include `<stdint.h>`. Without it, `float.h`
+  hides the prototypes of the unsigned functions they call: every port
+  compiled those calls as implicit declarations, and only gpasm, which
+  wants an `extern`, noticed. For i8085 the generated code is identical
+  except for one added `.globl`.
+
+**Measured** (full pic14 run against a clean-library baseline at
+`b756a8db`, every library object recompiled on both sides): 626 -> 467
+failures as the harness reports them. That figure flatters: see "pic14
+link failures are not counted" below. Counting every link failure as
+one, 915 -> 814, with 127 files better and 4 worse. All 4 are tests
+that used to stop at a compile error on `long long` and now run into
+older pic14 bugs, both logged below: `bug-3711`/`bug-3712` (reentrancy)
+and `gte/pr30185`/`931004-11` (structs by value). Both pass in full
+with those features taken out of them.
+
+**Still failing because of the 16F877, not the port:**
+`shifts2` at size 64 (24 cases) needs one 5824-word function, against
+2048-word code pages. About 20 other programs run out of data RAM;
+the `long long` helpers take 19-47 bytes of static RAM each, and pic14
+does not overlay non-reentrant locals.
+
 
 **What is known.**  The pic14 back end is built for operands of at most
 four bytes.  `asmop.aopu.aop_reg` is `reg_info *[4]`
@@ -123,10 +175,9 @@ the corpus drift this project's own handoff doc already named - new
 shared regression tests landing from unrelated work, not this fix -
 and is not claimed as this fix's effect.
 
-**What is still open:** this makes the crash go away; it does not make
-returning a wide struct or `long long` by value work on pic14. That
-remains the question above - whether to widen the return path at all,
-parked for the same reason.
+**Since resolved (2026-10-11):** the limit is now the pseudo-stack
+size plus WREG (14 bytes on a 16F877), not 4; see the `long long` entry.
+Error 370 still fires above that.
 
 ---
 
@@ -371,7 +422,12 @@ multi-use case, also require that `reg` is not referenced inside
 `stuff`, for both rewrites (new helper `regUsedBetween`).
 
 **Verified.** The full pic14 regression was run against the old and the
-new compiler, each with its own freshly rebuilt pic14 libraries:
+new compiler. *Correction (later the same day):* the libraries were not
+rebuilt as claimed. `make -C device/lib model-pic14` does not recompile
+an object when only the compiler changed, so both runs linked the same
+older library objects. The comparison is still like for like, and a
+later clean-library run at `b756a8db` reproduced these results case for
+case. Results:
 749 -> **638** failures, 21574 -> 21556 tests, 6011 test cases and 290
 abnormal stops both unchanged. A per-case diff shows only gains: the
 20 rotate cases (93 tests), plus `gcc-torture-execute-20050826-2` and
@@ -420,6 +476,39 @@ Verified (`ptrdiff_t` only): with the `intptr_t` part reverted, the
 against the 638-failure baseline: the 12 `sizeof` tests pass and nothing
 else moved. The full run with both parts was otherwise identical to the
 baseline.
+
+---
+
+## pic14 link failures are not counted (2026-10-11)
+
+`ports/pic14/spec.mk` links with `-$(SDCC) ...`, so make carries on when
+the link fails. gpsim then reports `failed to open program file ...cod`,
+the result file has no `--- Summary` line, and the harness records an
+"abnormal stop" with **zero** failures. 289 results at `b756a8db` and
+347 after `long long` are invisible this way. Most are out of RAM or
+code space on the 16F877, plus the known `printf`/`setjmp` gaps.
+`long long` made it worse, because programs that used to fail to
+compile (counted) now fail to link (not counted). Until the harness is
+fixed, count every result containing `failed to open program` as one
+failure when comparing runs.
+
+---
+
+## pic14 `__reentrant` functions get the wrong parameter values (2026-10-11)
+
+`void f (unsigned char b, unsigned char c) __reentrant` called as
+`f (0, 0x55)` sees neither value. `bug-3711` and `bug-3712` pass in
+full once `__reentrant` is removed, and the `reentrant` family times
+out. pic14 has no data stack, so this needs a design decision, not a
+patch.
+
+---
+
+## pic14 passes structs by value wrongly (2026-10-11)
+
+`char getu (struct {char a, b;} x) { return x.b; }` returns the wrong
+value, for any struct size. This is the `structparam` family (7 cases),
+`gte/pr30185`, `931004-11` and `950607-2`. Struct *returns* work.
 
 ---
 

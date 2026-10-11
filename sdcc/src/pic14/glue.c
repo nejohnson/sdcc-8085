@@ -1146,7 +1146,9 @@ pic14_printValue (struct dbuf_s *oBuf, sym_link *type, value *val)
   int tag = 0;
   char buf[100] = "";
 
-  wassertl (size >= 1 && size <= 4, "Unexpected size in printValue");
+  int i;
+
+  wassertl (size >= 1 && size <= 8, "Unexpected size in printValue");
 
   if (val)
     {
@@ -1180,6 +1182,12 @@ pic14_printValue (struct dbuf_s *oBuf, sym_link *type, value *val)
               else
                 SNPRINTF (buf, sizeof (buf), "\t; % ld", (long) ulVal);
               break;
+            case 8:
+              if (IS_UNSIGNED (val->type))
+                SNPRINTF (buf, sizeof (buf), "\t; %llu", ullFromVal (val));
+              else
+                SNPRINTF (buf, sizeof (buf), "\t; % lld", (long long) ullFromVal (val));
+              break;
             }
         }
     }
@@ -1210,32 +1218,19 @@ pic14_printValue (struct dbuf_s *oBuf, sym_link *type, value *val)
         }
     }
 
+  /* the third byte of a 3-byte value is a generic pointer's tag */
   if (in_code)
     {
       dbuf_printf (oBuf, "\tretlw 0x%02x%s\n", val ? byteOfVal (val, 0) : 0, buf);
-      if (size > 1)
-        dbuf_printf (oBuf, "\tretlw 0x%02x\n", byteOfVal (val, 1));
-      if (size > 2)
-        if (size == 3)
-          dbuf_printf (oBuf, "\tretlw 0x%02x\n", tag);
-        else
-          dbuf_printf (oBuf, "\tretlw 0x%02x\n", byteOfVal (val, 2));
-      if (size > 3)
-        dbuf_printf (oBuf, "\tretlw 0x%02x\n", byteOfVal (val, 3));
+      for (i = 1; i < size; i++)
+        dbuf_printf (oBuf, "\tretlw 0x%02x\n", (size == 3 && i == 2) ? tag : byteOfVal (val, i));
     }
   else
     {
       dbuf_printf (oBuf, "\tdb\t");
       dbuf_printf (oBuf, "0x%02x", val ? byteOfVal (val, 0) : 0);
-      if (size > 1)
-        dbuf_printf (oBuf, ", 0x%02x", byteOfVal (val, 1));
-      if (size > 2)
-        if (size == 3)
-          dbuf_printf (oBuf, ", 0x%02x", tag);
-        else
-          dbuf_printf (oBuf, ", 0x%02x", byteOfVal (val, 2));
-      if (size > 3)
-        dbuf_printf (oBuf, ", 0x%02x", byteOfVal (val, 3));
+      for (i = 1; i < size; i++)
+        dbuf_printf (oBuf, ", 0x%02x", (size == 3 && i == 2) ? tag : byteOfVal (val, i));
       dbuf_printf (oBuf, "%s\n", buf);
     }
 }
@@ -1255,6 +1250,7 @@ pic14_printTypeLiteral (symbol *sym, sym_link *type, value *val, struct dbuf_s *
     case 1:
     case 2:
     case 4:
+    case 8:
       pic14_printValue (oBuf, type, val);
       break;
     default:
@@ -2480,6 +2476,7 @@ showAllMemmaps (FILE *of)
 {
   // trying to keep things as similar as possible to SDCCglue.c
   namedspacemap *nm;
+  symbol *sym;
   int publicsfr = true;
 
   DBG_MSG ("---begin memmaps---");
@@ -2540,6 +2537,20 @@ showAllMemmaps (FILE *of)
   // must be the last one, so externs used in ivals get marked as isref
   pic14_emitRegularMap (code, true, false);
 //    inInitMode--;
+
+  /* A parameter passed in its function's own variable belongs to the
+     module that defines the function; anywhere else it is extern. */
+  for (sym = setFirstItem (pic14_stackParmSyms); sym; sym = setNextItem (pic14_stackParmSyms))
+    {
+      reg_info *reg;
+
+      if (pic14_stringInSet (sym->rname, &emitted, false))
+        continue;
+      if ((reg = dirregWithName (sym->rname)))
+        reg->isExtern = TRUE;
+      addToExterns (sym);
+    }
+  deleteSet (&pic14_stackParmSyms);
 
   pic14_printPublics (gloBuf);
   pic14_printExterns (extBuf);

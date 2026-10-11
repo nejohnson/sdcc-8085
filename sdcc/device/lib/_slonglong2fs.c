@@ -29,6 +29,7 @@
 
 
 #define __SDCC_FLOAT_LIB
+#include <stdint.h>
 #include <float.h>
 
 /* convert signed long long to float */

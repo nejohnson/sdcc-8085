@@ -69,6 +69,7 @@ static char *_pic14_keywords[] =
 };
 
 static int regParmFlg = 0;  /* determine if we can register a parameter */
+static int regParmBytes = 0; /* bytes of parameters passed in WREG/STKnn so far */
 static struct sym_link *regParmFuncType;
 
 /** $1 is always the basename.
@@ -100,6 +101,7 @@ static void
 _pic14_reset_regparm (struct sym_link *funcType)
 {
   regParmFlg = 0;
+  regParmBytes = 0;
   regParmFuncType = funcType;
 }
 
@@ -109,12 +111,17 @@ _pic14_regparm (sym_link * l, bool reentrant)
   if (IFFUNC_HASVARARGS (regParmFuncType))
     return 0;
 
-/* for this processor it is simple
-  can pass only the first parameter in a register */
-  //if (regParmFlg)
-  //  return 0;
+  /* Parameters travel in WREG and the STKnn pseudo-stack.  From the
+     first one that would not fit on, they are stored straight into the
+     callee's own parameter variables instead. */
+  if (regParmFlg < 0 || regParmBytes + getSize (l) > pic14_stackSize () + 1)
+    {
+      regParmFlg = -1;
+      return 0;
+    }
 
-  regParmFlg++;// = 1;
+  regParmBytes += getSize (l);
+  regParmFlg++;
   return 1;
 }
 

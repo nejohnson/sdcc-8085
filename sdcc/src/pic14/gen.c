@@ -80,6 +80,11 @@ static char *one = "0x01";
 static char *spname = "sp";
 
 unsigned fReturnSizePic = 4;    /* shared with ralloc.c */
+
+/* Parameters passed in the callee's own variables rather than in
+   WREG/STKnn, as referenced by this module.  glue.c declares those whose
+   function is defined elsewhere as extern. */
+set *pic14_stackParmSyms = NULL;
 static char *fReturnpic14[] = { "temp1", "temp2", "temp3", "temp4" };
 
 static char **fReturn = fReturnpic14;
@@ -330,6 +335,8 @@ aopForSym (iCode * ic, symbol * sym, bool result)
   /* if it is in direct space */
   if (IN_DIRSPACE (space))
     {
+      if (sym->_isparm && !IS_REGPARM (sym->etype))
+        addSetIfnotP (&pic14_stackParmSyms, sym);
       sym->aop = aop = newAsmop (AOP_DIR);
       aop->aopu.aop_dir = sym->rname;
       aop->size = getSize (sym->type);
@@ -707,12 +714,9 @@ pic14AopOp (operand *op, iCode *ic, bool result)
   /* must be in a register */
   DEBUGpic14_emitcode (";", "%d register type nRegs=%d", __LINE__, sym->nRegs);
   sym->aop = op->aop = aop = newAsmop (AOP_REG);
-  /* aop_reg holds four.  A symbol wants getSize() of them, so anything
-     wider than a long - a long long, say - used to be written straight
-     past the end of the asmop and into the heap, which glibc reported
-     as "malloc(): corrupted top size" somewhere else entirely.  The
-     port cannot encode such an operand either way;  this only makes it
-     say so instead of corrupting memory. */
+  /* aop_reg holds eight, enough for a long long.  A symbol wants
+     getSize() of them, so anything wider would be written past the end
+     of the asmop; refuse it instead. */
   if (sym->nRegs > (int) (sizeof (aop->aopu.aop_reg) / sizeof (aop->aopu.aop_reg[0])))
     {
       int max = (int) (sizeof (aop->aopu.aop_reg) / sizeof (aop->aopu.aop_reg[0]));
@@ -780,7 +784,7 @@ pic14aopLiteral (value * val, int offset)
   /* otherwise it is fairly simple */
   if (!IS_FLOAT (val->type))
     {
-      unsigned long v = ulFromVal (val);
+      unsigned long long v = ullFromVal (val);
 
       return ((v >> (offset * 8)) & 0xff);
     }
@@ -1941,20 +1945,16 @@ assignResultValue (iCode *ic)
       sym_link *ftype = operandType (IC_LEFT (ic));
       /* the size of the return value */
       int rsize = getSize (ftype->next);
-      /* The return value is carried through a handful of fixed pseudo-
-         stack registers (see get_return_val_pcop()); this port cannot
-         return more than 4 bytes through that mechanism - a struct or
-         long long return wider than that used to hit this as a hard
-         assert, a crash with better manners than a wrong answer but
-         still a crash.  Say so instead, and clamp rsize so the loop
-         below still runs on the bytes we *can* return - the diagnostic
-         has already failed the compile, same as pic14AopOp's own
-         too-wide-operand case. */
-      if (rsize < 1 || rsize > 4)
+      /* The return value comes back in WREG and the STKnn pseudo-stack
+         registers (see get_return_val_pcop()), so it can be no wider than
+         those together.  Say so, and clamp rsize so the loop below still
+         runs; the diagnostic has already failed the compile. */
+      int maxsize = pic14_stackSize () + 1;
+      if (rsize < 1 || rsize > maxsize)
         {
           symbol *fsym = IS_SYMOP (IC_LEFT (ic)) ? OP_SYMBOL (IC_LEFT (ic)) : NULL;
-          werror (E_RETURN_VALUE_TOO_WIDE, fsym && fsym->name ? fsym->name : "", rsize, 4);
-          rsize = rsize < 1 ? 1 : 4;
+          werror (E_RETURN_VALUE_TOO_WIDE, fsym && fsym->name ? fsym->name : "", rsize, maxsize);
+          rsize = rsize < 1 ? 1 : maxsize;
         }
       if (rsize > size)
         {
@@ -2771,6 +2771,13 @@ genRet (iCode * ic)
      move the return value into place */
   pic14AopOp (ic->left, ic, false);
   size = AOP_SIZE (IC_LEFT (ic));
+
+  /* WREG and the STKnn pseudo-stack registers carry the return value */
+  if (size > pic14_stackSize () + 1)
+    {
+      werror (E_RETURN_VALUE_TOO_WIDE, currFunc ? currFunc->name : "", size, pic14_stackSize () + 1);
+      size = pic14_stackSize () + 1;
+    }
 
   for (offset = 0; offset < size; offset++)
     {
@@ -6028,7 +6035,7 @@ static void
 emitPtrGet (operand * result, operand * left, int ptype, int blen, int bstr)
 {
     /* emit call to __gptrget */
-    char *func[] = { NULL, "__gptrget1", "__gptrget2", "__gptrget3", "__gptrget4" };
+    char *func[] = { NULL, "__gptrget1", "__gptrget2", "__gptrget3", "__gptrget4", NULL, NULL, NULL, "__gptrget8" };
     int offset = 0;
     int size, mask = 0;
     /* The bitfield's own type (signedness in particular) lives on the
@@ -6063,7 +6070,7 @@ emitPtrGet (operand * result, operand * left, int ptype, int blen, int bstr)
           }
       }
 
-    assert (size > 0 && size <= 4);
+    assert (size > 0 && size <= 8);
 
     switch (ptype)
       {
@@ -6122,6 +6129,7 @@ emitPtrGet (operand * result, operand * left, int ptype, int blen, int bstr)
 
     /* This is for GPOINTER and CPOINTER only */
 
+    assert (func[size]);
     call_libraryfunc (func[size]);
 
     if (blen)
@@ -6511,7 +6519,7 @@ static void
 emitPtrPut (operand * right, operand * result, int ptype, int blen, int bstr)
 {
     /* emit call to __gptrput */
-    char *func[] = { NULL, "__gptrput1", "__gptrput2", "__gptrput3", "__gptrput4" };
+    char *func[] = { NULL, "__gptrput1", "__gptrput2", "__gptrput3", "__gptrput4", NULL, NULL, NULL, "__gptrput8" };
     int offset = 0;
     pCodeOp *temp = NULL;
     int litval = 0;               /* source literal value (if AOP_LIT) */
@@ -6576,7 +6584,7 @@ emitPtrPut (operand * right, operand * result, int ptype, int blen, int bstr)
      * it works fine both for larger and smaller types of `char c'.
      * */
     //assert (size == getSize(OP_SYM_ETYPE(result)));
-    assert (size > 0 && size <= 4);
+    assert (size > 0 && size <= 8);
 
     switch (ptype)
       {
@@ -6638,6 +6646,7 @@ emitPtrPut (operand * right, operand * result, int ptype, int blen, int bstr)
                 mov2w (AOP (result), 1);
                 emitpcode (POC_MOVWF, popRegFromIdx (Gstack_base_addr));
                 mov2w (AOP (result), 2);
+                assert (func[size]);
                 call_libraryfunc (func[size]);
                 break;
               }

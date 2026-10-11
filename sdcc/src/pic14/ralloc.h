@@ -84,6 +84,7 @@ extern set *dynInternalRegs;
 
 
 void initStack(int base_address, int size, int shared);
+int pic14_stackSize(void);
 reg_info *pic14_regWithIdx(int);
 reg_info *dirregWithName(const char *name);
 void pic14_assignRegisters(ebbIndex *ebbi);

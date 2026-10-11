@@ -7,10 +7,12 @@ libsdcc_a_SOURCES += _gptrget1.S
 libsdcc_a_SOURCES += _gptrget2.S
 libsdcc_a_SOURCES += _gptrget3.S
 libsdcc_a_SOURCES += _gptrget4.S
+libsdcc_a_SOURCES += _gptrget8.S
 libsdcc_a_SOURCES += _gptrput1.S
 libsdcc_a_SOURCES += _gptrput2.S
 libsdcc_a_SOURCES += _gptrput3.S
 libsdcc_a_SOURCES += _gptrput4.S
+libsdcc_a_SOURCES += _gptrput8.S
 libsdcc_a_SOURCES += macros.inc
 libsdcc_a_SOURCES += shadowregs.c
 

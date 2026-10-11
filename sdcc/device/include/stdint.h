@@ -32,10 +32,8 @@
 
 /* Exact integral types.  */
 
-#if !defined(__SDCC_pic14)
 #if __STDC_VERSION__ >= 199901L
 #define __SDCC_LONGLONG
-#endif
 #endif
 
 #ifndef __SPECIFIED_WIDTH_INTEGER_TYPES_DEFINED
