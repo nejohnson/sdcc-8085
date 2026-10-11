@@ -399,6 +399,7 @@ enum {
   E_TOO_MANY_REGS_FOR_OPERAND   = 369, // an operand needs more registers than the back end can hold
   E_RETURN_VALUE_TOO_WIDE       = 370, // a function's return value is wider than the back end's return mechanism can carry
   E_NOPROTO_PARM_UNSUPPORTED    = 371, // an argument to a function called without a prototype needs register/stack assignment this front end does not yet do
+  E_VARARG_PTR_CALL_UNSUPPORTED = 372, // variable arguments through a function pointer, on a target that passes them in the callee's own storage
 
   // If you get a merge conflict here, some #pragma disable_warning in support/valdiag and support/regression will likely need to be adapted to the resolution. Check there!
 

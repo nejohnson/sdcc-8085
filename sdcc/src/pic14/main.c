@@ -172,6 +172,9 @@ _pic14_finaliseOptions (void)
       addSet (&preArgvSet, Safe_strdup (dbuf_detach_c_str (&dbuf)));
     }
 
+  /* Variable arguments are passed in a static area per function */
+  addSet (&preArgvSet, Safe_strdup ("-D__SDCC_PIC14_HAS_VARARGS"));
+
   /* Report the actual stack size */
   {
     int size;

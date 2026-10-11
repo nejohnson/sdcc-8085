@@ -2538,6 +2538,21 @@ showAllMemmaps (FILE *of)
   pic14_emitRegularMap (code, true, false);
 //    inInitMode--;
 
+  /* Static areas for variable arguments (see getStaticVaArea): every
+     module that uses one emits it as a same-named overlay section, and
+     the linker keeps the largest. */
+  for (sym = setFirstItem (staticVaAreas); sym; sym = setNextItem (staticVaAreas))
+    {
+      reg_info *reg;
+      int size = getSize (sym->type);
+
+      dbuf_printf (gloDefBuf, "VA%s\tudata_ovr\n%s\tres\t%d\n", sym->rname, sym->rname, size ? size : 1);
+      pic14_stringInSet (sym->rname, &emitted, true);
+      if ((reg = dirregWithName (sym->rname)))
+        reg->isEmitted = TRUE;
+    }
+  deleteSet (&staticVaAreas);
+
   /* A parameter passed in its function's own variable belongs to the
      module that defines the function; anywhere else it is extern. */
   for (sym = setFirstItem (pic14_stackParmSyms); sym; sym = setNextItem (pic14_stackParmSyms))

@@ -789,8 +789,16 @@ allocParms (value *val, struct sym_link *ftype)
       sym->_isparm = 1;
       sym->ismyparm = 1;
       addSymChain (&sym);
-      
-      if (options.useXstack)
+
+      if (TARGET_IS_PIC14 && !IFFUNC_ISREENT (ftype) && !options.stackAuto)
+        {
+          /* no data stack: the variable arguments are in the static area */
+          symbol *area = getStaticVaArea (currFunc->name, 0);
+          sym->onStack = 0;
+          strncpyz (sym->rname, area->rname, sizeof (sym->rname));
+          SPEC_OCLS (sym->etype) = SPEC_OCLS (area->etype);
+        }
+      else if (options.useXstack)
         {
           SPEC_OCLS (sym->etype) = xstack;
           SPEC_STAK (sym->etype) = sym->stack = xstackPtr - 1;

@@ -4221,7 +4221,8 @@ processFunc (symbol *func, sym_link *funcType)
 
   /* if this function has variable argument list */
   /* then make the function a reentrant one    */
-  if (IFFUNC_HASVARARGS (funcType) || (options.stackAuto && !funcCdef))
+  /* (pic14 has no data stack: it passes them statically, see getStaticVaArea) */
+  if ((IFFUNC_HASVARARGS (funcType) && !TARGET_IS_PIC14) || (options.stackAuto && !funcCdef))
     FUNC_ISREENT (funcType) = 1;
 
   /* check if this function is defined as calleeSaves

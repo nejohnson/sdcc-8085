@@ -441,9 +441,9 @@ vfprintf (FILE *stream, const char *fmt, va_list ap)
           if (radix)
             {
               if (flags & _UNSIGNED)
-                _ultoa (val, buffer + 1, radix);
+                __ultoa (val, buffer + 1, radix);
               else
-                _ltoa (val, buffer + 1, radix);
+                __ltoa (val, buffer + 1, radix);
 #ifdef SIGN_MODIFIERS
               if ((flags & _PRINTSIGN) && (*str != '-'))
                 {

@@ -479,6 +479,67 @@ baseline.
 
 ---
 
+## pic14 variable arguments (2026-10-12) - IMPLEMENTED
+
+**Design.** pic14 has no data stack, and the front end used to make
+every variadic function reentrant and push the variable arguments with
+`IPUSH`, for which pic14 generates nothing. They now go in a static
+area per function, the same model pic14 already uses for ordinary
+parameters:
+
+- `processFuncArgs` no longer forces a variadic function to be reentrant
+  on pic14 (`SDCCsymt.c`). Its fixed parameters go in `_f_PARM_n`.
+- A caller stores each variable argument at increasing offsets in
+  `_f_VA` (`geniCodeStaticVaArg`, `SDCCicode.c`).
+- In the callee, `__va_start` (the ISO C23 `va_start` placeholder) names
+  that area (`allocParms`, `SDCCmem.c`). pic14's `stdarg.h` sets
+  `va_start` to it, and the existing ascending `va_arg` reads from it.
+- Every module that uses an area emits it as a `udata_ovr` section
+  `VA_f_VA` (pic14 `glue.c`). gplink overlays same-named sections and
+  keeps the largest size, so the area is as big as the largest call
+  anywhere in the program, and costs nothing if unused.
+- `__SDCC_PIC14_HAS_VARARGS` is now defined, so libc builds `printf`,
+  `sprintf`, `fprintf` and `printf_small`, which used to compile to
+  empty objects.
+
+Same semantics as any non-reentrant pic14 function: a variadic function
+that is re-entered while it is still reading its arguments sees them
+overwritten. Two `static` variadic functions with the same name in
+different modules would share an area.
+
+**Limitation.** Variable arguments in a call through a function
+pointer are refused: the caller cannot know which area to fill. The new
+error is `E_VARARG_PTR_CALL_UNSUPPORTED` (372); in practice SDCC's
+older error 92 ("must be 'reentrant'") usually fires first.
+`gcc-torture-execute-930513-1` declares such a call in a function it
+never runs, now guarded for pic14.
+
+**Also fixed.** pic14's `stdlib.h`, `vfprintf.c`, `printfl.c` and
+`_ftoa.c` still used `_itoa`/`_uitoa`/`_ltoa`/`_ultoa`, the names
+before the generic library renamed them to `__itoa` etc., so nothing
+using them linked. That covers the 10 `itoa` cases.
+
+**Measured** (full pic14 run with clean libraries, against `ae19590a`'s
+809): **679 failures**, 158 files better, including all 69 `argval`, 8
+`vaargs` and the `itoa` family. Six files got worse:
+- 4 pass structs as variable arguments and now reach the struct-by-value
+  bug: `strct-varg-1`, `strct-stdarg-1`, `920625-1` and `bug-2776`.
+  `bug-3368` does the same and stops abnormally (2 abnormal stops,
+  was 1).
+- `bug2084206` reads a 2-byte function pointer back as a 3-byte
+  `void *`, which the test already excludes for mcs51/ds390/pic16 for
+  that reason; pic14 added to the exclusion.
+- `930513-1`: see Limitation.
+
+**Open: `printf` and floats.** pic14's `vfprintf.c` defines
+`USE_FLOATS`, which pulls in `_ftoa` and the float library. pic14 does
+not overlay non-reentrant locals, so on the 16F877 even a minimal
+`sprintf` test runs out of RAM. With `USE_FLOATS` off, the same test
+links and passes `%d %u %s %c %x %ld`, and `%f` prints `<NO FLOAT>`.
+Which default to ship is undecided.
+
+---
+
 ## pic14 link failures are not counted (2026-10-11) - FIXED
 
 **Fixed (2026-10-11).** The compile and link rules in

@@ -807,6 +807,8 @@ struct
      "function '%s' returns %d bytes, this target can return at most %d", 0},
   { E_NOPROTO_PARM_UNSUPPORTED, ERROR_LEVEL_ERROR,
      "call to '%s', which has no prototype, with an argument: not yet supported by this front end", 0},
+  { E_VARARG_PTR_CALL_UNSUPPORTED, ERROR_LEVEL_ERROR,
+     "variable arguments in a call through a function pointer are not supported by this target", 0},
 };
 
 /* -------------------------------------------------------------------------------

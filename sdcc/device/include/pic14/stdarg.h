@@ -49,12 +49,8 @@ typedef unsigned char * va_list;
 
 typedef unsigned char __data * va_list;
 
-#if 1
-#define va_start(marker, last)  { (void)last ; marker = __va_args__; }
-#else
-/* this doesn't work if last is the left-most argument */
-#define va_start(marker, last)  { marker = *(va_list __data *)((va_list)&last + sizeof(last)); }
-#endif
+/* The variable arguments are in the function's static area, __va_start */
+#define va_start(marker, ...)   { marker = (va_list)__va_start; }
 
 /* FIXME: this is not optimized */
 #define va_arg(marker, type)    *((type __data *)((marker += sizeof(type)) - sizeof(type)))

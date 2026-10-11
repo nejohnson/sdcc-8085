@@ -3615,6 +3615,81 @@ geniCodeSEParms (ast *parms, int lvl, sym_link *ftype)
 }
 
 /*-----------------------------------------------------------------*/
+/* Variable arguments without a data stack (pic14): a non-reentrant */
+/* variadic function f takes them in a static area _f_VA, which     */
+/* callers fill at increasing offsets like any other parameter.     */
+/* staticVaAreas holds the areas this module uses, each sized for   */
+/* its largest use; the back end emits them as overlay sections so  */
+/* the linker keeps the largest size from any module.               */
+/*-----------------------------------------------------------------*/
+set *staticVaAreas = NULL;
+static const char *staticVaCallee;      /* function whose arguments are being generated */
+
+symbol *
+getStaticVaArea (const char *funcName, int size)
+{
+  symbol *sym;
+  char name[SDCC_NAME_MAX + 1];
+
+  SNPRINTF (name, sizeof (name), "_%s_VA", funcName);
+  for (sym = setFirstItem (staticVaAreas); sym; sym = setNextItem (staticVaAreas))
+    if (!strcmp (sym->rname, name))
+      break;
+
+  if (!sym)
+    {
+      sym = newSymbol (name, 0);
+      strncpyz (sym->rname, name, sizeof (sym->rname));
+      sym->type = newLink (DECLARATOR);
+      DCL_TYPE (sym->type) = ARRAY;
+      DCL_ELEM (sym->type) = 0;
+      sym->type->next = newCharLink ();
+      SPEC_USIGN (sym->type->next) = 1;
+      sym->etype = getSpec (sym->type);
+      SPEC_SCLS (sym->etype) = S_DATA;
+      SPEC_OCLS (sym->etype) = data;
+      addSet (&staticVaAreas, sym);
+    }
+
+  if (size > DCL_ELEM (sym->type))
+    DCL_ELEM (sym->type) = size;
+  return sym;
+}
+
+/* store one variable argument at *offset in the callee's static area */
+static void
+geniCodeStaticVaArg (operand *pval, int *offset, int lvl)
+{
+  sym_link *vtype = operandType (pval);
+  int size = getSize (vtype);
+  sym_link *ptype, *rtype;
+  operand *ptr, *dst;
+
+  if (!staticVaCallee)
+    {
+      werror (E_VARARG_PTR_CALL_UNSUPPORTED);
+      return;
+    }
+
+  ptr = operandFromSymbol (getStaticVaArea (staticVaCallee, *offset + size), true);
+  if (*offset)
+    ptr = geniCodeAdd (ptr, operandFromLit (*offset), RESULT_TYPE_NONE, lvl);
+  ptype = newLink (DECLARATOR);
+  DCL_TYPE (ptype) = POINTER;
+  ptype->next = copyLinkChain (vtype);
+  ptr = geniCodeCast (ptype, ptr, true);
+  *offset += size;
+
+  /* the lvalue *ptr, as geniCodeDerefPtr makes it */
+  dst = operandFromOperand (ptr);
+  rtype = copyLinkChain (vtype);
+  setOClass (ptype, getSpec (rtype));
+  dst->isaddr = 1;
+  setOperandType (dst, rtype);
+  geniCodeAssign (dst, pval, 0, 0);
+}
+
+/*-----------------------------------------------------------------*/
 /* geniCodeParms - generates parameters                            */
 /*-----------------------------------------------------------------*/
 value *
@@ -3654,6 +3729,13 @@ send:
       ic->argreg = SPEC_ARGREG (parms->etype);
       ic->builtinSEND = FUNC_ISBUILTIN (ftype);
       ADDTOCHAIN (ic);
+    }
+  else if (TARGET_IS_PIC14 && !argVals && IFFUNC_HASVARARGS (ftype) && !IFFUNC_ISREENT (ftype) && !options.stackAuto)
+    {
+      /* a variable argument: there is no argVals entry to advance */
+      geniCodeStaticVaArg (pval, stack, lvl);
+      (*iArg)++;
+      return argVals;
     }
   else
     {
@@ -3821,8 +3903,11 @@ geniCodeCall (operand * left, ast * parms, int lvl)
   if (inCriticalPair && FUNC_ISCRITICAL (ftype))
     werror (E_INVALID_CRITICAL);
 
+  staticVaCallee = NULL;
   if (IS_FUNCPTR (ftype))
     ftype = ftype->next;
+  else if (TARGET_IS_PIC14 && IFFUNC_HASVARARGS (ftype))
+    staticVaCallee = OP_SYMBOL (left)->name;
 
   /* take care of parameters with side-effecting
      function calls in them, this is required to take care
