@@ -6031,6 +6031,13 @@ emitPtrGet (operand * result, operand * left, int ptype, int blen, int bstr)
     char *func[] = { NULL, "__gptrget1", "__gptrget2", "__gptrget3", "__gptrget4" };
     int offset = 0;
     int size, mask = 0;
+    /* The bitfield's own type (signedness in particular) lives on the
+       result, same as its blen/bstr do - not on left, which need not
+       even be a symbol (e.g. *(volatile T *)ABS_ADDR). OP_SYM_ETYPE(left)
+       asserted exactly that assumption; use the already-correct,
+       symbol-independent pattern every other port's genUnpackBits uses
+       instead. */
+    sym_link *etype = getSpec (operandType (result));
 
     if (blen == 0)
       {
@@ -6138,7 +6145,7 @@ manage_signs:
         if (bstr)
           AccRsh (popGet (AOP (result), offset), bstr, 1);       /* zero extend the bitfield */
 
-        if (!SPEC_USIGN (OP_SYM_ETYPE (left)))
+        if (!SPEC_USIGN (etype))
           {
             /* signed bitfield */
             emitpcode (POC_MOVLW, popGetLit (0x00ff << blen));
@@ -6148,7 +6155,7 @@ manage_signs:
       }
 
     if (AOP_SIZE(result) > ++offset)
-        pic14AddSign (result, offset, !SPEC_USIGN (OP_SYM_ETYPE (left)));
+        pic14AddSign (result, offset, !SPEC_USIGN (etype));
 }
 
 /*-----------------------------------------------------------------*/
@@ -6235,11 +6242,11 @@ genUnpackBits (operand * result, operand * left, int ptype, iCode * ifx)
           /* move sign-/zero extended bit to result */
           if (haveResult)
             {
-              if (SPEC_USIGN (OP_SYM_ETYPE (left)))
+              if (SPEC_USIGN (etype))
                 emitpcode (POC_INCF, popGet (AOP (result), 0));
               else
                 emitpcode (POC_DECF, popGet (AOP (result), 0));
-              pic14AddSign (result, 1, !SPEC_USIGN (OP_SYM_ETYPE (left)));
+              pic14AddSign (result, 1, !SPEC_USIGN (etype));
             } // if
         }
     }

@@ -257,6 +257,60 @@ not yet investigated) and ordinary compile/assertion failures.
 
 ---
 
+## pic14's 48 validateOpType crashes - FIXED, but exposed a real bug (2026-10-10/11)
+
+**The crash, fixed.** `OP_SYM_ETYPE (left)` (`SDCCicode.h` -
+`validateOpType(op, ..., SYMBOL, ...)->svt.symOperand->etype`) asserts
+that its argument is a symbol operand. `genUnpackBits`/`emitPtrGet`
+(`pic14/gen.c`) used it on `left` - the pointer being dereferenced for
+a bitfield read - purely to get `SPEC_USIGN` for sign-extension. For
+`*(volatile struct_8bits *)0x0100` (an absolute-address cast, no named
+variable involved at all), `left` is a value, not a symbol, and every
+one of the 48 failures was exactly this: 24 `varType_1` + 24
+`varType_2` cases across several bitfield-test families, all built on
+the same `#define volatileBits (*(volatile struct_8bits*)ABS_ADDR1)`
+idiom.
+
+Both functions already compute `etype = getSpec (operandType
+(result))` for `SPEC_BLEN`/`SPEC_BSTR` (the bitfield's own shape) -
+`emitPtrGet` just hadn't been given the same local variable yet.
+Confirmed against mcs51's equivalent function: it uses exactly this
+`result`-derived `etype` for `SPEC_USIGN` too, never anything from
+`left` - pic14's version was the inconsistent one. Added the missing
+`etype` to `emitPtrGet` and replaced all four `OP_SYM_ETYPE (left)`
+call sites (two in each function) with it.
+
+**What it uncovered, found by actually checking runtime results, not
+just "does it compile now".** Failing *files* dropped (590 -> 544,
+consistent with 48 fewer compile crashes), but failing *tests* rose
+(1033 -> 1308): these 48 files now compile and run, and most of them
+fail their own assertions - e.g. `bitfields-checks_struct_1_varType_1_bit_0.c`
+fails 9 of 12, including bare byte-level checks like `AS_UINT8
+(volatileBits) == (1 << BIT_TO_TEST)` right after setting that one bit.
+The write path (`genPackBits`) already used the correct,
+symbol-independent pattern, so this isn't the sign-extension fix
+leaking a new mistake - it's a separate, real bug in how pic14
+generates bitfield access through an absolute-address pointer, that
+the `validateOpType` crash simply made unreachable until now. The
+address itself is sane (`0x0100`, bank 2 on a 16F877, chosen
+deliberately per-port in the test), so this isn't a bad test fixture
+either.
+
+**Why this is worth fixing now, not parking.** Bit-twiddling through
+an absolute address is exactly how direct SFR/GPIO access is written
+on a part like this - not an edge case for this target, closer to the
+common case. Picked up immediately rather than logged here as
+deferred; see git history for the follow-up fix once found.
+
+Verified (the crash fix alone, before the follow-up): i8085 +
+i8085-undoc full regression byte- and tick-identical to baseline
+(pic14-only file). pic14 full regression: `validateOpType` 48 -> 0,
+clearing that category entirely - the crash itself is gone on every
+file that was hitting it, even though some of those files now reveal
+the separate bug above.
+
+---
+
 ## PIC off gputils (2026-10-08)
 
 **What is known.**  `aspic` is a genuine Microchip PIC assembler -
