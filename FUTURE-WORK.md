@@ -479,7 +479,18 @@ baseline.
 
 ---
 
-## pic14 link failures are not counted (2026-10-11)
+## pic14 link failures are not counted (2026-10-11) - FIXED
+
+**Fixed (2026-10-11).** The compile and link rules in
+`ports/pic14/spec.mk` no longer start with `-`, matching pic16. A
+failed compile, assembly or link now stops make, and the harness
+reports it as `cannot compile/link` (`Summary: 1/1/1`). Full run at
+`d2b9a0f9`: 809 failures, 1 abnormal stop (was 467 and 348). That
+equals the honest count below minus the 5 cases the 32x32->64
+helpers fixed, case for case. The one remaining abnormal stop,
+`bug-2124`, runs and dies without a summary in the baseline too.
+
+**As found:**
 
 `ports/pic14/spec.mk` links with `-$(SDCC) ...`, so make carries on when
 the link fails. gpsim then reports `failed to open program file ...cod`,

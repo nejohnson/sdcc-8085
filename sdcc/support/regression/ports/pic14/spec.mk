@@ -44,12 +44,13 @@ BINEXT = .cod
 
 EXTRAS = $(PORT_CASES_DIR)/testfwk$(OBJEXT) $(PORT_CASES_DIR)/support$(OBJEXT)
 
-# Rule to link into .ihx
+# Rule to link into .ihx.  A failed compile or link must stop make, or the
+# case reaches gpsim without a .cod and is not counted as a failure.
 %$(BINEXT): %$(OBJEXT) $(EXTRAS)
-	-$(SDCC) $(SDCCFLAGS) $(LINKFLAGS) $(EXTRAS) $< -o $@
+	$(SDCC) $(SDCCFLAGS) $(LINKFLAGS) $(EXTRAS) $< -o $@
 
 %$(OBJEXT): %.c
-	-$(SDCC) $(SDCCFLAGS) -c $< -o $@
+	$(SDCC) $(SDCCFLAGS) -c $< -o $@
 
 $(PORT_CASES_DIR)/%$(OBJEXT): $(PORTS_DIR)/$(PORT)/%.c
 	-$(SDCC) $(SDCCFLAGS) -c $< -o $@
