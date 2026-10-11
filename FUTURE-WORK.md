@@ -388,6 +388,41 @@ first time, so it needs its own measured change.
 
 ---
 
+## pic14 `ptrdiff_t` is `long`; `intptr_t` should be too, and isn't yet (2026-10-11)
+
+**Fixed.** `newPtrDiffLink()` gives a pointer difference the smallest
+integer type that holds `GPTRSIZE`, which is 3 on pic14, so `long`.
+`stddef.h` said `int`, so `sizeof (p - p) == sizeof (ptrdiff_t)` failed
+(12 `sizeof` cases). pic14 now gets the same treatment as mcs51/ds390:
+`ptrdiff_t` and `PTRDIFF_MIN/MAX` are `long` (`stddef.h`, `stdint.h`),
+and so is a `z`-suffixed literal (`SDCCval.c`).
+
+**Not done: `intptr_t`/`uintptr_t`.** These are still `int`, which
+cannot hold a 3-byte generic pointer either. Widening them alongside
+`ptrdiff_t` was measured in a full pic14 run. It fixed nothing extra and
+exposed two latent bugs, so it was backed out:
+
+- `bug3564104`: `(const void *)(base + *message * 8)` with a `long`
+  `base` computes the wrong pointer in `f1` (4 assertions fail). The
+  same expression through a `volatile` temporary (`f2`) is right, so
+  suspect the cast from `long` to generic pointer when it is folded into
+  the call argument.
+- `bug-2752`: `Internal error: validateLink failed in DCL_TYPE(ptype) @
+  SDCCcse.c:659: expected DECLARATOR, got SPECIFIER`, an
+  `inline ... __reentrant` function taking a `uintptr_t` that is cast
+  from `&dat1`.
+
+Both reproduce with `intptr_t` as `long` on pic14. Fix them first, then
+widen `intptr_t`.
+
+Verified (`ptrdiff_t` only): with the `intptr_t` part reverted, the
+`sizeof`, `memalignment`, `bug-2752` and `bug3564104` cases were rerun
+against the 638-failure baseline: the 12 `sizeof` tests pass and nothing
+else moved. The full run with both parts was otherwise identical to the
+baseline.
+
+---
+
 ## PIC off gputils (2026-10-08)
 
 **What is known.**  `aspic` is a genuine Microchip PIC assembler -

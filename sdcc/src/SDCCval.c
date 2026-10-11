@@ -1442,7 +1442,7 @@ constIntVal (const char *s)
     }
   else
     {  
-      if (z_suffix && (TARGET_IS_MCS51 || TARGET_IS_DS390)) // Special case for ptrdiff_t literals, see stddef.h
+      if (z_suffix && (TARGET_IS_MCS51 || TARGET_IS_DS390 || TARGET_IS_PIC14)) // Special case for ptrdiff_t literals, see stddef.h
         l_suffix = true;
 
       if (decimal) // Choose first of int, long int, long long int that fits.
