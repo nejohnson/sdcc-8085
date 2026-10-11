@@ -257,7 +257,7 @@ not yet investigated) and ordinary compile/assertion failures.
 
 ---
 
-## pic14's 48 validateOpType crashes - FIXED, but exposed a real bug (2026-10-10/11)
+## pic14's 48 validateOpType crashes, and the test-fixture bug they'd been hiding (2026-10-10/11)
 
 **The crash, fixed.** `OP_SYM_ETYPE (left)` (`SDCCicode.h` -
 `validateOpType(op, ..., SYMBOL, ...)->svt.symOperand->etype`) asserts
@@ -287,27 +287,56 @@ consistent with 48 fewer compile crashes), but failing *tests* rose
 fail their own assertions - e.g. `bitfields-checks_struct_1_varType_1_bit_0.c`
 fails 9 of 12, including bare byte-level checks like `AS_UINT8
 (volatileBits) == (1 << BIT_TO_TEST)` right after setting that one bit.
-The write path (`genPackBits`) already used the correct,
-symbol-independent pattern, so this isn't the sign-extension fix
-leaking a new mistake - it's a separate, real bug in how pic14
-generates bitfield access through an absolute-address pointer, that
-the `validateOpType` crash simply made unreachable until now. The
-address itself is sane (`0x0100`, bank 2 on a 16F877, chosen
-deliberately per-port in the test), so this isn't a bad test fixture
-either.
+First instinct was that this had to be a pic14 codegen bug in the
+bitfield-through-absolute-pointer path (`genPackBits` /
+`emitPtrByteGet` / `emitPtrByteSet`), since the write path already
+used the correct symbol-independent `etype` pattern and the generated
+assembly's address-byte loading and bitmask literals both checked out
+by hand against the `__gptrget1`/`__gptrput1` calling convention
+(`device/lib/pic14/libsdcc/*/macros.inc`: `STK01` -> `FSR` i.e. the
+low address byte, `STK00` bit 0 -> `IRP` i.e. the bank-select/high
+side, `W` -> the generic-pointer tag).
 
-**Why this is worth fixing now, not parking.** Bit-twiddling through
-an absolute address is exactly how direct SFR/GPIO access is written
-on a part like this - not an edge case for this target, closer to the
-common case. Picked up immediately rather than logged here as
-deferred; see git history for the follow-up fix once found.
+**The real cause: the test's own `ABS_ADDR1`/`ABS_ADDR2` for pic14
+were not plain RAM.** `tests/bitfields-bits1.c.in` picked `0x0100`/
+`0x0104` for pic14 "bank 2 on a 16F877" - but on the 14-bit core,
+`INDF`/`PCL`/`STATUS`/`FSR` are bank-independent and mirrored at the
+*same low offset in every bank* (confirmed against
+`/usr/share/gputils/header/p16f877.inc`: bank 2's own SFRs, `EEDATA`
+etc, only start at `0x010C`). So `0x0100` *is* `INDF` and `0x0104` *is*
+`FSR` - not general-purpose storage at all. Confirmed empirically with
+a minimal repro under `gpsim` (`break w 0x120`/`break w 0x100` plus
+`dump r`): at `0x0100`, the write landed on the correct register value
+but the surrounding read-modify-write sequence was contending with the
+very `FSR`/`INDF` pair the generated code uses to *perform* that
+write; moving the test to real GPR space (`0x0120`/`0x0130`, inside
+the bank's documented `0x110`-`0x16F` GPR range, clear of the
+`0x170`-`0x17F` shared-RAM block the compiler itself uses for `STK*`)
+made the identical generated code sequence work first try - `REG120`
+read back `0x01` exactly as the C source asked for. This was a bad
+choice of test addresses, not a pic14 bug; the file's own existing
+comment ("mcs51 fails tests. Don't know if that is a bug or just a bad
+choice for ABS_ADDR1 and ABS_ADDR2") had already flagged exactly this
+risk for another port, which should have been the first thing checked.
 
-Verified (the crash fix alone, before the follow-up): i8085 +
+**Fix.** The same bad pic14 `ABS_ADDR1`/`ABS_ADDR2` pair was copied
+into four sibling test fixtures, not just the one this bug was found
+through: `tests/bitfields-bits1.c.in`, `bitfields-checks.c.in`,
+`bitfields-nibbles.c.in`, and `bitfields-dead-loop.c.in`. All four
+moved from `0x0100`/`0x0104` to `0x0120`/`0x0130`, with the same
+comment explaining why the old pair aliased `INDF`/`FSR`. No pic14
+backend code changed for this part - `genPackBits`, `emitPtrByteGet`,
+`emitPtrByteSet` were all already correct.
+
+Verified (the crash fix, `OP_SYM_ETYPE` -> `etype`): i8085 +
 i8085-undoc full regression byte- and tick-identical to baseline
 (pic14-only file). pic14 full regression: `validateOpType` 48 -> 0,
-clearing that category entirely - the crash itself is gone on every
-file that was hitting it, even though some of those files now reveal
-the separate bug above.
+clearing that category entirely.
+
+Verified (the address fix): minimal standalone repro under `gpsim`
+with direct register breakpoints/dumps, then the full pic14 regression
+rerun after wiping `gen/pic14`+`results/pic14` - see commit for the
+before/after counts.
 
 ---
 
