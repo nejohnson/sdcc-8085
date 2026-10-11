@@ -364,6 +364,19 @@ static int regUsedinRange(pCode *pc1, pCode *pc2, reg_info *reg)
 	return 0;
 }
 
+/*-----------------------------------------------------------------*
+* Is reg referenced strictly between pc1 and pc2?
+*-----------------------------------------------------------------*/
+static int regUsedBetween(pCode *pc1, pCode *pc2, reg_info *reg)
+{
+	pCode *pc = findNextInstruction(pc1->next);
+
+	if (!pc || pc == pc2)
+		return 0;
+
+	return regUsedinRange(pc, pc2, reg);
+}
+
 static int regIsSpecial (reg_info *reg, int mayBeGlobal)
 {
   if (!reg) return 0;
@@ -480,8 +493,10 @@ static int pCodeOptime2pCodes(pCode *pc1, pCode *pc2, pCode *pcfl_used, reg_info
 				  
 				*/
 				reg2 = getRegFromInstruction(pct2);
-				/* Check reg2 is not used for something else before it is loaded with reg */
-				if (reg2 && !regIsSpecial (reg2, 1) && !regUsedinRange(pc1,pc2,reg2)) {
+				/* Check reg2 is not used for something else before it is loaded with reg,
+				 * and that 'stuff' does not change reg (possible when reg has other uses) */
+				if (reg2 && !regIsSpecial (reg2, 1) && !regUsedinRange(pc1,pc2,reg2)
+					&& (can_free || !regUsedBetween(pc1,pc2,reg))) {
 					pCode *pct3 = findNextInstruction(pct2->next);
 					/* Check following instructions are not relying on the use of W or the Z flag condiction */
 					/* XXX: We must ensure that this value is destroyed before use---otherwise it might be used in
@@ -513,7 +528,11 @@ static int pCodeOptime2pCodes(pCode *pc1, pCode *pc2, pCode *pcfl_used, reg_info
 				(PCI(pc2)->op == POC_MOVFW)) {
 				
 				reg1 = getRegFromInstruction(pct1);
-				if(reg1 && !regIsSpecial (reg1, 0) && !regUsedinRange(pc1,pc2,reg1)) {
+				/* 'stuff' runs without W = reg1 afterwards, so it must not read W;
+				 * and when reg is kept, its store moves past 'stuff', which must not use reg */
+				if(reg1 && !regIsSpecial (reg1, 0) && !regUsedinRange(pc1,pc2,reg1)
+					&& pCodeSearchCondition(findNextInstruction(pc1->next), PCC_W, 0) != 1
+					&& (can_free || !regUsedBetween(pc1,pc2,reg))) {
 					DFPRINTF((stderr, "   optimising MOVF reg1,W MOVWF reg ... MOVF reg,W\n"));
 					/*
 					Change:

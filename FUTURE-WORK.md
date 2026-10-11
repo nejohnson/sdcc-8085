@@ -340,6 +340,54 @@ before/after counts.
 
 ---
 
+## pic14's pCode register optimiser moved code past a live W (2026-10-11) - FIXED
+
+**Symptom.** Every rotate by exactly half the width failed at runtime:
+`(x << 8) | (x >> 8)` on a `uint16_t` returned the low byte in both
+halves, and the 32-bit equivalent was wrong the same way (16 `rotate2`
+and 4 `rotate` cases). The code from `gen.c` was correct. With
+`--no-pcode-opt` the output was right, so the bug was in the register
+optimiser that runs over pCode afterward.
+
+**Cause.** `pCodeOptime2pCodes` (`src/pic14/pcoderegs.c`) rewrites
+
+    movf  reg1,w          stuff...
+    movwf reg       ->    movf  reg1,w
+    stuff...             [movwf reg]
+    movf  reg,w
+
+It checked that `stuff` does not touch `reg1`. It did not check that
+`stuff` does not read W, even though W held `reg1`'s value all through
+`stuff` before the rewrite and no longer does after it. Here `stuff` was
+a `movwf` of the other result byte. When `reg` has more than two uses
+(`can_free == 0`), the rewrite also moves `movwf reg` past `stuff`, and
+nothing checked that `stuff` doesn't use `reg`. The sibling rewrite
+`movwf reg; stuff; movf reg,w; movwf reg2 -> movwf reg2; stuff` had the
+same `reg` hole.
+
+**Fix.** Before the first rewrite, require that W is not read before it
+is next written (`pCodeSearchCondition(..., PCC_W, 0) != 1`). In the
+multi-use case, also require that `reg` is not referenced inside
+`stuff`, for both rewrites (new helper `regUsedBetween`).
+
+**Verified.** The full pic14 regression was run against the old and the
+new compiler, each with its own freshly rebuilt pic14 libraries:
+749 -> **638** failures, 21574 -> 21556 tests, 6011 test cases and 290
+abnormal stops both unchanged. A per-case diff shows only gains: the
+20 rotate cases (93 tests), plus `gcc-torture-execute-20050826-2` and
+`-20060910-1`, which now pass. Those two use `ASSERT (0)` as `abort ()`,
+so a pass runs zero tests. That accounts for the 18-test drop exactly
+(17 + 1). No other case changed. pic14-only file, so the other ports
+are not affected.
+
+**Not done.** `hasExtBitOp` in `src/pic14/main.c` tests
+`(right & lbits) == 1` where `right % lbits == 1` was clearly meant,
+so `genRLC` is never used for a rotate left by one. Fixing that is an
+optimisation that would put `genRLC` in front of the suite for the
+first time, so it needs its own measured change.
+
+---
+
 ## PIC off gputils (2026-10-08)
 
 **What is known.**  `aspic` is a genuine Microchip PIC assembler -
