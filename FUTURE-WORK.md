@@ -547,6 +547,29 @@ identical to the ones measured.
 
 ---
 
+## pic14 read a pointer variable's location instead of its value (2026-10-13) - FIXED
+
+`p = standin; p->a` (`bug-2385`): the optimiser folds the copy into
+`@[_standin + 0]`, a pointer read whose pointer is the variable itself.
+pic14 gives a variable outside its direct-space map an `AOP_PCODE` /
+`PO_IMMEDIATE` asmop naming its *location*. `op_isLitLike` and the
+near-pointer "access directly" checks treated any immediate as an
+address constant, so the generated code read through `&standin`
+instead of through `standin`.
+
+`op_isVariable` / `op_isImmediateAddr` (`src/pic14/gen.c`) now tell
+the two apart: an immediate is an address constant for arrays,
+functions and rematerialised `&x` temporaries, but a RAM variable's
+immediate is where its value lives. Variables in code space keep the
+old meaning, because they are read through their address. Applied in
+`op_isLitLike`/`mov2w_op`, `SetIrp`, and the near pointer get and set
+paths.
+
+Measured (full run, clean libraries, against `8814bb9e`'s 501): **500**,
+`bug-2385` fixed, no other result changed.
+
+---
+
 ## gplink corrupts label addresses in pic14 initialized data (2026-10-13) - WORKED AROUND
 
 **Symptom.** An initialized global pointer such as

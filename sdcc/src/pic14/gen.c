@@ -89,6 +89,9 @@ static char *fReturnpic14[] = { "temp1", "temp2", "temp3", "temp4" };
 
 static char **fReturn = fReturnpic14;
 
+static int op_isVariable (operand * op);
+static int op_isImmediateAddr (operand * op);
+
 static struct
 {
   short accInUse;
@@ -1401,7 +1404,7 @@ mov2w_op (operand * op, int offset)
   else
     {
       /* access value stored in op */
-      mov2w (AOP (op), offset);
+      emitpcode (POC_MOVFW, popGet (AOP (op), offset));
     }
 }
 
@@ -5844,7 +5847,7 @@ SetIrp (operand * result)
       else
         emitCLRIRP;
     }
-  else if ((AOP_TYPE (result) == AOP_PCODE) && (AOP (result)->aopu.pcop->type == PO_IMMEDIATE))
+  else if (op_isImmediateAddr (result))
     {
       emitCLRIRP;           /* always ensure this is clear as it may have previously been set */
       emitpcode (POC_MOVLW, popGetAddr (AOP (result), 1, 0));
@@ -6339,7 +6342,7 @@ genNearPointerGet (operand * left, operand * result, iCode * ic)
   pic14AopOp (result, ic, false);
 
   /* Check if can access directly instead of via a pointer */
-  if ((AOP_TYPE (left) == AOP_PCODE) && (AOP (left)->aopu.pcop->type == PO_IMMEDIATE))
+  if (op_isImmediateAddr (left))
     {
       direct = 1;
     }
@@ -6925,7 +6928,7 @@ genNearPointerSet (operand * right, operand * result, iCode * ic)
   DEBUGpic14_AopType (__LINE__, NULL, right, result);
 
   /* Check if can access directly instead of via a pointer */
-  if ((AOP_TYPE (result) == AOP_PCODE) && (AOP (result)->aopu.pcop->type == PO_IMMEDIATE))
+  if (op_isImmediateAddr (result))
     {
       direct = 1;
     }
@@ -8037,10 +8040,31 @@ aop_isLitLike (asmop * aop)
   return FALSE;
 }
 
+/* Is op a variable (not an array or function) in RAM?  Its immediate
+   asmop then names where it is stored, not a value.  (A variable in code
+   space is read through its address, which the immediate is.) */
+static int
+op_isVariable (operand * op)
+{
+  return IS_TRUE_SYMOP (op) && !IS_FUNC (OP_SYM_TYPE (op)) && !IS_ARRAY (OP_SYM_TYPE (op))
+         && !IN_CODESPACE (SPEC_OCLS (OP_SYM_ETYPE (op)));
+}
+
+/* Is op an address known at link time: an immediate asmop that is not a variable's location? */
+static int
+op_isImmediateAddr (operand * op)
+{
+  return AOP_TYPE (op) == AOP_PCODE && AOP (op)->aopu.pcop->type == PO_IMMEDIATE && !op_isVariable (op);
+}
+
 int
 op_isLitLike (operand * op)
 {
   assert (op);
+  /* A variable's immediate asmop names its location, not its value:
+     only an array's or a function's address is the value itself. */
+  if (op_isVariable (op))
+    return FALSE;
   if (aop_isLitLike (AOP (op)))
     return TRUE;
   if (IS_SYMOP (op) && IS_FUNC (OP_SYM_TYPE (op)))
