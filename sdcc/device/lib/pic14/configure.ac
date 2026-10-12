@@ -42,6 +42,14 @@ esac
 
 libdir=$libdir/pic14
 
+# printf() prints float values only with --enable-floats, as on pic16.
+AC_SUBST([USE_FLOATS], ["-DUSE_FLOATS=0"])
+AC_ARG_ENABLE(
+    [floats],
+    AS_HELP_STRING([--enable-floats], [Enable output of float-values via printf().]),
+    [if test "yes" = $enableval; then USE_FLOATS="-DUSE_FLOATS=1"; fi]
+)
+
 # Checks for programs.
 # The default architectures (regular and enhanced cores) can be selected at
 # configure time by setting the environment variables ARCH and/or EARCH to

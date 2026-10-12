@@ -531,12 +531,19 @@ using them linked. That covers the 10 `itoa` cases.
   that reason; pic14 added to the exclusion.
 - `930513-1`: see Limitation.
 
-**Open: `printf` and floats.** pic14's `vfprintf.c` defines
-`USE_FLOATS`, which pulls in `_ftoa` and the float library. pic14 does
-not overlay non-reentrant locals, so on the 16F877 even a minimal
-`sprintf` test runs out of RAM. With `USE_FLOATS` off, the same test
-links and passes `%d %u %s %c %x %ld`, and `%f` prints `<NO FLOAT>`.
-Which default to ship is undecided.
+**`printf` and floats: decided 2026-10-12.** Neil's call: float output
+does not belong in `printf` on PICs. pic14 now matches pic16: off by
+default (`%f` prints `<NO FLOAT>`), opt in with the library's
+`./configure --enable-floats` (`-DUSE_FLOATS=1`). Before this, even a
+minimal `sprintf` test ran out of RAM on the 16F877, because floats
+pull in `_ftoa` and the float library and pic14 does not overlay
+non-reentrant locals. Floats in arithmetic are unaffected. Measured
+against the varargs commit: 679 -> **652** failures, 0 worse. The
+`snprintf` family and about 20 `tcc`/gcc-torture programs now link and
+pass. `snprintf`'s `PTR` variant is excluded on pic14 as it already is
+on pic16 (the whole test): the PIC `printf` prints pointers without
+"0x" and has no `%P`. The default build's `vfprintf` objects are
+identical to the ones measured.
 
 ---
 
