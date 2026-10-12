@@ -547,6 +547,46 @@ identical to the ones measured.
 
 ---
 
+## gplink corrupts label addresses in pic14 initialized data (2026-10-13) - WORKED AROUND
+
+**Symptom.** An initialized global pointer such as
+`const char *string1 = "\x00\x01";` read garbage, but only for some
+program layouts: `zeropad`, `strnlen`, `compound-literal` and about 15
+gcc-torture programs, some of which timed out.
+
+**Cause: gputils 1.5.2.** In gplink's relocation patching
+(`libgputils/gpcofflink.c`, `_patch_addr`), `RELOC_LOW` in a data
+section goes through the processor class's `reloc_f`, which on the
+14-bit core is the 7-bit *file register* relocation. So
+`db low(label)` in an `idata` section loses bit 7 of the address
+(`0x06A8` becomes `0x0628`), and only when that bit is set, hence the
+layout dependence. gpasm also records data relocations at
+byte offset / 2. Plain numeric bytes >= 0x80 are unaffected, and so are
+`RELOC_ALL` (`dw label`) and `RELOC_HIGH`.
+
+**Workaround** (`pic14_printLabel`, `src/pic14/glue.c`): a label address
+of two or more bytes in RAM data is emitted as `dw label` (plus the
+generic-pointer tag byte), never as `db low(label), high(label)`.
+`retlw low(label)` in code tables is unaffected.
+
+**Not covered:** a *one-byte* initializer from a label, such as
+`unsigned char gc = (unsigned char) &gv;`. gpasm only produces
+`RELOC_LOW` for that, and no other expression it accepts gives a
+working relocation. `bug-2031` tests exactly this and fails 2 of 12
+whenever `gv`'s address has bit 7 set; it passed before only by layout
+luck. The proper fix belongs in gplink: `RELOC_LOW` in a data section
+should mask with 0xff.
+
+**Also in this change:** `tests/sizeof.c.in` gives pic14 a
+`DEFAULT_ADDR_SPACE` of `__data`, as pdk already has. On pic14 `&var`
+is a 2-byte `__data` pointer, not a 3-byte generic one. That accounts
+for all 36 `sizeof` failures.
+
+**Measured** (full run, clean libraries, against `f065a768`'s 573):
+**501** failures, 32 files better, 1 worse (`bug-2031`, above).
+
+---
+
 ## pic14 link failures are not counted (2026-10-11) - FIXED
 
 **Fixed (2026-10-11).** The compile and link rules in

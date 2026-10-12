@@ -1001,20 +1001,16 @@ pic14_printLabel (struct dbuf_s *oBuf, const char *name, int size, int ptype)
       if (size > 3)
         dbuf_printf (oBuf, "\tretlw 0\n");
     }
+  else if (size == 1)
+    dbuf_printf (oBuf, "\tdb\t%s\n", name);
   else
     {
-      dbuf_printf (oBuf, "\tdb\t");
-      if (size == 1)
-        dbuf_printf (oBuf, "%s", name);
-      else
-        dbuf_printf (oBuf, "low(%s)", name);
-      if (size > 1)
-        dbuf_printf (oBuf, ", high(%s)", name);
+      /* "dw", not "db low(...), high(...)": gplink (gputils 1.5.2) loses
+         bit 7 of a RELOC_LOW byte in initialized data, while dw's
+         RELOC_ALL arrives intact. */
+      dbuf_printf (oBuf, "\tdw\t%s\n", name);
       if (size > 2)
-        dbuf_printf (oBuf, ", 0x%02x", tag);
-      if (size > 3)
-        dbuf_printf (oBuf, ", 0");
-      dbuf_printf (oBuf, "\n");
+        dbuf_printf (oBuf, "\tdb\t0x%02x%s\n", tag, size > 3 ? ", 0" : "");
     }
 }
 
