@@ -3656,12 +3656,44 @@ getStaticVaArea (const char *funcName, int size)
   return sym;
 }
 
+/* copy size bytes from src to dst with a call to __memcpy */
+static void
+geniCodeStaticVaMemcpy (operand *dst, operand *src, int size)
+{
+  symbol *memcpy_sym = findSym (SymbolTab, NULL, "__memcpy");
+  operand *ops[3] = { dst, src, operandFromLit (size) };
+  value *args;
+  iCode *ic;
+  int i;
+
+  wassert (memcpy_sym);
+  for (i = 0, args = FUNC_ARGS (memcpy_sym->type); i < 3; i++, args = args->next)
+    ops[i] = geniCodeCast (args->type, ops[i], false);
+  for (i = 0, args = FUNC_ARGS (memcpy_sym->type); i < 3; i++, args = args->next)
+    {
+      if (IS_REGPARM (args->etype))
+        {
+          ic = newiCode (SEND, ops[i], NULL);
+          ic->argreg = SPEC_ARGREG (args->etype);
+        }
+      else
+        {
+          ic = newiCode ('=', 0, ops[i]);
+          IC_RESULT (ic) = operandFromValue (args, false);
+        }
+      ADDTOCHAIN (ic);
+    }
+  ic = newiCode (CALL, operandFromSymbol (memcpy_sym, false), 0);
+  IC_RESULT (ic) = newiTempOperand (memcpy_sym->type->next, 0);
+  ADDTOCHAIN (ic);
+}
+
 /* store one variable argument at *offset in the callee's static area */
 static void
-geniCodeStaticVaArg (operand *pval, int *offset, int lvl)
+geniCodeStaticVaArg (operand *pval, sym_link *ftype, int *offset, int lvl)
 {
   sym_link *vtype = operandType (pval);
-  int size = getSize (vtype);
+  int size = getSize (IS_STRUCT (ftype) ? ftype : vtype);
   sym_link *ptype, *rtype;
   operand *ptr, *dst;
 
@@ -3674,6 +3706,16 @@ geniCodeStaticVaArg (operand *pval, int *offset, int lvl)
   ptr = operandFromSymbol (getStaticVaArea (staticVaCallee, *offset + size), true);
   if (*offset)
     ptr = geniCodeAdd (ptr, operandFromLit (*offset), RESULT_TYPE_NONE, lvl);
+
+  /* A struct argument is its address: copy the struct itself. The fixed
+     parameters of a variadic function are never in registers here, so
+     the call cannot disturb them. */
+  if (IS_STRUCT (ftype))
+    {
+      geniCodeStaticVaMemcpy (ptr, pval, size);
+      *offset += size;
+      return;
+    }
   ptype = newLink (DECLARATOR);
   DCL_TYPE (ptype) = POINTER;
   ptype->next = copyLinkChain (vtype);
@@ -3733,7 +3775,7 @@ send:
   else if (TARGET_IS_PIC14 && !argVals && IFFUNC_HASVARARGS (ftype) && !IFFUNC_ISREENT (ftype) && !options.stackAuto)
     {
       /* a variable argument: there is no argVals entry to advance */
-      geniCodeStaticVaArg (pval, stack, lvl);
+      geniCodeStaticVaArg (pval, parms->ftype, stack, lvl);
       (*iArg)++;
       return argVals;
     }
@@ -3767,6 +3809,14 @@ send:
  
               // Keep this one in mind in so we can move it later.
               operand *dstop = geniCodeCast (FUNC_ARGS(builtin_memcpy->type)->type, operandFromValue (argVals, true), false);
+              operand *nop = operandFromLit (getSize (parms->ftype));
+              /* A real function, unlike the builtin, needs its arguments in
+                 the types of its prototype (pic14: generic pointers). */
+              if (!IFFUNC_ISBUILTIN (builtin_memcpy->type))
+                {
+                  pval = geniCodeCast (FUNC_ARGS(builtin_memcpy->type)->next->type, pval, false);
+                  nop = geniCodeCast (FUNC_ARGS(builtin_memcpy->type)->next->next->type, nop, false);
+                }
               castic_end = iCodeChainEnd;
               if (IS_REGPARM (FUNC_ARGS (builtin_memcpy->type)->etype))
                 {
@@ -3790,12 +3840,12 @@ send:
                 }
               if (IS_REGPARM (FUNC_ARGS (builtin_memcpy->type)->next->next->etype))
                 {
-                  nic = newiCode (SEND, operandFromLit (getSize (parms->ftype)), NULL);
+                  nic = newiCode (SEND, nop, NULL);
                   nic->argreg = SPEC_ARGREG (FUNC_ARGS (builtin_memcpy->type)->next->next->etype);
                 }
               else
                 {
-                  nic = newiCode ('=', 0, operandFromLit (getSize (parms->ftype)));
+                  nic = newiCode ('=', 0, nop);
                   IC_RESULT (nic) = operandFromValue (FUNC_ARGS(builtin_memcpy->type)->next->next, false);
                 }
               callic = newiCode (CALL, operandFromSymbol (builtin_memcpy, false), 0);

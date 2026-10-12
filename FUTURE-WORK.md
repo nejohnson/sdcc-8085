@@ -583,11 +583,37 @@ patch.
 
 ---
 
-## pic14 passes structs by value wrongly (2026-10-11)
+## pic14 passes structs by value wrongly (2026-10-11) - FIXED 2026-10-12
 
-`char getu (struct {char a, b;} x) { return x.b; }` returns the wrong
-value, for any struct size. This is the `structparam` family (7 cases),
-`gte/pr30185`, `931004-11` and `950607-2`. Struct *returns* work.
+**As found.** `char getu (struct {char a, b;} x) { return x.b; }`
+returned the wrong value, for any struct size: the `structparam`
+family, `gte/pr30185`, `931004-11`, `950607-2` and more. Struct
+*returns* worked.
+
+**Cause, in two layers.**
+1. `_pic14_regparm` accepted struct parameters. For a struct "in
+   registers" the caller sends only its address, and the callee reads
+   its own copy, which nothing ever filled in. mcs51 and hc08 refuse
+   structs in `regparm`; pic14 now does too (`pic14/main.c`).
+2. That sends structs down the front end's copy-in path, which calls
+   `__memcpy` (`geniCodeParms`, `SDCCicode.c`). It cast only the
+   destination to the prototype's type. The source went as a 2-byte
+   data pointer to pic14's 3-byte-generic-pointer `__memcpy`, and the
+   length as 1 byte. The source and length are now cast too, when
+   `__memcpy` is a real function. Where it is `__builtin__` (i8085,
+   z80 ...) codegen ignores argument types and nothing changes.
+
+Structs as **variable arguments** had the same shape of problem:
+`geniCodeStaticVaArg` assigned the struct, which stores its address.
+They are now copied into the area with `__memcpy`. This is safe because
+a pic14 variadic function's fixed parameters are never in registers,
+so the inner call cannot disturb them.
+
+**Measured** (full runs, clean libraries, against `99a3e1fe`'s 652):
+parameters 652 -> 610 (33 files better, 0 worse); variable arguments
+610 -> **573** (7 better, 0 worse: `strct-varg-1`, `strct-stdarg-1`,
+`920625-1`, `bug-2776`, `bug-3368`, `bug-3013`, `pr44575`). Abnormal
+stops 2 -> 1 (`bug-2124`, pre-existing).
 
 ---
 

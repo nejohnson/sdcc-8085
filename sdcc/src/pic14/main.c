@@ -111,6 +111,10 @@ _pic14_regparm (sym_link * l, bool reentrant)
   if (IFFUNC_HASVARARGS (regParmFuncType))
     return 0;
 
+  /* A struct is copied into the callee's own parameter variable. */
+  if (IS_STRUCT (l))
+    return 0;
+
   /* Parameters travel in WREG and the STKnn pseudo-stack.  From the
      first one that would not fit on, they are stored straight into the
      callee's own parameter variables instead. */
