@@ -547,6 +547,38 @@ identical to the ones measured.
 
 ---
 
+## pic14 literal add/subtract: stale carry, 32-bit literals, wide results (2026-10-13) - FIXED
+
+Three bugs in `genAddLit` (`src/pic14/genarith.c`), plus one in glue:
+
+- **Stale carry.** When the literal's low byte is 0, the carry is
+  unknown (`clear_carry`), but a later byte whose literal was also 0
+  still went through the `CLRF; RLF` carry path and added whatever
+  carry the previous instruction had left. `c += x` straight after a
+  loop came out 256 too high (`920411-1`). Every lower literal byte
+  being zero means there is no carry, so that byte is now copied.
+- **32-bit literals.** The literal was an `int` (add) or read with
+  `ulFromVal` (subtract), so the upper half of a `long long` constant
+  vanished: `0x0102030405060708 + c` lost its top four bytes. Now
+  `unsigned long long` with `ullFromVal` throughout.
+- **Results wider than the operand.** When the front end folds a cast
+  into the operation (`(u64)(int)(foo - 1)` becomes `u64 = int - 1`),
+  the sum is computed at the operand's width and then extended. It was
+  always *zero*-extended; it now takes the operand's signedness
+  (`20120817-1`). A first attempt that widened the operand before
+  adding was wrong, and the regression caught it: `bug-3504` and
+  `20050410-1` need the wrap at the narrow width.
+- **Union initializer** (`pic14/glue.c`): a union whose first
+  alternative is an anonymous struct got only that struct's first
+  member, and the rest was zero-padded (`pr87053`). This ports the fix
+  the generic `SDCCglue.c` already has (`84f9c74d`, upstream bug #2948)
+  to pic14's own copy.
+
+Measured (full run, clean libraries, against `127a9a67`'s 500): **497**,
+3 better, none worse.
+
+---
+
 ## pic14 read a pointer variable's location instead of its value (2026-10-13) - FIXED
 
 `p = standin; p->a` (`bug-2385`): the optimiser folds the copy into

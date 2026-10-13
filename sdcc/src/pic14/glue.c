@@ -1479,8 +1479,29 @@ pic14_printIvalStruct (symbol *sym, sym_link *type, initList *ilist, struct dbuf
           sflds = sflds->next;
         }
       pic14_printIval (sym, sflds->type, iloop, oBuf, true);
+      size -= sflds->offset + getSize (sflds->type);
+
+      /* The selected alternative's members may have been flattened into
+         this union's field list (an anonymous inner struct or union):
+         then iloop's nested list holds one value per flattened member,
+         and each further field contiguous with the first takes the next
+         one instead of being zero-padded over (as SDCCglue.c,
+         upstream bug #2948). */
+      if (iloop && iloop->type == INIT_DEEP)
+        {
+          initList *inner = iloop->init.deep ? iloop->init.deep->next : NULL;
+          unsigned int offset = sflds->offset + getSize (sflds->type);
+          while (inner && sflds->next && sflds->next->offset == offset)
+            {
+              sflds = sflds->next;
+              pic14_printIval (sym, sflds->type, inner, oBuf, true);
+              offset += getSize (sflds->type);
+              size -= getSize (sflds->type);
+              inner = inner->next;
+            }
+        }
+
       /* pad out with zeros if necessary */
-      size -= getSize (sflds->type);
       if (size > 0)
         {
           DBG_MSG ("union padding %d bytes", size);

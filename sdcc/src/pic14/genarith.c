@@ -275,7 +275,7 @@ static void emitMOVWF(operand *reg, int offset)
         
 }
 
-static void genAddLit (iCode *ic, int lit)
+static void genAddLit (iCode *ic, unsigned long long lit)
 {
   int size, same;
   int lo;
@@ -290,6 +290,7 @@ static void genAddLit (iCode *ic, int lit)
   result = IC_RESULT(ic);
   same = pic14_sameRegs(AOP(left), AOP(result));
   size = pic14_getDataSize(result);
+
   if (size > pic14_getDataSize(left))
     {
       size = pic14_getDataSize(left);
@@ -297,7 +298,7 @@ static void genAddLit (iCode *ic, int lit)
 
   if (size < 1)
     {
-      printf("FIXME: size %d in genAddLit ic key %d lit %d (%s:%d)\n", size, ic->key, lit, ic->filename, ic->lineno);
+      printf("FIXME: size %d in genAddLit ic key %d lit %llu (%s:%d)\n", size, ic->key, lit, ic->filename, ic->lineno);
       return;
     }
 
@@ -315,7 +316,7 @@ static void genAddLit (iCode *ic, int lit)
         } // if
       for (u = 0; u < size; ++u)
         {
-          emitpcode(POC_MOVLW, popGetAddr(AOP(IC_LEFT(ic)), u, lit));
+          emitpcode(POC_MOVLW, popGetAddr(AOP(IC_LEFT(ic)), u, (int) lit));
           emitpcode(POC_MOVWF, popGet(AOP(IC_RESULT(ic)), u));
         } // for
 
@@ -324,7 +325,7 @@ static void genAddLit (iCode *ic, int lit)
           for (u = size; u < pic14_getDataSize(result); ++u)
             {
               /* XXX: Might fail for u >= size?!? */
-              emitpcode(POC_MOVLW, popGetAddr(AOP(IC_LEFT(ic)), u, lit));
+              emitpcode(POC_MOVLW, popGetAddr(AOP(IC_LEFT(ic)), u, (int) lit));
               emitpcode(POC_MOVWF, popGet(AOP(IC_RESULT(ic)), u));
             } // for
         } // if
@@ -337,7 +338,7 @@ static void genAddLit (iCode *ic, int lit)
       /* Handle special cases first */
       if (size == 1) 
         {
-          genAddLit2byte (result, 0, lit);
+          genAddLit2byte (result, 0, (int) lit);
         }
       else if (size == 2)
         {
@@ -664,6 +665,15 @@ static void genAddLit (iCode *ic, int lit)
                       }
                     } // if
                 }
+              else if (clear_carry)
+                {
+                  /* every lower byte of the lit is zero: no carry, just copy */
+                  if (!_isSameReg(AOP(left), AOP(result), offset))
+                    {
+                      emitpcode(POC_MOVFW, popGet(AOP(left),offset));
+                      emitpcode(POC_MOVWF, popGet(AOP(result),offset));
+                    }
+                }
               else
                 {
                   if (_isSameReg(AOP(left), AOP(result), offset))
@@ -691,7 +701,10 @@ out:
     {
       size = pic14_getDataSize(left);
     } // if
-  pic14AddSign(result, size, 0);
+  /* A result wider than the operand (a cast the front end folded into
+     this operation) takes the operand's width and signedness: the sum
+     wraps there and is then sign- or zero-extended. */
+  pic14AddSign(result, size, !SPEC_USIGN(getSpec(operandType(left))));
 }
 
 /*-----------------------------------------------------------------*/
@@ -728,7 +741,7 @@ void pic14GenPlus (iCode *ic)
                 AOP_TYPE(IC_RIGHT(ic)) == AOP_LIT) {
                 /* if result in bit space */
                 if(AOP_TYPE(IC_RESULT(ic)) == AOP_CRY){
-                        if(ulFromVal (AOP(IC_RIGHT(ic))->aopu.aop_lit) != 0L) {
+                        if(ullFromVal (AOP(IC_RIGHT(ic))->aopu.aop_lit) != 0) {
                                 emitpcode(POC_MOVLW, popGet(AOP(IC_RESULT(ic)),0));
                                 if (!pic14_sameRegs(AOP(IC_LEFT(ic)), AOP(IC_RESULT(ic))) )
                                         emitpcode(POC_BTFSC, popGet(AOP(IC_LEFT(ic)),0));
@@ -755,7 +768,7 @@ void pic14GenPlus (iCode *ic)
         
         if(AOP(IC_RIGHT(ic))->type == AOP_LIT) {
                 /* Add a literal to something else */
-                unsigned lit = (unsigned) ulFromVal (AOP(IC_RIGHT(ic))->aopu.aop_lit);
+                unsigned long long lit = ullFromVal (AOP(IC_RIGHT(ic))->aopu.aop_lit);
                 DEBUGpic14_emitcode(";","adding lit to something. size %d",size);
                 
                 genAddLit (ic,  lit);
@@ -1114,7 +1127,7 @@ void pic14AddSign(operand *result, int offset, int sign)
 void pic14GenMinus (iCode *ic)
 {
         int size, opsize, offset = 0, same=0;
-        unsigned long lit = 0L;
+        unsigned long long lit = 0;
         int isLit;
         symbol *lbl_comm, *lbl_next;
         asmop *left, *right, *result;
@@ -1162,8 +1175,8 @@ void pic14GenMinus (iCode *ic)
         if(AOP_TYPE(IC_RIGHT(ic)) == AOP_LIT) {
                 /* Add a literal to something else */
                 
-                lit = ulFromVal(right->aopu.aop_lit);
-                lit = -(long)lit;
+                lit = ullFromVal(right->aopu.aop_lit);
+                lit = -(long long)lit;
                 
                 genAddLit(ic, lit);
                 
@@ -1191,7 +1204,7 @@ void pic14GenMinus (iCode *ic)
                                          * XXX: probably fails for AOP_IMMDs!
                                          */
                                         
-                                        lit = ulFromVal (left->aopu.aop_lit);
+                                        lit = ullFromVal (left->aopu.aop_lit);
                                         
                                         if(AOP_TYPE(IC_RESULT(ic)) == AOP_CRY) {
                                                 if(pic14_sameRegs(right, result)) {
@@ -1237,7 +1250,7 @@ void pic14GenMinus (iCode *ic)
                 isLit = 0;
 
                 if(AOP_TYPE(IC_LEFT(ic)) == AOP_LIT) {
-                        lit = ulFromVal (left->aopu.aop_lit);
+                        lit = ullFromVal (left->aopu.aop_lit);
                         isLit = 1;
                         DEBUGpic14_emitcode ("; left is lit","line %d result %s, left %s, right %s",__LINE__,
                                 AopType(AOP_TYPE(IC_RESULT(ic))),
