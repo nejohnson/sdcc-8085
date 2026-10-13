@@ -547,6 +547,42 @@ identical to the ones measured.
 
 ---
 
+## Second pic14 regression port: `pic14-enhanced` on a PIC16F1788 (2026-10-13)
+
+Neil's decision: keep the 16F877 (`pic14`, classic core: 8K words,
+368 bytes of RAM) and add the 16F1788 (`pic14-enhanced`: enhanced core,
+16K words, 2KB of RAM) alongside it, for a record of both. The 16F1788 is
+the largest midrange part that gpsim 0.32.1 simulates.
+`ports/pic14-enhanced/spec.mk` sets `PIC14_DEVICE` and `PIC14_LIBS`
+(`libsdcce`/`libce`/`libme`) and includes `ports/pic14/spec.mk`; it has
+its own `support.c` (config words, EUSART). Excluded from the default
+`make` like `pic14`; run with `make test-pic14-enhanced`.
+
+**gpsim quirk:** gpsim's 16F1788 drives EUSART TX on RC4, not on RC6 as
+the device does, so `support.c` attaches the USART module to `portc4`.
+
+**Limits that stay on any midrange PIC:** program memory is in 2K-word
+pages, and gplink cannot split one function across pages. An enhanced
+bank has 80 bytes of general-purpose RAM (16F877: 96), and one
+function's locals (`UDL_*`) must fit a bank.
+
+**First measurement** (both on the same compiler and clean libraries;
+pic14 449 failures): **393 failures, 15 abnormal stops** (13 stack
+overflows). 86 files better than pic14, almost all ones that did not
+fit the 16F877 (76 compile/link, 9 timeouts). 35 worse:
+- 15 locals sections larger than the 80-byte bank (`itoa`, `zeropad`,
+  `bug-3563`, `bug-3729`, `qct_0057-duff`, ...);
+- abnormal stops: gpsim detects overflow of the 16-level hardware stack,
+  where the 16F877's 8-level stack silently wrapped (those were timeouts
+  or failures there);
+- `reentrant/*`: timeouts became assertion failures, the known
+  reentrancy gap;
+- **to investigate, possibly enhanced-core code generation:**
+  `absolute_mem___code` (4 of 10), `bug-2304` (4 of 4),
+  `funcptrcmp_type_char` (abnormal stop).
+
+---
+
 ## `_BitInt` and `<stdbit.h>` on pic14 (2026-10-13) - IMPLEMENTED
 
 pic14 now has `_BitInt` up to 64 bits (`BITINT_MAXWIDTH` was 0), and its

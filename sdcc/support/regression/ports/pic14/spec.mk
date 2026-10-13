@@ -1,4 +1,9 @@
-# Regression test specification for the pic14 target running with gpsim
+# Regression test specification for the pic14 target running with gpsim.
+# Other pic14 ports (pic14-enhanced) set PIC14_DEVICE and PIC14_LIBS and
+# include this file.
+
+PIC14_DEVICE ?= 16f877
+PIC14_LIBS ?= libsdcc.lib libc.lib libm.lib
 
 # path to gpsim
 ifdef GPSIM_PATH
@@ -16,7 +21,7 @@ endif
 #
 # -I rather than -c because -c changes directory to the command file's
 # own, after which the relative paths the harness passes stop resolving.
-EMU_INPUT = -I $(PORTS_DIR)/$(PORT_BASE)/gpsim.cmd
+EMU_INPUT = -I $(PORTS_DIR)/pic14/gpsim.cmd
 EMU_FLAGS = -i -s
 EMU = ${WINE} ${GPSIM}
 
@@ -35,9 +40,9 @@ ifdef CROSSCOMPILING
   SDCCFLAGS += -I$(top_srcdir)
 endif
 
-SDCCFLAGS += -mpic14 -pp16f877 --less-pedantic
+SDCCFLAGS += -mpic14 -p$(PIC14_DEVICE) --less-pedantic
 SDCCFLAGS += --no-warn-non-free
-LINKFLAGS += libsdcc.lib libc.lib libm.lib
+LINKFLAGS += $(PIC14_LIBS)
 
 OBJEXT = .o
 BINEXT = .cod
@@ -55,7 +60,7 @@ EXTRAS = $(PORT_CASES_DIR)/testfwk$(OBJEXT) $(PORT_CASES_DIR)/support$(OBJEXT)
 $(PORT_CASES_DIR)/%$(OBJEXT): $(PORTS_DIR)/$(PORT)/%.c
 	-$(SDCC) $(SDCCFLAGS) -c $< -o $@
 
-.PRECIOUS: gen/pic14/testfwk.o gen/pic14/support.o
+.PRECIOUS: $(PORT_CASES_DIR)/testfwk.o $(PORT_CASES_DIR)/support.o
 
 $(PORT_CASES_DIR)/%$(OBJEXT): fwk/lib/%.c
 	$(SDCC) $(SDCCFLAGS) -c $< -o $@
