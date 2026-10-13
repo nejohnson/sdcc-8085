@@ -187,6 +187,8 @@ _pic14_finaliseOptions (void)
     /* non-enhanced cores take PSAVE, SSAVE and WSAVE from stack */
     if (!pic14_getPIC()->isEnhancedCore)
       size -= 3;
+    /* and every core PCALL_W */
+    size -= 1;
 
     /* Actual stack size includes WREG and STK00, ... */
     dbuf_set_length (&dbuf, 0);

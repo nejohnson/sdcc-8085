@@ -547,6 +547,50 @@ identical to the ones measured.
 
 ---
 
+## pic14 calls through a function pointer with arguments (2026-10-13) - IMPLEMENTED
+
+**The problem.** pic14 makes an indirect call by writing PCLATH and then
+PCL from WREG. WREG is also where the first argument byte travels, so
+`genPcall` could not pass arguments at all. It now can.
+
+**Design** (approved by Neil, 2026-10-13):
+- Every function with WREG/STKnn parameters gets a one-word alternate
+  entry, printed right before its label after the pCode passes:
+  `_f_ind: MOVF PCALL_W,W`, falling through into `_f`. Interrupt
+  handlers do not.
+- `PCALL_W` is one byte of shared RAM next to WSAVE, taken from the
+  pseudo-stack (register-argument capacity on a 16F877: 14 -> 13 bytes;
+  `pCodeInitRegisters`, `emitPseudoStack`, `__SDCC_PIC14_STACK_SIZE`).
+- `genPcall` sends the arguments as `genCall` does (shared
+  `pic14_sendArgs`), stores the would-be WREG byte in `PCALL_W`, then
+  jumps.
+- A function's address is its `_ind` entry wherever it is taken: in
+  `aopForSym` (code) and `pic14_printFuncPtrLabel` (initializers).
+  `pic14_declare` declares `_f_ind` alongside `_f`. Direct calls are
+  unchanged.
+- Functions whose address is taken (`pic14_indirectTargets`, filled by
+  `aopForSym` and by scanning global initializers before the pCode
+  passes) are neither inlined by `InlinepCode` nor given call-tree-shared
+  registers by `ReuseReg`. Callers through a pointer do not appear in
+  the call tree, so both were unsafe even for argument-less pointer
+  calls before this change.
+
+**Also fixed:** a one-bit bit-field tested in an `if` through a code or
+generic pointer used a `BTFSC INDF` shortcut, reading RAM.
+`far_rabbit_fields`' `csb.b`, a `const` struct in program memory,
+passed only because a RAM byte happened to have the bit set; the new
+entries moved the code. The shortcut now fetches the byte
+(`emitPtrByteGet`) and tests it in W.
+
+**Measured** (full run, clean libraries, against `360d8b0c`'s 551):
+**490**, 24 files better, none worse: all the `float_single` that fit
+the 16F877, `funptrs` (8 left each, `__reentrant`), `z88dk`,
+`z88dk_callee`, `func-ptr-1`, `bug-2271`, `bug-2822`, `bug-2497` and
+more. `bug-2124` is listed as better but has only gone back to an
+abnormal stop (which counts zero), and remains reentrancy work.
+
+---
+
 ## pic14: leaked indirect-call arguments; casts of __code variables (2026-10-13) - FIXED
 
 - **`genPcall` never cleared `_G.sendSet`.** Arguments to an indirect

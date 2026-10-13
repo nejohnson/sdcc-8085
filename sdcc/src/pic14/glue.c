@@ -89,6 +89,46 @@ static set *declared = NULL;
 
 static void showAllMemmaps (FILE *of); // XXX: emits initialized symbols
 
+/* Record the functions named in initializers (function pointer tables):
+   they are reached through pointers.  Done before the pCode passes,
+   which would otherwise inline them or share their registers. */
+static void
+pic14_scanAstFuncs (ast *tree)
+{
+  if (!tree)
+    return;
+  if (IS_AST_VALUE (tree) && tree->opval.val->sym && IS_FUNC (tree->opval.val->sym->type))
+    pic14_addIndirectTarget (tree->opval.val->sym->rname);
+  if (tree->type == EX_OP)
+    {
+      pic14_scanAstFuncs (tree->left);
+      pic14_scanAstFuncs (tree->right);
+    }
+}
+
+static void
+pic14_scanIvalFuncs (initList *ilist)
+{
+  for (; ilist; ilist = ilist->next)
+    {
+      if (ilist->type == INIT_NODE)
+        pic14_scanAstFuncs (ilist->init.node);
+      else if (ilist->type == INIT_DEEP)
+        pic14_scanIvalFuncs (ilist->init.deep);
+    }
+}
+
+static void
+pic14_scanMapFuncs (memmap *map)
+{
+  symbol *sym;
+  if (!map)
+    return;
+  for (sym = setFirstItem (map->syms); sym; sym = setNextItem (map->syms))
+    if (sym->ival)
+      pic14_scanIvalFuncs (sym->ival);
+}
+
 static void
 addToPublics (symbol *sym)
 {
@@ -145,6 +185,8 @@ emitPseudoStack (struct dbuf_s *oBuf, struct dbuf_s *oBufExt)
           dbuf_printf (oBuf, "\tglobal SSAVE\n");
           dbuf_printf (oBuf, "\tglobal WSAVE\n");
         }
+      size -= 1;
+      dbuf_printf (oBuf, "\tglobal PCALL_W\n");
       for (i = size - 1; i >= 0; i--)
         {
           dbuf_printf (oBuf, "\tglobal STK%02d\n", i);
@@ -169,6 +211,7 @@ emitPseudoStack (struct dbuf_s *oBuf, struct dbuf_s *oBufExt)
           dbuf_printf (oBuf, "SSAVE\tres 1\n");
           dbuf_printf (oBuf, "WSAVE\tres 1\n"); // WSAVE *must* be in sharebank (IRQ handlers)
         }
+      dbuf_printf (oBuf, "PCALL_W\tres 1\n"); // first argument byte of a call through a pointer
       /* fill rest of sharebank with stack STKxx .. STK00 */
       for (i = size - 1; i >= 0; i--)
         {
@@ -187,6 +230,8 @@ emitPseudoStack (struct dbuf_s *oBuf, struct dbuf_s *oBufExt)
           dbuf_printf (oBufExt, "\textern SSAVE\n");
           dbuf_printf (oBufExt, "\textern WSAVE\n");
         }
+      size -= 1;
+      dbuf_printf (oBufExt, "\textern PCALL_W\n");
       for (i = size - 1; i >= 0; i--)
         {
           char buffer[128];
@@ -717,6 +762,16 @@ picglue (void)
       pic14createInterruptVect (&vBuf);
     }
 
+  {
+    namedspacemap *nm;
+    memmap *maps[] = { data, initialized, idata, code, statsg, xdata, pdata, d_abs, i_abs, c_abs, x_abs, initializer };
+    int i;
+    for (i = 0; i < (int) (sizeof maps / sizeof maps[0]); i++)
+      pic14_scanMapFuncs (maps[i]);
+    for (nm = namedspacemaps; nm; nm = nm->next)
+      pic14_scanMapFuncs (nm->map);
+  }
+
   AnalyzepCode ('*');
 
   ReuseReg ();                  // ReuseReg where call tree permits
@@ -1053,9 +1108,17 @@ pic14_printFuncPtrLabel (sym_link *type, value *val, struct dbuf_s *oBuf)
   char *name;
   int size;
 
-  /* now generate the name */
+  char ind[SDCC_NAME_MAX + 8];
+
+  /* now generate the name: a function's address is its "_ind" entry
+     when it takes arguments in WREG/STKnn */
   if (!val->sym)
     name = val->name;
+  else if (IS_FUNC (val->sym->type) && pic14_hasRegParm (val->sym->type))
+    {
+      SNPRINTF (ind, sizeof (ind), "%s_ind", val->sym->rname);
+      name = ind;
+    }
   else
     name = val->sym->rname;
 
@@ -2469,6 +2532,9 @@ pic14_declare (struct dbuf_s *oBuf, const char *type, symbol *sym)
   DBG_MSG ("symbol %s declared %s", str, type);
   addSet (&declared, Safe_strdup (str));
   dbuf_printf (oBuf, "\t%s\t%s\n", type, str);
+  /* and its entry for calls through a pointer */
+  if (IS_FUNC (sym->type) && !IFFUNC_ISISR (sym->type) && pic14_hasRegParm (sym->type))
+    dbuf_printf (oBuf, "\t%s\t%s_ind\n", type, str);
 }
 
 /*-----------------------------------------------------------------*/

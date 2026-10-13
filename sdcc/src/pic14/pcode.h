@@ -597,6 +597,7 @@ typedef struct pCodeFunction
 	int  ncalled;        /* Number of times function is called. */
 	unsigned isPublic:1; /* True if the fn is not static and can be called from another module (ie a another c or asm file). */
 	unsigned isInterrupt:1; /* True if the fn is interrupt. */
+	unsigned hasIndEntry:1; /* True if the fn has an "_ind" entry for calls through a pointer. */
 
 } pCodeFunction;
 
@@ -892,6 +893,7 @@ extern pCodeOpReg pc_pclath;
 extern pCodeOpReg pc_wsave;     /* wsave, ssave and psave are used to save W, the Status and PCLATH*/
 extern pCodeOpReg pc_ssave;     /* registers during an interrupt */
 extern pCodeOpReg pc_psave;     /* registers during an interrupt */
+extern pCodeOpReg pc_pcallw;    /* first argument byte of a call through a pointer */
 
 extern pFile *the_pFile;
 extern pCodeInstruction *pic14Mnemonics[MAX_PIC14MNEMONICS];

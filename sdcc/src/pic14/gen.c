@@ -85,6 +85,41 @@ unsigned fReturnSizePic = 4;    /* shared with ralloc.c */
    WREG/STKnn, as referenced by this module.  glue.c declares those whose
    function is defined elsewhere as extern. */
 set *pic14_stackParmSyms = NULL;
+
+/* Functions whose address this module takes (rnames).  They can be
+   called through a pointer, so the pCode passes must neither inline
+   them nor share their registers by the static call tree. */
+set *pic14_indirectTargets = NULL;
+
+void
+pic14_addIndirectTarget (const char *rname)
+{
+  if (!pic14_isIndirectTarget (rname))
+    addSet (&pic14_indirectTargets, Safe_strdup (rname));
+}
+
+int
+pic14_isIndirectTarget (const char *rname)
+{
+  const char *s;
+  for (s = setFirstItem (pic14_indirectTargets); s; s = setNextItem (pic14_indirectTargets))
+    if (!strcmp (s, rname))
+      return 1;
+  return 0;
+}
+
+/* Does a function of this type take arguments in WREG/STKnn?  Then a
+   call through a pointer enters at its "_ind" entry, which loads the
+   WREG byte back from PCALL_W. */
+int
+pic14_hasRegParm (sym_link *ftype)
+{
+  value *arg;
+  for (arg = FUNC_ARGS (ftype); arg; arg = arg->next)
+    if (IS_REGPARM (arg->etype))
+      return 1;
+  return 0;
+}
 static char *fReturnpic14[] = { "temp1", "temp2", "temp3", "temp4" };
 
 static char **fReturn = fReturnpic14;
@@ -351,8 +386,13 @@ aopForSym (iCode * ic, symbol * sym, bool result)
   if (IS_FUNC (sym->type))
     {
 
+      char ind[SDCC_NAME_MAX + 8];
+
+      /* a function's address is where calls through a pointer enter */
+      pic14_addIndirectTarget (sym->rname);
+      SNPRINTF (ind, sizeof (ind), "%s_ind", sym->rname);
       sym->aop = aop = newAsmop (AOP_PCODE);
-      aop->aopu.pcop = popGetImmd (sym->rname, 0, 0, 1);
+      aop->aopu.pcop = popGetImmd (pic14_hasRegParm (sym->type) ? ind : sym->rname, 0, 0, 1);
       PCOI (aop->aopu.pcop)->_const = IN_CODESPACE (space);
       PCOI (aop->aopu.pcop)->_function = TRUE;
       PCOI (aop->aopu.pcop)->index = 0;
@@ -2135,37 +2175,12 @@ unsaverbank (int bank, iCode * ic, bool popPsw)
 }
 
 /*-----------------------------------------------------------------*/
-/* genCall - generates a call statement                            */
+/* pic14_sendArgs - pass the pending SEND parameters: all but the  */
+/* last byte in STKnn, the last in WREG                            */
 /*-----------------------------------------------------------------*/
 static void
-genCall (iCode * ic)
+pic14_sendArgs (void)
 {
-  sym_link *dtype, *etype;
-  symbol *sym;
-  char *name, buf[20];
-  int isExtern;
-
-  FENTRY;
-
-  DEBUGpic14_emitcode ("; ***", "%s  %d", __FUNCTION__, __LINE__);
-
-  /* if caller saves & we have not saved then */
-  if (!ic->regsSaved)
-    saveRegisters (ic);
-
-  /* if we are calling a function that is not using
-     the same register bank then we need to save the
-     destination registers on the stack */
-  dtype = operandType (IC_LEFT (ic));
-  etype = getSpec(dtype);
-  if (currFunc && dtype &&
-      (FUNC_REGBANK (currFunc->type) != FUNC_REGBANK (dtype)) && IFFUNC_ISISR (currFunc->type) && !ic->bankSaved)
-
-    saverbank (FUNC_REGBANK (dtype), ic, TRUE);
-
-  /* if send set is not empty the assign */
-  if (_G.sendSet)
-    {
       iCode *sic;
       /* For the Pic port, there is no data stack.
        * So parameters passed to functions are stored
@@ -2214,7 +2229,40 @@ genCall (iCode * ic)
           pic14FreeAsmop (sic->left, NULL, sic, true);
         }
       _G.sendSet = NULL;
-    }
+}
+
+/*-----------------------------------------------------------------*/
+/* genCall - generates a call statement                            */
+/*-----------------------------------------------------------------*/
+static void
+genCall (iCode * ic)
+{
+  sym_link *dtype, *etype;
+  symbol *sym;
+  char *name, buf[20];
+  int isExtern;
+
+  FENTRY;
+
+  DEBUGpic14_emitcode ("; ***", "%s  %d", __FUNCTION__, __LINE__);
+
+  /* if caller saves & we have not saved then */
+  if (!ic->regsSaved)
+    saveRegisters (ic);
+
+  /* if we are calling a function that is not using
+     the same register bank then we need to save the
+     destination registers on the stack */
+  dtype = operandType (IC_LEFT (ic));
+  etype = getSpec(dtype);
+  if (currFunc && dtype &&
+      (FUNC_REGBANK (currFunc->type) != FUNC_REGBANK (dtype)) && IFFUNC_ISISR (currFunc->type) && !ic->bankSaved)
+
+    saverbank (FUNC_REGBANK (dtype), ic, TRUE);
+
+  /* if send set is not empty the assign */
+  if (_G.sendSet)
+    pic14_sendArgs ();
   /* make the call */
   if (IS_LITERAL(etype))
     {
@@ -2325,12 +2373,12 @@ genPcall (iCode * ic)
   pushSide (IC_LEFT (ic), FARPTRSIZE);
 
   /* if send set is not empty, assign parameters */
+  /* WREG makes the jump, so the byte that would travel in WREG goes in
+     PCALL_W, and the callee's "_ind" entry loads it back */
   if (_G.sendSet)
     {
-      DEBUGpic14_emitcode ("; ***", "%s  %d - WARNING arg-passing to indirect call not supported", __FUNCTION__, __LINE__);
-      /* no way to pass args - W always gets used to make the call; drop
-         them, or they would be passed to the next direct call instead */
-      _G.sendSet = NULL;
+      pic14_sendArgs ();
+      emitpcode (POC_MOVWF, popCopyReg (&pc_pcallw));
     }
   /* first idea - factor out a common helper function and call it.
      But don't know how to get it generated only once in its own block
@@ -2439,7 +2487,11 @@ genFunction (iCode * ic)
   pic14_stringInSet (sym->rname, &pic14_localFunctions, 1);
 
   pic14_emitcode ("", "%s:", sym->rname);
-  addpCode2pBlock (pb, newpCodeFunction (moduleName, sym->rname, !IS_STATIC (sym->etype), IFFUNC_ISISR (sym->type)));
+  {
+    pCode *pcf = newpCodeFunction (moduleName, sym->rname, !IS_STATIC (sym->etype), IFFUNC_ISISR (sym->type));
+    PCF (pcf)->hasIndEntry = !IFFUNC_ISISR (sym->type) && pic14_hasRegParm (sym->type);
+    addpCode2pBlock (pb, pcf);
+  }
 
   /* mark symbol as NOT extern (even if it was declared so previously) */
   assert (IS_SPEC (sym->etype));
@@ -6202,6 +6254,19 @@ genUnpackBits (operand * result, operand * left, int ptype, iCode * ifx)
           resolvedIfx rIfx;
 
           resolveIfx (&rIfx, ifx);
+          if (ptype == GPOINTER || ptype == CPOINTER)
+            {
+              /* not in RAM (or maybe not): fetch the byte, test the bit in W */
+              emitPtrByteGet (left, ptype, FALSE);
+              emitpcode (POC_ANDLW, popGetLit (1UL << bstr));
+              if (rIfx.condition)
+                emitSKPZ;
+              else
+                emitSKPNZ;
+              emitpcode (POC_GOTO, popGetLabel (rIfx.lbl->key));
+              ifx->generated = TRUE;
+              return;
+            }
           if (ptype == -1)      /* direct */
             pcop = newpCodeOpBit (aopGet (AOP (left), 0, FALSE, FALSE), bstr, 0);
           else

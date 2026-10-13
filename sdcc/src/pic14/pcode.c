@@ -43,6 +43,7 @@ pCodeOpReg pc_pclath    = {{PO_PCLATH,  "PCLATH"}, -1, NULL,0,NULL};
 pCodeOpReg *pc_indf     = &pc_indf_;
 
 pCodeOpReg pc_wsave     = {{PO_GPR_REGISTER,  "WSAVE"}, -1, NULL,0,NULL};
+pCodeOpReg pc_pcallw    = {{PO_GPR_REGISTER,  "PCALL_W"}, -1, NULL,0,NULL};
 pCodeOpReg pc_ssave     = {{PO_GPR_REGISTER,  "SSAVE"}, -1, NULL,0,NULL};
 pCodeOpReg pc_psave     = {{PO_GPR_REGISTER,  "PSAVE"}, -1, NULL,0,NULL};
 
@@ -1796,8 +1797,16 @@ void  pCodeInitRegisters(void)
 	 * memory bank. This is not needed on enhanced processors. */
 	if (!pic->isEnhancedCore)
 		stkSize = stkSize - 3;
+	/* ... and one byte for PCALL_W, which carries the first argument
+	 * byte of a call through a pointer (WREG makes the jump). */
+	stkSize = stkSize - 1;
 	assert(stkSize >= 0);
 	initStack(shareBankAddress, stkSize, haveShared);
+
+	pc_pcallw.r = allocInternalRegister(IDX_PCALLW, pc_pcallw.pcop.name, pc_pcallw.pcop.type, (pic && haveShared) ? pic->bankMask : 0);
+	pc_pcallw.rIdx = pc_pcallw.r->rIdx;
+	pc_pcallw.r->isFixed = 1;
+	pc_pcallw.r->address = shareBankAddress-stkSize;
 	
 	/* TODO: Read aliases for SFRs from regmap lines in device description. */
 	pc_status.r = allocProcessorRegister(IDX_STATUS,"STATUS", PO_STATUS, 0xf80);
@@ -1833,11 +1842,11 @@ void  pCodeInitRegisters(void)
 		pc_psave.rIdx = pc_psave.r->rIdx;
 	
 		pc_wsave.r->isFixed = 1; /* Some PIC ICs do not have a sharebank - this register needs to be reserved across all banks. */
-		pc_wsave.r->address = shareBankAddress-stkSize;
+		pc_wsave.r->address = shareBankAddress-stkSize-1;
 		pc_ssave.r->isFixed = 1; /* This register must be in the first bank. */
-		pc_ssave.r->address = shareBankAddress-stkSize-1;
+		pc_ssave.r->address = shareBankAddress-stkSize-2;
 		pc_psave.r->isFixed = 1; /* This register must be in the first bank. */
-		pc_psave.r->address = shareBankAddress-stkSize-2;
+		pc_psave.r->address = shareBankAddress-stkSize-3;
 	}
 
 	/* probably should put this in a separate initialization routine */
@@ -2359,6 +2368,7 @@ pCode *newpCodeFunction(const char *mod, const char *f, int isPublic, int isInte
 
 	pcf->isPublic    = (unsigned int)isPublic;
 	pcf->isInterrupt = (unsigned int)isInterrupt;
+	pcf->hasIndEntry = 0;
 
 	return ((pCode *)pcf);
 }
@@ -3669,6 +3679,10 @@ static void pCodePrintFunction(FILE *of, pCode *pc)
 		pBranch *exits = PCF(pc)->to;
 		int i=0;
 
+		/* Calls through a pointer enter here: WREG made the jump, so the
+		   first argument byte comes in PCALL_W instead. */
+		if (PCF(pc)->hasIndEntry)
+			fprintf(of, "%s_ind:\n\tMOVF\tPCALL_W,W\n", PCF(pc)->fname);
 		fprintf(of, "%s:", PCF(pc)->fname);
 
 		if(options.verbose)
@@ -5509,10 +5523,12 @@ ReuseReg(void)
 
   for(pb = the_pFile->pbHead; pb; pb = pb->next)
     {
-      /* Non static functions can be called from other modules,
-       * so their registers must reassign */
+      /* Non static functions can be called from other modules, and
+       * functions whose address is taken through a pointer, so the call
+       * tree does not show their callers: their registers must reassign */
       if (pb->function_entries
-          && (PCF(setFirstItem(pb->function_entries))->isPublic || !pb->visited))
+          && (PCF(setFirstItem(pb->function_entries))->isPublic || !pb->visited
+              || pic14_isIndirectTarget (PCF(setFirstItem(pb->function_entries))->fname)))
         {
           register_reassign(pb,peakIdx,0);
         } // if
@@ -5873,7 +5889,9 @@ static void InlineFunction(pBlock *pb)
 			
 			pBranch *pbr;
 			
-			if(pcn && isPCF(pcn) && (PCF(pcn)->ncalled == 1) && !PCF(pcn)->isPublic && (pcp && (isPCI_BITSKIP(pcp)||!isPCI_SKIP(pcp)))) { /* Bit skips can be inverted other skips can not */
+			if(pcn && isPCF(pcn) && (PCF(pcn)->ncalled == 1) && !PCF(pcn)->isPublic
+			   && !pic14_isIndirectTarget (PCF(pcn)->fname) /* reached through a pointer too: keep it */
+			   && (pcp && (isPCI_BITSKIP(pcp)||!isPCI_SKIP(pcp)))) { /* Bit skips can be inverted other skips can not */
 				
 				InlineFunction(pcn->pb);
 				

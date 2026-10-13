@@ -118,6 +118,7 @@ reg_info *allocNewDirReg(sym_link *symlnk, const char *name);
 #define IDX_WSAVE   0x7ffe
 #define IDX_SSAVE   0x7ffd
 #define IDX_PSAVE   0x7ffc
+#define IDX_PCALLW  0x7ffb
 
 #define pic14_nRegs 128
 
