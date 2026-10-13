@@ -108,6 +108,35 @@ pic14_isIndirectTarget (const char *rname)
   return 0;
 }
 
+/* Keep an _BitInt result normalised: clear the bits above its width in
+   the top byte (unsigned), or with extend, copy its sign bit into them
+   (signed).  Signed overflow in + - << is undefined, so those only
+   ask for unsigned. */
+void
+pic14_fixBitIntTop (operand *result, int extend)
+{
+  sym_link *type = operandType (result);
+  unsigned w, mask;
+  int top;
+
+  if (!IS_BITINT (type) || !(SPEC_BITINTWIDTH (type) % 8) || !AOP (result) || AOP_SIZE (result) < 1)
+    return;
+  w = SPEC_BITINTWIDTH (type) % 8;
+  mask = 0xffu >> (8 - w);
+  top = AOP_SIZE (result) - 1;
+  if (SPEC_USIGN (type) || extend)
+    {
+      emitpcode (POC_MOVLW, popGetLit (mask));
+      emitpcode (POC_ANDWF, popGet (AOP (result), top));
+    }
+  if (!SPEC_USIGN (type) && extend)
+    {
+      emitpcode (POC_MOVLW, popGetLit (~mask & 0xff));
+      emitpcode (POC_BTFSC, newpCodeOpBit (aopGet (AOP (result), top, FALSE, FALSE), w - 1, 0));
+      emitpcode (POC_IORWF, popGet (AOP (result), top));
+    }
+}
+
 /* Does a function of this type take arguments in WREG/STKnn?  Then a
    call through a pointer enters at its "_ind" entry, which loads the
    WREG byte back from PCALL_W. */
@@ -2809,6 +2838,54 @@ genEndFunction (iCode * ic)
 }
 
 /*-----------------------------------------------------------------*/
+/* codeByteGet - read byte <index> of a variable in __code into W  */
+/* (only STK00/STK01 are used to pass the address)                 */
+/*-----------------------------------------------------------------*/
+static void
+codeByteGet (operand *op, int index)
+{
+  emitpcode (POC_MOVLW, popGetAddr (AOP (op), 0, index));
+  emitpcode (POC_MOVWF, popRegFromIdx (Gstack_base_addr - 1));
+  emitpcode (POC_MOVLW, popGetAddr (AOP (op), 1, index));
+  emitpcode (POC_MOVWF, popRegFromIdx (Gstack_base_addr));
+  emitpcode (POC_MOVLW, popGetLit (GPTRTAG_CODE));
+  call_libraryfunc ("__gptrget1");
+}
+
+/*-----------------------------------------------------------------*/
+/* genRetFromCode - return the value of a variable in __code       */
+/*-----------------------------------------------------------------*/
+static void
+genRetFromCode (operand *op, int size)
+{
+  /* The bytes for WREG, STK00 and STK01 are fetched into temporaries
+     first: reading any later byte overwrites STK00/STK01. */
+  pCodeOp *temps[3] = { NULL, NULL, NULL };
+  int offset, idx;
+
+  for (idx = 0; idx < 3 && idx < size; idx++)
+    {
+      temps[idx] = popGetTempReg ();
+      codeByteGet (op, size - 1 - idx);
+      emitpcode (POC_MOVWF, pCodeOpCopy (temps[idx]));
+    }
+  for (offset = 0; offset < size - 3; offset++)
+    {
+      codeByteGet (op, offset);
+      emitpcode (POC_MOVWF, get_argument_pcop (size - 1 - offset));
+    }
+  for (idx = 2; idx >= 0; idx--)
+    {
+      if (!temps[idx])
+        continue;
+      emitpcode (POC_MOVFW, pCodeOpCopy (temps[idx]));
+      if (idx)
+        emitpcode (POC_MOVWF, get_argument_pcop (idx));
+      popReleaseTempReg (temps[idx]);
+    }
+}
+
+/*-----------------------------------------------------------------*/
 /* genRet - generate code for return statement                     */
 /*-----------------------------------------------------------------*/
 static void
@@ -2841,10 +2918,13 @@ genRet (iCode * ic)
       size = pic14_stackSize () + 1;
     }
 
-  for (offset = 0; offset < size; offset++)
-    {
-      pass_argument (IC_LEFT (ic), offset, size - 1 - offset);
-    }
+  if (OP_IN_CODE_SPACE (IC_LEFT (ic)) && !IS_ARRAY (operandType (IC_LEFT (ic))))
+    genRetFromCode (IC_LEFT (ic), size);
+  else
+    for (offset = 0; offset < size; offset++)
+      {
+        pass_argument (IC_LEFT (ic), offset, size - 1 - offset);
+      }
 
   pic14FreeAsmop (ic->left, NULL, ic, true);
 
@@ -5735,6 +5815,7 @@ genGenericShift (iCode * ic, int shiftRight)
 {
   operand *right, *left, *result;
   int size;
+  int leftShift;
   symbol *tlbl, *tlbl1, *inverselbl;
 
   FENTRY;
@@ -5752,6 +5833,7 @@ genGenericShift (iCode * ic, int shiftRight)
   right = IC_RIGHT (ic);
   left = IC_LEFT (ic);
   result = IC_RESULT (ic);
+  leftShift = !shiftRight;
 
   pic14AopOp (right, ic, false);
   pic14AopOp (left, ic, false);
@@ -5772,6 +5854,8 @@ genGenericShift (iCode * ic, int shiftRight)
         shiftRight_Left2ResultLit (left, result, lit, !SPEC_USIGN (operandType (left)));
       else
         shiftLeft_Left2ResultLit (left, result, lit);
+      if (leftShift)
+        pic14_fixBitIntTop (result, 0);
       //genRightShiftLiteral (left,right,result,ic, 0);
       return;
     }
@@ -5848,6 +5932,9 @@ genGenericShift (iCode * ic, int shiftRight)
     }                           // if
 
   emitpLabel (tlbl1->key);
+
+  if (leftShift)
+    pic14_fixBitIntTop (result, 0);
 
   pic14FreeAsmop (left, NULL, ic, true);
   pic14FreeAsmop (right, NULL, ic, true);
@@ -6597,7 +6684,7 @@ emitPtrPut (operand * right, operand * result, int ptype, int blen, int bstr)
     char *func[] = { NULL, "__gptrput1", "__gptrput2", "__gptrput3", "__gptrput4", NULL, NULL, NULL, "__gptrput8" };
     int offset = 0;
     pCodeOp *temp = NULL;
-    int litval = 0;               /* source literal value (if AOP_LIT) */
+    unsigned long long litval = 0;  /* source literal value (if AOP_LIT) */
     unsigned char mask = 0;       /* bitmask within current byte */
     int size;
     symbol *lbl = NULL;
@@ -6627,7 +6714,7 @@ emitPtrPut (operand * right, operand * result, int ptype, int blen, int bstr)
               {
                 /* Case with partial byte and literal source
                  */
-                litval = (int) ulFromVal (AOP (right)->aopu.aop_lit);
+                litval = ullFromVal (AOP (right)->aopu.aop_lit);
                 litval <<= bstr;
                 litval >>= 8 * size;
                 litval &= (~mask) & 0xff;
@@ -7735,6 +7822,7 @@ genCast (iCode * ic)
   pic14AddSign (result, AOP_SIZE (right), !SPEC_USIGN (rtype));
 
 release:
+  pic14_fixBitIntTop (result, 1);
   pic14FreeAsmop (right, NULL, ic, true);
   pic14FreeAsmop (result, NULL, ic, true);
 

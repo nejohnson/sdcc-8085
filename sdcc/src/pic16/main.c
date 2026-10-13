@@ -1232,7 +1232,8 @@ static bool
 hasExtBitOp (int op, sym_link *left, int right)
 {
   unsigned int lbits = bitsForType (left);
-  return (op == ROT && ((right & lbits) == 1 || (right % lbits) == lbits - 1) ||
+  /* RLF/RRF chains rotate whole bytes only */
+  return (op == ROT && lbits % 8 == 0 && ((right % lbits) == 1 || (right % lbits) == lbits - 1) ||
     op == GETABIT);
 }
 

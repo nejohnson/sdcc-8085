@@ -302,7 +302,7 @@ pic14_allocateSpace (symbol *sym, int size)
 static int in_code;
 
 static void pic14_printIvalLabel (struct dbuf_s *oBuf, symbol *sym);
-static void pic14_printLiteral (struct dbuf_s *oBuf, long lit, int size);
+static void pic14_printLiteral (struct dbuf_s *oBuf, unsigned long long lit, int size);
 static void pic14_printIval (symbol *sym, sym_link *type, initList *ilist, struct dbuf_s *oBuf, bool check);
 
 static hTab *absmap_ht = NULL;
@@ -928,11 +928,11 @@ pic14_printIvalLabel (struct dbuf_s *oBuf, symbol *sym)
  */
 
 static void
-pic14_printLiteral (struct dbuf_s *oBuf, long lit, int size)
+pic14_printLiteral (struct dbuf_s *oBuf, unsigned long long lit, int size)
 {
   int i;
 
-  DBG_MSG ("printLiteral %ld 0x%lx size %d", lit, lit, size);
+  DBG_MSG ("printLiteral 0x%llx size %d", lit, size);
 
   if (!in_code)
     dbuf_printf (oBuf, "\tdb\t");
@@ -1209,6 +1209,7 @@ pic14_printValue (struct dbuf_s *oBuf, sym_link *type, value *val)
   char buf[100] = "";
 
   int i;
+  bool ptrtag;
 
   wassertl (size >= 1 && size <= 8, "Unexpected size in printValue");
 
@@ -1280,19 +1281,21 @@ pic14_printValue (struct dbuf_s *oBuf, sym_link *type, value *val)
         }
     }
 
-  /* the third byte of a 3-byte value is a generic pointer's tag */
+  /* the third byte of a 3-byte pointer is a generic pointer's tag (a
+     3-byte integer, an _BitInt(24) say, keeps its own third byte) */
+  ptrtag = size == 3 && IS_PTR (type);
   if (in_code)
     {
       dbuf_printf (oBuf, "\tretlw 0x%02x%s\n", val ? byteOfVal (val, 0) : 0, buf);
       for (i = 1; i < size; i++)
-        dbuf_printf (oBuf, "\tretlw 0x%02x\n", (size == 3 && i == 2) ? tag : byteOfVal (val, i));
+        dbuf_printf (oBuf, "\tretlw 0x%02x\n", (ptrtag && i == 2) ? tag : byteOfVal (val, i));
     }
   else
     {
       dbuf_printf (oBuf, "\tdb\t");
       dbuf_printf (oBuf, "0x%02x", val ? byteOfVal (val, 0) : 0);
       for (i = 1; i < size; i++)
-        dbuf_printf (oBuf, ", 0x%02x", (size == 3 && i == 2) ? tag : byteOfVal (val, i));
+        dbuf_printf (oBuf, ", 0x%02x", (ptrtag && i == 2) ? tag : byteOfVal (val, i));
       dbuf_printf (oBuf, "%s\n", buf);
     }
 }
@@ -1311,7 +1314,11 @@ pic14_printTypeLiteral (symbol *sym, sym_link *type, value *val, struct dbuf_s *
     {
     case 1:
     case 2:
+    case 3:                     /* 3, 5, 6, 7: _BitInt */
     case 4:
+    case 5:
+    case 6:
+    case 7:
     case 8:
       pic14_printValue (oBuf, type, val);
       break;
@@ -1445,7 +1452,7 @@ pic14_printIvalBitFields (symbol **sym, initList **ilist, struct dbuf_s *oBuf)
 {
   symbol *lsym = *sym;
   initList *lilist = *ilist;
-  unsigned long ival = 0;
+  unsigned long long ival = 0;
   unsigned size = 0;
   unsigned bit_start = 0;
 
@@ -1485,9 +1492,9 @@ pic14_printIvalBitFields (symbol **sym, initList **ilist, struct dbuf_s *oBuf)
               werror (W_LIT_OVERFLOW);
             }
 
-          ival |= (ulFromVal (val) & ((1ul << bit_length) - 1ul)) << bit_start;
-          DBG_MSG ("(bitfield member) %s value 0x%02lx (%d bits, starting at %d) new value 0x%02lx",
-                   lsym->name, ulFromVal (val), bit_length, bit_start, ival);
+          ival |= (ullFromVal (val) & (0xffffffffffffffffull >> (64 - bit_length))) << bit_start;
+          DBG_MSG ("(bitfield member) %s value 0x%02llx (%d bits, starting at %d) new value 0x%02llx",
+                   lsym->name, ullFromVal (val), bit_length, bit_start, ival);
           lilist = lilist ? lilist->next : NULL;
         }
       bit_start += bit_length;
@@ -1500,19 +1507,10 @@ pic14_printIvalBitFields (symbol **sym, initList **ilist, struct dbuf_s *oBuf)
         }
     }
 
-  DBG_MSG ("bitfield member value %ld size %d", ival, size);
-  switch (size)
-    {
-    case 0:
-      break;
-    case 1:
-    case 2:
-    case 4:
-      pic14_printLiteral (oBuf, ival, size);
-      break;
-    default:
-      wassertl (0, "Unexpected bitfield length.");
-    }
+  DBG_MSG ("bitfield member value %llu size %d", ival, size);
+  wassertl (size <= 8, "Unexpected bitfield length.");
+  if (size)
+    pic14_printLiteral (oBuf, ival, size);
   *sym = lsym;
   *ilist = lilist;
 }

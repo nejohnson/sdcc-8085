@@ -547,6 +547,40 @@ identical to the ones measured.
 
 ---
 
+## `_BitInt` and `<stdbit.h>` on pic14 (2026-10-13) - IMPLEMENTED
+
+pic14 now has `_BitInt` up to 64 bits (`BITINT_MAXWIDTH` was 0), and its
+libc includes the `<stdbit.h>` sources; the library is compiled as
+`--std-c23` (`aligned_alloc.c` lost its `#pragma std_c11`).
+
+- **Odd widths.** `pic14_fixBitIntTop` masks (unsigned) or sign-extends
+  the top byte after casts, add, subtract and left shift, so a
+  `_BitInt(N)` never holds bits above N.
+- **Initializers** of 3, 5, 6 and 7 bytes (`pic14_printTypeLiteral`); only
+  a 3-byte *pointer* gets a tag byte (`pic14_printValue`).
+- **Rotations.** `hasExtBitOp` tested `(right & lbits) == 1` for
+  `% lbits`, and accepted widths that are not whole bytes, which the
+  RLF/RRF chains cannot rotate: an internal error or a wrong result.
+  Fixed in `pic14/main.c` and `pic16/main.c`; other rotations use
+  shifts.
+- **Bit-fields wider than 32 bits.** Initializers (`pic14_printIvalBitFields`
+  was limited to 1, 2 or 4 bytes and 32-bit values) and literal stores
+  (`emitPtrPut` shifted an `int` by 32 for the last partial byte).
+- **Returning a variable in `__code`** (`return (const_struct);`)
+  returned its address. `genRetFromCode` reads it through `__gptrget1`
+  a byte at a time, the bytes for W, STK00 and STK01 last (via
+  temporaries), as those calls overwrite STK00/STK01.
+
+**Measured** (full run, clean libraries, against `edd66f35`'s 485, before
+the `emitPtrPut` fix, which was checked on the affected cases):
+**451** failures, 74 files better (stdbit tests, `bitint*`, `store8`,
+`load8`, `bug-3410`, ...). 29 files worse, all newly enabled
+`_BitInt` cases: 24 do not fit one 2K-word code page of the 16F877
+(`bitintarith` at 17 bits and wider, `bitintrot` at 63/64 bits), 2 were
+the bit-field store fixed afterwards, and 3 are the per-test totals.
+
+---
+
 ## pic14 pointer stores of address constants (2026-10-13) - FIXED
 
 `emitPtrPut` (direct and FSR cases) loaded its source as "`AOP_LIT` ->

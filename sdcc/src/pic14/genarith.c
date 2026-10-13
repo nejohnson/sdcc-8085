@@ -1086,6 +1086,7 @@ void pic14GenPlus (iCode *ic)
         //adjustArithmeticResult(ic);
         
 release:
+        pic14_fixBitIntTop (IC_RESULT (ic), 0);
         pic14FreeAsmop(ic->left,NULL,ic,(!RESULTONSTACK(ic)));
         pic14FreeAsmop(ic->right,NULL,ic,(!RESULTONSTACK(ic)));
         pic14FreeAsmop(ic->result,NULL,ic,true);
@@ -1701,6 +1702,7 @@ void pic14GenMinus (iCode *ic)
         //    adjustArithmeticResult(ic);
         
 release:
+        pic14_fixBitIntTop (IC_RESULT (ic), 0);
         pic14FreeAsmop(ic->left,NULL,ic,(!RESULTONSTACK(ic)));
         pic14FreeAsmop(ic->right,NULL,ic,(!RESULTONSTACK(ic)));
         pic14FreeAsmop(ic->result,NULL,ic,true);

@@ -98,6 +98,7 @@ extern unsigned fReturnSizePic;
 extern set *pic14_stackParmSyms;
 extern set *pic14_indirectTargets;
 int pic14_hasRegParm (sym_link *ftype);
+void pic14_fixBitIntTop (operand *result, int extend);
 void pic14_addIndirectTarget (const char *rname);
 int pic14_isIndirectTarget (const char *rname);
 

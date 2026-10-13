@@ -76,6 +76,19 @@ libc_a_SOURCES += strtoul.c
 libc_a_SOURCES += wcstombs.c
 libc_a_SOURCES += wctomb.c
 
+# stdbit.h
+libc_a_SOURCES += __stdc_bit_ceilull.c
+libc_a_SOURCES += __stdc_bit_width.c
+libc_a_SOURCES += __stdc_count_ones.c
+libc_a_SOURCES += __stdc_first_leading_one.c
+libc_a_SOURCES += __stdc_first_trailing_one.c
+libc_a_SOURCES += __stdc_leading_zeros.c
+libc_a_SOURCES += __stdc_trailing_ones.c
+libc_a_SOURCES += stdc_load8.c
+libc_a_SOURCES += stdc_memreverse8.c
+libc_a_SOURCES += stdc_memreverse8u.c
+libc_a_SOURCES += stdc_store8.c
+
 # string.h
 libc_a_SOURCES += _memchr.c
 libc_a_SOURCES += _memcmp.c
