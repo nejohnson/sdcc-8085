@@ -2328,7 +2328,9 @@ genPcall (iCode * ic)
   if (_G.sendSet)
     {
       DEBUGpic14_emitcode ("; ***", "%s  %d - WARNING arg-passing to indirect call not supported", __FUNCTION__, __LINE__);
-      /* no way to pass args - W always gets used to make the call */
+      /* no way to pass args - W always gets used to make the call; drop
+         them, or they would be passed to the next direct call instead */
+      _G.sendSet = NULL;
     }
   /* first idea - factor out a common helper function and call it.
      But don't know how to get it generated only once in its own block
@@ -7454,6 +7456,37 @@ genCast (iCode * ic)
   if (AOP_TYPE (result) == AOP_CRY)
     {
       assert (!"assigning to bit variables is not supported");
+    }
+
+  /* A variable in __code is read from its retlw table, and only its own
+     size: reading the result's size could run off the end of the table. */
+  if (OP_IN_CODE_SPACE (right) && !IS_ARRAY (rtype))
+    {
+      int rsize = getSize (rtype);
+      int full = AOP_SIZE (result);
+
+      if (rsize == full)
+        {
+          genConstPointerGet (right, result, ic);
+          goto release;
+        }
+      if (rsize < full && ((IS_GENPTR (restype) && IS_PTR (rtype) && !IS_GENPTR (rtype))
+                           || (IS_INTEGRAL (restype) && IS_INTEGRAL (rtype))))
+        {
+          asmop *raop = AOP (result);
+          raop->size = rsize;
+          genConstPointerGet (right, result, ic);
+          raop->size = full;
+          result->aop = raop;
+          if (IS_GENPTR (restype))
+            {
+              emitpcode (POC_MOVLW, popGetLit (IS_CODEPTR (rtype) ? GPTRTAG_CODE : GPTRTAG_DATA));
+              emitpcode (POC_MOVWF, popGet (AOP (result), GPTRSIZE - 1));
+            }
+          else
+            pic14AddSign (result, rsize, !SPEC_USIGN (getSpec (rtype)));
+          goto release;
+        }
     }
 
   if ((AOP_TYPE (right) == AOP_CRY) && (AOP_TYPE (result) == AOP_REG))

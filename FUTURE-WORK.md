@@ -547,6 +547,36 @@ identical to the ones measured.
 
 ---
 
+## pic14: leaked indirect-call arguments; casts of __code variables (2026-10-13) - FIXED
+
+- **`genPcall` never cleared `_G.sendSet`.** Arguments to an indirect
+  call cannot be passed (W makes the jump), and they were not dropped
+  either: the next *direct* call anywhere later in the module sent them
+  as extra leading arguments, ahead of its own. `bug-2271`'s plain
+  `foo0 (p)` received 6 bytes instead of 3, because `foo1` before it
+  called through `pf[]`. Several tests that timed out were this.
+  `genPcall` now discards them.
+- **A cast whose source is a variable in `__code`**
+  (`(void *) const_ptr_in_code`): `genCast` read the variable as if it
+  were in RAM, while `genAssign` already reads it through its `retlw`
+  table. `genCast` now does the same, reading exactly the source's size
+  (reading the result's size could run off the table into unrelated
+  code), then adding the generic-pointer tag or sign/zero extension
+  (`bug1928022`).
+
+**Measured** (full run, clean libraries, against `c9e38ce6`'s 492):
+**551**. The rise is not regressions. 19 files changed:
+3 better (`bug-2271` 1 of 2, `bug1928022`, `20030714-1`), and 16 that
+used to time out or fail to compile and now run into the
+indirect-calls-with-arguments gap. Every one of the 16 calls through a
+function pointer with arguments, most also with `__reentrant`:
+`funptrs` (4), `bug-1918`, `bug-2373`, `bug-2497`, `bug-2663`,
+`bug-2822`, `bug-2993`, `bug-3778`, `bug-3917`, `z88dk`,
+`z88dk_callee`, `bug-2124`, and `float_single` NEG (+1). Abnormal stops
+1 -> 0.
+
+---
+
 ## pic14 glue and genRet: three ports of fixes the generic code already had (2026-10-13) - FIXED
 
 pic14 has its own copies of initializer and return code, and fixes
