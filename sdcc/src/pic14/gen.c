@@ -6668,10 +6668,7 @@ emitPtrPut (operand * right, operand * result, int ptype, int blen, int bstr)
               {
                 if (size || !blen)
                   {
-                    if (AOP_TYPE (right) == AOP_LIT)
-                      emitpcode (POC_MOVLW, popGet (AOP (right), offset));
-                    else
-                      emitpcode (POC_MOVFW, popGet (AOP (right), offset));
+                    mov2w_op (right, offset);    /* also an address constant (a function's, say) */
                     movwf (AOP (result), offset);
                     if (size)
                         offset++;
@@ -6744,10 +6741,7 @@ emitPtrPut (operand * right, operand * result, int ptype, int blen, int bstr)
               {
                 if (size || !blen)
                   {
-                    if (AOP_TYPE (right) == AOP_LIT)
-                      emitpcode (POC_MOVLW, popGet (AOP (right), offset));
-                    else
-                      emitpcode (POC_MOVFW, popGet (AOP (right), offset));
+                    mov2w_op (right, offset);    /* also an address constant (a function's, say) */
                     emitpcode (POC_MOVWF, popCopyReg (pc_indf));
                     if (size)
                       {
@@ -6907,7 +6901,6 @@ genDataPointerSet (operand * right, operand * result, iCode * ic)
 {
   int size = 0;
   int offset = 0;
-  sym_link *rtype = operandType(right);
 
   FENTRY;
   DEBUGpic14_emitcode ("; ***", "%s  %d", __FUNCTION__, __LINE__);
@@ -6923,8 +6916,9 @@ genDataPointerSet (operand * right, operand * result, iCode * ic)
    */
   size = AOP_SIZE(right);
 
-  /*test the right operand has a pointer value*/
-  if ((AOP_TYPE(right) == AOP_PCODE) && IS_PTR(rtype))
+  /* the right operand is an address constant (a function's, an array's,
+     a rematerialised &x) - not a variable, whose immediate is its location */
+  if (op_isImmediateAddr (right))
   {
     while (size--)
     {

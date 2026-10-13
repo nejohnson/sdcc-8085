@@ -547,6 +547,36 @@ identical to the ones measured.
 
 ---
 
+## pic14 pointer stores of address constants (2026-10-13) - FIXED
+
+`emitPtrPut` (direct and FSR cases) loaded its source as "`AOP_LIT` ->
+`MOVLW`, else `MOVF`", and `genDataPointerSet` treated "immediate asmop
+of pointer type" as an address constant. So storing a *function's*
+address (`fp t[2] = {a, 0};` in a local array) read RAM at the
+function's address. And a pointer *variable* outside direct space would
+have stored its own location. Both now use the same decision as
+everywhere else (`mov2w_op`, `op_isImmediateAddr`).
+
+`tests/bug-4090.c` compared `sizeof (fp)` with `sizeof (void *)`. On
+pic14 and mcs51 those differ (2-byte function pointers, 3-byte generic
+pointers); it now compares with `sizeof (void (*) (void))`, which is
+what the test is about. i8085 is unaffected (both 2 bytes).
+
+Measured (full run, clean libraries, against `9504a4a1`'s 490): **485**,
+`bug-2455`, `bug-4090`, `fptr_cast_array_init` fixed. `bug-2993` went
+from a timeout to 2 failures: it is a `__reentrant` test, now reaching
+the reentrancy gap. Abnormal stops 0.
+
+**What is left among runtime failures** is mostly reentrancy and
+recursion: `__reentrant` functions (the `reentrant` family, `funptrs`,
+`bug-3711`/`3712`/`3778`/`2993`, `930702-1`, `991112-1`) and recursive
+programs (`tcc_25_quicksort`, `tcc_30_hanoi`). pic14 has no data stack,
+so these need one. Also left: `bug-2567`, `strcpy-1`, `bug-927659`, the
+`wchar` restart cases, `bug-2031` (gputils), and `920810-1` (malloc
+without `_initHeap`).
+
+---
+
 ## pic14 calls through a function pointer with arguments (2026-10-13) - IMPLEMENTED
 
 **The problem.** pic14 makes an indirect call by writing PCLATH and then

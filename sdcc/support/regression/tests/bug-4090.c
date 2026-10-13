@@ -35,5 +35,5 @@ testBug (void)
   unsigned char size = sizeof (afunc);
 #endif
   void (*fp) (void) = afunc;
-  ASSERT (sizeof (fp) == sizeof (void *));
+  ASSERT (sizeof (fp) == sizeof (void (*) (void))); /* not sizeof (void *): pic14 and mcs51 have 2-byte function pointers, 3-byte generic pointers */
 }
