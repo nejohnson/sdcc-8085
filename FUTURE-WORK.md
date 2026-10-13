@@ -547,6 +547,37 @@ identical to the ones measured.
 
 ---
 
+## pic14 glue and genRet: three ports of fixes the generic code already had (2026-10-13) - FIXED
+
+pic14 has its own copies of initializer and return code, and fixes
+made since to the generic versions never reached them:
+
+- **String-literal addresses in initializers** (`bug-3973`, upstream
+  #3973; generic fix `626db99a`). `constExprValue()` marks a string
+  literal's address `S_LITERAL` with `val->sym` set.
+  `pic14_printIvalPtr` and `pic14_printIvalType` now check `val->sym`
+  before treating the value as a number.
+- **Integer initialized from an address** (`(unsigned long)"AAA"`):
+  `pic14_printTypeLabel` put a generic-pointer tag byte into every
+  4-byte integer. Only a generic pointer has one; any other address is
+  zero-extended.
+- **`return *p` for a struct** (`bug-3803`, upstream #3803; the fork
+  fixed this for i8085's `genRet`). The operand can carry a wider type
+  than the struct, so a 1-byte struct returned its neighbour byte. pic14's
+  `genRet` now caps the size at the declared return type.
+
+Measured (full run, clean libraries, against `d3d54ae0`'s 497, also
+covering `518a52aa`'s `strtoul` fix): **492**, `bug-3474`, `bug-3803`
+and `bug-3973` fixed, none worse.
+
+**Found, not fixed (needs a decision):** pic14's `malloc` returns NULL
+until the program calls `_initHeap (buffer, size)`, by design (see
+`pic14_malloc.h`). Other ports have a default heap, so tests that just
+call `malloc` fail (`920810-1`). A default heap pulled in only with
+`malloc` would fix that; it is a library policy change.
+
+---
+
 ## pic14 literal add/subtract: stale carry, 32-bit literals, wide results (2026-10-13) - FIXED
 
 Three bugs in `genAddLit` (`src/pic14/genarith.c`), plus one in glue:

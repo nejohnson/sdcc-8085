@@ -1033,7 +1033,10 @@ pic14_printTypeLabel (symbol *sym, sym_link *type, value *val, struct dbuf_s *oB
       pic14_printLabel (oBuf, val->name, 2, 0);
       break;
     case 4:
-      pic14_printLabel (oBuf, val->name, 4, PTR_TYPE (SPEC_OCLS (val->sym->etype)));
+      /* Only a generic pointer carries a tag byte; any other address is
+         zero-extended into the integer (POINTER prints a 0x00 tag). */
+      pic14_printLabel (oBuf, val->name, 4,
+                        IS_GENPTR (val->type) ? PTR_TYPE (SPEC_OCLS (val->sym->etype)) : POINTER);
       break;
     default:
       wassertl (0, "Attempting to initialize integer of non-handled size.");
@@ -1320,7 +1323,15 @@ pic14_printIvalType (symbol *sym, sym_link *type, initList *ilist, struct dbuf_s
   if (ilist && (ilist->type == INIT_DEEP))
     ilist = ilist->init.deep;
 
-  if (!(val = list2val (ilist, false)))
+  val = list2val (ilist, false);
+  /* A string literal's address (e.g. (unsigned long)"AAA") comes back
+     marked S_LITERAL but with val->sym set: it is an address, not a
+     number, so let initPointer() handle it (as SDCCglue.c, upstream
+     bug #3973). */
+  if (val && val->sym)
+    val = NULL;
+
+  if (!val)
     {
       if (!!(val = initPointer (ilist, type, 0)))
         {
@@ -1964,8 +1975,9 @@ pic14_printIvalPtr (symbol *sym, sym_link *type, initList *ilist, struct dbuf_s 
       printFromToType (val->type, type);
     }
 
-  /* if val is literal */
-  if (IS_LITERAL (val->etype))
+  /* if val is literal - a string literal's address is marked S_LITERAL
+     too, but has val->sym (upstream bug #3973) */
+  if (IS_LITERAL (val->etype) && !val->sym)
     pic14_printPtrLiteral (sym, type, val, oBuf);
   else
     pic14_printPtrLabel (sym, type, val, oBuf);

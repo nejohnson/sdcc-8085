@@ -2775,6 +2775,11 @@ genRet (iCode * ic)
   pic14AopOp (ic->left, ic, false);
   size = AOP_SIZE (IC_LEFT (ic));
 
+  /* "return *p" for a struct can leave the operand with a wider type than
+     the struct (upstream bug #3803): trust the declared return type. */
+  if (currFunc && IS_STRUCT (currFunc->type->next) && getSize (currFunc->type->next) < size)
+    size = getSize (currFunc->type->next);
+
   /* WREG and the STKnn pseudo-stack registers carry the return value */
   if (size > pic14_stackSize () + 1)
     {
