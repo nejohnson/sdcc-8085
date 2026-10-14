@@ -49,6 +49,7 @@ extern set *externs;
 static PIC_device *pic = NULL;
 
 static pCodeOp *popGetImmd (const char *name, unsigned int offset, int index, int is_func);
+static void codeByteGet (operand *op, int index);
 static pCodeOp *popRegFromString (const char *str, int size, int offset);
 static int aop_isLitLike (asmop * aop);
 static void genCritical (iCode * ic);
@@ -62,7 +63,6 @@ static void genEndCritical (iCode * ic);
         (!IS_ITEMP (op)                     /* --> iTemps never reside in __code */    \
         && IS_SYMOP (op)                    /* --> must be an immediate (otherwise we would be in genConstPointerGet) */    \
         && !IS_FUNC (OP_SYM_TYPE (op))      /* --> we would want its address instead of the first instruction */    \
-        && !IS_CODEPTR (OP_SYM_TYPE (op))   /* --> get symbols address instead */    \
         && IN_CODESPACE (SPEC_OCLS (getSpec (OP_SYM_TYPE (op)))))
 
 /*
@@ -2394,6 +2394,7 @@ genPcall (iCode * ic)
   symbol *blbl = newiTempLabel (NULL);
   PIC_OPCODE poc;
   pCodeOp *pcop;
+  pCodeOp *fromCode[2] = { NULL, NULL };
   operand *left;
 
   FENTRY;
@@ -2415,6 +2416,18 @@ genPcall (iCode * ic)
   DEBUGpic14_AopType (__LINE__, left, NULL, NULL);
 
   poc = (op_isLitLike (IC_LEFT (ic)) ? POC_MOVLW : POC_MOVFW);
+
+  /* a function pointer held in __code is read before the arguments are
+     set up, as reading it uses W, STK00 and STK01 */
+  if (OP_IN_CODE_SPACE (left))
+    {
+      fromCode[0] = popGetTempReg ();
+      codeByteGet (left, 0);
+      emitpcode (POC_MOVWF, pCodeOpCopy (fromCode[0]));
+      fromCode[1] = popGetTempReg ();
+      codeByteGet (left, 1);
+      emitpcode (POC_MOVWF, pCodeOpCopy (fromCode[1]));
+    }
 
   pushSide (IC_LEFT (ic), FARPTRSIZE);
 
@@ -2449,10 +2462,22 @@ genPcall (iCode * ic)
   emitpcode (POC_GOTO, pcop);
   emitpLabel (albl->key);
 
-  emitpcode (poc, popGetAddr (AOP (left), 1, 0));
-  emitpcode (POC_MOVWF, popCopyReg (&pc_pclath));
-  emitpcode (poc, popGetAddr (AOP (left), 0, 0));
-  emitpcode (POC_MOVWF, popCopyReg (&pc_pcl));
+  if (fromCode[0])
+    {
+      emitpcode (POC_MOVFW, pCodeOpCopy (fromCode[1]));
+      emitpcode (POC_MOVWF, popCopyReg (&pc_pclath));
+      emitpcode (POC_MOVFW, pCodeOpCopy (fromCode[0]));
+      emitpcode (POC_MOVWF, popCopyReg (&pc_pcl));
+      popReleaseTempReg (fromCode[1]);
+      popReleaseTempReg (fromCode[0]);
+    }
+  else
+    {
+      emitpcode (poc, popGetAddr (AOP (left), 1, 0));
+      emitpcode (POC_MOVWF, popCopyReg (&pc_pclath));
+      emitpcode (poc, popGetAddr (AOP (left), 0, 0));
+      emitpcode (POC_MOVWF, popCopyReg (&pc_pcl));
+    }
 
   emitpLabel (blbl->key);
 
