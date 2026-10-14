@@ -12,6 +12,11 @@ void testBug(void)
 #elif defined (__SDCC_mcs51) || defined (__SDCC_ds390)
 	__xdata signed long *l = (__xdata signed long *) 0xcab0;
 	__xdata float *f = (__xdata float *) 0xcab0;
+#elif defined (__SDCC_pic14)
+	/* bank 3 general-purpose RAM on every midrange part; 0xcab0 is
+	   program memory to an enhanced core's FSR */
+	signed long *l = (signed long *) 0x01b0;
+	float *f = (float *) 0x01b0;
 #elif defined (__SDCC_stm8)
 	signed long *l = (signed long *) 0x1000;
 	float *f = (float *) 0x1000;
