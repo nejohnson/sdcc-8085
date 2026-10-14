@@ -1502,6 +1502,18 @@ mov2w (asmop * aop, int offset)
 
 }
 
+/* Combine W with byte 'offset' of an operand: the register form for a
+   register operand, the literal form (on the address byte) for an
+   immediate. */
+static void
+opWithW (PIC_OPCODE regOp, PIC_OPCODE litOp, asmop * aop, int offset)
+{
+  if (aop_isLitLike (aop))
+    emitpcode (litOp, popGetAddr (aop, offset, 0));
+  else
+    emitpcode (regOp, popGet (aop, offset));
+}
+
 static void
 movwf (asmop * op, int offset)
 {
@@ -4016,7 +4028,7 @@ genCmpEq (iCode * ic, iCode * ifx)
     }
   else
     {
-      /* right is no literal */
+      /* right is no literal; either operand may be an address immediate */
       int i;
 
       /* special case: generic pointer comparison */
@@ -4024,9 +4036,9 @@ genCmpEq (iCode * ic, iCode * ifx)
         {
           /* check if both operands are NULL */
           mov2w (AOP (left), 0);
-          emitpcode (POC_IORFW, popGet (AOP (left), 1));
-          emitpcode (POC_IORFW, popGet (AOP (right), 0));
-          emitpcode (POC_IORFW, popGet (AOP (right), 1));
+          opWithW (POC_IORFW, POC_IORLW, AOP (left), 1);
+          opWithW (POC_IORFW, POC_IORLW, AOP (right), 0);
+          opWithW (POC_IORFW, POC_IORLW, AOP (right), 1);
           /* now Z is set iff `left == right' */
           emitSKPNZ;
           true_label = newiTempLabel (NULL);
@@ -4036,7 +4048,7 @@ genCmpEq (iCode * ic, iCode * ifx)
       for (i = 0; i < size; i++)
         {
           mov2w (AOP (right), i);
-          emitpcode (POC_XORFW, popGet (AOP (left), i));
+          opWithW (POC_XORFW, POC_XORLW, AOP (left), i);
           /* now Z is cleared if `left != right' */
           emitSKPZ;
           if (!false_label)
