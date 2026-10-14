@@ -556,6 +556,54 @@ identical to the ones measured.
 
 ---
 
+## pic14-enhanced: no abnormal stops left; code addresses and malloc decided (2026-10-14) - FIXED
+
+The 16F1788 port's 10 abnormal stops, and what they turned out to be:
+
+- **gpsim, not the compiler (7).** gpsim 0.32.1 keeps only five bits of
+  PCLATH on the 16F1788 (`movlp 0x20` writes 0x00), so a CALL or GOTO
+  into pages 4-7 lands 8K words lower. Every program over 8K words
+  (`tst_string`, `m4_compare_2_n`, five `bitfields-nibbles` operation 4
+  cases) jumped into test code and recursed until the stack overflowed.
+  The port now links with `ports/pic14-enhanced/16f1788_8k.lkr` (pages
+  0-3 only), and the link check reads its memory map from a `-Wl-s,`
+  script when given one, so those programs fail with error 381 instead.
+  The real part has 16K words; this is a simulator limit only.
+- **`bug-2568` (1).** Its pic14 address, 0x0100, is INDF in bank 2; the
+  initialised array wrote PCL at startup. It now uses 0x0120 and passes
+  on both chips. Such definitions are now error 386 (a variable `__at`
+  a core register mirrored in every bank).
+- **`funcptrcmp_type_char` (1).** `&f1 != &g1` XORed the second address
+  as a RAM register (`a27c3b7a`); the 16F877 passed by luck.
+- **`920810-1` (1).** malloc without `_initHeap` returned NULL.
+
+Two decisions by Neil (2026-10-14):
+
+- **Code addresses carry bit 15 on enhanced cores.** gputils forces
+  bit 7 into `high()` of any program-memory symbol (0x01A0 loads as
+  0x81A0, the address FSR reads program memory at), and no relocatable
+  expression removes it, but `dw sym` gave the plain value, so an
+  initialised pointer compared unequal to the same address computed in
+  code. Initialisers now emit `dw sym + 0x8000` (`24fcbd54`). An integer
+  constant cast to a `__code` pointer is taken as written: it reads the
+  same byte as `&obj` but compares unequal to it.
+- **malloc has a default heap** (`db64f1b1`): 64 bytes on classic
+  cores, 80 on enhanced, set up on the first allocation, in its own
+  library module so it is linked only with the heap functions.
+  `_initHeap` still replaces it.
+
+Found on the way (`b0a64fbf`): a pointer held in `__code` (a `const`
+function pointer, say) was read by address, so `fp == &g1` compared fp's
+location and a call through fp jumped into its retlw table.
+
+Measured (full runs, clean libraries): pic14 432 -> **430**
+(`bug-2568`, `920810-1`); pic14-enhanced 364 + 10 abnormal stops ->
+**367 + 0**: the seven oversized programs are now counted as build
+failures, and `absolute_mem___code`, `funcptrcmp`, `bug-2568`,
+`920810-1` pass.
+
+---
+
 ## pic14: programs that cannot run correctly are now build errors (2026-10-14) - IMPLEMENTED
 
 Neil's policy: "fail compilation with an error message if a program will
@@ -815,11 +863,9 @@ Measured (full run, clean libraries, against `d3d54ae0`'s 497, also
 covering `518a52aa`'s `strtoul` fix): **492**, `bug-3474`, `bug-3803`
 and `bug-3973` fixed, none worse.
 
-**Found, not fixed (needs a decision):** pic14's `malloc` returns NULL
-until the program calls `_initHeap (buffer, size)`, by design (see
-`pic14_malloc.h`). Other ports have a default heap, so tests that just
-call `malloc` fail (`920810-1`). A default heap pulled in only with
-`malloc` would fix that; it is a library policy change.
+**Decided 2026-10-14:** pic14's `malloc` now sets up a default heap
+when the program has not called `_initHeap`; see the pic14-enhanced
+entry of that date.
 
 ---
 
