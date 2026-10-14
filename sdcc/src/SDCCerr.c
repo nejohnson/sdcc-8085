@@ -835,6 +835,8 @@ struct
      "functions '%s' and '%s' in '%s' share local variables, but one calls the other through another module (%s); compile '%s' with --no-overlay", 0},
   { E_ISR_SHARED_LOCALS, ERROR_LEVEL_ERROR,
      "'%s', run by the interrupt handler, and '%s', run by main code, share local variables in '%s'; compile it with --no-overlay", 0},
+  { E_CORE_REG_OVERLAP, ERROR_LEVEL_ERROR,
+     "'%s' at 0x%04x overlaps core register %s, which is mirrored in every RAM bank; place it in general-purpose RAM or declare it __sfr", 0},
 };
 
 /* -------------------------------------------------------------------------------

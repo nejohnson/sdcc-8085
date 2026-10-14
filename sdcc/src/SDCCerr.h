@@ -413,6 +413,7 @@ enum {
   E_ISR_SHARED_FUNC             = 383, // a function with static storage is called from both the interrupt handler and main code
   E_SHARED_LOCALS               = 384, // two functions of a module share local storage, but one reaches the other through another module
   E_ISR_SHARED_LOCALS           = 385, // interrupt-handler code and main code share local storage
+  E_CORE_REG_OVERLAP            = 386, // an absolute variable overlaps a core register mirrored in every RAM bank
 
   // If you get a merge conflict here, some #pragma disable_warning in support/valdiag and support/regression will likely need to be adapted to the resolution. Check there!
 

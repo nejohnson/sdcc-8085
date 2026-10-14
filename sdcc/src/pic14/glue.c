@@ -341,6 +341,46 @@ addToAbsMap (symbol *sym)
     }                           // if
 }
 
+/* Name the core register at bank offset 'off', or NULL. These registers
+ * (INDF, PCL, STATUS, FSR, PCLATH, INTCON and, on enhanced cores, the
+ * rest of 0x00-0x0B) appear at the same offset in every RAM bank, so a
+ * variable placed there reads and writes the register instead of RAM. */
+static const char *
+coreRegAt (int off)
+{
+  static const char *const classic[12] = {
+    "INDF", NULL, "PCL", "STATUS", "FSR", NULL, NULL, NULL, NULL, NULL, "PCLATH", "INTCON"
+  };
+  static const char *const enhanced[12] = {
+    "INDF0", "INDF1", "PCL", "STATUS", "FSR0L", "FSR0H", "FSR1L", "FSR1H", "BSR", "WREG", "PCLATH", "INTCON"
+  };
+
+  if (off >= 12)
+    return NULL;
+  return pic14_getPIC ()->isEnhancedCore ? enhanced[off] : classic[off];
+}
+
+/* Reject a variable defined at an absolute data address that overlaps a
+ * core register. __sfr declarations are the registers themselves. */
+static void
+checkCoreRegOverlap (symbol *sym)
+{
+  int addr, size, i;
+  const char *reg;
+
+  if (!IS_DEFINED_HERE (sym) || SPEC_SCLS (sym->etype) == S_SFR || IS_BITVAR (sym->etype) || IS_CODE (sym->etype))
+    return;
+
+  addr = SPEC_ADDR (sym->etype);
+  size = getSize (sym->type);
+  for (i = 0; i < size; i++)
+    if ((reg = coreRegAt ((addr + i) & 0x7f)))
+      {
+        werrorfl (sym->fileDef, sym->lineDef, E_CORE_REG_OVERLAP, sym->name, addr + i, reg);
+        return;
+      }
+}
+
 static void
 pic14_constructAbsMap (struct dbuf_s *oBuf)
 {
@@ -2303,6 +2343,7 @@ pic14_emitRegularMap (memmap *map, bool addPublics, bool arFlag)
       else if (SPEC_ABSA (sym->etype) && !sym->ival)
         {
           DBG_MSG ("added to ABS not ival");
+          checkCoreRegOverlap (sym);
           addToAbsMap (sym);
         }
       else
@@ -2317,6 +2358,7 @@ pic14_emitRegularMap (memmap *map, bool addPublics, bool arFlag)
           if (SPEC_ABSA (sym->etype))
             {
               DBG_MSG ("added to ABS allocate");
+              checkCoreRegOverlap (sym);
               addToAbsMap (sym);
             }
           else if (!sym->islocal)
