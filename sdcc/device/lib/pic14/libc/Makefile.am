@@ -68,6 +68,7 @@ libc_a_SOURCES += mbtowc.c
 libc_a_SOURCES += memfree.c
 libc_a_SOURCES += memfreemax.c
 libc_a_SOURCES += memmisc.c
+libc_a_SOURCES += _heap.c
 libc_a_SOURCES += qsort.c
 libc_a_SOURCES += rand.c
 libc_a_SOURCES += realloc.c

@@ -78,7 +78,7 @@ void __data *_allocateHeap (void __data *ptr, size_t size)
     size_t block_size;
 
     if (_malloc_heap == NULL)
-        return ((void __data *)NULL);
+        _initDefaultHeap ();
 
     if (size >= MAX_BLOCK_SIZE)
         return ((void __data *)NULL);

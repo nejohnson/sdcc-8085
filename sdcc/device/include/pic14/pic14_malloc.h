@@ -60,8 +60,13 @@ typedef union {
  * the user's program, or it can be a symbol created by linker */
 extern _malloc_rec __data *_malloc_heap;
 
-/* initialize heap, should be called before any call to malloc/realloc/calloc */
+/* initialize the heap in the given buffer; without this, the first
+ * malloc/realloc/calloc sets up a default heap (64 bytes, 80 bytes on
+ * enhanced cores) */
 void _initHeap (void __data *ptr, size_t size);
+
+/* set up the default heap */
+void _initDefaultHeap (void);
 
 /* (re)allocate the specified block with the specified size */
 void __data *_allocateHeap (void __data *ptr, size_t size);
