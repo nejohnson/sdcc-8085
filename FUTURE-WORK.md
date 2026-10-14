@@ -556,6 +556,43 @@ identical to the ones measured.
 
 ---
 
+## pic14-enhanced: failures the 16F877 does not have (2026-10-15)
+
+After the abnormal stops were gone, 13 tests passed on the 16F877 but
+failed on the 16F1788. Fixed:
+
+- **Locals over one bank** (`791e80e7`, `47be65d4`). A module's locals
+  were one udata section, and the 16F1788's banks hold 80 bytes against
+  the 16F877's 96: six `itoa` cases, `qct_0057-duff`,
+  `zeropad_storage_auto`, `loop-13`, `bitwidth` (whose extra BANKSELs
+  pushed `testCount` past a page) and more. Locals now go in sections no
+  bigger than the largest RAM bank in the device's linker script, only
+  when they need more than one. The r0x temporaries get their sections
+  inside `AnalyzeBanking`, after flow analysis drops unused registers
+  and before BANKSELs are placed. `pic14_operandsAllocatedInSameBank`,
+  which took any two r0x registers to share a bank, now requires the
+  same section.
+- **`bug-2304`** pointed pic14 at 0xcab0, program memory to an enhanced
+  FSR; it now uses 0x01b0.
+
+Measured (full runs, clean libraries, against `a2b630c4`'s 430 / 367):
+pic14 **424**, pic14-enhanced **340**, none worse on either. The
+splitting also fixed tests on both chips (`offsetof`, `20011008-3`,
+`20090113-1`, `pr89634`, ascon, `structreturn` long long, ...).
+
+**Left, and needs a design decision:** four 16F1788-only failures
+(`bug-2890326`, `strlen-1`, `bug-3547`, `new_wide`) each hold one
+object of 81-90 bytes, larger than any bank. Enhanced cores could place
+such objects in linear data memory (FSR addresses 0x2000 up, where the
+banks' general-purpose RAM is contiguous). Pointers already work there
+(the enhanced library loads the full 16-bit address into FSR0); the
+work is making every direct access to such an object (constant
+offsets, struct members) go through FSR instead of BANKSEL + direct
+addressing. Classic cores have no linear memory, so error 379/380
+stays the answer there.
+
+---
+
 ## pic14-enhanced: no abnormal stops left; code addresses and malloc decided (2026-10-14) - FIXED
 
 The 16F1788 port's 10 abnormal stops, and what they turned out to be:
