@@ -6,6 +6,7 @@
 */
 #include "common.h"
 #include "dbuf_string.h"
+#include "linkcheck.h"
 #include "SDCCmacro.h"
 
 #include "device.h"
@@ -144,6 +145,9 @@ _pic14_finaliseOptions (void)
   struct dbuf_s dbuf;
 
   pCodeInitRegisters();
+
+  if (options.stackAuto)
+    werrorfl (NULL, 0, E_STACK_AUTO_UNSUPPORTED);
 
   port->mem.default_local_map = data;
   port->mem.default_globl_map = data;
@@ -356,6 +360,25 @@ _pic14_do_link (void)
     }
 
   shash_add (&linkValues, "libs", joinStrSet (processStrSet (libFilesSet, NULL, NULL, shell_escape)));
+
+  /* Recursion, call depth, interrupt sharing, sizes: errors, not a
+     program that fails at run time. */
+  {
+    set *objects = NULL;
+
+    if (fullSrcFileName)
+      {
+        struct dbuf_s dbuf;
+
+        dbuf_init (&dbuf, 128);
+        dbuf_append_str (&dbuf, fullDstFileName ? fullDstFileName : dstFileName);
+        dbuf_append (&dbuf, ".o", 2);
+        addSet (&objects, dbuf_detach_c_str (&dbuf));
+      }
+    mergeSets (&objects, relFilesSet);
+    if (pic14_linkCheck (objects, libFilesSet, tSet))
+      exit (1);
+  }
 
   lcmd = msprintf(linkValues, LFRM);
   ret = sdcc_system (lcmd);

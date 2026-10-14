@@ -774,6 +774,8 @@ picglue (void)
 
   AnalyzepCode ('*');
 
+  CheckRecursion ();            // locals are static: no call may re-enter its caller
+
   ReuseReg ();                  // ReuseReg where call tree permits
 
   InlinepCode ();

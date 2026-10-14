@@ -9,6 +9,15 @@ Ordered by size, not priority.
 
 ---
 
+## Next focus after the PIC family: the 8051 (2026-10-14)
+
+Neil's plan: once the PIC work (pic14, and pic16 for consistency) is
+complete, switch to the 8051 family - SDCC's mcs51 ports and relatives.
+8051 cores are still a popular embedded CPU IP block in SoC designs.
+Existing mcs51 entries below are natural starting points.
+
+---
+
 ## `long long` on pic14 (2026-10-08) - IMPLEMENTED 2026-10-11
 
 **Resolution (2026-10-11).** `long long` now works on pic14. The history
@@ -544,6 +553,68 @@ pass. `snprintf`'s `PTR` variant is excluded on pic14 as it already is
 on pic16 (the whole test): the PIC `printf` prints pointers without
 "0x" and has no `%P`. The default build's `vfprintf` objects are
 identical to the ones measured.
+
+---
+
+## pic14: programs that cannot run correctly are now build errors (2026-10-14) - IMPLEMENTED
+
+Neil's policy: "fail compilation with an error message if a program will
+not fit or run correctly. Silently failing code is not acceptable."
+Decisions: reject reentrancy rather than build a data stack; run the
+whole-program checks in sdcc's link step; a cycle that exists only
+through function pointers is an error.
+
+**Compiler** (per module):
+- `__reentrant` function definitions (error 373) and `--stack-auto`
+  (374). The old prologue/epilogue for them was mcs51 text emitted as
+  comments only, so parameters had the wrong values (`bug-3711/3712`).
+- Recursion within a module (375), reported with the cycle at the
+  function's line: `CheckRecursion` in `pcode.c`, run before `ReuseReg`.
+- The interrupt handler saves and restores STK00.. and PCALL_W when it
+  calls anything (including library helpers): `genIsrPseudoStack`, into
+  `___sdcc_saved_stk` (16 bytes, defined in the handler's module). Before
+  this, an interrupt during an argument pass corrupted it: a timer-interrupt
+  test (3000 calls passing two `unsigned int`s) fails with the save
+  stripped and passes with it, on both the 16F877 and the 16F1788.
+
+**Link step** (`src/pic14/linkcheck.c`, before gplink): reads the
+objects and the library members they pull in (gplib archives), builds the
+call graph from `RELOC_CALL`/`RELOC_GOTO`, treats a call to a local label
+ending in `MOVWF PCL` as an indirect call reaching every address-taken
+function, and reports:
+- recursion across modules or through function pointers (375);
+- calls nested deeper than the hardware stack, 8 or 16 levels, plus one
+  and the handler's own depth for the interrupt, printing the chain (376);
+- a function (377) or constant table (378) bigger than a code page;
+- a module's locals (379, with each function's bytes) or a module's
+  variables (380) bigger than a RAM bank; program memory (381) and RAM
+  (382) totals - page and bank sizes from gplink's own `<proc>_g.lkr`;
+- a function with static storage reachable from both the interrupt
+  handler and main code (383), e.g. `_mulint` when both multiply;
+- two functions of one module that share local registers while one
+  reaches the other through another module (384) - the "declare all
+  modules non-reentrant. This is a bug." case in `register_reassign`;
+  only `UDL_` storage counts, since callers write a callee's parameter
+  and variable-argument areas by design;
+- interrupt-handler code and main code sharing locals (385).
+Programs linked by running gplink directly are not checked.
+
+**Measured** (full runs, clean libraries; before: pic14 449,
+pic14-enhanced 393 + 15 abnormal stops): **pic14 432**, **pic14-enhanced
+364 + 10 abnormal stops**. Per case against the compile-time stage alone
+(421 / 364): no file worse except 11 pic14 programs now rejected for call
+depth 9-10 on the 16F877's 8 levels - mostly the assertion-failure path
+(`__fail -> __printu -> __prints -> _gptrget`, 4 levels) that passed only
+because no assertion failed. Every file worse than the 449/393 runs is one
+of the new errors; several assertion-failing or timing-out programs are
+now single compile errors.
+
+**Found, not fixed:** the 8 remaining 16F1788 "stack overflows" are not
+deep calls but a wild jump: in `tst_string`, `__fail`'s message read
+through `__gptrget1` jumps to 0x03E8 (test code) instead of a string, and
+the test re-runs itself until the stack overflows. Enhanced-core code
+generation, with `absolute_mem___code`, `bug-2304` and
+`funcptrcmp_type_char` below.
 
 ---
 

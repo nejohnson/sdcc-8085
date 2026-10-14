@@ -23,6 +23,7 @@
 #include "pcode.h"
 #include "pcodeflow.h"
 #include "ralloc.h"
+#include "dbuf_string.h"
 
 #define ASSERT(x) assert(x)
 
@@ -5533,6 +5534,101 @@ ReuseReg(void)
           register_reassign(pb,peakIdx,0);
         } // if
     } // for
+}
+
+/*-----------------------------------------------------------------*/
+/* CheckRecursion - report call chains within this module that     */
+/* lead back to a function already on the chain: locals and        */
+/* parameters are static, so the inner call overwrites them.       */
+/* Chains through other modules or function pointers are checked   */
+/* at link time.                                                    */
+/*-----------------------------------------------------------------*/
+static const char *
+userName (const char *fname)
+{
+  return (fname && fname[0] == '_') ? fname + 1 : fname;
+}
+
+static bool
+checkRecursionFrom (pBlock *pb, pBlock **path, int depth)
+{
+  set *s;
+
+  if (pb->callsChecked)
+    return false;
+  pb->onCallPath = 1;
+  path[depth] = pb;
+
+  for (s = pb->function_calls; s; s = s->next)
+    {
+      pCode *pc = s->item;
+      pCode *pcn;
+      pBlock *callee;
+
+      if (pc->type != PC_OPCODE || PCI (pc)->op != POC_CALL)
+        continue;
+      pcn = findFunction (get_op_from_instruction (PCI (pc)));
+      if (!pcn)
+        continue;
+      callee = pcn->pb;
+
+      if (callee->onCallPath)
+        {
+          struct dbuf_s dbuf;
+          int i;
+
+          for (i = 0; path[i] != callee; i++)
+            ;
+          dbuf_init (&dbuf, 128);
+          for (; i <= depth; i++)
+            dbuf_printf (&dbuf, "%s -> ", userName (PCF (setFirstItem (path[i]->function_entries))->fname));
+          dbuf_append_str (&dbuf, userName (PCF (pcn)->fname));
+          {
+            symbol *fsym = findSym (SymbolTab, NULL, userName (PCF (pcn)->fname));
+            if (fsym && IS_FUNC (fsym->type))
+              werrorfl (fsym->fileDef, fsym->lineDef, E_RECURSION_UNSUPPORTED, dbuf_c_str (&dbuf));
+            else
+              werror (E_RECURSION_UNSUPPORTED, dbuf_c_str (&dbuf));
+          }
+          dbuf_destroy (&dbuf);
+          pb->onCallPath = 0;
+          pb->callsChecked = 1;   /* report each cycle once */
+          return true;
+        }
+      if (checkRecursionFrom (callee, path, depth + 1))
+        {
+          pb->onCallPath = 0;
+          pb->callsChecked = 1;
+          return true;
+        }
+    }
+
+  pb->onCallPath = 0;
+  pb->callsChecked = 1;
+  return false;
+}
+
+void
+CheckRecursion (void)
+{
+  pBlock *pb;
+  pBlock **path;
+  int n = 0;
+
+  if (!the_pFile)
+    return;
+
+  for (pb = the_pFile->pbHead; pb; pb = pb->next)
+    {
+      pb->onCallPath = 0;
+      pb->callsChecked = 0;
+      n++;
+    }
+  path = Safe_alloc ((n + 1) * sizeof (pBlock *));
+  for (pb = the_pFile->pbHead; pb; pb = pb->next)
+    if (pb->function_entries && setFirstItem (pb->function_entries))
+      checkRecursionFrom (pb, path, 0);
+  Safe_free (path);
 }
 
 /*-----------------------------------------------------------------*/

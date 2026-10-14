@@ -156,11 +156,16 @@ static char **fReturn = fReturnpic14;
 static int op_isVariable (operand * op);
 static int op_isImmediateAddr (operand * op);
 
+/* bytes of ___sdcc_saved_stk, the interrupt handler's save area for
+   the pseudo-stack and PCALL_W (defined in the handler's module) */
+#define PIC14_ISR_SAVE_SIZE 16
+
 static struct
 {
   short accInUse;
   short nRegsSaved;
   set *sendSet;
+  pCode *isrSaveAfter;          /* ISR prologue: where the pseudo-stack save goes */
 } _G;
 
 /*
@@ -2512,6 +2517,10 @@ genFunction (iCode * ic)
   pic14_emitcode (";", " function %s", (sym = OP_SYMBOL (IC_LEFT (ic)))->name);
   pic14_emitcode (";", "-----------------------------------------");
 
+  /* Locals and parameters are static: a reentrant function's are not. */
+  if (IFFUNC_ISREENT (sym->type))
+    werrorfl (sym->fileDef, sym->lineDef, E_REENTRANT_UNSUPPORTED, sym->name);
+
   /* prevent this symbol from being emitted as 'extern' */
   pic14_stringInSet (sym->rname, &pic14_localFunctions, 1);
 
@@ -2588,6 +2597,7 @@ genFunction (iCode * ic)
             }
         }
 
+      _G.isrSaveAfter = IFFUNC_ISNAKED (sym->type) ? NULL : pb->pcTail;
       pBlockConvert2ISR (pb);
       pic14_hasInterrupt = 1;
     }
@@ -2680,6 +2690,45 @@ genFunction (iCode * ic)
       pic14_emitcode ("mov", "_spx,a");
     }
 
+}
+
+/*-----------------------------------------------------------------*/
+/* genIsrPseudoStack - an interrupt handler that calls anything     */
+/* saves the pseudo-stack (STK00.., PCALL_W) that the interrupted   */
+/* code may be using, and restores it before returning             */
+/*-----------------------------------------------------------------*/
+static void
+genIsrPseudoStack (void)
+{
+  pCode *pc, *at = _G.isrSaveAfter;
+  int n = pic14_stackSize (), i;
+
+  for (pc = pb->pcHead; pc; pc = pc->next)
+    if (isPCI (pc) && PCI (pc)->op == POC_CALL)
+      break;
+  if (!pc)
+    return;
+
+  wassertl (n + 1 <= PIC14_ISR_SAVE_SIZE, "pseudo-stack larger than the interrupt save area");
+  /* defined in this module, all PIC14_ISR_SAVE_SIZE bytes in one bank */
+  popRegFromString ("___sdcc_saved_stk", PIC14_ISR_SAVE_SIZE, 0);
+
+  for (i = 0; i <= n; i++)
+    {
+      pCodeOp *reg = i < n ? popRegFromIdx (Gstack_base_addr - i) : popCopyReg (&pc_pcallw);
+      pCode *load = newpCode (POC_MOVFW, reg);
+      pCode *store = newpCode (POC_MOVWF, popRegFromString ("___sdcc_saved_stk", PIC14_ISR_SAVE_SIZE, i));
+
+      if (at)
+        pCodeInsertAfter (at, load);
+      else
+        pCodeInsertBefore (pb->pcHead, load);
+      pCodeInsertAfter (load, store);
+      at = store;
+
+      emitpcode (POC_MOVFW, popRegFromString ("___sdcc_saved_stk", PIC14_ISR_SAVE_SIZE, i));
+      emitpcode (POC_MOVWF, i < n ? popRegFromIdx (Gstack_base_addr - i) : popCopyReg (&pc_pcallw));
+    }
 }
 
 /*-----------------------------------------------------------------*/
@@ -2780,6 +2829,9 @@ genEndFunction (iCode * ic)
         {
           debugFile->writeEndFunction (currFunc, ic, 1);
         }
+
+      if (_G.isrSaveAfter)
+        genIsrPseudoStack ();
 
       /* generate ISR epilog if not enhanced core and not naked */
       if (!pic->isEnhancedCore && !IFFUNC_ISNAKED (sym->type))

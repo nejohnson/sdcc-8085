@@ -652,6 +652,8 @@ typedef struct pBlock
 
 	set *FlowTree;
 	unsigned visited:1;       /* set true if traversed in call tree */
+	unsigned onCallPath:1;    /* CheckRecursion: on the current call chain */
+	unsigned callsChecked:1;  /* CheckRecursion: all callees checked */
 
 	unsigned seq;             /* sequence number of this pBlock */
 
@@ -840,6 +842,7 @@ void copypCode(FILE *of, char dbName);       // Write all pBlocks with dbName to
 void movepBlock2Head(char dbName);           // move pBlocks around
 void AnalyzeBanking(void);
 void ReuseReg(void);
+void CheckRecursion(void);
 void AnalyzepCode(char dbName);
 void InlinepCode(void);
 void pCodeInitRegisters(void);
