@@ -1062,8 +1062,27 @@ pic14_printChar32 (struct dbuf_s *oBuf, const TYPE_TARGET_ULONG *s, int plen)
  * Emit a label of the specified size and pointer type.
  */
 
+/* Does the address 'val' names lie in program memory? */
+static bool
+isCodeAddress (const value *val)
+{
+  const symbol *sym = val ? val->sym : NULL;
+
+  if (!sym)
+    return false;
+  if (IS_FUNC (sym->type) || sym->isstrlit)
+    return true;
+  return SPEC_OCLS (sym->etype) && IN_CODESPACE (SPEC_OCLS (sym->etype));
+}
+
+/*
+ * On enhanced cores a program-memory address carries bit 15, as FSR
+ * addresses program memory: gputils sets it in high() of such a symbol,
+ * so code that loads the address gets it, and 'codeAddr' adds it to an
+ * initializer's dw to match.
+ */
 static void
-pic14_printLabel (struct dbuf_s *oBuf, const char *name, int size, int ptype)
+pic14_printLabel (struct dbuf_s *oBuf, const char *name, int size, int ptype, bool codeAddr)
 {
   DBG_MSG ("printLabel name '%s' size %d ptype %d", name, size, ptype);
   wassertl (size >= 1 && size <= 4, "Unexpected size in printLabel");
@@ -1105,7 +1124,10 @@ pic14_printLabel (struct dbuf_s *oBuf, const char *name, int size, int ptype)
       /* "dw", not "db low(...), high(...)": gplink (gputils 1.5.2) loses
          bit 7 of a RELOC_LOW byte in initialized data, while dw's
          RELOC_ALL arrives intact. */
-      dbuf_printf (oBuf, "\tdw\t%s\n", name);
+      if (codeAddr && pic14_getPIC ()->isEnhancedCore)
+        dbuf_printf (oBuf, "\tdw\t%s + 0x8000\n", name);
+      else
+        dbuf_printf (oBuf, "\tdw\t%s\n", name);
       if (size > 2)
         dbuf_printf (oBuf, "\tdb\t0x%02x%s\n", tag, size > 3 ? ", 0" : "");
     }
@@ -1124,16 +1146,17 @@ pic14_printTypeLabel (symbol *sym, sym_link *type, value *val, struct dbuf_s *oB
   switch (size)
     {
     case 1:
-      pic14_printLabel (oBuf, val->name, 1, 0);
+      pic14_printLabel (oBuf, val->name, 1, 0, false);
       break;
     case 2:
-      pic14_printLabel (oBuf, val->name, 2, 0);
+      pic14_printLabel (oBuf, val->name, 2, 0, isCodeAddress (val));
       break;
     case 4:
       /* Only a generic pointer carries a tag byte; any other address is
          zero-extended into the integer (POINTER prints a 0x00 tag). */
       pic14_printLabel (oBuf, val->name, 4,
-                        IS_GENPTR (val->type) ? PTR_TYPE (SPEC_OCLS (val->sym->etype)) : POINTER);
+                        IS_GENPTR (val->type) ? PTR_TYPE (SPEC_OCLS (val->sym->etype)) : POINTER,
+                        isCodeAddress (val));
       break;
     default:
       wassertl (0, "Attempting to initialize integer of non-handled size.");
@@ -1170,7 +1193,7 @@ pic14_printFuncPtrLabel (sym_link *type, value *val, struct dbuf_s *oBuf)
   switch (size)
     {
     case 2:
-      pic14_printLabel (oBuf, name, 2, 0);
+      pic14_printLabel (oBuf, name, 2, 0, val->sym != NULL);
       break;
     default:
       wassertl (0, "Invalid function pointer size.");
@@ -1191,7 +1214,7 @@ pic14_printCharPtrLabel (symbol *sym, sym_link *type, value *val, struct dbuf_s 
   switch (size)
     {
     case 2:
-      pic14_printLabel (oBuf, val->name, 2, 0);
+      pic14_printLabel (oBuf, val->name, 2, 0, isCodeAddress (val));
       break;
     case 3:
       if (IS_PTR (val->type))
@@ -1207,7 +1230,7 @@ pic14_printCharPtrLabel (symbol *sym, sym_link *type, value *val, struct dbuf_s 
           // this is a literal string
           ptype = CPOINTER;
         }
-      pic14_printLabel (oBuf, val->name, 3, ptype);
+      pic14_printLabel (oBuf, val->name, 3, ptype, isCodeAddress (val));
       break;
     default:
       wassertl (0, "Invalid char pointer size.");
@@ -1228,11 +1251,11 @@ pic14_printPtrLabel (symbol *sym, sym_link *type, value *val, struct dbuf_s *oBu
   switch (size)
     {
     case 2:
-      pic14_printLabel (oBuf, val->name, 2, 0);
+      pic14_printLabel (oBuf, val->name, 2, 0, isCodeAddress (val));
       break;
     case 3:
       ptype = IS_PTR (val->type) ? DCL_TYPE (val->type) : PTR_TYPE (SPEC_OCLS (val->etype));
-      pic14_printLabel (oBuf, val->name, 3, ptype);
+      pic14_printLabel (oBuf, val->name, 3, ptype, isCodeAddress (val));
       break;
     default:
       wassertl (0, "Invalid pointer size.");
