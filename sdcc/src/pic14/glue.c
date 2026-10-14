@@ -573,6 +573,63 @@ pic14_stringInSet (const char *str, set **world, int autoAdd)
   return false;
 }
 
+/* The general-purpose RAM of one bank on every multi-bank midrange
+ * part. A module's compiler-assigned locals (r0x...) normally share one
+ * section, so one BANKSEL serves them all; when they need more than
+ * this, they go in sections of at most this size, so they need not
+ * share one bank. */
+#define LOCALS_SECTION_MAX 80
+
+static unsigned localSections;   /* sections the module's locals need, 0 or 1 if one */
+
+static bool
+isLocalToEmit (reg_info *reg)
+{
+  return !reg->isEmitted && reg->wasUsed && !reg->isExtern && !reg->isFixed;
+}
+
+/* Assign the module's locals to sections, before BANKSELs are placed. */
+static void
+pic14_assignLocalSections (void)
+{
+  reg_info *reg;
+  unsigned total = 0, used = 0;
+
+  localSections = 0;
+  if (getenv ("SDCC_PIC14_SPLIT_LOCALS"))
+    return;
+  for (reg = setFirstItem (dynAllocRegs); reg; reg = setNextItem (dynAllocRegs))
+    {
+      reg->localSection = 0;
+      if (isLocalToEmit (reg))
+        total += reg->size;
+    }
+  if (total <= LOCALS_SECTION_MAX)
+    return;
+  localSections = 1;
+  for (reg = setFirstItem (dynAllocRegs); reg; reg = setNextItem (dynAllocRegs))
+    {
+      if (!isLocalToEmit (reg))
+        continue;
+      if (used && used + reg->size > LOCALS_SECTION_MAX)
+        {
+          localSections++;
+          used = 0;
+        }
+      reg->localSection = localSections;
+      used += reg->size;
+    }
+}
+
+/* Are the locals 'a' and 'b' known to be in one bank? */
+int
+pic14_localsShareBank (const reg_info *a, const reg_info *b)
+{
+  if (localSections <= 1)
+    return 1;
+  return a && b && a->localSection && a->localSection == b->localSection;
+}
+
 static void
 pic14printLocals (struct dbuf_s *oBuf)
 {
@@ -580,7 +637,9 @@ pic14printLocals (struct dbuf_s *oBuf)
     dynDirectRegs, dynDirectBitRegs /*, dynInternalRegs */
   };
   reg_info *reg;
-  int i, is_first = true;
+  int i;
+  unsigned sec, current = 0, used = 0;
+  bool is_first = true;
   static unsigned sectionNr = 0;
   const char *split_locals;
 
@@ -588,56 +647,68 @@ pic14printLocals (struct dbuf_s *oBuf)
 
   DBG_MSG ("pic14printLocals ---start registers---");
   DBG_ENTRY ();
-  /* emit all registers from all possible sets */
-  for (i = 0; i < 6; i++)
+  /* emit all registers from all possible sets, section by section when
+     the locals need several (section 0 holds everything else) */
+  for (sec = localSections > 1 ? 1 : 0; ; sec = sec == localSections ? 0 : sec + 1)
     {
-      if (allregs[i] == NULL)
-        continue;
-
-      for (reg = setFirstItem (allregs[i]); reg; reg = setNextItem (allregs[i]))
+      for (i = 0; i < 6; i++)
         {
-          DBG_REG ("", reg);
-          if (reg->isEmitted)
+          if (allregs[i] == NULL)
             continue;
 
-          if (reg->wasUsed && !reg->isExtern)
+          for (reg = setFirstItem (allregs[i]); reg; reg = setNextItem (allregs[i]))
             {
-              if (!pic14_stringInSet (reg->name, &emitted, true))
+              DBG_REG ("", reg);
+              if (reg->isEmitted)
+                continue;
+              if (localSections > 1 && (allregs[i] == dynAllocRegs ? reg->localSection : 0) != sec)
+                continue;
+
+              if (reg->wasUsed && !reg->isExtern)
                 {
-                  if (reg->isFixed)
+                  if (!pic14_stringInSet (reg->name, &emitted, true))
                     {
-                      if (reg->pc_type != PO_DIR)
+                      if (reg->isFixed)
                         {
-                          // Should not happen, really...
-                          assert (!"Compiler-assigned variables should not be pinned... This is a bug.");
-                          dbuf_printf (oBuf, "UDL_abs_%s_%04x\tudata_ovr\t0x%04X\n%s\tres\t%d\n",
-                                       moduleName, reg->address, reg->address, reg->name, reg->size);
-                        }
-                    }
-                  else
-                    {
-                      if (split_locals != NULL)
-                        {
-                          // assign each local register into its own section
-                          dbuf_printf (oBuf, "UDL_%s_%u\tudata\n%s\tres\t%d\n", moduleName, sectionNr++, reg->name, reg->size);
+                          if (reg->pc_type != PO_DIR)
+                            {
+                              // Should not happen, really...
+                              assert (!"Compiler-assigned variables should not be pinned... This is a bug.");
+                              dbuf_printf (oBuf, "UDL_abs_%s_%04x\tudata_ovr\t0x%04X\n%s\tres\t%d\n",
+                                           moduleName, reg->address, reg->address, reg->name, reg->size);
+                            }
                         }
                       else
                         {
-                          // group all local registers into a single section
-                          // This should greatly improve BANKSEL generation...
-                          if (is_first)
+                          if (split_locals != NULL)
                             {
-                              dbuf_printf (oBuf, "UDL_%s_%u\tudata\n", moduleName, sectionNr++);
-                              is_first = false;
+                              // assign each local register into its own section
+                              dbuf_printf (oBuf, "UDL_%s_%u\tudata\n%s\tres\t%d\n", moduleName, sectionNr++, reg->name, reg->size);
                             }
-                          dbuf_printf (oBuf, "%s\tres\t%d\n", reg->name, reg->size);
+                          else
+                            {
+                              /* group the local registers into sections of at
+                                 most one bank; the r0x locals come first, and
+                                 keep the sections assigned to them */
+                              if (is_first || sec != current || (used && used + reg->size > LOCALS_SECTION_MAX))
+                                {
+                                  dbuf_printf (oBuf, "UDL_%s_%u\tudata\n", moduleName, sectionNr++);
+                                  is_first = false;
+                                  current = sec;
+                                  used = 0;
+                                }
+                              dbuf_printf (oBuf, "%s\tres\t%d\n", reg->name, reg->size);
+                              used += reg->size;
+                            }
                         }
                     }
                 }
-            }
-          reg->isEmitted = true;
+              reg->isEmitted = true;
+            }                   // for
         }                       // for
-    }                           // for
+      if (sec == 0)
+        break;
+    }
   DBG_EXIT ();
   DBG_MSG ("pic14printLocals ---end registers---");
 }
@@ -860,6 +931,7 @@ picglue (void)
     }
 
   /* Put all variables into a cblock */
+  pic14_assignLocalSections ();
   AnalyzeBanking ();
 
   /* emit initialized data */

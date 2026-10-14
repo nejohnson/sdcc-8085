@@ -4696,6 +4696,25 @@ static int bankCompare(const char *op1, const char *op2)
  *
  * If in doubt, return 0.
  */
+/* The compiler-assigned local named at the start of 'str' ("r0x1001",
+   "(r0x1001 + 1)"), or NULL. */
+static reg_info *
+localRegNamed (const char *str)
+{
+    char name[32];
+    int i;
+
+    while (*str == '(' || *str == ' ') str++;
+    for (i = 0; i < (int) sizeof name - 1 && isValidIdChar (str[i]); i++)
+        name[i] = str[i];
+    name[i] = 0;
+    /* walked by hand: setFirstItem would disturb a caller's walk */
+    for (set *l = dynAllocRegs; l; l = l->next)
+        if (!strcmp (((reg_info *) l->item)->name, name))
+            return l->item;
+    return NULL;
+}
+
 static int
 pic14_operandsAllocatedInSameBank(const char *str1, const char *str2) {
     // see glue.c(pic14printLocals)
@@ -4708,7 +4727,10 @@ pic14_operandsAllocatedInSameBank(const char *str1, const char *str2) {
         // In this model, all r0xXXXX are allocated into a single section
         // per file, so no BANKSEL required if accessing a r0xXXXX after a
         // (different) r0xXXXX. Works great for multi-byte operands.
-        if (str1 && str2 && str1[0] == 'r' && str2[0] == 'r') return (1);
+        // When the locals need several sections (glue.c), only those in
+        // the same section are known to share a bank.
+        if (str1 && str2 && str1[0] == 'r' && str2[0] == 'r')
+            return pic14_localsShareBank (localRegNamed (str1), localRegNamed (str2));
     } // if
 
     // assume operands in different banks
