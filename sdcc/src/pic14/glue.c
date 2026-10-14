@@ -23,6 +23,7 @@
 -------------------------------------------------------------------------*/
 
 #include "glue.h"
+#include "linkcheck.h"
 #include "dbuf_string.h"
 
 #include "device.h"
@@ -573,12 +574,18 @@ pic14_stringInSet (const char *str, set **world, int autoAdd)
   return false;
 }
 
-/* The general-purpose RAM of one bank on every multi-bank midrange
- * part. A module's compiler-assigned locals (r0x...) normally share one
- * section, so one BANKSEL serves them all; when they need more than
- * this, they go in sections of at most this size, so they need not
- * share one bank. */
-#define LOCALS_SECTION_MAX 80
+/* A module's compiler-assigned locals (r0x...) normally share one
+ * section, so one BANKSEL serves them all; when they need more than the
+ * device's largest RAM bank, they go in sections of at most that size,
+ * so they need not share one bank. Without the device's linker script,
+ * the limit is 80 bytes, a bank's general-purpose RAM on every
+ * multi-bank midrange part. */
+static unsigned
+localsSectionMax (void)
+{
+  int bank = pic14_maxRamBank ();
+  return bank > 0 ? bank : 80;
+}
 
 static unsigned localSections;   /* sections the module's locals need, 0 or 1 if one */
 
@@ -588,30 +595,52 @@ isLocalToEmit (reg_info *reg)
   return !reg->isEmitted && reg->wasUsed && !reg->isExtern && !reg->isFixed;
 }
 
-/* Assign the module's locals to sections, before BANKSELs are placed. */
-static void
+/* The first local to emit in dynAllocRegs named 'name'. */
+static reg_info *
+localRegFirstNamed (const char *name)
+{
+  set *l;
+
+  for (l = dynAllocRegs; l; l = l->next)
+    if (isLocalToEmit (l->item) && !strcmp (((reg_info *) l->item)->name, name))
+      return l->item;
+  return NULL;
+}
+
+/* Assign the module's locals to sections: called by AnalyzeBanking
+   once flow analysis has dropped unused registers, before BANKSELs are
+   placed. */
+void
 pic14_assignLocalSections (void)
 {
-  reg_info *reg;
+  reg_info *reg, *first;
   unsigned total = 0, used = 0;
+  set *seen = NULL;
 
   localSections = 0;
   if (getenv ("SDCC_PIC14_SPLIT_LOCALS"))
     return;
+  /* registers that share a name are one location, emitted once */
   for (reg = setFirstItem (dynAllocRegs); reg; reg = setNextItem (dynAllocRegs))
     {
       reg->localSection = 0;
-      if (isLocalToEmit (reg))
+      if (isLocalToEmit (reg) && !pic14_stringInSet (reg->name, &seen, true))
         total += reg->size;
     }
-  if (total <= LOCALS_SECTION_MAX)
+  deleteSet (&seen);
+  if (total <= localsSectionMax ())
     return;
   localSections = 1;
   for (reg = setFirstItem (dynAllocRegs); reg; reg = setNextItem (dynAllocRegs))
     {
       if (!isLocalToEmit (reg))
         continue;
-      if (used && used + reg->size > LOCALS_SECTION_MAX)
+      if ((first = localRegFirstNamed (reg->name)) != reg)
+        {
+          reg->localSection = first->localSection;
+          continue;
+        }
+      if (used && used + reg->size > localsSectionMax ())
         {
           localSections++;
           used = 0;
@@ -690,7 +719,7 @@ pic14printLocals (struct dbuf_s *oBuf)
                               /* group the local registers into sections of at
                                  most one bank; the r0x locals come first, and
                                  keep the sections assigned to them */
-                              if (is_first || sec != current || (used && used + reg->size > LOCALS_SECTION_MAX))
+                              if (is_first || sec != current || (used && used + reg->size > localsSectionMax ()))
                                 {
                                   dbuf_printf (oBuf, "UDL_%s_%u\tudata\n", moduleName, sectionNr++);
                                   is_first = false;
@@ -931,7 +960,6 @@ picglue (void)
     }
 
   /* Put all variables into a cblock */
-  pic14_assignLocalSections ();
   AnalyzeBanking ();
 
   /* emit initialized data */

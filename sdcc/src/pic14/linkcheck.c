@@ -1044,6 +1044,19 @@ findLinkerScript (lcMemory *mem)
   return 0;
 }
 
+/* The largest RAM bank in the device's linker script, or 0 if it cannot
+   be read. */
+int
+pic14_maxRamBank (void)
+{
+  static int cached = -1;
+  lcMemory mem;
+
+  if (cached < 0)
+    cached = findLinkerScript (&mem) ? mem.maxBank : 0;
+  return cached;
+}
+
 /* A RAM symbol's size: up to the next symbol of its section, or the
    section's end. */
 static int

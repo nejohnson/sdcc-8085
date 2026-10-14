@@ -89,6 +89,7 @@ int pic14_stackSize(void);
 reg_info *pic14_regWithIdx(int);
 reg_info *dirregWithName(const char *name);
 int pic14_localsShareBank (const reg_info *a, const reg_info *b);
+void pic14_assignLocalSections (void);
 void pic14_assignRegisters(ebbIndex *ebbi);
 reg_info *pic14_findFreeReg(short type);
 reg_info *pic14_allocWithIdx (int idx);

@@ -4710,7 +4710,7 @@ localRegNamed (const char *str)
     name[i] = 0;
     /* walked by hand: setFirstItem would disturb a caller's walk */
     for (set *l = dynAllocRegs; l; l = l->next)
-        if (!strcmp (((reg_info *) l->item)->name, name))
+        if (((reg_info *) l->item)->localSection && !strcmp (((reg_info *) l->item)->name, name))
             return l->item;
     return NULL;
 }
@@ -5335,6 +5335,8 @@ void AnalyzeBanking(void)
 	
 	AnalyzeFlow(0);
 	AnalyzeFlow(1);
+
+	pic14_assignLocalSections();
 	
 	for(pb = the_pFile->pbHead; pb; pb = pb->next)
 		FixRegisterBanking(pb);

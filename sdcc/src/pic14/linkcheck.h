@@ -18,4 +18,8 @@
    errors reported. */
 int pic14_linkCheck (set *objects, set *libraries, set *libDirs);
 
+/* The largest RAM bank in the device's linker script, or 0 if it cannot
+   be read. */
+int pic14_maxRamBank (void);
+
 #endif
