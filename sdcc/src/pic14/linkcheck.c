@@ -31,6 +31,8 @@
 #include "device.h"
 #include "linkcheck.h"
 
+extern set *linkOptionsSet;
+
 /* Microchip COFF, as written by gpasm */
 #define COFF_MAGIC_V1   0x1234
 #define COFF_MAGIC_V2   0x1240
@@ -993,13 +995,36 @@ readLinkerScript (const char *path, lcMemory *mem)
   return mem->maxPage && mem->maxBank;
 }
 
+/* The script given to gplink with -s (passed as -Wl-s,<file>), or NULL. */
+static const char *
+userLinkerScript (void)
+{
+  const char *opt, *script = NULL;
+
+  for (opt = setFirstItem (linkOptionsSet); opt; opt = setNextItem (linkOptionsSet))
+    {
+      if (!strcmp (opt, "-s"))
+        script = setNextItem (linkOptionsSet);
+      else if (!strncmp (opt, "-s", 2))
+        script = opt + 2;
+      else if (!strncmp (opt, "--script=", 9))
+        script = opt + 9;
+    }
+  return script;
+}
+
+/* The memory map comes from the script gplink will use: the user's
+   if one was given, otherwise the device's default. */
 static int
 findLinkerScript (lcMemory *mem)
 {
   const char *dirs[] = { NULL, "/usr/share/gputils/lkr", "/usr/local/share/gputils/lkr" };
   const char *proc = processor_base_name ();
+  const char *script = userLinkerScript ();
   int i;
 
+  if (script)
+    return readLinkerScript (script, mem);
   if (!proc)
     return 0;
   dirs[0] = getenv ("GPUTILS_LKR_PATH");

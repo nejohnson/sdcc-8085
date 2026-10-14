@@ -6,3 +6,7 @@ PIC14_DEVICE = 16f1788
 PIC14_LIBS = libsdcce.lib libce.lib libme.lib
 
 include $(PORTS_DIR)/pic14/spec.mk
+
+# gpsim cannot reach program memory above 8K words on this part; link
+# within 8K words so larger programs are rejected rather than mis-run.
+LINKFLAGS += -Wl-s,$(PORTS_DIR)/pic14-enhanced/16f1788_8k.lkr
