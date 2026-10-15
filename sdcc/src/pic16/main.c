@@ -838,9 +838,37 @@ _pic16_linkEdit (void)
 
   shash_add (&linkValues, "libs", joinStrSet (processStrSet (libFilesSet, NULL, NULL, shell_escape)));
 
-  lcmd = msprintf(linkValues, LFRM);
-  ret = sdcc_system (lcmd);
-  Safe_free (lcmd);
+  /* gplink can report an error and still exit with 0: the link worked
+     only if it wrote the hex file */
+  {
+    const char *out = fullDstFileName ? fullDstFileName : dstFileName;
+    const char *slash = strrchr (out, '/');
+    const char *dot = strrchr (slash ? slash : out, '.');
+    struct dbuf_s hex;
+
+    dbuf_init (&hex, 128);
+    dbuf_append (&hex, out, dot ? (size_t)(dot - out) : strlen (out));
+    dbuf_append_str (&hex, ".hex");
+    remove (dbuf_c_str (&hex));
+
+    lcmd = msprintf(linkValues, LFRM);
+    ret = sdcc_system (lcmd);
+    Safe_free (lcmd);
+
+    if (!ret)
+      {
+        FILE *f = fopen (dbuf_c_str (&hex), "r");
+
+        if (f)
+          fclose (f);
+        else
+          {
+            fprintf (stderr, "%s: linking failed: no %s\n", pic16_linkCmd[0], dbuf_c_str (&hex));
+            ret = 1;
+          }
+      }
+    dbuf_destroy (&hex);
+  }
 
   if (ret)
       exit (1);

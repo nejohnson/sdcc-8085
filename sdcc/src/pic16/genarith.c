@@ -462,7 +462,7 @@ static void emitMOVWF(operand *reg, int offset)
 
 #if 1
 
-static void genAddLit (iCode *ic, int lit)
+static void genAddLit (iCode *ic, long long lit)
 {
 
   int size,same;
@@ -778,7 +778,7 @@ static void genAddLit (iCode *ic, int lit)
     /* this fails when result is an SFR because value is written there
      * during addition and not at the end */
 
-static void genAddLit (iCode *ic, int lit)
+static void genAddLit (iCode *ic, long long lit)
 {
 
   int size,sizeL,same;
@@ -1195,7 +1195,7 @@ void pic16_genPlus (iCode *ic)
         if(AOP(right)->type == AOP_LIT) {
                 /* Add a literal to something else */
                 //bool know_W=0;
-                unsigned lit = (unsigned) ulFromVal (AOP(right)->aopu.aop_lit);
+                long long lit = (long long) ullFromVal (AOP(right)->aopu.aop_lit);
                 //unsigned l1=0;
 
                 //offset = 0;
@@ -1595,10 +1595,7 @@ void pic16_genMinus (iCode *ic)
   if(AOP(IC_RIGHT(ic))->type == AOP_LIT) {
     /* Add a literal to something else */
 
-    lit = ulFromVal (AOP(IC_RIGHT(ic))->aopu.aop_lit);
-    lit = - (long)lit;
-
-    genAddLit ( ic,  lit);
+    genAddLit (ic, - (long long) ullFromVal (AOP(IC_RIGHT(ic))->aopu.aop_lit));
   } else if(AOP_TYPE(IC_RIGHT(ic)) == AOP_CRY) {
     // bit subtraction
 
@@ -1665,6 +1662,35 @@ void pic16_genMinus (iCode *ic)
 
       }
 
+    }
+  } else if (pic16_isLitAop (AOP (IC_LEFT (ic))) && AOP_TYPE (IC_LEFT (ic)) != AOP_LIT &&
+             AOP_TYPE (IC_RIGHT (ic)) != AOP_ACC && AOP_SIZE (IC_RIGHT (ic)) >= size) {
+    /* an address constant minus a variable, &x[1] - p: the constant's
+       bytes are literals, not file registers */
+    if (pic16_isLitAop (AOP (IC_RIGHT (ic)))) {
+      /* both constants, &x[1] - &x[0]: in the result, which cannot be
+         either operand */
+      for (offset = 0; offset < size; offset++) {
+        pic16_mov2w (AOP (IC_LEFT (ic)), offset);
+        pic16_emitpcode (POC_MOVWF, pic16_popGet (AOP (IC_RESULT (ic)), offset));
+      }
+      for (offset = 0; offset < size; offset++) {
+        pic16_mov2w (AOP (IC_RIGHT (ic)), offset);
+        pic16_emitpcode (offset ? POC_SUBWFB_D1 : POC_SUBWF, pic16_popGet (AOP (IC_RESULT (ic)), offset));
+      }
+      goto release;
+    }
+    pic16_mov2w (AOP (IC_RIGHT (ic)), 0);
+    pic16_emitpcode (POC_SUBLW, pic16_popGet (AOP (IC_LEFT (ic)), 0));
+    pic16_emitpcode (POC_MOVWF, pic16_popGet (AOP (IC_RESULT (ic)), 0));
+    for (offset = 1; offset < size; offset++) {
+      pic16_emitpcode (POC_MOVLW, pic16_popGet (AOP (IC_LEFT (ic)), offset));
+      if (same) {
+        pic16_emitpcode (POC_SUBFWB_D1, pic16_popGet (AOP (IC_RESULT (ic)), offset));
+      } else {
+        pic16_emitpcode (POC_SUBFWB_D0, pic16_popGet (AOP (IC_RIGHT (ic)), offset));
+        pic16_emitpcode (POC_MOVWF, pic16_popGet (AOP (IC_RESULT (ic)), offset));
+      }
     }
   } else   if((AOP(IC_LEFT(ic))->type == AOP_LIT) &&
               (AOP_TYPE(IC_RIGHT(ic)) != AOP_ACC)) {

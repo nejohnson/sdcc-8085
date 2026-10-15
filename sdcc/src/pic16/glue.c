@@ -1064,10 +1064,16 @@ pic16_printIvalFuncPtr (sym_link * type, initList * ilist, char ptype, void *p)
     return;
   }
 
-  /* check the types   */
-  if ((dLvl = compareType (val->type, type->next, false)) <= 0)
+  /* check the types: a function, or a function cast to this pointer
+     type, (DT) f; the value is the function's address either way */
+  if (!(val->sym && IS_FUNC (val->sym->type)) && (dLvl = compareType (val->type, type->next, false)) <= 0)
     {
-      pic16_emitDB(0x00, ptype, p);
+      int i;
+
+      werrorfl (ilist->filename, ilist->lineno, W_INIT_WRONG);
+      printFromToType (val->type, type);
+      for (i = 0; i < getSize (type); i++)
+        pic16_emitDB(0x00, ptype, p);
       return;
     }
 
@@ -1511,6 +1517,13 @@ pic16emitMaps ()
   pic16emitRegularMap (idata, TRUE, TRUE);
   pic16emitRegularMap (bit, TRUE, FALSE);
   pic16emitRegularMap (xdata, TRUE, TRUE);
+  /* initialized variables at absolute addresses */
+  if (d_abs)
+    pic16emitRegularMap (d_abs, TRUE, TRUE);
+  if (i_abs)
+    pic16emitRegularMap (i_abs, TRUE, TRUE);
+  if (x_abs)
+    pic16emitRegularMap (x_abs, TRUE, TRUE);
   pic16emitRegularMap (sfr, FALSE, FALSE);
   pic16emitRegularMap (sfrbit, FALSE, FALSE);
   pic16emitRegularMap (code, TRUE, FALSE);

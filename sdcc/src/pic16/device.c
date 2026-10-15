@@ -161,6 +161,23 @@ symCompare (const void *a, const void *b)
   return (strcmp ((*i)->rname, (*j)->rname));
 }
 
+/* Does [addr, addr + size) start an initialized variable at an
+   absolute address (and fit in it)? */
+static int
+insideInitialized (unsigned int addr, int size)
+{
+  symbol *s;
+
+  for (s = setFirstItem (fix_idataSymSet); s; s = setNextItem (fix_idataSymSet))
+    {
+      unsigned int a = SPEC_ADDR (s->etype) & 0x0FFF;
+
+      if (addr == a && size <= getSize (s->type))
+        return 1;
+    }
+  return 0;
+}
+
 void
 pic16_dump_usection (FILE *of, set *section, int fix)
 {
@@ -229,8 +246,21 @@ pic16_dump_usection (FILE *of, set *section, int fix)
     }
   else
     {
-      unsigned int j = 0;
+      unsigned int j = 0, k;
       unsigned int prev_size = 0;
+
+      /* one that starts initialized data at an absolute address is an
+         alias of it: pic16_dump_isection put its label there */
+      for (j = k = 0; j < i; j++)
+        if (!insideInitialized (rlist[j]->address & 0x0FFF, rlist[j]->size))
+          rlist[k++] = rlist[j];
+      i = k;
+      j = 0;
+      if (!i)
+        {
+          Safe_free (rlist);
+          return;
+        }
 
       rprev = NULL;
       init_addr = (rlist[j]->address & 0x0FFF); // warning(s) emitted below
@@ -371,6 +401,14 @@ pic16_dump_isection (FILE *of, set *section, int fix)
 
           if (s->ival)
             {
+              {
+                reg_info *r;
+
+                /* uninitialized variables at the same address */
+                for (r = setFirstItem (pic16_fix_udata); r; r = setNextItem (pic16_fix_udata))
+                  if ((r->address & 0x0FFF) == (SPEC_ADDR (s->etype) & 0x0FFF) && r->size <= getSize (s->type))
+                    fprintf (of, "%s\n", r->name);
+              }
               fprintf (of, "%s", s->rname);
               pic16_printIval (s, s->type, s->ival, 'f', (void *)of);
               pic16_flushDB ('f', (void *)of);
