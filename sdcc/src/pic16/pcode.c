@@ -7402,6 +7402,8 @@ void pic16_OptimizeJumps (void)
           pCodeOp *lastTargetOp = NULL;
           int newDist = resolveJumpChain (pc, &target, &lastTargetOp);
           int maxDist = MAX_DIST_BCC;
+          /* a label behind the jump comes back as a negative distance */
+          if (newDist < 0) newDist = -newDist;
           if (PCI(pc)->op == POC_BRA) maxDist = MAX_DIST_BRA;
           if (PCI(pc)->op == POC_GOTO) maxDist = MAX_DIST_GOTO;
 
