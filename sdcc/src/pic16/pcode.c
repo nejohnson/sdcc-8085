@@ -10937,24 +10937,26 @@ static defmap_t *createDefmap (pCode *pc, defmap_t *list) {
     list = newDefmap (SPO_TOSU, 0xff, 0xff, 0, 1, pc, newValnum (), list);
     break;
 
-  case POC_CALL: // return values (and arguments?): WREG, PRODx, FSR0L
-  case POC_RCALL: // return values (and arguments?): WREG, PRODx, FSR0L
+  case POC_CALL: // return values (and arguments?): WREG, PRODx, FSR0
+  case POC_RCALL: // return values (and arguments?): WREG, PRODx, FSR0
     list = newDefmap (SPO_WREG, 0xff, 0xff, 1, 1, pc, newValnum (), list);
     list = newDefmap (SPO_PRODL, 0xff, 0xff, 1, 1, pc, newValnum (), list);
     list = newDefmap (SPO_PRODH, 0xff, 0xff, 1, 1, pc, newValnum (), list);
     list = newDefmap (SPO_FSR0L, 0xff, 0xff, 1, 1, pc, newValnum (), list);
+    list = newDefmap (SPO_FSR0H, 0xff, 0xff, 1, 1, pc, newValnum (), list);
 
     /* needs correctly set-up stack pointer */
     list = newDefmap (SPO_FSR1L, 0xff, 0x00, 1, 0, pc, 0, list);
     list = newDefmap (SPO_FSR1H, 0xff, 0x00, 1, 0, pc, 0, list);
     break;
 
-  case POC_RETLW: // return values: WREG, PRODx, FSR0L
+  case POC_RETLW: // return values: WREG, PRODx, FSR0
     /* pseudo read on (possible) return values */
     // WREG is handled below via outCond
     list = newDefmap (SPO_PRODL, 0xff, 0x00, 1, 0, pc, 0, list);
     list = newDefmap (SPO_PRODH, 0xff, 0x00, 1, 0, pc, 0, list);
     list = newDefmap (SPO_FSR0L, 0xff, 0x00, 1, 0, pc, 0, list);
+    list = newDefmap (SPO_FSR0H, 0xff, 0x00, 1, 0, pc, 0, list);
 
     /* caller's stack pointers must be restored */
     list = newDefmap (SPO_FSR1L, 0xff, 0x00, 1, 0, pc, 0, list);
@@ -10963,13 +10965,14 @@ static defmap_t *createDefmap (pCode *pc, defmap_t *list) {
     list = newDefmap (SPO_FSR2H, 0xff, 0x00, 1, 0, pc, 0, list);
     break;
 
-  case POC_RETURN: // return values; WREG, PRODx, FSR0L
-  case POC_RETFIE: // return value: WREG, PRODx, FSR0L
+  case POC_RETURN: // return values; WREG, PRODx, FSR0
+  case POC_RETFIE: // return value: WREG, PRODx, FSR0
     /* pseudo read on (possible) return values */
     list = newDefmap (SPO_WREG, 0xff, 0x00, 1, 0, pc, 0, list);
     list = newDefmap (SPO_PRODL, 0xff, 0x00, 1, 0, pc, 0, list);
     list = newDefmap (SPO_PRODH, 0xff, 0x00, 1, 0, pc, 0, list);
     list = newDefmap (SPO_FSR0L, 0xff, 0x00, 1, 0, pc, 0, list);
+    list = newDefmap (SPO_FSR0H, 0xff, 0x00, 1, 0, pc, 0, list);
 
     /* caller's stack pointers must be restored */
     list = newDefmap (SPO_FSR1L, 0xff, 0x00, 1, 0, pc, 0, list);

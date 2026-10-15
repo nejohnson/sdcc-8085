@@ -1079,7 +1079,8 @@ pic16_printIvalFuncPtr (sym_link * type, initList * ilist, char ptype, void *p)
 
       if(IS_FUNC(val->sym->type) && !val->sym->used && !IS_STATIC(val->sym->etype)) {
 
-        if(!checkSym(publics, val->sym))
+        /* (an inline definition is in publics but gets no body here) */
+        if(!checkSym(publics, val->sym) || (IFFUNC_ISINLINE (val->sym->type) && !IS_EXTERN (val->sym->etype)))
           if(checkAddSym(&externs, val->sym) && (ptype == 'f')) {
             /* this has not been declared as extern
              * so declare it as a 'late extern' just after the symbol */
@@ -1657,9 +1658,11 @@ pic16printPublics (FILE *afile)
 
         for(sym = setFirstItem (publics); sym; sym = setNextItem (publics))
           /* sanity check; an inline definition without extern is not an
-             external definition and gets no body, so it is not public */
-          if(!IS_STATIC(sym->etype) &&
-             !(IS_FUNC (sym->type) && IFFUNC_ISINLINE (sym->type) && !IS_EXTERN (sym->etype)))
+             external definition and gets no body: a reference to it is
+             to the external definition elsewhere */
+          if (IS_FUNC (sym->type) && IFFUNC_ISINLINE (sym->type) && !IS_EXTERN (sym->etype) && !IS_STATIC (sym->etype))
+            ; /* see pic16_printExterns */
+          else if(!IS_STATIC(sym->etype))
                 pic16_emitSymbolIfNew(afile, "\tglobal\t%s\n", sym->rname, 0);
 }
 
@@ -1672,7 +1675,7 @@ pic16_printExterns(FILE *afile)
   symbol *sym;
 
         /* print nothing if no externs to declare */
-        if(!elementsInSet(externs) && !elementsInSet(pic16_builtin_functions))
+        if(!elementsInSet(externs) && !elementsInSet(pic16_builtin_functions) && !elementsInSet(code->syms))
                 return;
 
         fprintf(afile, "\n%s", iComments2);
@@ -1681,6 +1684,13 @@ pic16_printExterns(FILE *afile)
 
         for(sym = setFirstItem(externs); sym; sym = setNextItem(externs))
                 pic16_emitSymbolIfNew(afile, "\textern\t%s\n", sym->rname, 1);
+
+        /* an inline definition without extern gets no body here: a call
+           to it or its address refers to the external definition */
+        for(sym = setFirstItem(code->syms); sym; sym = setNextItem(code->syms))
+                if (IS_FUNC (sym->type) && IFFUNC_ISINLINE (sym->type) && !IS_EXTERN (sym->etype) && !IS_STATIC (sym->etype)
+                    && (sym->used || sym->addrtaken))
+                        pic16_emitSymbolIfNew(afile, "\textern\t%s\n", sym->rname, 1);
 
         for(sym = setFirstItem(pic16_builtin_functions); sym; sym = setNextItem(pic16_builtin_functions))
                 pic16_emitSymbolIfNew(afile, "\textern\t_%s\n", sym->name, 1);
