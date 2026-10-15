@@ -63,6 +63,8 @@ extern void printPublics (FILE * afile);
 void  pic16_pCodeInitRegisters (void);
 pCodeOp *pic16_popCopyReg (pCodeOpReg *pc);
 extern void pic16_pCodeConstString (char *name, const char *value, unsigned length);
+char *pic16_stringLiteralBytes (symbol *sym);
+extern value *initValPointer (ast *expr);
 
 
 /*-----------------------------------------------------------------*/
@@ -78,9 +80,9 @@ unsigned int pic16aopLiteral (value *val, int offset)
   /* if it is a float then it gets tricky */
   /* otherwise it is fairly simple */
   if (!(IS_FLOAT(val->type) || IS_FIXED(val->type))) {
-    unsigned long v = ulFromVal (val);
+    unsigned long long v = ullFromVal (val);
 
-    return ( (v >> (offset * 8)) & 0xff);
+    return offset < 8 ? (v >> (offset * 8)) & 0xff : 0;
   }
 
   if(IS_FIXED16X16(val->type)) {
@@ -103,6 +105,24 @@ iCode *tic;
 symbol *nsym;
 char tbuffer[512], *tbuf=tbuffer;
 
+
+/*-----------------------------------------------------------------*/
+/* pic16_symOperand - an operand for sym itself: a struct is marked */
+/* implicit (as a member name is) for the call, so that             */
+/* operandFromSymbol does not turn it into its address              */
+/*-----------------------------------------------------------------*/
+static operand *
+pic16_symOperand (symbol *sym)
+{
+  unsigned implicit = sym->implicit;
+  operand *op;
+
+  if (IS_STRUCT (sym->type))
+    sym->implicit = 1;
+  op = operandFromSymbol (sym, false);
+  sym->implicit = implicit;
+  return op;
+}
 
 /*-----------------------------------------------------------------*/
 /* emitRegularMap - emit code for maps with no special cases       */
@@ -169,20 +189,15 @@ pic16emitRegularMap (memmap * map, bool addPublics, bool arFlag)
                         checkAddSym(&publics, sym);
                 } else
                         /* new version */
+                        /* (one at an absolute address is placed by address, not here) */
                         if(IS_STATIC(sym->etype)
-                                && !sym->ival) /* && !sym->level*/ {
+                                && !sym->ival && !SPEC_ABSA (sym->etype)) /* && !sym->level*/ {
                           sectSym *ssym;
                           int found=0;
 
 //                            debugf("adding symbol %s\n", sym->name);
-#define SET_IMPLICIT    1
 
-#if SET_IMPLICIT
-                                if(IS_STRUCT(sym->type))
-                                        sym->implicit = 1;
-#endif
-
-                                reg_info *reg = pic16_allocDirReg (operandFromSymbol (sym, false));
+                                reg_info *reg = pic16_allocDirReg (pic16_symOperand (sym));
 
                                 if(reg) {
                                   for(ssym=setFirstItem(sectSyms); ssym; ssym=setNextItem(sectSyms)) {
@@ -232,12 +247,8 @@ pic16emitRegularMap (memmap * map, bool addPublics, bool arFlag)
 
                                         /* if IS_STRUCT is omitted the following
                                          * fixes structures but break char/int etc */
-#if SET_IMPLICIT
-                                        if(IS_STRUCT(sym->type))
-                                                sym->implicit = 1;              // mark as implicit
-#endif
                                         if(!sym->ival) {
-                                                reg = pic16_allocDirReg (operandFromSymbol (sym, false));
+                                                reg = pic16_allocDirReg (pic16_symOperand (sym));
                                                 if(reg) {
                                                         if(checkAddReg(&pic16_fix_udata, reg)) {
                                                                 /* and add to globals list if not exist */
@@ -257,15 +268,11 @@ pic16emitRegularMap (memmap * map, bool addPublics, bool arFlag)
 
 //                              fprintf(stderr, "EXTRA symbol declaration sym= %s\n", sym->name);
 
-#if SET_IMPLICIT
-                                if(IS_STRUCT(sym->type))
-                                        sym->implicit = 1;              // mark as implicit
-#endif
                                 if(!sym->ival) {
                                         if(IS_AGGREGATE(sym->type)) {
                                                 reg=pic16_allocRegByName(sym->rname, getSize( sym->type ), NULL);
                                         } else {
-                                                reg = pic16_allocDirReg (operandFromSymbol (sym, false));
+                                                reg = pic16_allocDirReg (pic16_symOperand (sym));
                                         }
 
                                         {
@@ -381,8 +388,10 @@ pic16_initPointer (initList * ilist, sym_link *toType)
       return valCastLiteral(toType, 0.0, 0);
   }
 
-  expr = decorateType(resolveSymbols( list2expr (ilist) ), FALSE, true);
-//  expr = list2expr( ilist );
+  /* decorate the initializer unless that has been done */
+  expr = list2expr (ilist);
+  if (expr && !expr->ftype)
+    expr = decorateType (resolveSymbols (expr), FALSE, true);
 
   if (!expr)
     goto wrong;
@@ -512,6 +521,11 @@ pic16_initPointer (initList * ilist, sym_link *toType)
     val->etype = getSpec (val->type);
     return val;
   }
+
+  /* the forms the generic initializer code knows (struct member
+     arrays among them) */
+  if ((val = initValPointer (expr)))
+    return val;
 
  wrong:
   if (expr)
@@ -791,7 +805,7 @@ pic16_printIvalBitFields (symbol **sym, initList **ilist, char ptype, void *p)
 {
   symbol *lsym = *sym;
   initList *lilist = *ilist;
-  unsigned long ival = 0;
+  unsigned long long ival = 0;
   unsigned size = 0;
   int bit_start = 0;
   unsigned i;
@@ -824,7 +838,7 @@ pic16_printIvalBitFields (symbol **sym, initList **ilist, char ptype, void *p)
           else
             size = (bit_length + 7) / 8;
 
-          ival |= (ulFromVal (val) & ((1ul << bit_length) - 1ul)) << bit_start;
+          ival |= (ullFromVal (val) & (0xffffffffffffffffull >> (64 - bit_length))) << bit_start;
           lilist = (lilist ? lilist->next : NULL);
         }
       bit_start += bit_length;
@@ -837,7 +851,7 @@ pic16_printIvalBitFields (symbol **sym, initList **ilist, char ptype, void *p)
     }
 
   for (i = 0; i < size; i++)
-    pic16_emitDB (BYTE_IN_LONG (ival, i), ptype, p);
+    pic16_emitDB ((ival >> (8 * i)) & 0xff, ptype, p);
 
   *sym = lsym;
   *ilist = lilist;
@@ -1340,14 +1354,14 @@ CODESPACE: %d\tCONST: %d\tPTRCONST: %d\tSPEC_CONST: %d\n", __FUNCTION__, map->sn
 //        fprintf(stderr, "%s:%d spec_absa is true for symbol: %s\n",
 //                __FILE__, __LINE__, sym->name);
 
-          if (!sym->ival && IS_ARRAY (sym->type) && IS_CHAR (sym->type->next) && SPEC_CVAL (sym->etype).v_char)
+          char *strbytes = sym->ival ? NULL : pic16_stringLiteralBytes (sym);
+
+          if (strbytes)
             {
               /* symbol has absolute address but no initial value */
               /* special case for character strings */
-
-//            fprintf(stderr, "%s:%d printing code string from %s\n", __FILE__, __LINE__, sym->rname);
-
-              pic16_pCodeConstString (sym->rname, SPEC_CVAL (sym->etype).v_char, getSize (sym->type));
+              pic16_pCodeConstString (sym->rname, strbytes, getSize (sym->type));
+              Safe_free (strbytes);
             }
           else
             {
@@ -1427,17 +1441,11 @@ CODESPACE: %d\tCONST: %d\tPTRCONST: %d\tSPEC_CONST: %d\n", __FUNCTION__, map->sn
 //            fprintf(stderr, "%s:%d [3] generating init for label: %s\n", __FILE__, __LINE__, sym->rname);
               dbuf_printf (&code->oBuf, "%s:\n", sym->rname);
               /* special case for character strings */
-              if (IS_ARRAY (sym->type) && IS_CHAR (sym->type->next) && SPEC_CVAL (sym->etype).v_char)
-                {
+              char *strbytes = pic16_stringLiteralBytes (sym);
 
-//                fprintf(stderr, "%s:%d printing code string for %s\n", __FILE__, __LINE__, sym->rname);
-
-                  pic16_pCodeConstString (sym->rname, SPEC_CVAL (sym->etype).v_char, getSize (sym->type));
-                }
-              else
-                {
-                  assert (0);
-                }
+              wassertl (strbytes, "code-space object with no initial value");
+              pic16_pCodeConstString (sym->rname, strbytes, getSize (sym->type));
+              Safe_free (strbytes);
             }
         }
     }
@@ -1593,6 +1601,43 @@ pic16_emitSymbolIfNew(FILE *file, const char *fmt, const char *sym, int checkLoc
 }
 
 /*-----------------------------------------------------------------*/
+/* pic16_stringLiteralBytes - the bytes, little-endian, of a string */
+/* literal in sym of char, char16_t or char32_t; NULL if it is not  */
+/* one.  The caller frees the result.                               */
+/*-----------------------------------------------------------------*/
+char *
+pic16_stringLiteralBytes (symbol *sym)
+{
+  int size = getSize (sym->type);
+  char *bytes;
+  int i;
+
+  if (!IS_ARRAY (sym->type))
+    return NULL;
+  if (IS_CHAR (sym->type->next) && SPEC_CVAL (sym->etype).v_char)
+    {
+      bytes = Safe_alloc (size);
+      memcpy (bytes, SPEC_CVAL (sym->etype).v_char, size);
+      return bytes;
+    }
+  if (IS_INT (sym->type->next) && !IS_LONG (sym->type->next) && SPEC_CVAL (sym->etype).v_char16)
+    {
+      bytes = Safe_alloc (size);
+      for (i = 0; i < size; i++)
+        bytes[i] = (SPEC_CVAL (sym->etype).v_char16[i / 2] >> (8 * (i % 2))) & 0xff;
+      return bytes;
+    }
+  if (IS_INT (sym->type->next) && IS_LONG (sym->type->next) && SPEC_CVAL (sym->etype).v_char32)
+    {
+      bytes = Safe_alloc (size);
+      for (i = 0; i < size; i++)
+        bytes[i] = (SPEC_CVAL (sym->etype).v_char32[i / 4] >> (8 * (i % 4))) & 0xff;
+      return bytes;
+    }
+  return NULL;
+}
+
+/*-----------------------------------------------------------------*/
 /* printPublics - generates global declarations for publics        */
 /*-----------------------------------------------------------------*/
 static void
@@ -1605,8 +1650,10 @@ pic16printPublics (FILE *afile)
         fprintf (afile, "%s", iComments2);
 
         for(sym = setFirstItem (publics); sym; sym = setNextItem (publics))
-          /* sanity check */
-          if(!IS_STATIC(sym->etype))
+          /* sanity check; an inline definition without extern is not an
+             external definition and gets no body, so it is not public */
+          if(!IS_STATIC(sym->etype) &&
+             !(IS_FUNC (sym->type) && IFFUNC_ISINLINE (sym->type) && !IS_EXTERN (sym->etype)))
                 pic16_emitSymbolIfNew(afile, "\tglobal\t%s\n", sym->rname, 0);
 }
 

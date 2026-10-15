@@ -33,6 +33,7 @@
 
 void pic16_printIval (symbol * sym, sym_link * type, initList * ilist, char ptype, void *p);
 extern void pic16_pCodeConstString (char *name, const char *value, unsigned length);
+char *pic16_stringLiteralBytes (symbol *sym);
 
 stats_t statistics = { 0, 0, 0, 0 };
 
@@ -207,6 +208,18 @@ pic16_dump_usection (FILE *of, set *section, int fix)
 #else
       for (r = setFirstItem (section); r; r = setNextItem (section))
         {
+          /* each object is a section of its own, which must fit one
+             256-byte RAM bank of the linker script */
+          if (r->size > PIC16_BANK_SIZE)
+            {
+              struct dbuf_s obj;
+
+              dbuf_init (&obj, 64);
+              dbuf_printf (&obj, "%s%s", moduleName, port->linker.rel_ext);
+              werrorfl (NULL, 0, E_DATA_TOO_BIG, dbuf_c_str (&obj), r->size, PIC16_BANK_SIZE,
+                        r->name[0] == '_' ? r->name + 1 : r->name);
+              dbuf_destroy (&obj);
+            }
           //fprintf (of, "\nudata_%s_%s\tudata\n", moduleName, r->name);
           fprintf (of, "\nudata_%s_%u\tudata\n", moduleName, usection_no++);
           fprintf (of, "%s\tres\t%d\n", r->name, r->size);
@@ -332,16 +345,11 @@ pic16_dump_isection (FILE *of, set *section, int fix)
             }
           else
             {
-              if (IS_ARRAY (s->type) && IS_CHAR (s->type->next)
-                  && SPEC_CVAL (s->etype).v_char)
-                {
-                  //fprintf (stderr, "%s:%d printing code string from %s\n", __FILE__, __LINE__, s->rname);
-                  pic16_pCodeConstString (s->rname , SPEC_CVAL (s->etype).v_char, getSize (s->type));
-                }
-              else
-                {
-                  assert (0);
-                } // if
+              char *strbytes = pic16_stringLiteralBytes (s);
+
+              wassertl (strbytes, "code-space object with no initial value");
+              pic16_pCodeConstString (s->rname, strbytes, getSize (s->type));
+              Safe_free (strbytes);
             } // if
         } // for
     }
@@ -369,16 +377,11 @@ pic16_dump_isection (FILE *of, set *section, int fix)
             }
           else
             {
-              if (IS_ARRAY (s->type) && IS_CHAR (s->type->next)
-                  && SPEC_CVAL (s->etype).v_char)
-                {
-                  //fprintf (stderr, "%s:%d printing code string from %s\n", __FILE__, __LINE__, s->rname);
-                  pic16_pCodeConstString (s->rname , SPEC_CVAL (s->etype).v_char, getSize (s->type));
-                }
-              else
-                {
-                  assert (0);
-                } // if
+              char *strbytes = pic16_stringLiteralBytes (s);
+
+              wassertl (strbytes, "code-space object with no initial value");
+              pic16_pCodeConstString (s->rname, strbytes, getSize (s->type));
+              Safe_free (strbytes);
             } // if
 
           sprev = s;

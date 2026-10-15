@@ -1319,7 +1319,7 @@ PORT pic16_port =
     3,      /* banked func ptr */
     1,      /* bit */
     4,      /* float */
-    0,      /* _BitInt (in bits) */
+    64,     /* _BitInt (in bits) */
   },
 
     /* generic pointer tags */

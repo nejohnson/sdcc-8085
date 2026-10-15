@@ -1414,6 +1414,7 @@ void pic16_genPlus (iCode *ic)
         assert( 0 );
 
 release:
+        pic16_fixBitIntTop (result, 0);
         pic16_freeAsmop(left,NULL,ic,(RESULTONSTACK(ic) ? FALSE : TRUE));
         pic16_freeAsmop(right,NULL,ic,(RESULTONSTACK(ic) ? FALSE : TRUE));
         pic16_freeAsmop(result,NULL,ic,TRUE);
@@ -1808,6 +1809,7 @@ void pic16_genMinus (iCode *ic)
   //    adjustArithmeticResult(ic);
 
  release:
+  pic16_fixBitIntTop (IC_RESULT (ic), 0);
   pic16_freeAsmop(IC_LEFT(ic),NULL,ic,(RESULTONSTACK(ic) ? FALSE : TRUE));
   pic16_freeAsmop(IC_RIGHT(ic),NULL,ic,(RESULTONSTACK(ic) ? FALSE : TRUE));
   pic16_freeAsmop(IC_RESULT(ic),NULL,ic,TRUE);

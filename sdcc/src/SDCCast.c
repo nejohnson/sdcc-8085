@@ -4400,10 +4400,12 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
         }
 
       p->next = copyLinkChain (LTYPE (tree));
-      if (IS_DECL (p->next))
+      // _Optional qualifier is not preserved across &.  (The operand can be
+      // untyped here, as the !LETYPE case above allows.)
+      if (p->next && IS_DECL (p->next))
         DCL_PTR_OPTIONAL (p->next) = false;
-      else
-        SPEC_OPTIONAL (p->next) = false; // _Optional qualifier is not preserved across &.
+      else if (p->next)
+        SPEC_OPTIONAL (p->next) = false;
       TTYPE (tree) = p;
       TETYPE (tree) = getSpec (TTYPE (tree));
       LLVAL (tree) = 1;
