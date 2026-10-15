@@ -556,6 +556,63 @@ identical to the ones measured.
 
 ---
 
+## pic16: consistency with pic14, first pass (2026-10-15)
+
+pic16 had never been regression-run in this tree: its libraries had not
+been built since the front-end tightening, and did not build (libsdcc's
+fixed16x16 comparisons, see `b7caeb35`). Baseline on the PIC18F452 with
+clean libraries: **785 failures, 16 abnormal stops**, 25077 tests.
+
+Fixed in this pass (ported from pic14 where pic14 already had it):
+
+- `_BitInt` up to 64 bits, with the top byte of odd widths normalised
+  after casts, add, subtract, multiply and left shift. libc gains the
+  stdbit.h sources and the libraries are built as C23; libsdcc gains
+  the `long long` float conversions and widening multiplies.
+- Wrong code that pic16 had all along: constants wider than 32 bits
+  lost their upper bytes (`pic16aopLiteral` used `ulFromVal`), in code
+  and in initializers; literal shifts of 3, 5, 6, 7 and 8 byte values
+  emitted nothing; a cast from a variable in `__code` used its address.
+- Bit-fields of 8 bits or more, read and written (pic16 bailed out on
+  reads, wrote multi-byte ones wrongly); the sign of a bit-field comes
+  from the field, not `OP_SYM_ETYPE (left)` (pic14 `94e3ae00`).
+- Front-end fallout: an `inline` definition no longer gets a `global`;
+  wide string literals in `__code`; `&struct` initializers (pic16 marked
+  struct variables "implicit", the front end's word for member names);
+  struct-member arrays in pointer initializers; calls to a constant
+  address; a store into a string literal compiles to nothing.
+- `static __at` locals were allocated twice; an object over a 256-byte
+  RAM bank gets error 380 instead of a gplink error.
+- Regression: pic16 test addresses inside the support code's software
+  stack (0x200-0x2FE) moved to bank 5; the watchdog is turned off.
+
+Measured (full run, clean libraries): **902 failures, 46 abnormal
+stops, 29196 tests**. 4119 more tests run than before; 176 files are
+better and 19 worse, all of them `_BitInt` tests that used to skip
+themselves. The 30 new abnormal stops were watchdog resets in bit-field
+tests whose failure messages outran it; with the watchdog off they are
+plain failures (see the generic-pointer item below).
+
+**Still open on pic16:**
+- **C library:** Neil's call (2026-10-15): standard, like pic14. pic16's
+  headers and libc are its own interface (`void putchar (char)`, int
+  `strlen`, char-argument `strchr`, no `const`, a 126-byte
+  `unsigned char` malloc on a user-defined `heap`, non-standard ctype,
+  no strtol/strtoul/strnlen/strsep/qsort/puts/wide characters). Plan:
+  generic ctype and string sources; pic14-style stdlib.h and malloc
+  family (default heap); standard putchar/getchar/puts/fputs/EOF over
+  pic16's stream descriptors; PIC18-only extras in their own headers.
+- **Structs by value** compile but give wrong results (`structparam`,
+  `largeoddstruct`); pic14 needed the same work (`f065a768`).
+- **Generic pointers from integer constants:** `(T *)0x500` is folded
+  to a generic pointer with tag byte 0, which on pic16 means program
+  memory, so a function reading through it reads flash. A run-time cast
+  gets the data tag. Changing the constant's tag needs care with NULL.
+- `_BitInt` from float above 32 bits; signed wide `_BitInt` multiply
+  (fails on pic14 too).
+
+---
+
 ## pic14-enhanced: objects larger than a RAM bank (2026-10-15) - PARKED
 
 Neil's call (2026-10-15): record it, do not implement it now.
