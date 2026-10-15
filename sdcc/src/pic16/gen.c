@@ -2489,14 +2489,15 @@ pic16_toBoolean (operand * oper)
     return;
 
   /* Load the MSB first, because for floating-point types, we need to mask off
-   * the sign bit so -0 becomes false. */
-  pic16_emitpcode (POC_MOVFW, pic16_popGet (AOP (oper), size));
+   * the sign bit so -0 becomes false.  A constant (an address, &x) has
+   * literal bytes, not file registers. */
+  pic16_mov2w (AOP (oper), size);
   if (IS_FLOAT (operandType (oper)))
     pic16_emitpcode (POC_ANDLW, pic16_popGetLit (0x7F));
   while (size)
     {
       --size;
-      pic16_emitpcode (POC_IORFW, pic16_popGet (AOP (oper), size));
+      pic16_emitpcode (pic16_isLitAop (AOP (oper)) ? POC_IORLW : POC_IORFW, pic16_popGet (AOP (oper), size));
     }
 }
 
@@ -5296,7 +5297,7 @@ genCmpEq (iCode * ic, iCode * ifx)
   int preserve_result = 0;
   int generate_result = 0;
   int i = 0;
-  unsigned long lit = -1;
+  unsigned long long lit = -1;
 
   FENTRY;
 
@@ -5323,7 +5324,7 @@ genCmpEq (iCode * ic, iCode * ifx)
 
   if (AOP_TYPE (right) == AOP_LIT)
     {
-      lit = ulFromVal (AOP (right)->aopu.aop_lit);
+      lit = ullFromVal (AOP (right)->aopu.aop_lit);
     }
 
   if (regsInCommon (left, result) || regsInCommon (right, result))
@@ -5350,7 +5351,7 @@ genCmpEq (iCode * ic, iCode * ifx)
         }
       if (pic16_isLitOp (right))
         {
-          if (pic16_isLitOp (left) || (0 != ((lit >> (8 * i)) & 0x00FF)))
+          if (pic16_isLitOp (left) || i >= 8 || (0 != ((lit >> (8 * i)) & 0x00FF)))
             {
               pic16_emitpcode (POC_XORLW, pic16_popGet (AOP (right), i));
             }
