@@ -9,12 +9,17 @@ Ordered by size, not priority.
 
 ---
 
-## Next focus after the PIC family: the 8051 (2026-10-14)
+## PIC family: done for now; next focus the 8051 (2026-10-15)
 
-Neil's plan: once the PIC work (pic14, and pic16 for consistency) is
-complete, switch to the 8051 family - SDCC's mcs51 ports and relatives.
-8051 cores are still a popular embedded CPU IP block in SoC designs.
-Existing mcs51 entries below are natural starting points.
+Neil's call (2026-10-15): the PIC ports have been pushed far enough;
+mark them done and revisit only if a PIC-based project needs more.
+Final state (full runs, clean libraries, `0e6bc113`): pic14 (16F877)
+419 failures, pic14-enhanced (16F1788) 335, pic16 (18F452) 277 with 2
+abnormal stops. The open PIC items below stay recorded, not scheduled.
+
+Next: the 8051 family - SDCC's mcs51 ports and relatives. 8051 cores
+are still a popular embedded CPU IP block in SoC designs. Existing
+mcs51 entries below are natural starting points.
 
 ---
 
