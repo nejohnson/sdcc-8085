@@ -5273,7 +5273,8 @@ initCSupport (void)
 
   if (TARGET_IS_PIC16)
     {
-      sym_link *charType = (options.signed_char) ? SCHARTYPE : UCHARTYPE;
+      /* Plain char, as the library's definitions of the comparisons return. */
+      sym_link *charType = typeFromStr ("c");
 
       fps16x16_add = funcOfType ("__fps16x16_add", fixed16x16Type, fixed16x16Type, 2, options.float_rent);
       fps16x16_sub = funcOfType ("__fps16x16_sub", fixed16x16Type, fixed16x16Type, 2, options.float_rent);
