@@ -31,7 +31,9 @@
 /* This is a dummy function so that sources compile,
  * even when user doesn't give a putchar() function. */
 
-PUTCHAR (c)
+int
+putchar (int c)
 {
   (void)c;
+  return EOF;
 }

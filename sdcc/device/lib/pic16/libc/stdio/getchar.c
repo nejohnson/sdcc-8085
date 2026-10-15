@@ -1,7 +1,10 @@
 /*-------------------------------------------------------------------------
-   iscntrl.c - part of ctype.h
+   putchar.c - putchar dummy function
 
-   Copyright (C) 1999, Sandeep Dutta <sandeep.dutta at usa.net>
+   Copyright (C) 2005, Vangelis Rokas <vrokas AT otenet.gr>
+
+   Modifications for PIC14 by
+   Copyright (C) 2019 Gonzalo Pérez de Olaguer Córdoba <salo@gpoc.es>
 
    This library is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -26,11 +29,12 @@
    might be covered by the GNU General Public License.
 -------------------------------------------------------------------------*/
 
-#include <ctype.h>
+#include <stdio.h>
 
-char iscntrl (unsigned char c)
+/* This is a dummy function so that sources compile,
+ * even when user doesn't give a putchar() function. */
+
+int getchar (void)
 {
-    if  ( c <= 0x1F || c == 0x7f )
-        return 1;
-    return 0;
+  return EOF;
 }

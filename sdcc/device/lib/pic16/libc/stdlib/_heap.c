@@ -1,8 +1,7 @@
 /*-------------------------------------------------------------------------
-   memccpy.c - part of string library functions
+   _heap.c - the default heap
 
-   Copyright (C) 2004, Vangelis Rokas <vrokas at otenet.gr>
-   Copyright (C) 1999, Sandeep Dutta <sandeep.dutta at usa.net>
+   Copyright (C) 2026, Neil Johnson
 
    This library is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -27,24 +26,17 @@
    might be covered by the GNU General Public License.
 -------------------------------------------------------------------------*/
 
-#include <string.h>
+#include <malloc.h>
 
-void *
-memccpy (void *dst, void *src, char c, size_t acount) 
+/* Half of a RAM bank: the smallest PIC18 parts have 256 bytes of RAM. */
+#define DEFAULT_HEAP_SIZE 128
+
+static unsigned char _default_heap[DEFAULT_HEAP_SIZE];
+
+/* Set up the heap that malloc, calloc and realloc use when the program
+   has not called _initHeap. Only those functions refer to it, so the
+   buffer is linked in only when they are. */
+void _initDefaultHeap (void)
 {
-  char *d = dst;
-  char *s = src;
-	
-  /*
-   * copy from lower addresses to higher addresses
-   */
-  while (acount--)
-    {
-      if (*s == c)
-        return ++s;
-
-      *d++ = *s++;
-    }
-
-  return NULL;
+    _initHeap (_default_heap, sizeof _default_heap);
 }

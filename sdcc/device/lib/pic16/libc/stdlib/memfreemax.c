@@ -3,6 +3,9 @@
 
    Copyright (C) 2005, Vangelis Rokas <vrokas at otenet.gr>
 
+   Modifications for PIC14 by
+   Copyright (C) 2019 Gonzalo Pérez de Olaguer Córdoba <salo@gpoc.es>
+
    This library is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
    Free Software Foundation; either version 2, or (at your option) any
@@ -28,25 +31,25 @@
 
 #include <malloc.h>
 
-extern unsigned char _MALLOC_SPEC *heap;
-
-unsigned int memfreemax(void)
+size_t memfreemax (void)
 {
-  _malloc_rec _MALLOC_SPEC *pHeap;
-  unsigned char maxSize = 1;
-  unsigned char bLen;
-
-    pHeap = (_malloc_rec _MALLOC_SPEC *)&heap;
-    
-    while ((bLen = pHeap->bits.count)) {
-      if(!pHeap->bits.alloc && (bLen > maxSize))
-          maxSize = bLen;
+    _malloc_rec __data *head;
+    size_t size = 1;
+    size_t len;
+ 
+    if (_malloc_heap == NULL)
+        return 0;
+ 
+      head = _malloc_heap;
       
-      pHeap = (_malloc_rec _MALLOC_SPEC *)((unsigned int)pHeap + bLen);
-    }
-
-  /* do not count the block header */
-  --maxSize;
-  
-  return (maxSize);
+      while ((len = head->bits.count) != 0)
+      {
+          if (!head->bits.alloc && (len > size))
+                size = len;
+          
+          head = NEXTREC(head);
+      }
+ 
+    /* do not count the block header */
+    return size - 1;
 }

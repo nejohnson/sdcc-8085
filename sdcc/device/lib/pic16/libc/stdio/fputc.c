@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
-   strcpy.c - part of string library functions
+   fputc.c - write a character to a stream
 
-   Copyright (C) 1999, Sandeep Dutta <sandeep.dutta at usa.net>
+   Copyright (C) 2026, Neil Johnson
 
    This library is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -26,15 +26,11 @@
    might be covered by the GNU General Public License.
 -------------------------------------------------------------------------*/
 
-#include <string.h>
+#include <stdio.h>
 
-char *
-strcpy (char *d, char *s)
+int
+fputc (int c, FILE *stream)
 {
-  register char *d1 = d;
-
-  while (*d1++ = *s++)
-    ;
-
-  return d;
+  __stream_putchar (stream, c);
+  return (unsigned char) c;
 }

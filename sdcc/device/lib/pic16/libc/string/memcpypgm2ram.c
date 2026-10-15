@@ -29,10 +29,10 @@
 #include <string.h>
 
 __data void *
-memcpypgm2ram (__data void *dst, __code void *src, size_t acount)
+memcpypgm2ram (__data void *dst, const __code void *src, size_t acount)
 {
   char __data *d = dst;
-  char __code *s = src;
+  const char __code *s = src;
 
   /*
    * copy from lower addresses to higher addresses

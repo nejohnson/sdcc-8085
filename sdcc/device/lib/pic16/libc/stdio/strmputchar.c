@@ -40,7 +40,9 @@ __stream_putchar (FILE *stream, char c)
   io_long ((unsigned long) stream);
 #endif
 
-  if (deref == 0x80)
+  if (!stream)
+    putchar (c);
+  else if (deref == 0x80)
     {
       /* this is a data/near memory pointer */
       *(*(char **) stream) = c;
