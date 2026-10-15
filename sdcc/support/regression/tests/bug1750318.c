@@ -6,6 +6,9 @@
 
 #if defined(__SDCC_pic14)
 __xdata char __at(0x01A0) bar;
+#elif defined(__SDCC_pic16)
+/* 0x200-0x2FE is the regression support's software stack (#pragma stack) */
+__xdata char __at(0x0510) bar;
 #else
 __xdata char __at(0x1234) bar;
 #endif

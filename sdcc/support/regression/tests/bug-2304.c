@@ -7,8 +7,9 @@
 void testBug(void)
 {
 #ifdef __SDCC_pic16
-	signed long *l = (signed long *) 0x02b0;
-	float *f = (float *) 0x02b0;
+	/* 0x200-0x2FE is the regression support's software stack (#pragma stack) */
+	signed long *l = (signed long *) 0x05b0;
+	float *f = (float *) 0x05b0;
 #elif defined (__SDCC_mcs51) || defined (__SDCC_ds390)
 	__xdata signed long *l = (__xdata signed long *) 0xcab0;
 	__xdata float *f = (__xdata float *) 0xcab0;

@@ -7,7 +7,8 @@
 #include <stdint.h>
 
 #if defined(__SDCC_pic16)
-#define ADDR 0x0200
+/* 0x200-0x2FE is the regression support's software stack (#pragma stack) */
+#define ADDR 0x0500
 #elif defined(__SDCC_pic14)
 /* 0x0100-0x010B hold the core registers (INDF, PCL, STATUS, FSR...)
    mirrored in bank 2; 0x0120 is general-purpose RAM on every midrange part. */
