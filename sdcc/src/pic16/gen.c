@@ -10407,7 +10407,7 @@ genAssign (iCode * ic)
   operand *result, *right;
   sym_link *restype, *rtype;
   int size, offset, know_W;
-  unsigned long lit = 0L;
+  unsigned long long lit = 0;
 
   result = IC_RESULT (ic);
   right = IC_RIGHT (ic);
@@ -10483,7 +10483,7 @@ genAssign (iCode * ic)
     {
       if (!(IS_FLOAT (operandType (right)) || IS_FIXED (operandType (right))))
         {
-          lit = ulFromVal (AOP (right)->aopu.aop_lit);
+          lit = ullFromVal (AOP (right)->aopu.aop_lit);
 
           /* patch tag for literals that are cast to pointers */
           if (IS_CODEPTR (restype))
@@ -10507,7 +10507,11 @@ genAssign (iCode * ic)
                     }
                   else if (!IS_PTR (rtype) || IS_GENPTR (rtype))
                     {
-                      //fprintf (stderr, "%s:%u: INFO: `(generic*)literal' -- accepting specified tag %02x\n", ic->filename, ic->lineno, (unsigned char)(lit >> 16));
+                      /* keep the tag given; an integer that is a data
+                         address (12 bits) gets the data tag, as in
+                         pic16aopLiteral */
+                      if (lit && lit <= 0xfff)
+                        lit |= (unsigned long) GPTR_TAG_DATA << 16;
                     }
                   else if (IS_PTR (rtype))
                     {

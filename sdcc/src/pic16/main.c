@@ -123,6 +123,10 @@ _pic16_regparm (sym_link * l, bool reentrant)
   if (IFFUNC_HASVARARGS (regParmFuncType))
     return 0;
 
+  /* A struct is copied into the callee's own parameter variable. */
+  if (IS_STRUCT (l))
+    return 0;
+
   /* force all parameters via SEND/RECEIVE */
   if(0 /*pic16_options.ip_stack*/) {
     /* for this processor it is simple

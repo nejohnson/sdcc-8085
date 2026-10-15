@@ -82,6 +82,12 @@ unsigned int pic16aopLiteral (value *val, int offset)
   if (!(IS_FLOAT(val->type) || IS_FIXED(val->type))) {
     unsigned long long v = ullFromVal (val);
 
+    /* An integer made a generic pointer, (T *)0x500: data addresses are
+       12 bits, so one that fits is in data memory and gets that tag
+       (tag 0 is program memory).  NULL stays 0. */
+    if (offset == GPTRSIZE - 1 && IS_GENPTR (val->type) && v && v <= 0xfff)
+      return GPTR_TAG_DATA;
+
     return offset < 8 ? (v >> (offset * 8)) & 0xff : 0;
   }
 
