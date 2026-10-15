@@ -569,10 +569,12 @@ Fixed in this pass (ported from pic14 where pic14 already had it):
   after casts, add, subtract, multiply and left shift. libc gains the
   stdbit.h sources and the libraries are built as C23; libsdcc gains
   the `long long` float conversions and widening multiplies.
-- Wrong code that pic16 had all along: constants wider than 32 bits
-  lost their upper bytes (`pic16aopLiteral` used `ulFromVal`), in code
-  and in initializers; literal shifts of 3, 5, 6, 7 and 8 byte values
-  emitted nothing; a cast from a variable in `__code` used its address.
+- Wrong code that pic16 had all along: literal shifts of 3, 5, 6, 7 and
+  8 byte values emitted nothing; a cast from a variable in `__code` used
+  its address. (`pic16aopLiteral` and genAssign now read literals with
+  `ullFromVal`; on this LP64 host `ulFromVal` is already 64 bits, so that
+  only matters where `unsigned long` is 32 bits, a Windows build say. The
+  commit messages of `26fbf89d` and `8314fd97` overstate it.)
 - Bit-fields of 8 bits or more, read and written (pic16 bailed out on
   reads, wrote multi-byte ones wrongly); the sign of a bit-field comes
   from the field, not `OP_SYM_ETYPE (left)` (pic14 `94e3ae00`).
@@ -613,24 +615,40 @@ plain failures (see the generic-pointer item below).
   pointer made an integer keeps its tag, which pic16 code reads with
   `(unsigned long)p >> 16`, so `(long)(void *)12` is 0x80000c and
   `bug-3780` fails by design.
-- genAssign literals were 32 bits; references to inline functions are
-  declared extern; the sizeof fixture knows pic16's `&var` is `__data`.
+- References to inline functions are declared extern; the sizeof
+  fixture knows pic16's `&var` is `__data`.
 
-Measured (full runs, clean libraries): **pic16 277 failures**, 12
-abnormal stops, 31203 tests (first baseline 785 / 16 / 25077). pic14
-419 and pic14-enhanced 335 after the shared library additions.
+**Third pass (2026-10-15), `62c639f9`..current.** Fixed: a function cast
+in a pointer initializer, `{(DT) f1, f2}`, became one zero byte;
+initialized absolute `__data`/`__xdata` variables were never emitted,
+and an uninitialized alias at the same address overlapped them; gplink
+can fail and exit 0, so sdcc now checks the hex file; an address
+constant minus a variable or constant read RAM; genAddLit took an
+`int`, truncating 64-bit add/subtract constants; pic16_OptimizeJumps
+pointed Bcc at labels far behind it (a negative distance passed the
+range check, and gpasm wraps the offset silently); an address constant
+as a truth value read RAM.
+
+Measured (full runs, clean libraries): **pic16 277 failures, 2 abnormal
+stops, 31456 tests** (first baseline 785 / 16 / 25077). pic14 419 and
+pic14-enhanced 335 after the shared library additions.
 
 **Still open on pic16:**
-- **Objects over 256 bytes** (~30 of the 97 compile failures, error
-  380): gplink places each object in one DATABANK. pic16 code already
-  selects the bank for every byte's own address (`BANKSEL (sym + n)`),
-  so a linker script with merged banks could take them; a decision for
-  the user-visible device scripts.
-- 12 abnormal stops: absolute_mem___code, bug-2124, bug-2663,
-  bug-3470, 20010711-1, 950710-1, pr20527-1, strlen-4, sha3-256,
-  structflexarray, qct_0038-ptradd, reentrant_type_signed_long_long.
+- **Objects over 256 bytes** (~30 compile failures, error 380): gplink
+  places each object in one DATABANK. pic16 code already selects the
+  bank for every byte's own address (`BANKSEL (sym + n)`), so a linker
+  script with merged banks could take them; a decision for the
+  user-visible device scripts.
+- **`__code` objects at odd addresses** (absolute_mem___code): gputils
+  needs word-aligned program-memory sections; adjacent absolute objects
+  would have to share one section. Now a link failure, not a silent one.
+- 2 abnormal stops: reentrant_type_signed_long_long (recursion with an
+  8-byte result through FSR0) and sha3-256 (runs past the simulator
+  limit; unexamined).
 - Run-time failures in ~45 files, the largest 20021120-1 (float-heavy,
   86) and bug3223041 (24); largeoddstruct (struct returns from `__code`).
+- genCmp, genAnd, genOr and genXor still read literals as `unsigned
+  long`: right on LP64 hosts, 32 bits where `long` is.
 - `_BitInt` from float above 32 bits; signed wide `_BitInt` multiply
   (fails on pic14 too); `struct-ret-1` is error 92 by design (a struct
   through a pointer to a non-reentrant function), as on pic14.
