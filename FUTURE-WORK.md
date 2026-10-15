@@ -556,6 +556,65 @@ identical to the ones measured.
 
 ---
 
+## pic14-enhanced: objects larger than a RAM bank (2026-10-15) - PARKED
+
+Neil's call (2026-10-15): record it, do not implement it now.
+
+**What fails.** Four tests pass on the 16F877 (96-byte banks) and fail
+to compile on the 16F1788 (80-byte banks), each because of one object
+of 81-90 bytes:
+
+- `bug-2890326`: error 380, global `vehicles`, 90 bytes.
+- `gcc-torture-execute-strlen-1`: error 380, global `u`, 81 bytes.
+- `bug-3547`: error 379, local `points` of `f`, 84 bytes.
+- `new_wide`: error 379, local `c16_buffer` of `testW`, 82 bytes.
+
+The errors are correct: pic14 addresses a variable with BANKSEL plus a
+7-bit offset, so an object has to sit inside one bank. Nothing is
+miscompiled.
+
+**What enhanced cores offer.** The general-purpose RAM of every bank
+also appears as one contiguous block in the FSR address space, from
+0x2000 (the device lkr's `LINEARMEM linear0`, 0x2000-0x27EF on the
+16F1788, with each `gprN` bank declared `SHADOW=linear0:...`; the lkr
+also has `SECTION NAME=LINEAR0 RAM=linear0`). An object placed there
+can be any size up to the total.
+
+**What already works.** Pointer access: the enhanced `setup_fsr` and
+the `__gptrget`/`__gptrput` helpers load the full 16-bit address into
+FSR0, so `*p` and `p[i]` into linear memory need nothing new.
+
+**What the work is.**
+- Placement: glue.c emits an object larger than `pic14_maxRamBank()`
+  into a linear-memory section instead of reporting 379/380. Check
+  first that gpasm/gplink accept a relocatable `udata` in `LINEAR0`
+  and how they relocate a symbol there (gputils is the risk here; see
+  the RELOC_LOW note in memory for how its relocations have bitten
+  before).
+- Code generation: every *direct* access to such an object (a constant
+  offset, a struct member, `&obj` itself) must go through FSR
+  (`MOVIW`/`MOVWI k[FSRn]`) instead of BANKSEL + direct addressing.
+  That is the `AOP_DIR` paths of `pic14/gen.c`, plus the BANKSEL
+  placement in `pcode.c`, which must not touch these operands.
+  `&obj` must give the linear address (0x2000+), which pointers then
+  handle as now.
+- Locals: an over-size local is the same case for a function's
+  static frame; the locals split (`47be65d4`) would give the large
+  object a section of its own.
+- FSR use: codegen already uses FSR0 for pointers; a direct access to a
+  linear object in the middle of a pointer operation needs FSR1 or a
+  save/restore.
+
+**Cost and risk.** Contained to enhanced cores, but it touches the
+direct-access paths that every test uses, so a full run on both ports
+is the check. Gains 4 tests in the suite today, and real programs on
+enhanced parts with arrays of more than 80 bytes.
+
+**Classic cores** (16F877 class) have no linear memory: 379/380 stay
+the answer there.
+
+---
+
 ## pic14-enhanced: failures the 16F877 does not have (2026-10-15)
 
 After the abnormal stops were gone, 13 tests passed on the 16F877 but
@@ -580,16 +639,8 @@ pic14 **424**, pic14-enhanced **340**, none worse on either. The
 splitting also fixed tests on both chips (`offsetof`, `20011008-3`,
 `20090113-1`, `pr89634`, ascon, `structreturn` long long, ...).
 
-**Left, and needs a design decision:** four 16F1788-only failures
-(`bug-2890326`, `strlen-1`, `bug-3547`, `new_wide`) each hold one
-object of 81-90 bytes, larger than any bank. Enhanced cores could place
-such objects in linear data memory (FSR addresses 0x2000 up, where the
-banks' general-purpose RAM is contiguous). Pointers already work there
-(the enhanced library loads the full 16-bit address into FSR0); the
-work is making every direct access to such an object (constant
-offsets, struct members) go through FSR instead of BANKSEL + direct
-addressing. Classic cores have no linear memory, so error 379/380
-stays the answer there.
+**Left:** four 16F1788-only failures, each one object larger than any
+bank. See "pic14-enhanced: objects larger than a RAM bank" above.
 
 ---
 
