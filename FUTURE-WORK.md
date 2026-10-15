@@ -593,23 +593,47 @@ themselves. The 30 new abnormal stops were watchdog resets in bit-field
 tests whose failure messages outran it; with the watchdog off they are
 plain failures (see the generic-pointer item below).
 
+**Second pass (2026-10-15), `401385d3`..`f00e6124`.** Done since:
+- **C library** (Neil's call: standard, like pic14): generic ctype,
+  string and stdlib sources and headers; pic16's string.h and stdlib.h
+  wrap the generic ones and add only the PIC18's own functions; pic14's
+  allocator with a 128-byte default heap and `_initHeap`; standard
+  putchar/getchar/gets/puts/fputs/fputc/EOF, a NULL stream writing
+  through putchar. memrchr rewritten (it read past the buffer). Also
+  div/ldiv/lldiv, the uabs family, memalignment and ckd_* (pic14 too,
+  without lldiv: 16 bytes is more than a pic14 function returns).
+- **Structs by value** (regparm refused them, as pic14 `f065a768`) and
+  **structs as variable arguments** (IPUSH_VALUE_AT_ADDRESS was not
+  implemented: "UNHANDLED iCode", nothing pushed, compile succeeded).
+- **Results over 4 bytes:** `--optimize-df` deleted the FSR0H set-up of
+  the result pointer, breaking every library function that returns more
+  than 4 bytes (the whole long long runtime).
+- **Integer constants as generic pointers:** a nonzero constant up to
+  0xFFF (PIC18 data addresses are 12 bits) gets the data tag. A generic
+  pointer made an integer keeps its tag, which pic16 code reads with
+  `(unsigned long)p >> 16`, so `(long)(void *)12` is 0x80000c and
+  `bug-3780` fails by design.
+- genAssign literals were 32 bits; references to inline functions are
+  declared extern; the sizeof fixture knows pic16's `&var` is `__data`.
+
+Measured (full runs, clean libraries): **pic16 277 failures**, 12
+abnormal stops, 31203 tests (first baseline 785 / 16 / 25077). pic14
+419 and pic14-enhanced 335 after the shared library additions.
+
 **Still open on pic16:**
-- **C library:** Neil's call (2026-10-15): standard, like pic14. pic16's
-  headers and libc are its own interface (`void putchar (char)`, int
-  `strlen`, char-argument `strchr`, no `const`, a 126-byte
-  `unsigned char` malloc on a user-defined `heap`, non-standard ctype,
-  no strtol/strtoul/strnlen/strsep/qsort/puts/wide characters). Plan:
-  generic ctype and string sources; pic14-style stdlib.h and malloc
-  family (default heap); standard putchar/getchar/puts/fputs/EOF over
-  pic16's stream descriptors; PIC18-only extras in their own headers.
-- **Structs by value** compile but give wrong results (`structparam`,
-  `largeoddstruct`); pic14 needed the same work (`f065a768`).
-- **Generic pointers from integer constants:** `(T *)0x500` is folded
-  to a generic pointer with tag byte 0, which on pic16 means program
-  memory, so a function reading through it reads flash. A run-time cast
-  gets the data tag. Changing the constant's tag needs care with NULL.
+- **Objects over 256 bytes** (~30 of the 97 compile failures, error
+  380): gplink places each object in one DATABANK. pic16 code already
+  selects the bank for every byte's own address (`BANKSEL (sym + n)`),
+  so a linker script with merged banks could take them; a decision for
+  the user-visible device scripts.
+- 12 abnormal stops: absolute_mem___code, bug-2124, bug-2663,
+  bug-3470, 20010711-1, 950710-1, pr20527-1, strlen-4, sha3-256,
+  structflexarray, qct_0038-ptradd, reentrant_type_signed_long_long.
+- Run-time failures in ~45 files, the largest 20021120-1 (float-heavy,
+  86) and bug3223041 (24); largeoddstruct (struct returns from `__code`).
 - `_BitInt` from float above 32 bits; signed wide `_BitInt` multiply
-  (fails on pic14 too).
+  (fails on pic14 too); `struct-ret-1` is error 92 by design (a struct
+  through a pointer to a non-reentrant function), as on pic14.
 
 ---
 
