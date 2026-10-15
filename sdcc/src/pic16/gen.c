@@ -2972,6 +2972,50 @@ genCall (iCode * ic)
           pic16_aopOp (IC_LEFT (sic), sic, FALSE);
           size = AOP_SIZE (IC_LEFT (sic));
 
+          if (sic->op == IPUSH_VALUE_AT_ADDRESS)
+            {
+              /* a struct argument: push the bytes left points to, last
+                 first, as any other argument */
+              int i;
+
+              size = getSize (operandType (IC_LEFT (sic))->next);
+              stackParms += size;
+              if (inwparam)
+                werror (E_INTERNAL_ERROR, __FILE__, __LINE__, "struct argument passed in WREG");
+              if (PIC_IS_DATA_PTR (operandType (IC_LEFT (sic))))
+                {
+                  pic16_mov2w (AOP (IC_LEFT (sic)), 0);
+                  pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_fsr0l));
+                  pic16_mov2w (AOP (IC_LEFT (sic)), 1);
+                  pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_fsr0h));
+                  for (i = size - 1; i >= 0; i--)
+                    {
+                      pic16_emitpcode (POC_MOVLW, pic16_popGetLit (i));
+                      pic16_emitpcode (POC_MOVFF, pic16_popGet2p (pic16_popCopyReg (&pic16_pc_plusw0), pic16_popCopyReg (&pic16_pc_postdec1)));
+                    }
+                }
+              else
+                /* through a generic pointer, which reads forwards: point
+                   it at each byte in turn */
+                for (i = size - 1; i >= 0; i--)
+                  {
+                    pic16_mov2w (AOP (IC_LEFT (sic)), 0);
+                    pic16_emitpcode (POC_ADDLW, pic16_popGetLit (i));
+                    pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_tblptrl));
+                    pic16_mov2w (AOP (IC_LEFT (sic)), 1);
+                    emitSKPNC;
+                    pic16_emitpcode (POC_ADDLW, pic16_popGetLit (1));
+                    pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_tblptrh));
+                    pic16_mov2w (AOP (IC_LEFT (sic)), 2);
+                    pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_pclath));
+                    pic16_callGenericPointerLoad ();
+                    pic16_callGenericPointerRW (0, 1);
+                    pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_postdec1));
+                  }
+              pic16_freeAsmop (IC_LEFT (sic), NULL, sic, TRUE);
+              continue;
+            }
+
           stackParms += size;
 
           /* pass the last byte through WREG */
@@ -11611,6 +11655,7 @@ genpic16Code (iCode * lic)
           break;
 
         case IPUSH:
+        case IPUSH_VALUE_AT_ADDRESS:
           genIpush (ic);
           break;
 
