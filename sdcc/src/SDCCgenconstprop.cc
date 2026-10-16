@@ -862,8 +862,16 @@ static iCode *
 addressDefinition (operand *op)
 {
   iCode *def = uniqueDefinition (op);
+  /* Copies can form a cycle (after register allocation, a = b; b = a),
+     so the walk back through them is bounded; giving up is safe, it
+     only keeps the usual invalidation. */
+  int steps = 0;
   while (def && (def->op == '=' || def->op == CAST) && !POINTER_SET (def))
-    def = uniqueDefinition (def->right);
+    {
+      if (++steps > 64)
+        return 0;
+      def = uniqueDefinition (def->right);
+    }
   return def && def->op == ADDRESS_OF ? def : 0;
 }
 
