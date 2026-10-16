@@ -9,6 +9,15 @@ Ordered by size, not priority.
 
 ---
 
+## stm8: migrated to vendor asst8 and aslink (2026-10-17)
+
+stm8 and stm8-large at 2 failures each, identical to the sdas baseline
+in bytes and ticks.  Details in `remaining-ports-survey.md`, stm8
+section.  One open edge: `--debug` emits `.uleb128`/`.sleb128`, which
+`asst8` lacks, so DWARF builds will not assemble.  Not scheduled.
+
+---
+
 ## 8051 family: done for now (2026-10-16)
 
 Neil's call (2026-10-16): the 8051 ports are in better shape than

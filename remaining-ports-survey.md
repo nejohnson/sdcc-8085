@@ -475,9 +475,9 @@ and caught only because a negative case was written alongside the gold.
 Three ports, against a machine-model rework plus thirty encodings in a new
 operand class.  Every other port in this batch was a day's work or less and
 landed at baseline; this one is not that shape.  It is the last thing on the
-list that is *possible* - stm8 and the pdk family have no ASxxxx target at
-all - so it is worth doing, but worth doing deliberately rather than at the
-end of a long session.
+list that is *possible* - the pdk family has no ASxxxx target at all - so
+it is worth doing, but worth doing deliberately rather than at the end of a
+long session.
 
 ## r4k, r5k, r6k: the Rabbit 4000 and 6000, done except for `ldf`
 
@@ -546,3 +546,48 @@ So `ldf` is not a missing instruction.  It is the same structural problem as
 `__far` on r2k/r2ka/r3ka: **a >64K physical space that a 16-bit ASxxxx link
 has no way to express.**  Answering that question unblocks `ldf` on
 r4k/r5k/r6k and the two abnormal stops on r2k together; nothing else will.
+
+## stm8, finished 2026-10-17
+
+stm8 and stm8-large drive vendor `asst8` and `aslink`.  Both suites give
+2 failures, `tst_bug-3803` and `tst_p99-conformance`, against an sdas
+baseline of the same 2 measured the same day - and the summary lines are
+identical to the byte and the tick: 5793017 bytes, 163208616 ticks on
+stm8, 6188163 and 171019967 on stm8-large.  No ASlink or ASxxxx
+diagnostics anywhere in either run.
+
+The earlier claim that stm8 had no ASxxxx target was wrong: `asst8` is
+in the vendor tree and covers the same instruction set as `sdasstm8`,
+including `callf`, `retf`, `jpf` and `ldf`.
+
+Method: every library source - 374 generated `.asm` and the 32
+hand-written `.s` of both models - assembled with both assemblers, and
+the address and byte columns of the two listings compared, relocation
+marker letters normalised.  After one vendor fix all 406 are the same
+bytes.  Two things looked like differences and are not:
+
+- `push #(label >> 8)` lists as `00` from `asst8` and as the high byte
+  from sdas.  `asst8` hands the whole expression to the linker; linked,
+  the bytes are right (checked for `>>8`, `>>4` and an offset label).
+- The listing's cycle column differs on some instructions - `incw x` is
+  `[2]` from `asst8`, `[1]` from sdas.  Listing only; not looked into.
+
+What it took:
+
+- Vendor `7e83a3e`: `rrwa` and `rlwa` take their `A` implicitly.  SDCC
+  writes `rrwa x`; `asst8` wanted `rrwa x,a`.  118 sites in 50 library
+  sources and the only thing in the library it refused.  astest case
+  `st8rwa`.
+- The port struct: `asst8 -o+$1` and `aslink`, both flagged ASxxxx.
+- stm8 has no crt0 - the compiler writes the start-up code into the
+  module holding `main` - so the area-start rename every other port made
+  in its crt0 is made in `src/stm8/main.c`: `s_DATA`, `s_INITIALIZER`,
+  `s_INITIALIZED` and `s_GSINIT` become `a_...`, aslink's spelling.
+  The library sweep cannot see this; the first suite run failed every
+  link on it.
+- `device/lib/stm8` and `stm8-large`: `LIB_TYPE = ASXVENDOR`,
+  `SAS = bin/asst8`.
+
+DWARF output (`--debug`) is not covered: SDCC emits `.uleb128` and
+`.sleb128` for it, which `asst8` does not have.  The suite does not use
+`--debug`.
