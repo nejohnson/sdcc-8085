@@ -136,9 +136,9 @@ memory map out of aslink and in the link script.
 | **ez80** | **0 / 208** | **migrated.** `ucez80` 3 failures, which is exactly what `ucz180` fails on this tree - `tst_bug-3803`, `tst_p99-conformance` and `malloc.c`. `ucz80` fails the first two. At baseline. |
 | **r2k, r2ka, r3ka** | **0 / 208** | **migrated**, 2026-10-06. 2 failures each, which is the z80-family baseline - but **2 new abnormal stops each**, from `__far`. See below. |
 | **r800** | **0 / 207** | **migrated**, 2026-10-06. 3 failures - `tst_bug-3803`, `tst_p99-conformance`, `malloc.c` - which is exactly what `ucz180` and `ez80` fail. No abnormal stops. At baseline. |
-| **sm83** | 0 / 210 | unchanged - it was always clean. Still blocked on the ROM header. |
-| **tlcs90** | 83 | unchanged. Needs the `jp (hl)` fix first. |
-| **r4k, r5k, r6k** | ~480 each | parked. Was ~680; `add sp` and the conditions helped, the Rabbit 4000 instruction set did not go away. |
+| **sm83** | 0 / 210 | **migrated**, 2026-10-06. 2 failures, the `ucz80` two. See "sm83, finished". |
+| **tlcs90** | 0 | **migrated**, 2026-10-06. 3 failures, the `ucz180` three. See "tlcs90, finished". |
+| **r4k, r5k, r6k** | 0 / 208 | **migrated**, 2026-10-06, except `ldf`: 145/145/163 failures, all of it the `__far` problem. See "r4k, r5k, r6k". |
 
 ### What landed in ASxxxx
 
