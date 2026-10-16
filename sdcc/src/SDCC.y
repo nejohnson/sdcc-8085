@@ -1946,11 +1946,24 @@ function_abstract_declarator
             chain broken and crashing downstream (upstream bugs
             #3916/#3917). Build the FUNCTION declarator the same way
             the sibling alternatives above do. */
-         sym_link *p = newLink (DECLARATOR);
-         DCL_TYPE (p) = FUNCTION;
-         FUNC_HASVARARGS (p) = IS_VARG ($2);
-         FUNC_ARGS (p) = $2;
-         $$ = p;
+         sym_link *etype = $2 ? getSpec ($2->type) : NULL;
+
+         /* (__data *) in void (__data *) (void) parses here too: an
+            address space can begin a declaration, so a parenthesised
+            pointer reads as a parameter with no type specifier.  That is
+            not a function type, so it yields none. */
+         if ($2 && !$2->next && etype && IS_SPEC (etype) && !SPEC_NOUN (etype) &&
+             !SPEC_SHORT (etype) && !SPEC_LONG (etype) && !SPEC_LONGLONG (etype) &&
+             !SPEC_SIGN (etype) && !SPEC_USIGN (etype))
+           $$ = NULL;
+         else
+           {
+             sym_link *p = newLink (DECLARATOR);
+             DCL_TYPE (p) = FUNCTION;
+             FUNC_HASVARARGS (p) = IS_VARG ($2);
+             FUNC_ARGS (p) = $2;
+             $$ = p;
+           }
        }
    | direct_abstract_declarator '('
         {
