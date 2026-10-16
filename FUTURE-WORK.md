@@ -1284,7 +1284,15 @@ left out of the enhanced-core branch to keep it self-contained.
 
 ---
 
-## `asxxsrc/aslex.c`: `strcpy` with overlapping arguments (2026-10-08)
+## `asxxsrc/aslex.c`: `strcpy` with overlapping arguments (2026-10-08) - FIXED 2026-10-16
+
+Fixed in ASxxxx `b711951`.  The copy was of `afn` onto itself, and the
+same line set the included file's path length without its path, so a
+file included from another directory could not `.include` or `.incbin`
+anything beside itself - a real bug the undefined behaviour sat next
+to.  New astest cases `incpath`, `itst`, `incsym` (52 of 52); all 54
+assemblers byte-identical over their 171 sources.  See ASxxxx
+`VENDOR.md`.  The original entry:
 
 ASan reports `strcpy-param-overlap` in `strcpy (afn, asmc->afn)` at
 `asxxsrc/aslex.c:901`, where source and destination are the same pointer
