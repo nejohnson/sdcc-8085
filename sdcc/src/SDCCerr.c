@@ -837,6 +837,8 @@ struct
      "'%s', run by the interrupt handler, and '%s', run by main code, share local variables in '%s'; compile it with --no-overlay", 0},
   { E_CORE_REG_OVERLAP, ERROR_LEVEL_ERROR,
      "'%s' at 0x%04x overlaps core register %s, which is mirrored in every RAM bank; place it in general-purpose RAM or declare it __sfr", 0},
+  { E_DIRECT_DATA_OVERFLOW, ERROR_LEVEL_ERROR,
+     "area %s, at 0x%02x for %u bytes, needs internal RAM past 0x7f, which direct addressing reaches as SFRs; put some of the program's data in __idata, __pdata or __xdata", 0},
 };
 
 /* -------------------------------------------------------------------------------

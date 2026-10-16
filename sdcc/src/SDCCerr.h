@@ -414,6 +414,7 @@ enum {
   E_SHARED_LOCALS               = 384, // two functions of a module share local storage, but one reaches the other through another module
   E_ISR_SHARED_LOCALS           = 385, // interrupt-handler code and main code share local storage
   E_CORE_REG_OVERLAP            = 386, // an absolute variable overlaps a core register mirrored in every RAM bank
+  E_DIRECT_DATA_OVERFLOW        = 387, // 8051 directly addressed internal RAM ends past 0x7f, where the SFRs are
 
   // If you get a merge conflict here, some #pragma disable_warning in support/valdiag and support/regression will likely need to be adapted to the resolution. Check there!
 

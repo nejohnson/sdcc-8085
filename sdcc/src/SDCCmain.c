@@ -1882,6 +1882,55 @@ libPathSep (const char *path)
 }
 
 /*-----------------------------------------------------------------*/
+/* checkDirectData - for an 8051 linked by aslink, fail the link if */
+/* an area the code addresses directly ends past 0x7f.  Above 0x7f  */
+/* a direct operand names an SFR, so data there is not data at all, */
+/* and aslink, which knows nothing of the 8051, lays it out without */
+/* a word.  The map has each area's address and size.               */
+/*-----------------------------------------------------------------*/
+static int
+checkDirectData (const char *binFileName)
+{
+  static const char *const direct[] = { "REG_BANK_0", "REG_BANK_1", "REG_BANK_2", "REG_BANK_3",
+                                        "BIT_BANK", "BSEG_BYTES", "DSEG", "OSEG", NULL };
+  struct dbuf_s mapName;
+  const char *dot;
+  char line[256];
+  FILE *map;
+  int bad = 0;
+
+  dbuf_init (&mapName, PATH_MAX);
+  dot = strrchr (binFileName, '.');
+  if (dot && !strpbrk (dot, "/\\"))
+    dbuf_append (&mapName, binFileName, dot - binFileName);
+  else
+    dbuf_append_str (&mapName, binFileName);
+  dbuf_append_str (&mapName, ".map");
+  map = fopen (dbuf_c_str (&mapName), "r");
+  dbuf_destroy (&mapName);
+  if (!map)
+    return 0;
+
+  while (fgets (line, sizeof (line), map))
+    {
+      char name[64];
+      unsigned int addr, size;
+      int i;
+
+      if (sscanf (line, "%63s %x %x", name, &addr, &size) != 3)
+        continue;
+      for (i = 0; direct[i]; i++)
+        if (!strcmp (name, direct[i]) && size && addr + size > 0x80)
+          {
+            werrorfl (NULL, 0, E_DIRECT_DATA_OVERFLOW, name, addr, size);
+            bad = 1;
+          }
+    }
+  fclose (map);
+  return bad;
+}
+
+/*-----------------------------------------------------------------*/
 /* linkEdit : - calls the linkage editor  with options             */
 /*-----------------------------------------------------------------*/
 static void
@@ -2323,6 +2372,12 @@ linkEdit (char **envp)
       rename (dbuf_c_str (&lkrFileName), dbuf_c_str (&binFileName));
 
       dbuf_destroy (&lkrFileName);
+    }
+
+  if (!system_ret && TARGET_MCS51_LIKE && port->linker.asxxxx && checkDirectData (dbuf_c_str (&binFileName)))
+    {
+      remove (dbuf_c_str (&binFileName));
+      system_ret = 1;
     }
 
   dbuf_destroy (&binFileName);
