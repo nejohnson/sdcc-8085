@@ -21,6 +21,13 @@ Next: the 8051 family - SDCC's mcs51 ports and relatives. 8051 cores
 are still a popular embedded CPU IP block in SoC designs. Existing
 mcs51 entries below are natural starting points.
 
+First 8051 round (2026-10-16): no abnormal stops in any mcs51 model;
+failures small 20 (17 of them link refusals), medium 4, large 7, huge
+7, small-stack-auto 9, large-stack-auto 6, ds390 13.  What is left is
+listed in `mcs51-asxxxx-status.md` §12.  The front end changes it
+needed moved the PIC ports too: pic14 418, pic14-enhanced 334, pic16
+276, no case worse.
+
 ---
 
 ## `long long` on pic14 (2026-10-08) - IMPLEMENTED 2026-10-11
@@ -1274,7 +1281,13 @@ shared by 56 assemblers, so it needs the usual byte-identical sweep.
 
 ---
 
-## `e027ae17` broke `tst_bug3475630` on mcs51-medium (2026-10-07)
+## `e027ae17` broke `tst_bug3475630` on mcs51-medium (2026-10-07) - FIXED 2026-10-16
+
+Fixed by keeping `e027ae17`'s deferred pointer + 0 fold for pointers and
+arrays to `_Optional`, which is all its diagnostic needs; any other
+pointer + 0 folds where it is generated, as before it (`optionalTarget()`
+in `SDCCcse.c`).  0 failures on mcs51-medium.  See
+`mcs51-asxxxx-status.md` §12.  The original entry:
 
 35 of 40 assertions fail, and the module's code shrinks 15 bytes at that
 commit.  Bisected: `d26bf369` immediately before it passes 40/40.  Not
@@ -1287,7 +1300,16 @@ this session does not.
 
 ---
 
-## mcs51: 53 programs still place direct data above 0x7F (2026-10-08)
+## mcs51: 53 programs still place direct data above 0x7F (2026-10-08) - FIXED 2026-10-16
+
+None do now.  ASxxxx `5a5d88c` splits a `FIT` area no gap holds whole
+across the gaps section by section, and what still ends past 0x7F is
+refused at link time with error 387 rather than run.  17 programs on
+mcs51-small and 5 on mcs51-small-stack-auto are refused: closing them
+needs fewer bytes of direct data from the compiler.
+`mode-dependent-address` on mcs51-large-stack-auto is unchanged (its
+stack is what runs out).  See `mcs51-asxxxx-status.md` §12.  The
+original entry:
 
 Down from 66 after ASxxxx's `FIT`.  The rest cannot be reached that way:
 the overflowing area is `DSEG` itself at about a hundred bytes, and it

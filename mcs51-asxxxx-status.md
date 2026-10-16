@@ -1,5 +1,10 @@
 # mcs51 on vendor ASxxxx — where it stands
 
+**Current state, 2026-10-16: §12.**  No program runs with direct data
+past 0x7F any more:  aslink splits `DSEG` across the 0x08-0x1F gap, and
+what still does not fit is refused at link time.  §1-§11 are the
+history that got there and keep their dates.
+
 **Merged into `feat/i8085`** on 2026-10-05 with the suite not at baseline,
 and re-measured on 2026-10-07 after two bugs were found that most of the
 analysis below had been reading backwards: **45 failures across six models
@@ -557,3 +562,86 @@ item.  Declaration order would also have to be conditional: 13 bytes of
 and nothing today would say so - it would silently overlay `BIT_BANK`.
 A bank with a size would catch that, at the price of refusing links that
 work now.
+
+## 12. Where it stands, 2026-10-16
+
+Full runs, every library rebuilt from empty, against the state before
+this round (same tree, same day):
+
+| model | before | abnormal before | after | refused by error 387 |
+|---|---|---|---|---|
+| mcs51-small | 26 | 10 | 20 | 17 |
+| mcs51-medium | 40 | 0 | 4 | 0 |
+| mcs51-large | 8 | 0 | 7 | 0 |
+| mcs51-huge | 8 | 0 | 7 | 0 |
+| mcs51-small-stack-auto | 9 | 0 | 9 | 5 |
+| mcs51-large-stack-auto | 7 | 0 | 6 | 0 |
+| ds390 | 14 | 0 | 13 | 0 |
+
+No abnormal stops in any model.  i8085 and i8085-undoc stay at 0 of
+36480;  pic14 goes to 418, pic14-enhanced to 334 and pic16 to 276,
+each `bug-716242`.  No case passed before and fails now other than a
+program refused by the link check below.  (pic16's
+`gcc-torture-execute-strlen-4` did, until a pic16 code generation gap
+the late pointer + 0 fold had hidden was fixed:  pic16 read a program
+memory variable in arithmetic as its address.)
+
+Four changes:
+
+- **aslink splits a `FIT` area by section** (ASxxxx `5a5d88c`).  §8's
+  open item.  An area no gap holds whole is laid down a module's
+  section at a time, each into the lowest gap that holds it, the rest
+  from where the area would have started.  `itoa_test_itoa_part_1`
+  links with `DSEG` from 0x08 to 0x7E and passes.  This is what sdld's
+  bitmap allocator did, with the same consequence that the map reports
+  `DSEG` as a span.
+- **Direct data past 0x7F is a link error**, `error 387`, from a check
+  `sdcc` runs on the map after aslink (`checkDirectData()` in
+  `SDCCmain.c`).  The register banks, `BIT_BANK`, `BSEG_BYTES`, `DSEG`
+  and `OSEG` must end by 0x80.  The output is removed and the link
+  fails, as sdld refused it.  This is §8's prototyped alternative, done
+  in the compiler driver rather than with banks, and it is what turns
+  the abnormal stops into counted failures.
+- **`e027ae17` restricted to `_Optional`.**  Its deferred fold of
+  pointer + 0 now waits only for a pointer or array to `_Optional`,
+  which is what the diagnostic needs;  every other pointer + 0 folds
+  where it is generated, as before it.  `tst_bug3475630` on
+  mcs51-medium goes from 35 failures to 0.
+- **Two front end fixes the mcs51 ports exposed.**  The walk in
+  `addressDefinition()` (`SDCCgenconstprop.cc`) followed a copy cycle
+  forever after register allocation:  `bug-2089` and
+  `gcc-torture-execute-pr70127` hung the compiler.  It is bounded at 64
+  steps.  And `void (__data *) (void)` read `(__data *)` as a parameter
+  list with no type specifier and failed with error 226;
+  `bug-716242` fails in every 8051 model before, passes in all after.
+
+### What the 20 on mcs51-small are
+
+17 are programs refused by error 387.  In 9, `DSEG` spans 121 to 133
+bytes from 0x08 (the span includes `BIT_BANK` and any byte the split
+left free);  in 8, an `OSEG` of 16 to 35 bytes, which as an overlay is
+not split, ends at 0x81 to 0x8B.  Whether sdld linked any of them was
+not measured;  the §8 baseline worktree would answer that.  Closing
+them is compiler work:  fewer bytes of direct data.  They are
+`bitintarith` widths 48, 63 and 64, `funptrsstructreturn` and
+`structreturn` for `long long`, `gte_pr102134`, `gte_pr30185`,
+`qsort_type_signed_long`, `tst_constexpr`, `tst_offsetof`,
+`tst_p99-conformance` and torture `20000412-3`, `20050713-1`,
+`20100708-1`, `pr63641`, `pr83383`, `struct-ret-1`.  The other three
+are the parent rollups of those directories and `tst_bug-3803`.
+
+### What is left everywhere
+
+- `tst_bug-3803` fails in every model, and on z80 as well, so it is
+  not the 8051's.
+- `tst_p99-conformance`:  the ASCII non-goal (UTF-8 identifiers).
+- mcs51-large and -huge:  `onebyte_attrL_volatile_attrR_none`,
+  torture `990804-1` and `divmod-1`.
+- both stack-auto models:  `tst_bug-3741`.
+- mcs51-large-stack-auto:  torture `mode-dependent-address`, §11.  The
+  split does not reach it - its stack, not `DSEG`, is what runs out.
+- mcs51-small-stack-auto:  error 387 on `bug-3873`, `constexpr`,
+  `pr63641`, `struct-ret-1` and `p99-conformance`.
+- ds390:  `asconaead128_op_decrypt_impl_ref`, `gte_pr46019`,
+  `tst_bug-3960`, plus `bug-3803` and p99.  Not yet examined.
+
