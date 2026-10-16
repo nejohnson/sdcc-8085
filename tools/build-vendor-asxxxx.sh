@@ -12,6 +12,7 @@
 #     as6500  mos6502, mos65c02, mos6502-stack-auto
 #     as8051  the six mcs51 models
 #     as8xcxxx  ds390, ds400
+#     asst8   stm8, stm8-large
 #
 # SDCC's own build system knows nothing about vendor/asxxxx, so run this once
 # before "make" in sdcc/, naming the tools the ports you build need.

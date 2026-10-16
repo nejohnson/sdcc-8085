@@ -280,17 +280,17 @@ stm8_genInitStartup (FILE *of)
   fprintf (of, "\tldw x, #l_DATA\n");
   fprintf (of, "\tjreq\t00002$\n");
   fprintf (of, "00001$:\n");
-  fprintf (of, "\tclr (s_DATA - 1, x)\n");
+  fprintf (of, "\tclr (a_DATA - 1, x)\n");
   fprintf (of, "\tdecw x\n");
   fprintf (of, "\tjrne\t00001$\n");
   fprintf (of, "00002$:\n");
 
-  /* Copy l_INITIALIZER bytes from s_INITIALIZER to s_INITIALIZED */
+  /* Copy l_INITIALIZER bytes from a_INITIALIZER to a_INITIALIZED */
   fprintf (of, "\tldw\tx, #l_INITIALIZER\n");
   fprintf (of, "\tjreq\t00004$\n");
   fprintf (of, "00003$:\n");
-  fprintf (of, "\tld\ta, (s_INITIALIZER - 1, x)\n");
-  fprintf (of, "\tld\t(s_INITIALIZED - 1, x), a\n");
+  fprintf (of, "\tld\ta, (a_INITIALIZER - 1, x)\n");
+  fprintf (of, "\tld\t(a_INITIALIZED - 1, x), a\n");
   fprintf (of, "\tdecw\tx\n");
   fprintf (of, "\tjrne\t00003$\n");
   fprintf (of, "00004$:\n");
@@ -303,7 +303,7 @@ int
 stm8_genIVT(struct dbuf_s * oBuf, symbol ** intTable, int intCount)
 {
   int i;
-  dbuf_tprintf (oBuf, "\tint s_GSINIT ; reset\n");
+  dbuf_tprintf (oBuf, "\tint a_GSINIT ; reset\n");
 
   if(intCount > STM8_INTERRUPTS_COUNT)
     {
@@ -441,13 +441,13 @@ get_model (void)
 */
 static const char *_linkCmd[] =
 {
-  "sdldstm8", "-nf", "\"$1\"", "$L", NULL
+  "aslink", "-nf", "\"$1\"", "$L", NULL
 };
 
 /* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
 static const char *stm8AsmCmd[] =
 {
-  "sdasstm8", "$l", "$3", "\"$1.asm\"", NULL
+  "asst8", "$l", "$3", "-o+\"$1\"", "\"$1.asm\"", NULL
 };
 
 static const char *const _libs_stm8[] = { "stm8", NULL, };
@@ -471,7 +471,9 @@ PORT stm8_port =
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm"
+    ".asm",
+    NULL,                       /* do_assemble */
+    TRUE,                       /* ASxxxx asst8, not sdasstm8 */
   },
   {                             /* Linker */
     _linkCmd,
@@ -481,6 +483,7 @@ PORT stm8_port =
     1,
     NULL,                       /* crt */
     _libs_stm8,                 /* libs */
+    TRUE,                       /* ASxxxx aslink, not sdldstm8 */
   },
   {                             /* Peephole optimizer */
     stm8_defaultRules,
