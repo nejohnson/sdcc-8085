@@ -1346,7 +1346,12 @@ while `BIT_BANK` is pinned there.
 
 ---
 
-## The >64K question (2026-10-06)
+## The >64K question (2026-10-06) - PARKED 2026-10-16
+
+Neil's call (2026-10-16): park the Rabbit `__far`/`ldf` work - the
+Rabbit processors are end of life.  r4k/r5k/r6k stay at 145/145/163
+failures (all `ldf`), r2k/r2ka/r3ka at 2 abnormal stops each.  The
+original entry:
 
 `ldf` on r4k/r5k/r6k and the two `__far` abnormal stops on the r2k
 family.  `.24bit` is commented out, `outr3b` writes `a_bytes` rather
