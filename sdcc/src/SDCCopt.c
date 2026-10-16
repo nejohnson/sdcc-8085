@@ -3912,8 +3912,9 @@ eBBlockFromiCode (iCode *ic)
       kchange += killDeadCode (ebbi, false);
     }
 
-  /* Pointer arithmetic that adds or subtracts constant zero has been
-     retained until now for the purpose of _Optional diagnostics. */
+  /* Adding or subtracting constant zero on a pointer to _Optional has
+     been kept until now for the _Optional diagnostics; other pointer
+     arithmetic with zero was folded where it was generated. */
   if (foldPointerZeroArithmetic (ebbi->bbOrder, ebbi->count))
     change += cseAllBlocks (ebbi, FALSE);
 

@@ -2507,7 +2507,7 @@ geniCodeAdd (operand *left, operand *right, RESULT_TYPE resultType, int lvl)
   /* if the right side is LITERAL zero */
   /* return the left side              */
   if (IS_LITERAL (retype) && right->isLiteral && !floatFromVal (valFromType (rtype)) &&
-      !(IS_PTR (ltype) || IS_ARRAY (ltype)))
+      !optionalTarget (ltype))
     return left;
 
   /* if left is literal zero return right */

@@ -995,6 +995,16 @@ fixPointerReads (iCode *ic)
 }
 
 /*-----------------------------------------------------------------*/
+/* optionalTarget - is type a pointer or array to _Optional, whose  */
+/*                  arithmetic with zero is kept for diagnostics    */
+/*-----------------------------------------------------------------*/
+bool
+optionalTarget (sym_link *type)
+{
+  return (IS_PTR (type) || IS_ARRAY (type)) && type->next && isOptional (type->next);
+}
+
+/*-----------------------------------------------------------------*/
 /* foldAdditiveIdentity - turn addition or subtraction of zero     */
 /*                        into assignment or cast                  */
 /*-----------------------------------------------------------------*/
@@ -1101,16 +1111,14 @@ algebraicOpts (iCode *ic, eBBlock *ebp)
       /* if yes turn it into assignment or cast */
       if (IS_OP_LITERAL (IC_LEFT (ic)) &&
           isEqualVal (OP_VALUE (IC_LEFT (ic)), 0) &&
-          !(IS_PTR (operandType (IC_RIGHT (ic))) ||
-            IS_ARRAY (operandType (IC_RIGHT (ic)))))
+          !optionalTarget (operandType (IC_RIGHT (ic))))
         {
           foldAdditiveIdentity (ic, IC_RIGHT (ic));
           return;
         }
       if (IS_OP_LITERAL (IC_RIGHT (ic)) &&
           isEqualVal (OP_VALUE (IC_RIGHT (ic)), 0) &&
-          !(IS_PTR (operandType (IC_LEFT (ic))) ||
-            IS_ARRAY (operandType (IC_LEFT (ic)))))
+          !optionalTarget (operandType (IC_LEFT (ic))))
         {
           foldAdditiveIdentity (ic, IC_LEFT (ic));
           return;
@@ -1134,8 +1142,7 @@ algebraicOpts (iCode *ic, eBBlock *ebp)
       /* to assignment or unary minus                    */
       if (IS_OP_LITERAL (IC_RIGHT (ic)) &&
           isEqualVal (OP_VALUE (IC_RIGHT (ic)), 0) &&
-          !(IS_PTR (operandType (IC_LEFT (ic))) ||
-            IS_ARRAY (operandType (IC_LEFT (ic)))))
+          !optionalTarget (operandType (IC_LEFT (ic))))
         {
           /* right side zero change to assignment */
           ic->op = '=';
@@ -1655,8 +1662,7 @@ foldPointerZeroArithmetic (eBBlock **ebbs, int count)
                  isEqualVal (OP_VALUE (IC_RIGHT (ic)), 0))
           source = IC_LEFT (ic);
 
-        if (source && (IS_PTR (operandType (source)) ||
-                       IS_ARRAY (operandType (source))))
+        if (source && optionalTarget (operandType (source)))
           {
             foldAdditiveIdentity (ic, source);
             change = true;
