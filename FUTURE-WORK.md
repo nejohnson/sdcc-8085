@@ -9,6 +9,20 @@ Ordered by size, not priority.
 
 ---
 
+## 8051 family: done for now (2026-10-16)
+
+Neil's call (2026-10-16): the 8051 ports are in better shape than
+before; leave them.  Programs refused by error 387 are too big for the
+part's direct data, which is the program's problem, not the
+compiler's - the compiler's job is to refuse them rather than
+miscompile, and it does.  Final state is `mcs51-asxxxx-status.md` §12
+(`0c140aaa`): no abnormal stops in any model; mcs51-small 20 (17 of
+them refusals), medium 4, large 7, huge 7, small-stack-auto 9,
+large-stack-auto 6, ds390 13.  The open items there stay recorded, not
+scheduled.
+
+---
+
 ## PIC family: done for now; next focus the 8051 (2026-10-15)
 
 Neil's call (2026-10-15): the PIC ports have been pushed far enough;
