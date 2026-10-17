@@ -1954,6 +1954,13 @@ linkEdit (char **envp)
          forks take it as the option's argument, ASxxxx aslink appends it
          to the option letter with a '+'. */
       const char *out_sep = port->linker.asxxxx ? "+" : " ";
+      /* An object file does not say which CPU it is for, so aslink is told
+         an ELF file's machine number as part of the option: -E<n>+name.
+         EM_STM8 is 186, EM_68HC08 71; these are the two ports with ELF. */
+      char out_mach[8] = "";
+
+      if (port->linker.asxxxx && out_fmt == 'E')
+        snprintf (out_mach, sizeof out_mach, "%d", TARGET_IS_STM8 ? 186 : 71);
 
       if (NULL != fullDstFileName)
         {
@@ -1975,14 +1982,14 @@ linkEdit (char **envp)
 
       if (TARGET_Z80_LIKE||TARGET_MOS6502_LIKE)
         {
-          fprintf (lnkfile, "-mjwx\n-%c%s%s\n", out_fmt, out_sep, dbuf_c_str (&binFileName));
+          fprintf (lnkfile, "-mjwx\n-%c%s%s%s\n", out_fmt, out_mach, out_sep, dbuf_c_str (&binFileName));
         }
       else                      /* For all the other ports which need linker script */
         {
           /* aslink has no -u (it is sdld's "update" flag) and no -M. */
-          fprintf (lnkfile, "%s\n-%c%s%s\n",
+          fprintf (lnkfile, "%s\n-%c%s%s%s\n",
                    port->linker.asxxxx ? "-mwx" : "-muwx",
-                   out_fmt, out_sep, dbuf_c_str (&binFileName));
+                   out_fmt, out_mach, out_sep, dbuf_c_str (&binFileName));
           if (TARGET_MCS51_LIKE && !port->linker.asxxxx)
             fprintf (lnkfile, "-M\n");
         }
