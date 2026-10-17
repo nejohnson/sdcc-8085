@@ -33,7 +33,7 @@
 	.area GSINIT
 	call ___sdcc_heap_init
 
-	.area DATA
+	.area DATA (DSEG,BANK=_DSEG)
 	; For now just allocate 16 bytes for the heap.
 ___sdcc_heap::
 	.ds 15

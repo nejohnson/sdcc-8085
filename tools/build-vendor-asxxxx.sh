@@ -13,6 +13,7 @@
 #     as8051  the six mcs51 models
 #     as8xcxxx  ds390, ds400
 #     asst8   stm8, stm8-large
+#     aspdk13 aspdk14 aspdk15  pdk13, pdk14, pdk15, pdk15-stack-auto
 #
 # SDCC's own build system knows nothing about vendor/asxxxx, so run this once
 # before "make" in sdcc/, naming the tools the ports you build need.

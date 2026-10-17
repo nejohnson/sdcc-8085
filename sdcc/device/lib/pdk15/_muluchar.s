@@ -1,9 +1,8 @@
 	.module _muluchar
-	.optsdcc -mpdk15
+	.abi -mpdk15
 
-	.area DATA
-
-	.area	OSEG (OVR,DATA)
+	.area DATA (DSEG,BANK=_DSEG)
+	.area	OSEG (REL,OVR,DSEG,BANK=_DSEG)
 __muluchar_PARM_1::
 	.ds 1
 __muluchar_PARM_2::
