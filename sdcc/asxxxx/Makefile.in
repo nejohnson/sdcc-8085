@@ -1,0 +1,126 @@
+#
+# Build and install the ASxxxx assemblers and linker the ports use.
+#
+# The sources are the vendor tree, vendor/asxxxx beside sdcc/, and are
+# built with its own makefile; the objects go here rather than into the
+# vendor tree, and the programs are copied to $(top_builddir)/bin, where
+# sdcc and the device library build expect them.
+#
+
+SHELL           = /bin/sh
+
+srcdir          = @srcdir@
+top_builddir    = @top_builddir@
+top_srcdir      = @top_srcdir@
+
+include $(top_builddir)/Makefile.common
+
+ASXBASE         = @ASXXXX_DIR@/
+ASXMAKE         = $(ASXBASE)asxmak/linux/build/makefile
+EXEDIR          = exe/
+
+# aslink, and the assemblers for the ports this build has.
+ASX_TOOLS       = aslink
+
+ifeq ($(OPT_DISABLE_MCS51), 0)
+ASX_TOOLS      += as8051
+endif
+
+ifneq ($(OPT_DISABLE_DS390)$(OPT_DISABLE_DS400), 11)
+ASX_TOOLS      += as8xcxxx
+endif
+
+ifneq ($(OPT_DISABLE_Z80)$(OPT_DISABLE_Z180)$(OPT_DISABLE_Z80N)$(OPT_DISABLE_R800), 1111)
+ASX_TOOLS      += asz80
+endif
+
+ifeq ($(OPT_DISABLE_EZ80), 0)
+ASX_TOOLS      += asez80
+endif
+
+ifneq ($(OPT_DISABLE_R2K)$(OPT_DISABLE_R2KA)$(OPT_DISABLE_R3KA)$(OPT_DISABLE_R4K)$(OPT_DISABLE_R5K)$(OPT_DISABLE_R6K), 111111)
+ASX_TOOLS      += asrab
+endif
+
+ifeq ($(OPT_DISABLE_TLCS90), 0)
+ASX_TOOLS      += astlcs90
+endif
+
+ifeq ($(OPT_DISABLE_SM83), 0)
+ASX_TOOLS      += asgb
+endif
+
+ifneq ($(OPT_DISABLE_I8080)$(OPT_DISABLE_I8085), 11)
+ASX_TOOLS      += as8085
+endif
+
+ifneq ($(OPT_DISABLE_HC08)$(OPT_DISABLE_S08), 11)
+ASX_TOOLS      += as6808
+endif
+
+ifneq ($(OPT_DISABLE_MOS6502)$(OPT_DISABLE_MOS65C02), 11)
+ASX_TOOLS      += as6500
+endif
+
+ifeq ($(OPT_DISABLE_STM8), 0)
+ASX_TOOLS      += asst8
+endif
+
+ifeq ($(OPT_DISABLE_PDK13), 0)
+ASX_TOOLS      += aspdk13
+endif
+
+ifeq ($(OPT_DISABLE_PDK14), 0)
+ASX_TOOLS      += aspdk14
+endif
+
+ifeq ($(OPT_DISABLE_PDK15), 0)
+ASX_TOOLS      += aspdk15
+endif
+
+BINDIR          = $(top_builddir)/bin
+ASX_PROGRAMS    = $(addsuffix $(EXEEXT),$(ASX_TOOLS))
+
+.PHONY: all install uninstall clean distclean mostlyclean realclean installcheck installdirs
+
+all: $(addprefix $(BINDIR)/,$(ASX_PROGRAMS))
+
+# The vendor makefile builds each program here and copies it to EXEDIR;
+# that is what is copied to bin.  The vendor makefile knows each
+# program's dependencies, so it is always asked, and does nothing when
+# a program is up to date.
+$(EXEDIR):
+	mkdir -p $(EXEDIR)
+
+.PHONY: asx-build
+asx-build: | $(EXEDIR)
+	$(MAKE) -f $(ASXMAKE) ASXBAS=$(ASXBASE) DSTEXE=$(EXEDIR) \
+	  CC="$(CC)" LD="$(CC)" $(ASX_TOOLS)
+
+$(BINDIR)/%$(EXEEXT): asx-build
+	rm -f $@
+	cp $(EXEDIR)$*$(EXEEXT) $@
+
+install: all installdirs
+	for t in $(ASX_PROGRAMS); do \
+	  $(INSTALL) $(BINDIR)/$$t $(DESTDIR)$(bindir)/$$t; \
+	  $(STRIP) $(DESTDIR)$(bindir)/$$t; \
+	done
+
+uninstall:
+	for t in $(ASX_PROGRAMS); do \
+	  rm -f $(DESTDIR)$(bindir)/$$t; \
+	done
+
+installcheck:
+
+installdirs:
+	$(INSTALL) -d $(DESTDIR)$(bindir)
+
+clean mostlyclean:
+	rm -f *.o $(ASX_TOOLS) $(ASX_PROGRAMS) Makefile.dep Makefile.depcc Makefile.depcxx
+	rm -rf $(EXEDIR)
+	for t in $(ASX_PROGRAMS); do rm -f $(BINDIR)/$$t; done
+
+distclean realclean: clean
+	rm -f Makefile

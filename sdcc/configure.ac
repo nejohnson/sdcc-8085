@@ -922,8 +922,17 @@ fi
 test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/Makefile])
 test $OPT_DISABLE_DEVICE_LIB = 0 && test $OPT_DISABLE_NON_FREE = 0 && AC_CONFIG_FILES([device/non-free/lib/Makefile])
 
+# The ports assemble and link with the vendor ASxxxx tools, whose sources
+# are the vendor/asxxxx submodule beside this directory.
+ASXXXX_DIR=`cd "$srcdir/.." && pwd`/vendor/asxxxx
+if test ! -f "$ASXXXX_DIR/asxmak/linux/build/makefile"; then
+  AC_MSG_ERROR([$ASXXXX_DIR is empty or missing:  run 'git submodule update --init' at the top of the repository])
+fi
+AC_SUBST(ASXXXX_DIR)
+
 AC_CONFIG_FILES([main.mk:main_in.mk
 bin/Makefile
+asxxxx/Makefile
 src/Makefile
 device/include/Makefile
 sdas/linksrc/Makefile

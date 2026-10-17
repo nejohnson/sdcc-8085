@@ -30,12 +30,13 @@ and steps:
   emits tst with a 16 bit offset the instruction does not have.
   uc6502, uc6502-stack-auto, uc65c02 1 each (p99), from 2.  The plain
   mos6502 port needs cc65's sim65, not installed here.
-- Build system:  SDCC's configure/make/install know nothing of vendor
-  ASxxxx - the tools come from `tools/build-vendor-asxxxx.sh` and
-  hand-made symlinks in `sdcc/bin`, and `make install` does not install
-  them.  Needed before deletion whatever else is decided; installing
-  generic names (`aslink`, `as8051`) also wants a decision on a prefix
-  or a private libexec directory.
+- Build system:  DONE 2026-10-17.  configure finds the vendor/asxxxx
+  submodule (and stops with a message if it is empty), `sdcc/asxxxx/`
+  builds the tools the configured ports need with the vendor makefile,
+  objects kept out of the vendor tree, and copies them to `sdcc/bin`;
+  `make install` installs them in `$bindir` under their ASxxxx names,
+  beside sdcc (Neil's choice).  `tools/build-vendor-asxxxx.sh` and the
+  hand-made symlinks are gone.
 - Then delete `sdcc/sdas` (including the dead `xa51`), the dead command
   tables, the `sdas*` names in 28 regression `spec.mk` AS rules, and
   sdbinutils (it exists for `ar`-format libraries), and rework the
