@@ -2026,8 +2026,10 @@ linkEdit (char **envp)
             fprintf (lnkfile, "-C 0x%04x\n", options.code_size);
         }
 
+      /* sdld wrote an AOMF51 file for every 8051 link with debugging
+         information; aslink writes one when asked, with -yo. */
       if (options.debug)
-        fprintf (lnkfile, "-y\n");
+        fprintf (lnkfile, (TARGET_IS_MCS51 && port->linker.asxxxx) ? "-yo\n" : "-y\n");
 
 #define WRITE_SEG_LOC(N, L) \
   if (N) \
