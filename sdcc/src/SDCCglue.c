@@ -2702,25 +2702,22 @@ glue (void)
         }
       else
         {
-          assert (TARGET_RABBIT_LIKE); // Only the Rabbits use a combination of crt0-based startup code with a compiler-generated interrupt table.
+          assert (TARGET_RABBIT_LIKE || TARGET_IS_STM8); // Only the Rabbits and the STM8 use a combination of crt0-based startup code with a compiler-generated interrupt table.
         }
     }
   dbuf_write_and_destroy (&statsg->oBuf, asmFile);
   if (xconst)
     dbuf_write_and_destroy (&xconst->oBuf, asmFile);
 
-  /* STM8 / PDK14 note: there are no such instructions supported.
-     Also, we don't need this logic as well. */
-  if (port->general.glue_up_main && mainf && IFFUNC_HASBODY (mainf->type) && !TARGET_RABBIT_LIKE)
+  /* The Rabbits and the STM8 have this in their crt0. */
+  if (port->general.glue_up_main && mainf && IFFUNC_HASBODY (mainf->type) && !TARGET_RABBIT_LIKE && !TARGET_IS_STM8)
     {
       /* This code is generated in the post-static area.
        * This area is guaranteed to follow the static area
        * by the ugly shucking and jiving about 20 lines ago.
        */
       tfprintf (asmFile, "\t!area\n", port->mem.post_static_name);
-      if(TARGET_IS_STM8)
-        fprintf (asmFile, options.model == MODEL_LARGE ? "\tjpf\t__sdcc_program_startup\n" : "\tjp\t__sdcc_program_startup\n");
-      else if(TARGET_PDK_LIKE)
+      if(TARGET_PDK_LIKE)
         fprintf (asmFile, "\tgoto\t__sdcc_program_startup\n");
       else
         fprintf (asmFile, "\t%cjmp\t__sdcc_program_startup\n", options.acall_ajmp ? 'a' : 'l');
@@ -2730,20 +2727,13 @@ glue (void)
   tfprintf (asmFile, "\t!areahome\n", HOME_NAME);
   dbuf_write_and_destroy (&home->oBuf, asmFile);
 
-  if (mainf && IFFUNC_HASBODY (mainf->type) && !TARGET_RABBIT_LIKE)
+  if (mainf && IFFUNC_HASBODY (mainf->type) && !TARGET_RABBIT_LIKE && !TARGET_IS_STM8)
     {
-      /* STM8 note: there is no need to call main().
-         Instead of that, it's address is specified in the
-         interrupts table and always equals to 0x8080.
-       */
-
       /* entry point @ start of HOME */
       fprintf (asmFile, "__sdcc_program_startup:\n");
 
       /* put in jump or call to main */
-      if(TARGET_IS_STM8)
-        fprintf (asmFile, options.model == MODEL_LARGE ? "\tjpf\t_main\n" : "\tjp\t_main\n");
-      else if(TARGET_PDK_LIKE)
+      if(TARGET_PDK_LIKE)
         fprintf (asmFile, "\tgoto\t_main\n");
       else
         {

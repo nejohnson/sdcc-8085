@@ -35,6 +35,7 @@
 #define OPTION_CODE_SEG        "--codeseg"
 #define OPTION_CONST_SEG       "--constseg"
 #define OPTION_ELF             "--out-fmt-elf"
+#define OPTION_NO_STD_CRT0     "--no-std-crt0"
 #define OPTION_SDCCCALL        "--sdcccall"
 
 extern DEBUGFILE dwarf2DebugFile;
@@ -46,6 +47,7 @@ static OPTION stm8_options[] = {
   {0, OPTION_CODE_SEG,        &options.code_seg, "<name> use this name for the code segment", CLAT_STRING},
   {0, OPTION_CONST_SEG,       &options.const_seg, "<name> use this name for the const segment", CLAT_STRING},
   {0, OPTION_ELF,             NULL, "Output executable in ELF format"},
+  {0, OPTION_NO_STD_CRT0,     &options.no_std_crt0, "Do not link default crt0.rel"},
   {0, OPTION_SDCCCALL,         &options.sdcccall, "Set ABI version for default calling convention", CLAT_INTEGER},
   {0, NULL}
 };
@@ -255,55 +257,20 @@ stm8_genExtraArea (FILE *of, bool hasMain)
   fprintf (of, "\n");
 }
 
-static void
-stm8_genInitStartup (FILE *of)
-{
-  if (options.stack_loc >= 0)
-    {
-      fprintf (of, "\tldw\tx, #0x%04x\n", options.stack_loc);
-      fprintf (of, "\tldw\tsp, x\n");
-    }
-
-  /* Call external startup code */
-  fprintf (of, options.model == MODEL_LARGE ? "\tcallf\t___sdcc_external_startup\n" : "\tcall\t___sdcc_external_startup\n");
-
-  /* If external startup returned non-zero, skip init */
-  fprintf (of, "\ttnz\ta\n");
-  fprintf (of, "\tjreq\t__sdcc_init_data\n");
-  fprintf (of, options.model == MODEL_LARGE ? "\tjpf\t__sdcc_program_startup\n" : "\tjp\t__sdcc_program_startup\n");
-
-  /* Init static & global variables */
-  fprintf (of, "__sdcc_init_data:\n");
-  fprintf (of, "; stm8_genXINIT() start\n");
-
-  /* Zeroing memory (required by standard for static & global variables) */
-  fprintf (of, "\tldw x, #l_DATA\n");
-  fprintf (of, "\tjreq\t00002$\n");
-  fprintf (of, "00001$:\n");
-  fprintf (of, "\tclr (a_DATA - 1, x)\n");
-  fprintf (of, "\tdecw x\n");
-  fprintf (of, "\tjrne\t00001$\n");
-  fprintf (of, "00002$:\n");
-
-  /* Copy l_INITIALIZER bytes from a_INITIALIZER to a_INITIALIZED */
-  fprintf (of, "\tldw\tx, #l_INITIALIZER\n");
-  fprintf (of, "\tjreq\t00004$\n");
-  fprintf (of, "00003$:\n");
-  fprintf (of, "\tld\ta, (a_INITIALIZER - 1, x)\n");
-  fprintf (of, "\tld\t(a_INITIALIZED - 1, x), a\n");
-  fprintf (of, "\tdecw\tx\n");
-  fprintf (of, "\tjrne\t00003$\n");
-  fprintf (of, "00004$:\n");
-  fprintf (of, "; stm8_genXINIT() end\n");
-}
-
 #define STM8_INTERRUPTS_COUNT 30
 
 int
 stm8_genIVT(struct dbuf_s * oBuf, symbol ** intTable, int intCount)
 {
   int i;
-  dbuf_tprintf (oBuf, "\tint a_GSINIT ; reset\n");
+
+  /* Start-up is crt0's, from __sdcc_gs_init_startup.  The reset value
+     of SP is the device's own; --stack-loc replaces it before crt0
+     runs, from a few bytes after the table. */
+  if (options.stack_loc >= 0)
+    dbuf_tprintf (oBuf, "\tint __sdcc_stack_init ; reset\n");
+  else
+    dbuf_tprintf (oBuf, "\tint __sdcc_gs_init_startup ; reset\n");
 
   if(intCount > STM8_INTERRUPTS_COUNT)
     {
@@ -316,6 +283,14 @@ stm8_genIVT(struct dbuf_s * oBuf, symbol ** intTable, int intCount)
     
   for (i = 0; i < intCount; i++)
     dbuf_printf (oBuf, "\tint %s ; int%d\n", interrupts[i] ? interrupts[i]->rname : "0x000000", i);
+
+  if (options.stack_loc >= 0)
+    {
+      dbuf_printf (oBuf, "__sdcc_stack_init:\n");
+      dbuf_printf (oBuf, "\tldw\tx, #0x%04x\n", options.stack_loc);
+      dbuf_printf (oBuf, "\tldw\tsp, x\n");
+      dbuf_printf (oBuf, options.model == MODEL_LARGE ? "\tjpf\t__sdcc_gs_init_startup\n" : "\tjp\t__sdcc_gs_init_startup\n");
+    }
 
   return TRUE;
 }
@@ -451,6 +426,7 @@ static const char *stm8AsmCmd[] =
 };
 
 static const char *const _libs_stm8[] = { "stm8", NULL, };
+static const char *const _crt_stm8[] = { "crt0.rel", NULL, };
 
 PORT stm8_port =
 {
@@ -481,7 +457,7 @@ PORT stm8_port =
     NULL,
     ".rel",
     1,
-    NULL,                       /* crt */
+    _crt_stm8,                  /* crt */
     _libs_stm8,                 /* libs */
     TRUE,                       /* ASxxxx aslink, not sdldstm8 */
   },
@@ -597,7 +573,7 @@ PORT stm8_port =
   stm8_genAssemblerEnd,
   stm8_genIVT,
   0,                            /* no genXINIT code */
-  stm8_genInitStartup,          /* genInitStartup */
+  NULL,                         /* genInitStartup: crt0 */
   stm8_reset_regparm,
   stm8_reg_parm,
   stm8_process_pragma,          /* process_pragma */
