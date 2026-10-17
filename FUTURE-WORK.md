@@ -9,12 +9,61 @@ Ordered by size, not priority.
 
 ---
 
+## Removing sdas and sdld from the tree (2026-10-17) - IN PROGRESS
+
+Neil's goal: build every port with vendor ASxxxx (and gputils for
+PIC, which never used sdas), and delete `sdcc/sdas`.  State on
+2026-10-17: every port but pdk13/14/15 already drives vendor
+ASxxxx/aslink; the sdas/sdld command tables left in `src/z80/main.c`
+are dead.  Decisions and steps:
+
+- pdk13/14/15: port sdas's `aspdk13/14/15` into the vendor tree as a
+  new target.  The one real blocker.
+- Rabbits: Neil accepts them as they are on vendor ASxxxx - r2k/r2ka/
+  r3ka at 2 failures and 2 abnormal stops, r4k/r5k/r6k at 145/145/163
+  (all `ldf`, the parked >64K question).  Not a reason to keep sdas.
+- hc08/s08 and mos6502 are migrated but disabled in the current
+  configure; one confirming run each before sdas goes.
+- Build system:  SDCC's configure/make/install know nothing of vendor
+  ASxxxx - the tools come from `tools/build-vendor-asxxxx.sh` and
+  hand-made symlinks in `sdcc/bin`, and `make install` does not install
+  them.  Needed before deletion whatever else is decided; installing
+  generic names (`aslink`, `as8051`) also wants a decision on a prefix
+  or a private libexec directory.
+- Then delete `sdcc/sdas` (including the dead `xa51`), the dead command
+  tables, the `sdas*` names in 28 regression `spec.mk` AS rules, and
+  sdbinutils (it exists for `ar`-format libraries), and rework the
+  manual's sdas/sdld chapters.
+
+sdld features with no vendor equivalent:  AOMF51 output (below), the
+memory-usage summary (`lkmem.c`), and reading `ar`/sdcclib archives.
+ELF output was the other, and is in vendor as of 2026-10-17.
+
+---
+
+## AOMF51 output went with the mcs51 migration (2026-10-17) - TODO
+
+sdld writes an AOMF51 file (`.omf`, Intel's absolute OMF-51, which
+third-party 8051 emulators and debuggers read) at the end of every
+8051 link - `CreateAOMF51()` in `sdas/linksrc/lkaomf51.c`, Jesus
+Calvino-Fraga 2002, about 1100 lines.  The manual describes it under
+`--debug`.  Vendor aslink has no such writer, so since the mcs51 ports
+moved to it `--debug` gives the `.cdb` and no `.omf`.  Nothing in the
+regression noticed:  the suite does not use `--debug`.
+
+To do:  port it into vendor aslink the way `lkelf.c` was (same shape of
+job - self-contained, buffered from the T data) and compare its output
+with sdld's on one program.  About half a day.
+
+---
+
 ## stm8: migrated to vendor asst8 and aslink (2026-10-17)
 
 stm8 and stm8-large at 2 failures each, identical to the sdas baseline
 in bytes and ticks.  Details in `remaining-ports-survey.md`, stm8
-section.  One open edge: `--debug` emits `.uleb128`/`.sleb128`, which
-`asst8` lacks, so DWARF builds will not assemble.  Not scheduled.
+section.  Later the same day `--out-fmt-elf --debug` was made to work
+with the vendor tools (LEB128, NOLOAD, ELF output from aslink), and
+stm8 gained a crt0; both are in the same section.
 
 ---
 

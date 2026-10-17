@@ -588,6 +588,25 @@ What it took:
 - `device/lib/stm8` and `stm8-large`: `LIB_TYPE = ASXVENDOR`,
   `SAS = bin/asst8`.
 
-DWARF output (`--debug`) is not covered: SDCC emits `.uleb128` and
-`.sleb128` for it, which `asst8` does not have.  The suite does not use
-`--debug`.
+### Later the same day: DWARF, and a crt0
+
+`--out-fmt-elf --debug` works with the vendor tools.  It needed three
+things vendor ASxxxx did not have - `.uleb128`/`.sleb128`, the `NOLOAD`
+area attribute for the `.debug_*` areas, and ELF output from aslink
+(`-e<n>+name`, sdld's `lkelf.c` ported; SDCC writes `-E186+` for stm8).
+On one program built both ways every one of the 14 sections is
+byte-identical to sdld's and readelf decodes the DWARF the same.  Two
+sdld bugs were not carried over: a symbol's section index was one too
+low, and `e_flags` was never set.  Vendor `3ca1bc2`, `156a9be`.
+
+stm8 now has a crt0, in `device/lib/stm8` and `stm8-large`.  The
+compiler still writes the interrupt vector table - only it knows the
+handlers - with the reset vector at the crt0's `__sdcc_gs_init_startup`;
+the crt0 calls `__sdcc_external_startup`, clears DATA, copies
+INITIALIZER, falls through every module's GSINIT and jumps to main from
+GSFINAL.  It is the model the Rabbits already used.  The compiler no
+longer names any linker symbol, start-up runs first whatever the link
+order, `--no-std-crt0` is now an stm8 option, and `--stack-loc` is a
+three-instruction stub after the vector table.  Both suites stay at the
+same 2 failures, each program a jump smaller: 5778647 bytes on stm8,
+6169011 on stm8-large.
