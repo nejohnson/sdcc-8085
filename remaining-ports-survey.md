@@ -475,8 +475,7 @@ and caught only because a negative case was written alongside the gold.
 Three ports, against a machine-model rework plus thirty encodings in a new
 operand class.  Every other port in this batch was a day's work or less and
 landed at baseline; this one is not that shape.  It is the last thing on the
-list that is *possible* - the pdk family has no ASxxxx target at all - so
-it is worth doing, but worth doing deliberately rather than at the end of a
+list that is *possible*, so it is worth doing, but worth doing deliberately rather than at the end of a
 long session.
 
 ## r4k, r5k, r6k: the Rabbit 4000 and 6000, done except for `ldf`
@@ -610,3 +609,61 @@ order, `--no-std-crt0` is now an stm8 option, and `--stack-loc` is a
 three-instruction stub after the vector table.  Both suites stay at the
 same 2 failures, each program a jump smaller: 5778647 bytes on stm8,
 6169011 on stm8-large.
+
+## pdk13, pdk14, pdk15, finished 2026-10-17
+
+The last port on sdas/sdld.  Vendor ASxxxx had no Padauk assembler, so
+`aspdk13`, `aspdk14` and `aspdk15` were written (vendor `3857844`) from
+sdas's, on the vendor's own bit-mode relocation.
+
+sdas addressed program memory in bytes.  It doubled every number inside
+a `goto`/`call` operand or a `<`/`>` selection, carried each
+instruction's opcode and the core's number in the T record, and had
+sdld halve code addresses and fuse them into the opcode with a table of
+per-instruction range checks.  The vendor assemblers put code in a word
+addressed area and data in a byte addressed one, so a label already has
+the address its instruction wants; each operand field is a relocation
+mode whose width is its range check, and aslink needs nothing Padauk
+specific.
+
+Method:  every module of the library and of a full sdas suite run -
+18840 - assembled and linked alone by both toolchains with SDCC's
+layout, and the hex compared.  Identical, except where sdas itself is
+wrong:
+
+- An operand mask that reaches into its opcode - `cneqsn a,m` on the
+  14 bit core is 0x1780 with mask 0xFF.  sdas ORs the address in, so an
+  address past 0x7F changes the instruction (`clear` became `xch`).
+  The vendor field is the mask less the opcode's bits, and the address
+  is an error.
+- Addresses too big for their field - past the part's RAM, past its I/O
+  space, a relocatable immediate past 8 bits - sdas masked; they are
+  errors now.  An absolute immediate is still a number (`#-1` is
+  `#0xFF`).
+- `#<(0x1235)`:  sdas doubled the number and gave 0x6A.
+- sdas read any operand beginning `a` as the accumulator.
+
+Two more were found by the suite rather than the comparison, and are
+the reason a sweep is a floor:  sdld checked a program against the
+part's RAM and ROM, which aslink did not (a pdk13 program too big for
+its RAM linked and then reset itself in a loop), and the RAM named
+address spaces needed their bank too.  Every SDCC module now declares
+the RAM and ROM as `.bank` sizes, and an overflow fails the link.
+
+Results against the sdas baseline of the same day:
+
+    pdk14             6 failures   (sdas 4 + 1 abnormal stop)
+    pdk15             7            (sdas 4 + 1)
+    pdk15-stack-auto  6            (sdas 3 + 1)
+    pdk13           517 + 6 abn.   (sdas 988 + 6)
+
+Every new failure is a program now refused instead of built wrong -
+`__at` objects and SFRs at addresses the part does not have, a pointer
+put in ROM as `.byte` (each port's abnormal stop), three pdk13 programs
+too big for its ROM - plus `p99-conformance`'s UTF-8 identifiers, as on
+every vendor port.  pdk13's lower count is sdas's miscompiles no longer
+being counted:  `bitfields-dead-loop` alone was 480 failing points.
+`bug-2995` and `bug3475990` build on pdk13 for the first time.
+
+pdk still has its start-up written by the compiler, as stm8 did before
+2026-10-17; the same crt0 change would apply.

@@ -13,12 +13,12 @@ Ordered by size, not priority.
 
 Neil's goal: build every port with vendor ASxxxx (and gputils for
 PIC, which never used sdas), and delete `sdcc/sdas`.  State on
-2026-10-17: every port but pdk13/14/15 already drives vendor
-ASxxxx/aslink; the sdas/sdld command tables left in `src/z80/main.c`
-are dead.  Decisions and steps:
+2026-10-17: every port drives vendor ASxxxx/aslink - pdk13/14/15, the
+last, moved that day (`remaining-ports-survey.md`, pdk section); the
+sdas/sdld command tables left in `src/z80/main.c` are dead.  Decisions
+and steps:
 
-- pdk13/14/15: port sdas's `aspdk13/14/15` into the vendor tree as a
-  new target.  The one real blocker.
+- pdk13/14/15: DONE 2026-10-17, new vendor `aspdk13/14/15`.
 - Rabbits: Neil accepts them as they are on vendor ASxxxx - r2k/r2ka/
   r3ka at 2 failures and 2 abnormal stops, r4k/r5k/r6k at 145/145/163
   (all `ldf`, the parked >64K question).  Not a reason to keep sdas.
@@ -37,7 +37,8 @@ are dead.  Decisions and steps:
 
 sdld features with no vendor equivalent:  AOMF51 output (below), the
 memory-usage summary (`lkmem.c`), and reading `ar`/sdcclib archives.
-ELF output was the other, and is in vendor as of 2026-10-17.
+ELF output and the Padauk RAM/ROM size checks were two more; both are
+covered as of 2026-10-17 (aslink `-e`, and `.bank` sizes).
 
 ---
 
