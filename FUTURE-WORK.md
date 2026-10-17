@@ -35,14 +35,14 @@ and steps:
   sdbinutils (it exists for `ar`-format libraries), and rework the
   manual's sdas/sdld chapters.
 
-sdld features with no vendor equivalent:  AOMF51 output (below), the
-memory-usage summary (`lkmem.c`), and reading `ar`/sdcclib archives.
-ELF output and the Padauk RAM/ROM size checks were two more; both are
-covered as of 2026-10-17 (aslink `-e`, and `.bank` sizes).
+sdld features with no vendor equivalent:  the memory-usage summary (`lkmem.c`), and reading `ar`/sdcclib archives.
+ELF output, AOMF51 output and the Padauk RAM/ROM size checks were three
+more; all are covered as of 2026-10-17 (aslink `-e` and `-yo`, and
+`.bank` sizes).
 
 ---
 
-## AOMF51 output went with the mcs51 migration (2026-10-17) - TODO
+## AOMF51 output went with the mcs51 migration (2026-10-17) - DONE 2026-10-17
 
 sdld writes an AOMF51 file (`.omf`, Intel's absolute OMF-51, which
 third-party 8051 emulators and debuggers read) at the end of every
@@ -52,9 +52,13 @@ Calvino-Fraga 2002, about 1100 lines.  The manual describes it under
 moved to it `--debug` gives the `.cdb` and no `.omf`.  Nothing in the
 regression noticed:  the suite does not use `--debug`.
 
-To do:  port it into vendor aslink the way `lkelf.c` was (same shape of
-job - self-contained, buffered from the T data) and compare its output
-with sdld's on one program.  About half a day.
+Done the same day:  vendor `b267240` ports `lkaomf51.c` into aslink,
+asked for with `-yo`, which SDCC now writes for mcs51 debug links.  On a
+two-module program the `.omf` is byte-identical to sdld's own writer
+run on the same inputs.  It found a worse fault on the way (vendor
+`fd7ca7b`):  aslink copied each module's `.cdb` into the linked one,
+but SDCC writes `.adb`, so on every vendor port the linked `.cdb` had
+no compiler records at all and SDCDB had nothing to work from.
 
 ---
 
