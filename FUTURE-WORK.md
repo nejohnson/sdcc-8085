@@ -22,8 +22,14 @@ and steps:
 - Rabbits: Neil accepts them as they are on vendor ASxxxx - r2k/r2ka/
   r3ka at 2 failures and 2 abnormal stops, r4k/r5k/r6k at 145/145/163
   (all `ldf`, the parked >64K question).  Not a reason to keep sdas.
-- hc08/s08 and mos6502 are migrated but disabled in the current
-  configure; one confirming run each before sdas goes.
+- hc08/s08 and mos6502:  DONE 2026-10-17, re-run on this tree.  hc08 7
+  failures (its 2026-10-07 baseline), s08 7, s08-stack-auto 7 + 1
+  abnormal stop (first measurements); every one the compiler's, a
+  program too big for the part, or p99's UTF-8 - none the vendor
+  tools', which refuse two s08-stack-auto programs where the compiler
+  emits tst with a 16 bit offset the instruction does not have.
+  uc6502, uc6502-stack-auto, uc65c02 1 each (p99), from 2.  The plain
+  mos6502 port needs cc65's sim65, not installed here.
 - Build system:  SDCC's configure/make/install know nothing of vendor
   ASxxxx - the tools come from `tools/build-vendor-asxxxx.sh` and
   hand-made symlinks in `sdcc/bin`, and `make install` does not install
