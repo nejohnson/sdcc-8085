@@ -278,7 +278,8 @@ genlsh16 (operand * result, operand * left, int shCount)
   else if(shCount==1) // && result==AOP_REG
     {
       needpulla = storeRegTempIfSurv (m6502_reg_a);
-      if(!m6502_tsxUseful())
+      /* No iCode here; the answer depends only on the current function. */
+      if(!m6502_tsxUseful(NULL))
 	{
 	  m6502_loadRegFromAop (m6502_reg_a, AOP (left), 0);
 	  m6502_emitOp ("asl", "a");
