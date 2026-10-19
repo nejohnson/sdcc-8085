@@ -9,7 +9,7 @@ Ordered by size, not priority.
 
 ---
 
-## Removing sdas and sdld from the tree (2026-10-17) - IN PROGRESS
+## Removing sdas and sdld from the tree (2026-10-17) - DONE 2026-10-19, but the manual
 
 Neil's goal: build every port with vendor ASxxxx (and gputils for
 PIC, which never used sdas), and delete `sdcc/sdas`.  State on
@@ -37,10 +37,15 @@ and steps:
   `make install` installs them in `$bindir` under their ASxxxx names,
   beside sdcc (Neil's choice).  `tools/build-vendor-asxxxx.sh` and the
   hand-made symlinks are gone.
-- Then delete `sdcc/sdas` (including the dead `xa51`), the dead command
-  tables, the `sdas*` names in 28 regression `spec.mk` AS rules, and
-  sdbinutils (it exists for `ar`-format libraries), and rework the
-  manual's sdas/sdld chapters.
+- Deletion:  DONE 2026-10-19 (`e10d7199`, `b90d7f6d`).  `sdcc/sdas`, its
+  build and configure rules, the LIB_TYPE machinery, the dead sdas/sdld
+  code paths in `src/`, and the sdas names in the regression, ucsim,
+  installer and MSVC files are gone; comments that compared against
+  sdas/sdld now describe ASxxxx.  sdbinutils was *not* removed:  sdcpp
+  builds against its libiberty.
+- Still to do:  the manual.  `doc/sdccman.lyx` describes sdas and sdld
+  in about 52 places - the tool list, options, library format, the
+  asmlnk.txt pointers - and none of it has been rewritten yet.
 
 sdld features with no vendor equivalent:  the memory-usage summary (`lkmem.c`), and reading `ar`/sdcclib archives.
 ELF output, AOMF51 output and the Padauk RAM/ROM size checks were three
