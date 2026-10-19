@@ -645,6 +645,10 @@ static void
 spillThis (symbol * sym)
 {
   int i;
+  /* Only a live range still holding its registers may give them back:
+     one that has ended freed them when it ended, and they may since
+     belong to another. */
+  bool ownsRegs = bitVectBitValue (_G.regAssigned, sym->key);
   /* if this is rematerializable or has a spillLocation
      we are okay, else we need to create a spillLocation
      for it */
@@ -662,7 +666,8 @@ spillThis (symbol * sym)
     {
       if (sym->regs[i])
         {
-          freeReg (sym->regs[i]);
+          if (ownsRegs)
+            freeReg (sym->regs[i]);
           sym->regs[i] = NULL;
         }
     }
@@ -1212,7 +1217,7 @@ positionRegs (symbol * result, symbol * opsym, int chOp)
   int change = 0;
 
   /* if the result has been spilt then cannot share */
-  if (opsym->isspilt)
+  if (result->isspilt || opsym->isspilt)
     return 0;
 
   for (;;)
