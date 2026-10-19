@@ -146,9 +146,8 @@ skip_gsinit:
 	.area	_IIVT (ABS)
 	;;
 	;; ASxxxx aslink lays out the areas of a bank consecutively from that
-	;; bank's base, and packs areas belonging to no bank from address 0 -
-	;; it does not simply continue from the previous area the way sdld
-	;; does.  Naming a bank is therefore what keeps this sequence together
+	;; bank's base, and packs areas belonging to no bank from address 0.
+	;; Naming a bank is therefore what keeps this sequence together
 	;; behind _CODE, instead of every area here landing on top of the ABS
 	;; _HEADER.  _CODE and _DATA carry no attribute because the assembler
 	;; predefines them, already in _CSEG and _DSEG respectively (see the

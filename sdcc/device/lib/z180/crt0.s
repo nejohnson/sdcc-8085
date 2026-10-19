@@ -74,9 +74,8 @@ init:
 	;; Ordering of segments for the linker.
 	;;
 	;; ASxxxx aslink lays out the areas of a bank consecutively from that
-	;; bank's base, and packs areas belonging to no bank from address 0 -
-	;; it does not simply continue from the previous area the way sdld
-	;; does.  Naming a bank is therefore what keeps this sequence together
+	;; bank's base, and packs areas belonging to no bank from address 0.
+	;; Naming a bank is therefore what keeps this sequence together
 	;; behind _CODE, instead of every area here landing on top of the ABS
 	;; _HEADER.  _CODE and _DATA carry no attribute because the assembler
 	;; predefines them, already in _CSEG and _DSEG respectively (see the
@@ -117,9 +116,8 @@ gsinit::
 	; Default-initialized global variables.
 	;
 	; a_<area> is the start address of an area and l_<area> its length.
-	; sdld spells that start address s_<area>; in ASxxxx s_<area>_<n> means
-	; something else - the base of module n's segment of the area - so the
-	; area-wide name is the one to pair with l_<area>.
+	; (s_<area>_<n> is something else:  the base of module n's segment of
+	; the area.)
         ld      bc, #l__DATA
         ld      a, b
         or      a, c

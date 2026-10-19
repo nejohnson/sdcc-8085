@@ -5,25 +5,16 @@ srcdir = @srcdir@
 top_builddir = @top_builddir@
 abs_top_builddir = @abs_top_builddir@
 
-# This port links with vendor ASxxxx aslink, whose lklibr.c reads a library
-# as a plain-text list of .rel file names, one per line - it cannot parse an
-# ar archive at all.  The configured default (@LIB_TYPE@, normally RANLIB)
-# would build a library aslink cannot open, so pin the format here rather
-# than forcing it on every port at configure time.  Any value other than
-# SDCCLIB/AR/RANLIB falls through to the plain-list branch below.
-LIB_TYPE     = ASXVENDOR
-
 EXTRA_CFLAGS = -mpdk15 --stack-auto --max-allocs-per-node 25000
-# Vendor ASxxxx aspdk15, not sdaspdk15: the .s files here are assembled
-# directly rather than through bin/sdcc, so they bypass the port's
-# assembler.cmd.
+# The .s files here are assembled directly by ASxxxx aspdk15, not through
+# bin/sdcc, so they bypass the port's assembler.cmd.
 SAS = $(top_builddir)/bin/aspdk15
 
 # override PORTDIR defined by super (parent) makefile
 override PORTDIR = ../build/pdk15-stack-auto
 
 %.rel: %.s
-	@# TODO: sdas should place it\'s output in the current dir
+	@# TODO: the assembler should place its output in the current dir
 	test $(srcdir) = . || cp $< .
 	-$(AS) $(ASFLAGS) $(notdir $<)
 	test $(srcdir) = . || rm $(notdir $<)
@@ -90,22 +81,9 @@ CFLAGS = -I$(srcdir)/../../include -I. --std-c23
 all: $(PORTDIR)/$(LIB)
 
 $(PORTDIR)/$(LIB): $(OBJ) $(PDK15OBJECTS) Makefile
-ifeq ($(LIB_TYPE), SDCCLIB)
-	rm -f $@; \
-	$(top_builddir)/bin/sdcclib -a $@ $(OBJ) $(PDK15OBJECTS)
-else
-  ifeq ($(LIB_TYPE), AR)
-	$(SDAR) -rcSD $@ $(OBJ) $(PDK15OBJECTS)
-  else
-    ifeq ($(LIB_TYPE), RANLIB)
-	$(SDAR) -rcD $@ $(OBJ) $(PDK15OBJECTS)
-    else
 	rm -f $@
 	for i in $(basename $(OBJ) $(PDK15OBJECTS)); do echo $$i >>$@; done
 	cp $(OBJ) $(PDK15OBJECTS) $(PORTDIR)
-    endif
-  endif
-endif
 
 %.rel: %.c
 	$(CC) $(CFLAGS) ${EXTRA_CFLAGS} -c $<

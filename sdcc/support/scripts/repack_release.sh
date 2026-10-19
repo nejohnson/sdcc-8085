@@ -185,7 +185,7 @@ function repack_win()
     #   rename it to COPYING.txt and COPYING3.txt and convert it to DOS format:
     cp ${snapshot}/COPYING COPYING.txt
     todos COPYING.txt
-    cp ${snapshot}/sdas/COPYING3 COPYING3.txt
+    cp ${snapshot}/support/sdbinutils/COPYING3 COPYING3.txt
     todos COPYING3.txt
     cp ${snapshot}/ChangeLog doc/ChangeLog.txt
     todos doc/ChangeLog.txt

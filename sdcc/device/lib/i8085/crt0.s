@@ -23,10 +23,9 @@
 ;--------------------------------------------------------------------------
 
 	.module crt0
-	;; crt0.s is assembled by vendor's asz80/as8085 directly (not sdasz80),
-	;; which doesn't recognize the .optsdcc directive SDAS added as an
-	;; SDCC-only extension (see asxxxx-integration-plan.md) - kept below
-	;; only as a comment, for a human reading this file.
+	;; No ABI key:  this file calls only gsinit and _main, neither with
+	;; arguments, so it is the same under every calling convention.  The
+	;; key the compiler would write, for a human reading this file:
 	;.optsdcc -mi8085 sdcccall(1)
 	.globl	_main
 
@@ -48,17 +47,15 @@ init:
 
 	;; Ordering of segments for the linker.
 	;;
-	;; Vendor's asz80/aslink (unlike sdasz80/sdldz80) auto-assign areas
-	;; not named "_CODE"/"_DATA" (its own two hardcoded default areas,
-	;; asz80/z80pst.c) to no bank at all, which aslink then places in its
-	;; own address space starting at 0 - independently of, and typically
-	;; overlapping, wherever _CODE/_DATA end up (asxxxx-integration-plan.md,
-	;; linksrc/lkarea.c's per-bank lnkarea() location counter). Tagging
-	;; these SDCC-only areas explicitly with the same bank as _CODE/_DATA
-	;; (BANK=_CSEG / BANK=_DSEG - the two bank names asz80/z80pst.c
-	;; predefines for its built-in _CODE/_DATA areas) makes them
-	;; concatenate after _CODE/_DATA in declaration order, same as under
-	;; sdasz80/sdldz80. Only the first declaration of each area needs the
+	;; An area not named "_CODE"/"_DATA" (the assembler's two predefined
+	;; areas, in its <target>pst.c) belongs to no bank unless it names one,
+	;; and aslink places such areas in an address space of their own from
+	;; 0 - independently of, and typically overlapping, wherever _CODE and
+	;; _DATA end up (linksrc/lkarea.c's per-bank lnkarea() location
+	;; counter).  Tagging these areas with the bank of _CODE/_DATA
+	;; (BANK=_CSEG / BANK=_DSEG, the two bank names the assembler
+	;; predefines) makes them follow _CODE/_DATA in declaration order.
+	;; Only the first declaration of each area needs the
 	;; annotation (an area's bank, once set, applies to every later
 	;; unannotated re-declaration of the same area, in this file or any
 	;; other object linked with it) - annotated on every declaration here

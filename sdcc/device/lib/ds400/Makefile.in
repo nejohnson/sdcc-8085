@@ -5,12 +5,7 @@ srcdir = @srcdir@
 top_builddir = @top_builddir@
 abs_top_builddir = @abs_top_builddir@
 
-# aslink reads a library as a plain-text list of .rel names, never an ar
-# archive; see the note in ../Makefile.in.
-LIB_TYPE     = ASXVENDOR
-
 CC = $(top_builddir)/bin/sdcc
-SDAR = $(abs_top_builddir)/bin/sdar
 
 # override PORTDIR defined by super (parent) makefile
 override PORTDIR = ../build/ds400
@@ -34,22 +29,9 @@ distclean: clean
 	rm -f Makefile Makefile.dep
 
 $(PORTDIR)/libds400.lib: $(OBJECTS)
-ifeq ($(LIB_TYPE), SDCCLIB)
-	rm -f $@; \
-	$(top_builddir)/bin/sdcclib -a $@ $(OBJECTS)
-else
-  ifeq ($(LIB_TYPE), AR)
-	$(SDAR) -rcSD $@ $(OBJECTS)
-  else
-    ifeq ($(LIB_TYPE), RANLIB)
-	$(SDAR) -rcD $@ $(OBJECTS)
-    else
 	rm -f $@;
 	for libfile in $(basename $(OBJECTS)); do echo $$libfile >>$@; done
 	cp $(OBJECTS) $(PORTDIR)
-    endif
-  endif
-endif
 
 %.rel: %.c
 	$(CC) -c $(CFLAGS) $<

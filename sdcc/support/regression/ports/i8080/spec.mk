@@ -12,7 +12,7 @@ else
   else
     UC85 = $(top_builddir)/sim/ucsim/src/sims/i8085.src/ucsim_i8085$(EXEEXT)
   endif
-  # Vendor as8085, not sdasz80 - the i8080 port shares the i8085 backend's
+  # The i8080 port shares the i8085 backend's
   # vendor ASxxxx toolchain (see src/i8085/main.c _i808xVendorAsmCmd).
   AS = $(WINE) $(top_builddir)/bin/as8085$(EXEEXT)
 ifndef CROSSCOMPILING

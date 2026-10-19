@@ -6,12 +6,8 @@ srcdir = @srcdir@
 top_srcdir   = @top_srcdir@
 top_builddir = @top_builddir@
 
-# aslink reads a library as a plain-text list of .rel names, never an ar
-# archive; see the note in ../Makefile.in.
-LIB_TYPE     = ASXVENDOR
 SAS = $(top_builddir)/bin/as8051
 SCC = $(top_builddir)/bin/sdcc
-SDAR = $(top_builddir)/bin/sdar
 
 # override PORTDIR defined by super (parent) makefile
 override PORTDIR = ../build/$(PORT)
@@ -33,22 +29,9 @@ CFLAGS = -I$(top_srcdir)/device/include --std-c23
 all: $(PORTDIR)/$(LIB)
 
 $(PORTDIR)/$(LIB): $(OBJ) Makefile
-ifeq ($(LIB_TYPE), SDCCLIB)
-	rm -f $@; \
-	$(top_builddir)/bin/sdcclib -a $@ $(OBJ)
-else
-  ifeq ($(LIB_TYPE), AR)
-	$(SDAR) -rcSD $@ $(OBJ)
-  else
-    ifeq ($(LIB_TYPE), RANLIB)
-	$(SDAR) -rcD $@ $(OBJ)
-    else
 	rm -f $@
 	for i in $(basename $(OBJ)); do echo $$i >>$@; done
 	cp $(OBJ) $(PORTDIR)
-    endif
-  endif
-endif
 
 %.rel: %.c
 	$(CC) $(CFLAGS) -c $<

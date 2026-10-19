@@ -10,31 +10,17 @@ srcdir = @srcdir@
 top_builddir = @top_builddir@
 abs_top_builddir = @abs_top_builddir@
 
-# i8085 links via vendor's own aslink now, not sdldz80 (src/i8085/main.c,
-# _i8085VendorLinkCmdMacro) - so this port's library must be in vendor's own
-# native library format: a plain-text list of relative .rel filenames (one
-# per line, no archive wrapper), read directly by linksrc/lklibr.c's
-# fndsym(). The top-level configured default (@LIB_TYPE@, normally RANLIB -
-# a real GNU-ar-format archive via sdar) is intentionally NOT used here: it
-# would produce a library vendor's aslink can't open at all. Any value other
-# than SDCCLIB/AR/RANLIB below falls into the existing plain-list branch,
-# which already produces exactly this format (also used as-is by
-# support/regression/fwk/lib/fwk.lib, an existing precedent for the same
-# format) - no other i8085 target depends on i8085.lib's format, so nothing
-# else is affected by pinning it here.
-LIB_TYPE     = ASXVENDOR
-
 EXTRA_CFLAGS = -mi8085 --max-allocs-per-node 25000
-# Vendor as8085, not asz80/sdasz80 - this port's hand-written .s files
-# (crt0.s, setjmp.s, etc.) are Intel-mnemonic syntax, and only the vendor
-# as8085 assembler understands it (see src/i8085/main.c _i808xVendorAsmCmd).
+# This port's hand-written .s files (crt0.s, setjmp.s, etc.) are in
+# Intel mnemonics, which ASxxxx as8085 assembles (see src/i8085/main.c
+# _i808xVendorAsmCmd).
 SAS = $(top_builddir)/bin/as8085
 
 # override PORTDIR defined by super (parent) makefile
 override PORTDIR = ../build/i8085
 
 %.rel: %.s
-	@# TODO: sdas should place it\'s output in the current dir
+	@# TODO: the assembler should place its output in the current dir
 	test $(srcdir) = . || cp $< .
 	-$(AS) $(ASFLAGS) $(notdir $<)
 	test $(srcdir) = . || rm $(notdir $<)
@@ -98,20 +84,8 @@ $(PORTDIR)/crt0.rel: crt0.rel
 
 $(PORTDIR)/$(LIB): $(I8085OBJECTS) Makefile
 	rm -f $@
-ifeq ($(LIB_TYPE), SDCCLIB)
-	$(top_builddir)/bin/sdcclib -a $@ $(I8085OBJECTS)
-else
-  ifeq ($(LIB_TYPE), AR)
-	$(SDAR) -rcSD $@ $(I8085OBJECTS)
-  else
-    ifeq ($(LIB_TYPE), RANLIB)
-	$(SDAR) -rcD $@ $(I8085OBJECTS)
-    else
 	for i in $(basename $(I8085OBJECTS)); do echo $$i >>$@; done
 	cp $(I8085OBJECTS) $(PORTDIR)
-    endif
-  endif
-endif
 
 clean:
 	rm -f *.rel *.sym *.lst *~ $(CLEANSPEC) *.dump* *.asm *.lib

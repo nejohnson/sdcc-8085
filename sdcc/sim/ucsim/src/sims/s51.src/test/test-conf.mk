@@ -1,3 +1,3 @@
 CC = sdcc -mmcs51
-AS = sdas8051
-LD = sdld
+AS = as8051
+LD = aslink

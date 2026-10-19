@@ -13,15 +13,6 @@ srcdir = @srcdir@
 top_builddir = @top_builddir@
 abs_top_builddir = @abs_top_builddir@
 
-
-# i8080 links via vendor's own aslink now, not sdldz80 (src/i8085/main.c,
-# _i808xVendorLinkCmd) - see device/lib/i8085/Makefile.in's own copy of this
-# comment (i8080 and i8085 share the same vendor toolchain rationale, both
-# needing the plain-text-list library format vendor's aslink actually reads,
-# not the top-level configured default @LIB_TYPE@, normally a real GNU-ar
-# archive via sdar that vendor's aslink can't open at all).
-LIB_TYPE     = ASXVENDOR
-
 EXTRA_CFLAGS = -mi8080 --max-allocs-per-node 25000
 SAS = $(top_builddir)/bin/as8085
 
@@ -29,7 +20,7 @@ SAS = $(top_builddir)/bin/as8085
 override PORTDIR = ../build/i8080
 
 %.rel: %.s
-	@# TODO: sdas should place it\'s output in the current dir
+	@# TODO: the assembler should place its output in the current dir
 	test $(srcdir) = . || cp $< .
 	-$(AS) $(ASFLAGS) $(notdir $<)
 	test $(srcdir) = . || rm $(notdir $<)
@@ -93,20 +84,8 @@ $(PORTDIR)/crt0.rel: crt0.rel
 
 $(PORTDIR)/$(LIB): $(I8085OBJECTS) Makefile
 	rm -f $@
-ifeq ($(LIB_TYPE), SDCCLIB)
-	$(top_builddir)/bin/sdcclib -a $@ $(I8085OBJECTS)
-else
-  ifeq ($(LIB_TYPE), AR)
-	$(SDAR) -rcSD $@ $(I8085OBJECTS)
-  else
-    ifeq ($(LIB_TYPE), RANLIB)
-	$(SDAR) -rcD $@ $(I8085OBJECTS)
-    else
 	for i in $(basename $(I8085OBJECTS)); do echo $$i >>$@; done
 	cp $(I8085OBJECTS) $(PORTDIR)
-    endif
-  endif
-endif
 
 clean:
 	rm -f *.rel *.sym *.lst *~ $(CLEANSPEC) *.dump* *.asm *.lib

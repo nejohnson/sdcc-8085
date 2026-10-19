@@ -24,7 +24,7 @@
 /* XXX */
 #undef EXEC_PREFIX
 
-/* Define to 1 if you have the `backtrace_symbols_fd' function. */
+/* Define to 1 if you have the 'backtrace_symbols_fd' function. */
 #undef HAVE_BACKTRACE_SYMBOLS_FD
 
 /* Define to 1 if you have the <boost/graph/adjacency_list.hpp> header file.
@@ -43,16 +43,16 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
-/* Define to 1 if you have the `gc' library (-lgc). */
+/* Define to 1 if you have the 'gc' library (-lgc). */
 #undef HAVE_LIBGC
 
 /* Define to 1 if you have the <machine/endian.h> header file. */
 #undef HAVE_MACHINE_ENDIAN_H
 
-/* Define to 1 if you have the `mkstemp' function. */
+/* Define to 1 if you have the 'mkstemp' function. */
 #undef HAVE_MKSTEMP
 
-/* Define to 1 if you have the `setrlimit' function. */
+/* Define to 1 if you have the 'setrlimit' function. */
 #undef HAVE_SETRLIMIT
 
 /* Define to 1 if you have the <stdint.h> header file. */
@@ -70,7 +70,7 @@
 /* Define to 1 if you have the <string.h> header file. */
 #undef HAVE_STRING_H
 
-/* Define to 1 if you have the `strndup' function. */
+/* Define to 1 if you have the 'strndup' function. */
 #undef HAVE_STRNDUP
 
 /* Define to 1 if you have the <sys/endian.h> header file. */
@@ -277,7 +277,7 @@
 /* XXX */
 #undef SDCC_VERSION_STR
 
-/* Define to 1 if all of the C90 standard headers exist (not just the ones
+/* Define to 1 if all of the C89 standard headers exist (not just the ones
    required in a freestanding environment). This macro is provided for
    backward compatibility; new code need not use it. */
 #undef STDC_HEADERS

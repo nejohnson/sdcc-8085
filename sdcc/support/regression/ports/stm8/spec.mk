@@ -6,7 +6,7 @@ EMU_PORT_FLAG =
 ifdef SDCC_BIN_PATH
   UCSTM8C = $(SDCC_BIN_PATH)/ucsim_stm8$(EXEEXT)
 
-  AS_STM8C = $(SDCC_BIN_PATH)/sdasstm8$(EXEEXT)
+  AS_STM8C = $(SDCC_BIN_PATH)/asst8$(EXEEXT)
 else
   ifdef UCSIM_DIR
     UCSTM8A = $(UCSIM_DIR)/src/sims/stm8.src/ucsim_stm8$(EXEEXT)
@@ -17,7 +17,7 @@ else
 
   EMU = $(WINE) $(shell if [ -f $(UCSTM8A) ]; then echo $(UCSTM8A); else echo $(UCSTM8B); fi)
 
-  AS = $(WINE) $(top_builddir)/bin/sdasstm8$(EXEEXT)
+  AS = $(WINE) $(top_builddir)/bin/asst8$(EXEEXT)
 
 ifndef CROSSCOMPILING
   SDCCFLAGS += --nostdinc -I$(top_srcdir)

@@ -463,14 +463,6 @@ fi
 # Makefiles
 ###########
 
-# LIB_TYPE:
-# *nix default: "RANLIB"
-
-AC_ARG_VAR([LIB_TYPE], [library type: LIB, SDCCLIB, AR or RANLIB (default)])
-if test "${LIB_TYPE}" = ""; then
-    LIB_TYPE="RANLIB"
-fi
-
 # include_dir_suffix:
 # *nix default: "sdcc/include"
 
@@ -801,31 +793,27 @@ test $OPT_DISABLE_SDBINUTILS = 0 && AC_CONFIG_SUBDIRS(support/sdbinutils)
 AC_CONFIG_FILES([doc/Makefile])
 
 if test $OPT_DISABLE_DS390 = 0 || test $OPT_DISABLE_DS400; then
-  AC_CONFIG_FILES([src/ds390/Makefile
-                   sdas/as8xcxxx/Makefile])
+  AC_CONFIG_FILES([src/ds390/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/ds390/Makefile
                                                        device/lib/ds400/Makefile])
 fi
 
 if test $OPT_DISABLE_HC08 = 0 || test $OPT_DISABLE_S08 = 0; then
-  AC_CONFIG_FILES([src/hc08/Makefile
-                   sdas/as6808/Makefile])
+  AC_CONFIG_FILES([src/hc08/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/hc08/Makefile
                                                        device/lib/s08/Makefile
                                                        device/lib/s08-stack-auto/Makefile])
 fi
 
 if test $OPT_DISABLE_MOS6502 = 0 || test $OPT_DISABLE_MOS65C02 = 0; then
-  AC_CONFIG_FILES([src/mos6502/Makefile
-                   sdas/as6500/Makefile])
+  AC_CONFIG_FILES([src/mos6502/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/mos6502/Makefile
                                                        device/lib/mos6502-stack-auto/Makefile
                                                        device/lib/mos65c02/Makefile])
 fi
 
 if test $OPT_DISABLE_MCS51 = 0; then
-  AC_CONFIG_FILES([src/mcs51/Makefile
-                   sdas/as8051/Makefile])
+  AC_CONFIG_FILES([src/mcs51/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/mcs51/Makefile
                                                        device/lib/small/Makefile
                                                        device/lib/medium/Makefile
@@ -857,7 +845,6 @@ if test $OPT_DISABLE_I8080 = 0 || test $OPT_DISABLE_I8085 = 0; then
 fi
 
 if test $OPT_DISABLE_Z80 = 0 || test $OPT_DISABLE_Z180 = 0 || test $OPT_DISABLE_EZ80 = 0 || test $OPT_DISABLE_Z80N = 0 || test $OPT_DISABLE_R800 = 0; then
-  AC_CONFIG_FILES([sdas/asz80/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/z80/Makefile
                                                        device/lib/z180/Makefile
                                                        device/lib/ez80/Makefile
@@ -869,7 +856,6 @@ if test $OPT_DISABLE_Z80 = 0 || test $OPT_DISABLE_Z180 = 0 || test $OPT_DISABLE_
 fi
 
 if test $OPT_DISABLE_R2K = 0 || test $OPT_DISABLE_R2KA = 0 || test $OPT_DISABLE_R3KA = 0 || test $OPT_DISABLE_R4K = 0 || test $OPT_DISABLE_R5K = 0 || test $OPT_DISABLE_R6K = 0; then
-  AC_CONFIG_FILES([sdas/asrab/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/r2k/Makefile
                                                        device/lib/r2ka/Makefile
                                                        device/lib/r3ka/Makefile
@@ -879,18 +865,15 @@ if test $OPT_DISABLE_R2K = 0 || test $OPT_DISABLE_R2KA = 0 || test $OPT_DISABLE_
 fi
 
 if test $OPT_DISABLE_TLCS90 = 0; then
-  AC_CONFIG_FILES([sdas/astlcs90/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/tlcs90/Makefile])
 fi
 
 if test $OPT_DISABLE_SM83 = 0; then
-  AC_CONFIG_FILES([sdas/asgb/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/sm83/Makefile])
 fi
 
 if test $OPT_DISABLE_STM8 = 0; then
-  AC_CONFIG_FILES([src/stm8/Makefile
-                   sdas/asstm8/Makefile])
+  AC_CONFIG_FILES([src/stm8/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/stm8/Makefile
                                                        device/lib/stm8-large/Makefile])
 fi
@@ -900,23 +883,16 @@ if test $OPT_DISABLE_PDK13 = 0 || test $OPT_DISABLE_PDK14 = 0 || test $OPT_DISAB
 fi
 
 if test $OPT_DISABLE_PDK13 = 0; then
-  AC_CONFIG_FILES([sdas/aspdk13/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/pdk13/Makefile])
 fi
 
 if test $OPT_DISABLE_PDK14 = 0; then
-  AC_CONFIG_FILES([sdas/aspdk14/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/pdk14/Makefile])
 fi
 
 if test $OPT_DISABLE_PDK15 = 0; then
-  AC_CONFIG_FILES([sdas/aspdk15/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/pdk15/Makefile
                                                        device/lib/pdk15-stack-auto/Makefile])
-fi
-
-if test $OPT_DISABLE_PDK16 = 0; then
-  AC_CONFIG_FILES([sdas/aspdk16/Makefile])
 fi
 
 test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/Makefile])
@@ -935,7 +911,6 @@ bin/Makefile
 asxxxx/Makefile
 src/Makefile
 device/include/Makefile
-sdas/linksrc/Makefile
 support/makebin/Makefile
 support/regression/Makefile
 support/regression/cases/Makefile

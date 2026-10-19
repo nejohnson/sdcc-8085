@@ -5,14 +5,6 @@ srcdir = @srcdir@
 top_builddir = @top_builddir@
 abs_top_builddir = @abs_top_builddir@
 
-# This port links with vendor ASxxxx aslink, whose lklibr.c reads a library
-# as a plain-text list of .rel file names, one per line - it cannot parse an
-# ar archive at all.  The configured default (@LIB_TYPE@, normally RANLIB)
-# would build a library aslink cannot open, so pin the format here rather
-# than forcing it on every port at configure time.  Any value other than
-# SDCCLIB/AR/RANLIB falls through to the plain-list branch below.
-LIB_TYPE     = ASXVENDOR
-
 EXTRA_CFLAGS = -ms08 --max-allocs-per-node 25000
 SAS = $(top_builddir)/bin/as6808
 
@@ -79,20 +71,8 @@ all: $(PORTDIR)/$(LIB)
 
 $(PORTDIR)/$(LIB): $(OBJ) $(HC08OBJECTS) Makefile
 	rm -f $@
-ifeq ($(LIB_TYPE), SDCCLIB)
-	$(top_builddir)/bin/sdcclib -a $@ $(OBJ) $(HC08OBJECTS)
-else
-  ifeq ($(LIB_TYPE), AR)
-	$(SDAR) -rcSD $@ $(OBJ) $(HC08OBJECTS)
-  else
-    ifeq ($(LIB_TYPE), RANLIB)
-	$(SDAR) -rcD $@ $(OBJ) $(HC08OBJECTS)
-    else
 	for i in $(basename $(OBJ) $(HC08OBJECTS)); do echo $$i >>$@; done
 	cp $(OBJ) $(HC08OBJECTS) $(PORTDIR)
-    endif
-  endif
-endif
 
 clean:
 	rm -f *.rel *.sym *.lst *~ $(CLEANSPEC) *.dump* *.asm *.lib

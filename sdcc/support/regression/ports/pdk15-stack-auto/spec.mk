@@ -6,7 +6,7 @@ EMU_PORT_FLAG = -tPDK15
 ifdef SDCC_BIN_PATH
   UCPDK15C = $(SDCC_BIN_PATH)/ucsim_pdk$(EXEEXT)
 
-  AS_PDK15C = $(SDCC_BIN_PATH)/sdaspdk$(EXEEXT)
+  AS_PDK15C = $(SDCC_BIN_PATH)/aspdk15$(EXEEXT)
 else
   ifdef UCSIM_DIR
     UCPDK15A = $(UCSIM_DIR)/src/sims/pdk.src/ucsim_pdk$(EXEEXT)
@@ -17,7 +17,7 @@ else
 
   EMU = $(WINE) $(shell if [ -f $(UCPDK15A) ]; then echo $(UCPDK15A); else echo $(UCPDK15B); fi)
 
-  AS = $(WINE) $(top_builddir)/bin/sdaspdk$(EXEEXT)
+  AS = $(WINE) $(top_builddir)/bin/aspdk15$(EXEEXT)
 
 ifndef CROSSCOMPILING
   SDCCFLAGS += --nostdinc -I$(top_srcdir)

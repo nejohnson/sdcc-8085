@@ -1,3 +1,3 @@
 CC = sdcc -mz80
-AS = sdasz80
-LD = sdldz80
+AS = asz80
+LD = aslink
