@@ -754,19 +754,18 @@ AC_DO_DISABLER(sdbinutils, SDBINUTILS, [Disables configuring and building of sdb
 AC_DO_DISABLER(non-free,   NON_FREE,   [Disables non-free runtime library parts])
 
 AC_DO_ENABLER(doc,   DOC,   [Enables building the documentation])
-AC_CHECK_PROG([LYX],        [lyx],        [lyx],        [:])
-AC_CHECK_PROG([LATEX2HTML], [latex2html], [latex2html], [:])
-AC_CHECK_PROG([LATEX],      [latex],      [latex],      [:])
-AC_CHECK_PROG([DVIPDFM],    [dvipdfm],    [dvipdfm],    [:])
-AC_CHECK_PROG([PDFLATEX],   [pdflatex],   [pdflatex],   [:])
-AC_CHECK_PROG([MAKEINDEX],  [makeindex],  [makeindex],  [:])
+# The manual is groff -mm.  The HTML version's tables and figures are
+# images, which groff makes with Ghostscript and netpbm.
+AC_CHECK_PROG([GROFF],     [groff],     [groff],     [:])
+AC_CHECK_PROG([MMROFF],    [mmroff],    [mmroff],    [:])
+AC_CHECK_PROG([GS],        [gs],        [gs],        [:])
+AC_CHECK_PROG([PNMTOPNG],  [pnmtopng],  [pnmtopng],  [:])
 
 if test $OPT_ENABLE_DOC = 1; then
-  SDCC_REQUIRE_PROG($LYX,        lyx)
-  SDCC_REQUIRE_PROG($LATEX2HTML, latex2html)
-  SDCC_REQUIRE_PROG($LATEX,      latex)
-  SDCC_REQUIRE_PROG($DVIPDFM,    dvipdfm)
-  SDCC_REQUIRE_PROG($MAKEINDEX,  makeindex)
+  SDCC_REQUIRE_PROG($GROFF,    groff)
+  SDCC_REQUIRE_PROG($MMROFF,   mmroff)
+  SDCC_REQUIRE_PROG($GS,       gs)
+  SDCC_REQUIRE_PROG($PNMTOPNG, pnmtopng)
 fi
 
 AC_DO_ENABLER(libgc, LIBGC, [Use the Bohem memory allocator. Lower runtime footprint.])

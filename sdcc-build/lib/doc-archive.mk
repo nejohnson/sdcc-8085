@@ -15,12 +15,11 @@ _DOC_ARCHIVE_TARBALL_DIR = $(HTDOCSDIR)/$(TARBALLBASE)/docs
 
 _DOC_ARCHIVE_MANUAL = sdccman
 
-_DOC_ARCHIVE_SOURCES = $(addsuffix .lyx,$(_DOC_ARCHIVE_MANUAL))
+_DOC_ARCHIVE_SOURCES = $(addsuffix .mm,$(_DOC_ARCHIVE_MANUAL))
 
-_DOC_ARCHIVE_TXT = $(_DOC_ARCHIVE_SOURCES:.lyx=.txt)
-_DOC_ARCHIVE_PDF = $(_DOC_ARCHIVE_SOURCES:.lyx=.pdf)
-_DOC_ARCHIVE_TEX = $(_DOC_ARCHIVE_SOURCES:.lyx=.tex)
-_DOC_ARCHIVE_HTML = $(_DOC_ARCHIVE_SOURCES:.lyx=.html)
+_DOC_ARCHIVE_TXT = $(_DOC_ARCHIVE_SOURCES:.mm=.txt)
+_DOC_ARCHIVE_PDF = $(_DOC_ARCHIVE_SOURCES:.mm=.pdf)
+_DOC_ARCHIVE_HTML = $(_DOC_ARCHIVE_SOURCES:.mm=.html)
 
 .PHONY: build-doc-archive doc-archive-configure doc-archive-make doc-archive-copy doc-archive-build-archives
 
