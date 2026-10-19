@@ -449,7 +449,7 @@ PORT stm8_port =
     0,
     ".asm",
     NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx asst8, not sdasstm8 */
+    TRUE,                       /* ASxxxx asst8 */
   },
   {                             /* Linker */
     _linkCmd,
@@ -459,7 +459,7 @@ PORT stm8_port =
     1,
     _crt_stm8,                  /* crt */
     _libs_stm8,                 /* libs */
-    TRUE,                       /* ASxxxx aslink, not sdldstm8 */
+    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     stm8_defaultRules,

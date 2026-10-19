@@ -195,23 +195,16 @@ static int _lazyDPS = 0;        /* if non-zero, we are doing lazy evaluation of 
 /*-----------------------------------------------------------------*/
 /* accbit - name bit n of the accumulator                          */
 /*                                                                 */
-/* "acc[n]" is SDAS's operator for a bit of a bit-addressable byte. */
-/* ASxxxx has no such operator - it names a bit by its address, the */
-/* way its own SFR files do (ACC.7 =: 0x00E7).  ACC is at 0xE0 and  */
-/* is bit addressable, so bit n is simply 0xE0 + n and needs no     */
-/* operator at all.  Unlike the mcs51 bit bank, which SDAS also     */
-/* spells this way, nothing here is relocatable, so there is no     */
-/* linker involvement to replace.                                   */
+/* ASxxxx names a bit by its address, the way its own SFR files do  */
+/* (ACC.7 =: 0x00E7).  ACC is at 0xE0 and is bit addressable, so    */
+/* bit n is simply 0xE0 + n.                                        */
 /*-----------------------------------------------------------------*/
 static const char *
 accbit (int n)
 {
   static char buf[12];
 
-  if (port->assembler.asxxxx)
-    SNPRINTF (buf, sizeof (buf), "0x%02x", 0xE0 + (n & 0x07));
-  else
-    SNPRINTF (buf, sizeof (buf), "acc[%d]", n & 0x07);
+  SNPRINTF (buf, sizeof (buf), "0x%02x", 0xE0 + (n & 0x07));
   return buf;
 }
 
@@ -1666,8 +1659,7 @@ aopGet (operand * oper, int offset, bool bit16, bool dname, char *saveAcc)
                  __at value.  Give each byte its own address rather than
                  ask the assembler to shift it out of the packed constant:
                  that only ever worked where the assembler's arithmetic was
-                 wider than its own addresses, and even SDAS got the top
-                 byte of an __sfr32 wrong (0xFF for 0x8D). */
+                 wider than its own addresses. */
               dbuf_printf (&dbuf, "0x%02x",
                            (SPEC_ADDR (getSpec (operandType (oper))) >> (offset * 8)) & 0xFF);
             }

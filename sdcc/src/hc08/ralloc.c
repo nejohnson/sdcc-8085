@@ -332,8 +332,7 @@ createStackSpil (symbol * sym)
      bytes by default.  Nothing bounds them: a translation unit cannot see
      what the others have already used, so no compile-time budget is sound.
      Past the boundary the generated "*sym" direct accesses cannot encode
-     the address at all; sdld quietly truncated them to the low byte and
-     read the wrong location, which is how this survived so long.  Extended
+     the address at all.  Extended
      addressing costs a byte and a cycle per access and always works. */
   SPEC_SCLS (sloc->etype) = S_XDATA;
   SPEC_EXTR (sloc->etype) = 0;

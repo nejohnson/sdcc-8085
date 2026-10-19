@@ -26,7 +26,6 @@ static const ASM_MAPPING _asxxxx_gb_mapping[] = {
     { "adjustsp", "add sp, #-%d" },
     { "fileprelude", "" },
     { "here", "." },
-    { "optsdcc", ".optsdcc" },
     { NULL, NULL }
 };
 
@@ -70,7 +69,6 @@ static const ASM_MAPPING _asxxxx_z80_mapping[] = {
       "call\t___sdcc_enter_ix\n" },
     { "adjustsp", "lda sp,-%d(sp)" },
     { "here", "." },
-    { "optsdcc", ".optsdcc" },
     { NULL, NULL }
 };
 
@@ -84,8 +82,7 @@ static const ASM_MAPPING _asxxxx_z80_mapping[] = {
    area is already in is accepted, naming a different one is an error,
    which is why only these three area kinds carry it - the rest are
    declared once by crt0.s, and a plain declaration inherits the bank
-   from whichever module named one.  sdas has no banks, so this differs
-   from the mapping the sdas-assembled ports use. */
+   from whichever module named one. */
 static const ASM_MAPPING _asxxxx_z80_bank_mapping[] = {
     /* We want to prepend the _ */
     { "area", ".area _%s" },
@@ -126,7 +123,6 @@ static const ASM_MAPPING _asxxxx_z80_bank_mapping[] = {
       "call\t___sdcc_enter_ix\n" },
     { "adjustsp", "lda sp,-%d(sp)" },
     { "here", "." },
-    { "optsdcc", ".optsdcc" },
     { NULL, NULL }
 };
 
@@ -169,7 +165,6 @@ static const ASM_MAPPING _asxxxx_r2k_mapping[] = {
     { "enters",
       "call\t___sdcc_enter_ix\n" },
     { "adjustsp", "lda sp,-%d(sp)" },
-    { "optsdcc", ".optsdcc" },
     { NULL, NULL }
 };
 

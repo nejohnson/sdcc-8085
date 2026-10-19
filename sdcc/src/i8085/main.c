@@ -499,42 +499,17 @@ _getRegByName (const char *name)
 static void
 _genAssemblerStart (FILE * of)
 {
-  /* Both i8080 and i8085 target vendor's as8085 assembler, which doesn't
-     recognize the .optsdcc directive SDAS added as an SDCC-only extension,
-     so emit it as a ';'-prefixed comment instead for both ports - still
-     useful for a human (or future tooling) reading the .asm, but harmless
-     to as8085. */
   /* The compatibility key:  a string every module in a link must agree
      on, so that objects built for different calling conventions are
      caught rather than linked into a program that goes wrong when it
-     runs.  The two assemblers spell the directive differently - sdas
-     .optsdcc, ASxxxx .abi - and neither accepts the other's, but the
-     string that follows is the same and both write it as the same O
-     record, so an object from one toolchain still compares correctly
-     against one from the other.
-
-     Until ASxxxx gained .abi this went out as ";optsdcc":  a comment,
-     which as8085 would at least not stop on, but which left these two
-     ports with no key at all, so two objects built with different
-     --sdcccall linked without a word.
+     runs.  as8085 writes it into the object file and aslink compares it.
 
      The target name earns its place in the string.  A .rel file records
      nothing about the CPU it was assembled for, so without it the linker
      will take an object built for one target and one built for another
      and produce a program from them. */
   if (!options.noOptsdccInAsm)
-    {
-      if (port->assembler.asxxxx)
-        {
-          fprintf (of, "\t.abi -m%s sdcccall(%d)\n", port->target, options.sdcccall);
-        }
-      else
-        {
-          tfprintf (of, "\t!optsdcc -m%s", port->target);
-          fprintf (of, " sdcccall(%d)", options.sdcccall);
-          fprintf (of, "\n");
-        }
-    }
+    fprintf (of, "\t.abi -m%s sdcccall(%d)\n", port->target, options.sdcccall);
 
   /* Only i8080_port/i8085_port ever call this, so port->id is always
      TARGET_ID_I8080 or TARGET_ID_I8085 - the two branches below cover
@@ -617,9 +592,8 @@ oclsExpense (struct memmap *oclass)
 }
 
 
-/* i8085/i8080 target vendor's as8085/aslink directly rather than SDAS's
-   sdasz80/sdldz80 (see asxxxx-integration-plan.md); neither port struct
-   below points at SDAS. as8085 takes "[-options] file1 [file2...]" (no
+/* i8085/i8080 assemble and link with ASxxxx as8085/aslink.  as8085 takes
+   "[-options] file1 [file2...]" (no
    explicit output filename - it derives one from the input), which
    already produces exactly the .rel name SDCC needs. as8085 is shared by
    both i8080_port and i8085_port below (same vendor binary, same command
@@ -634,24 +608,10 @@ static const char *_i808xVendorAsmCmd[] = {
    linkEdit() already writes (port->linker.needLinkerScript stays 1,
    below) rather than hand-building the command line here - that shared
    code correctly handles --nostdlib, --no-std-crt0, -L/-l and
-   port->linker.libs.
-
-   That script used to be handed to sed first, to patch up the four
-   places where the shared code assumed SDAS's sdldz80 dialect.  It no
-   longer needs to be.  Three of them are now written correctly in the
-   first place, because linkEdit() asks port->linker.asxxxx which dialect
-   to emit:  -a rather than -b for an area base, -i+name rather than
-   -i name, and a trailing separator on every -k path.  The fourth - a -l
-   whose value is itself a relative path, which vendor's addfile() could
-   not resolve and, worse, did not report, so the library was silently
-   dropped and its symbols came back as undefined globals - was fixed in
-   ASxxxx itself.
-
-   Setting the flag also gets -o+, which names the map and the debug
-   files after the program instead of after whichever object came first.
-   For SDCC that is the crt0 in the library directory, so they were
-   landing there under the wrong name, and against a read-only library
-   directory the link failed outright. */
+   port->linker.libs, and writes aslink's -a area bases, -i+name output,
+   a trailing separator on every -k path, and -o+, which names the map
+   and the debug files after the program instead of after the crt0 in
+   the library directory. */
 static const char *_i808xVendorLinkCmd[] = {
   "aslink", "-nf", "$1", "$L", NULL
 };
@@ -674,7 +634,7 @@ PORT i8080_port =
     NO_MODEL,
     NULL,                       /* model == target */
   },
-  {                             /* Assembler: vendor's as8085, not sdasz80 - see _i808xVendorAsmCmd */
+  {                             /* Assembler: as8085 - see _i808xVendorAsmCmd */
     _i808xVendorAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
@@ -682,17 +642,17 @@ PORT i8080_port =
     0,
     ".asm",
     NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx as8085, not sdas */
+    TRUE,                       /* ASxxxx as8085 */
   },
-  {                             /* Linker: vendor's aslink, not sdldz80 - see _i808xVendorLinkCmd */
+  {                             /* Linker: aslink - see _i808xVendorLinkCmd */
     _i808xVendorLinkCmd,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
-    1,                          /* linkEdit() writes "$1.lk";  linker.asxxxx below makes it ASxxxx's dialect */
+    1,                          /* linkEdit() writes "$1.lk" for aslink */
     _crt,                       /* crt */
     _libs_i8080,                /* libs */
-    TRUE,                       /* ASxxxx aslink, not sdld */
+    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _i8085_defaultRules,
@@ -829,7 +789,7 @@ PORT i8085_port =
     NO_MODEL,
     _i8085_getModel,            /* lib/i8085 or lib/i8085-undoc */
   },
-  {                             /* Assembler: vendor's as8085, not sdasz80 - see _i808xVendorAsmCmd */
+  {                             /* Assembler: as8085 - see _i808xVendorAsmCmd */
     _i808xVendorAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
@@ -837,17 +797,17 @@ PORT i8085_port =
     0,
     ".asm",
     NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx as8085, not sdas */
+    TRUE,                       /* ASxxxx as8085 */
   },
-  {                             /* Linker: vendor's aslink, not sdldz80 - see _i808xVendorLinkCmd */
+  {                             /* Linker: aslink - see _i808xVendorLinkCmd */
     _i808xVendorLinkCmd,
     NULL,
     NULL,
     ".rel",
-    1,                          /* linkEdit() writes "$1.lk";  linker.asxxxx below makes it ASxxxx's dialect */
+    1,                          /* linkEdit() writes "$1.lk" for aslink */
     _crt,                       /* crt */
     _libs_i8085,                /* libs */
-    TRUE,                       /* ASxxxx aslink, not sdld */
+    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _i8085_defaultRules,

@@ -253,45 +253,40 @@ extern char * iComments2;
 static void
 _ds390_genAssemblerStart (FILE * of)
 {
-  /* The 8051's four address spaces are four ASxxxx banks: SDAS tagged each
-     area with the space it belongs to and sdld kept a location counter per
-     tag, while aslink keeps one per bank.  Same mechanism from the other
-     end.  The banks must be declared before the first .area that names one
-     - an undeclared BANK= is an undefined symbol, not an implicit bank -
+  /* The 8051's four address spaces are four ASxxxx banks, and aslink keeps
+     a location counter per bank.  The banks must be declared before the
+     first .area that names one - an undeclared BANK= is an undefined
+     symbol, not an implicit bank -
      and the areas must be declared in a fixed order by *every* module,
      because aslink lays a bank out in the order its areas are first
      declared across the whole link and the first module linked is rarely
      the one with an opinion.  See src/mcs51/main.c, which does the same
      for the same reasons. */
-  if (port->assembler.asxxxx)
-    {
-      fprintf (of, "\t.bank BCODE\n");
-      fprintf (of, "\t.bank BDATA\n");
-      fprintf (of, "\t.bank BXDATA\n");
-      fprintf (of, "\t.bank BBIT\n");
-      fprintf (of, "\n");
-      fprintf (of, "\t.area REG_BANK_0\t(REL,OVR,BANK=BDATA)\n");
-      fprintf (of, "\t.area REG_BANK_1\t(REL,OVR,BANK=BDATA)\n");
-      fprintf (of, "\t.area REG_BANK_2\t(REL,OVR,BANK=BDATA)\n");
-      fprintf (of, "\t.area REG_BANK_3\t(REL,OVR,BANK=BDATA)\n");
-      fprintf (of, "\t.area BIT_BANK\t(REL,OVR,BANK=BDATA)\n");
-      fprintf (of, "\t.ds 1\n");
-      fprintf (of, "\t.area BSEG_BYTES\t(REL,CON,BANK=BDATA)\n");
-      fprintf (of, "\t.area DSEG\t(BANK=BDATA)\n");
-      fprintf (of, "\t.area OSEG\t(REL,OVR,BANK=BDATA)\n");
-      fprintf (of, "\t.area ISEG\t(BANK=BDATA)\n");
-      fprintf (of, "\t.area SSEG\t(BANK=BDATA)\n");
-      fprintf (of, "\t.area PSEG\t(BANK=BXDATA)\n");
-      fprintf (of, "\t.area XSEG\t(BANK=BXDATA)\n");
-      fprintf (of, "\t.area XISEG\t(BANK=BXDATA)\n");
-      fprintf (of, "\t.area XSTK\t(BANK=BXDATA)\n");
-    }
+  fprintf (of, "\t.bank BCODE\n");
+  fprintf (of, "\t.bank BDATA\n");
+  fprintf (of, "\t.bank BXDATA\n");
+  fprintf (of, "\t.bank BBIT\n");
+  fprintf (of, "\n");
+  fprintf (of, "\t.area REG_BANK_0\t(REL,OVR,BANK=BDATA)\n");
+  fprintf (of, "\t.area REG_BANK_1\t(REL,OVR,BANK=BDATA)\n");
+  fprintf (of, "\t.area REG_BANK_2\t(REL,OVR,BANK=BDATA)\n");
+  fprintf (of, "\t.area REG_BANK_3\t(REL,OVR,BANK=BDATA)\n");
+  fprintf (of, "\t.area BIT_BANK\t(REL,OVR,BANK=BDATA)\n");
+  fprintf (of, "\t.ds 1\n");
+  fprintf (of, "\t.area BSEG_BYTES\t(REL,CON,BANK=BDATA)\n");
+  fprintf (of, "\t.area DSEG\t(BANK=BDATA)\n");
+  fprintf (of, "\t.area OSEG\t(REL,OVR,BANK=BDATA)\n");
+  fprintf (of, "\t.area ISEG\t(BANK=BDATA)\n");
+  fprintf (of, "\t.area SSEG\t(BANK=BDATA)\n");
+  fprintf (of, "\t.area PSEG\t(BANK=BXDATA)\n");
+  fprintf (of, "\t.area XSEG\t(BANK=BXDATA)\n");
+  fprintf (of, "\t.area XISEG\t(BANK=BXDATA)\n");
+  fprintf (of, "\t.area XSTK\t(BANK=BXDATA)\n");
 
   if (!options.noOptsdccInAsm)
     {
-      /* Same O record, same string; each assembler rejects the other's
-         spelling of the directive that carries it. */
-      fprintf (of, "\t%s -m%s", port->assembler.asxxxx ? ".abi" : ".optsdcc", port->target);
+      /* The compatibility key, which aslink compares across modules. */
+      fprintf (of, "\t.abi -m%s", port->target);
 
       switch (options.model)
         {
@@ -556,7 +551,7 @@ _ds390_genInitStartup (FILE *of)
   // (see '400 data sheet pg. 85 (TINI400 ROM Initialization code)
   if (!TARGET_IS_DS400 && !options.stack10bit)
     {
-      /* initialise the stack pointer.  JCF: sdld takes care of the location */
+      /* initialise the stack pointer; SSEG's place is the link's */
       fprintf (of, "\tmov\tsp,#__start__stack - 1\n");     /* MOF */
     }
 
@@ -576,8 +571,8 @@ _ds390_genInitStartup (FILE *of)
 /* Generate code to copy XINIT to XISEG */
 static void _ds390_genXINIT (FILE * of)
 {
-  /* ASxxxx names the start of an area a_NAME; sdas names it s_NAME. */
-  const char *sfx = port->linker.asxxxx ? "a" : "s";
+  /* ASxxxx names the start of an area a_NAME. */
+  const char *sfx = "a";
 
   fprintf (of, ";       _ds390_genXINIT() start\n");
   fprintf (of, "        mov     a,#l_XINIT\n");
@@ -1184,10 +1179,7 @@ static const char *_linkCmd[] =
 };
 
 /* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
-/* Vendor ASxxxx's as8xcxxx is the counterpart of SDAS's sdas390: SDAS
-   builds that binary from its own copy of the same Dallas extended-8051
-   assembler (sdas/as8xcxxx), and the two differ by about forty lines.
-   It takes "[-options] file1 [file2...]" and derives the object name from
+/* ASxxxx as8xcxxx, the Dallas extended-8051 assembler.  It takes "[-options] file1 [file2...]" and derives the object name from
    the input, so there is no separate output argument. */
 static const char *_asmCmd[] =
 {
@@ -1218,7 +1210,7 @@ PORT ds390_port =
     0,
     ".asm",
     NULL,                       /* no do_assemble function */
-    TRUE,                       /* ASxxxx as8xcxxx, not sdas */
+    TRUE,                       /* ASxxxx as8xcxxx */
   },
   {                             /* Linker */
     _linkCmd,
@@ -1228,7 +1220,7 @@ PORT ds390_port =
     1,
     NULL,                       /* crt */
     _libs_ds390,                /* libs */
-    TRUE,                       /* ASxxxx aslink, not sdld */
+    TRUE,                       /* ASxxxx aslink */
   },
   {
     _defaultRules,
@@ -1835,7 +1827,7 @@ PORT ds400_port =
     0,
     ".asm",
     NULL,                       /* no do_assemble function */
-    TRUE,                       /* ASxxxx as8xcxxx, not sdas */
+    TRUE,                       /* ASxxxx as8xcxxx */
   },
   {                             /* Linker */
     _linkCmd,
@@ -1845,7 +1837,7 @@ PORT ds400_port =
     1,
     NULL,                       /* crt */
     _libs_ds400,                /* libs */
-    TRUE,                       /* ASxxxx aslink, not sdld */
+    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _defaultRules,

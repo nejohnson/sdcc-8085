@@ -1703,8 +1703,7 @@ aopGet (asmop *aop, int offset, bool bit16, bool dname)
                  arithmetic was wider than its addresses: ASxxxx evaluates
                  expressions at the address width, so on the 8051 the top
                  two bytes of an __sfr32 both came out 0x00 and two writes
-                 landed on one address - and SDAS, which has the width, got
-                 the top byte wrong too (0xFF for 0x8C). */
+                 landed on one address. */
               dbuf_printf (&dbuf, "0x%02x", (aop->aop_sfr_addr >> (offset * 8)) & 0xFF);
             }
           else if (offset)

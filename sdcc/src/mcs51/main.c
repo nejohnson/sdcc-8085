@@ -206,80 +206,68 @@ _mcs51_getRegName (const struct reg_info *reg)
 static void
 _mcs51_genAssemblerStart (FILE * of)
 {
-  /* The 8051's four address spaces are four ASxxxx banks.  SDAS tagged each
-     area with the space it belongs to - (CODE), (DATA), (XDATA), (BIT) - and
-     sdld kept a separate location counter per tag; ASxxxx has no such
-     attribute, but it does have banks, and aslink runs one location counter
-     per bank, which is the same mechanism arrived at from the other end.
-     The banks have to be declared before the first .area that names one -
-     an undeclared BANK= is an undefined symbol, not an implicit bank. */
-  if (port->assembler.asxxxx)
-    {
-      fprintf (of, "\t.bank BCODE\n");
-      fprintf (of, "\t.bank BDATA\n");
-      fprintf (of, "\t.bank BXDATA\n");
-      fprintf (of, "\t.bank BBIT\n");
+  /* The 8051's four address spaces are four ASxxxx banks, and aslink runs
+     one location counter per bank.  The banks have to be declared before
+     the first .area that names one - an undeclared BANK= is an undefined
+     symbol, not an implicit bank. */
+  fprintf (of, "\t.bank BCODE\n");
+  fprintf (of, "\t.bank BDATA\n");
+  fprintf (of, "\t.bank BXDATA\n");
+  fprintf (of, "\t.bank BBIT\n");
 
-      /* And the order of the internal RAM areas, which matters because
-         the chain lays them out in the order they are first declared and
-         the stack grows up from the end of it.  sdld did this by
-         pre-declaring the 8051's areas inside the linker, in this order
-         (sdas/linksrc/lkmain.c); aslink has no built-in idea of an 8051,
-         so every module declares them instead - empty, if it has nothing
-         to put in them.  One module's idea of the order is not enough:
-         the first module linked is usually the test framework, which has
-         no overlaid locals, so OSEG would first appear in some later
-         module and be laid out after the stack it must sit below. */
-      fprintf (of, "\n");
-      fprintf (of, "\t.area REG_BANK_0\t(REL,OVR,BANK=BDATA)\n");
-      fprintf (of, "\t.area REG_BANK_1\t(REL,OVR,BANK=BDATA)\n");
-      fprintf (of, "\t.area REG_BANK_2\t(REL,OVR,BANK=BDATA)\n");
-      fprintf (of, "\t.area REG_BANK_3\t(REL,OVR,BANK=BDATA)\n");
-      /* BIT_BANK is pinned at 0x20 and always occupies that byte, so the
-         bit addresses SDCCglue.c gives its eight registers - the constants
-         0 to 7 - are right whether or not anything uses them, and so that
-         BSEG_BYTES below always starts at 0x21, where bit 8 lives.  One
-         byte, and it buys the alignment everything else here rests on. */
-      fprintf (of, "\t.area BIT_BANK\t(REL,OVR,BANK=BDATA)\n");
-      fprintf (of, "\t.ds 1\n");
-      /* The bytes behind the bits.  sdld sized this inside the linker from
-         BSEG's bit count; aslink has no way to, so each module reserves
-         the bytes for its own bits and the areas add up (CON).  The sum of
-         the ceilings is never less than the ceiling of the sum, so it is
-         always enough, and it costs nothing at all when no module declares
-         a __bit - which is the usual case, and what makes this affordable
-         where reserving the whole 0x20-0x2F region was not. */
-      fprintf (of, "\t.area BSEG_BYTES\t(REL,CON,BANK=BDATA)\n");
-      /* DSEG, OSEG and ISEG are offered the gap that pinning BIT_BANK
-         at 0x20 leaves behind it - 0x08 to 0x1F, the three register
-         banks almost nothing uses.  FIT is a hint: an area that does
-         not fit the gap is laid down exactly where it would have been,
-         so a module with a hundred bytes of data or idata is placed as
-         before and one with twelve takes the space.  Twenty five bytes
-         of a hundred and twenty eight, and because SSEG is last in the
-         chain it is the stack that gets them back.  sdld reclaimed the
-         same space with a bitmap allocator built into the linker for
-         this one target; this says it in the area attributes instead. */
-      fprintf (of, "\t.area DSEG\t(FIT,BANK=BDATA)\n");
-      fprintf (of, "\t.area OSEG\t(REL,OVR,FIT,BANK=BDATA)\n");
-      fprintf (of, "\t.area ISEG\t(FIT,BANK=BDATA)\n");
-      fprintf (of, "\t.area SSEG\t(BANK=BDATA)\n");
+  /* And the order of the internal RAM areas, which matters because
+     the chain lays them out in the order they are first declared and
+     the stack grows up from the end of it.  aslink has no built-in
+     idea of an 8051, so every module declares them - empty, if it has
+     nothing to put in them.  One module's idea of the order is not enough:
+     the first module linked is usually the test framework, which has
+     no overlaid locals, so OSEG would first appear in some later
+     module and be laid out after the stack it must sit below. */
+  fprintf (of, "\n");
+  fprintf (of, "\t.area REG_BANK_0\t(REL,OVR,BANK=BDATA)\n");
+  fprintf (of, "\t.area REG_BANK_1\t(REL,OVR,BANK=BDATA)\n");
+  fprintf (of, "\t.area REG_BANK_2\t(REL,OVR,BANK=BDATA)\n");
+  fprintf (of, "\t.area REG_BANK_3\t(REL,OVR,BANK=BDATA)\n");
+  /* BIT_BANK is pinned at 0x20 and always occupies that byte, so the
+     bit addresses SDCCglue.c gives its eight registers - the constants
+     0 to 7 - are right whether or not anything uses them, and so that
+     BSEG_BYTES below always starts at 0x21, where bit 8 lives.  One
+     byte, and it buys the alignment everything else here rests on. */
+  fprintf (of, "\t.area BIT_BANK\t(REL,OVR,BANK=BDATA)\n");
+  fprintf (of, "\t.ds 1\n");
+  /* The bytes behind the bits.  aslink cannot size them from the bit
+     count, so each module reserves the bytes for its own bits and the areas add up (CON).  The sum of
+     the ceilings is never less than the ceiling of the sum, so it is
+     always enough, and it costs nothing at all when no module declares
+     a __bit - which is the usual case, and what makes this affordable
+     where reserving the whole 0x20-0x2F region was not. */
+  fprintf (of, "\t.area BSEG_BYTES\t(REL,CON,BANK=BDATA)\n");
+  /* DSEG, OSEG and ISEG are offered the gap that pinning BIT_BANK
+     at 0x20 leaves behind it - 0x08 to 0x1F, the three register
+     banks almost nothing uses.  FIT is a hint: an area that does
+     not fit the gap is laid down exactly where it would have been,
+     so a module with a hundred bytes of data or idata is placed as
+     before and one with twelve takes the space.  Twenty five bytes
+     of a hundred and twenty eight, and because SSEG is last in the
+     chain it is the stack that gets them back. */
+  fprintf (of, "\t.area DSEG\t(FIT,BANK=BDATA)\n");
+  fprintf (of, "\t.area OSEG\t(REL,OVR,FIT,BANK=BDATA)\n");
+  fprintf (of, "\t.area ISEG\t(FIT,BANK=BDATA)\n");
+  fprintf (of, "\t.area SSEG\t(BANK=BDATA)\n");
 
-      /* And the external RAM areas, for the same reason: pdata is the
-         first page of xdata, the initialised xdata has to follow both,
-         and the order cannot be left to whichever module happens to
-         mention one of them first. */
-      fprintf (of, "\t.area PSEG\t(BANK=BXDATA)\n");
-      fprintf (of, "\t.area XSEG\t(BANK=BXDATA)\n");
-      fprintf (of, "\t.area XISEG\t(BANK=BXDATA)\n");
-      fprintf (of, "\t.area XSTK\t(BANK=BXDATA)\n");
-    }
+  /* And the external RAM areas, for the same reason: pdata is the
+     first page of xdata, the initialised xdata has to follow both,
+     and the order cannot be left to whichever module happens to
+     mention one of them first. */
+  fprintf (of, "\t.area PSEG\t(BANK=BXDATA)\n");
+  fprintf (of, "\t.area XSEG\t(BANK=BXDATA)\n");
+  fprintf (of, "\t.area XISEG\t(BANK=BXDATA)\n");
+  fprintf (of, "\t.area XSTK\t(BANK=BXDATA)\n");
 
   if (!options.noOptsdccInAsm)
     {
-      /* Same O record, same string; each assembler rejects the other's
-         spelling of the directive that carries it. */
-      fprintf (of, "\t%s -m%s", port->assembler.asxxxx ? ".abi" : ".optsdcc", port->target);
+      /* The compatibility key, which aslink compares across modules. */
+      fprintf (of, "\t.abi -m%s", port->target);
 
       switch (options.model)
         {
@@ -1033,15 +1021,11 @@ get_model (void)
     $L is the list of extra options that should be passed on the command line...
     MUST be terminated with a NULL.
 */
-/* This port drives vendor ASxxxx as8051/aslink rather than SDAS's
-   sdas8051/sdld.  as8051 takes "[-options] file1 [file2...]" and derives the
-   object name from the input, so there is no separate output argument.
-
-   linker.asxxxx below puts the "$1.lk" script the shared linkEdit() writes
-   into ASxxxx's dialect: -a rather than -b for an area base, -i+name rather
-   than -i name, a trailing separator on -k paths, and none of -I, -X, -C, -S
-   or -M, which aslink does not have.  See the i8085, hc08 and mos6502 ports
-   for the same pair. */
+/* This port assembles and links with ASxxxx as8051/aslink.  as8051 takes
+   "[-options] file1 [file2...]" and derives the object name from the input,
+   so there is no separate output argument.  The linker reuses the "$1.lk"
+   script the shared linkEdit() writes.  See the i8085, hc08 and mos6502
+   ports for the same pair. */
 static const char *_linkCmd[] =
 {
   "aslink", "-nf", "$1", "$L", NULL
@@ -1077,7 +1061,7 @@ PORT mcs51_port =
     0,
     ".asm",
     NULL,                       /* no do_assemble function */
-    TRUE,                       /* ASxxxx as8051, not sdas */
+    TRUE,                       /* ASxxxx as8051 */
   },
   {                             /* Linker */
     _linkCmd,
@@ -1087,7 +1071,7 @@ PORT mcs51_port =
     1,
     NULL,                       /* crt */
     _libs,                      /* libs */
-    TRUE,                       /* ASxxxx aslink, not sdld */
+    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _defaultRules,

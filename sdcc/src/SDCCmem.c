@@ -376,10 +376,10 @@ allocIntoSeg (symbol *sym)
           nm->name = Safe_alloc (strlen(symbolspace->name) + 1);
           strcpy (nm->name, symbolspace->name);
           nm->is_const = (symbolspace->type && SPEC_CONST (symbolspace->type));
-          if (!nm->is_const && TARGET_PDK_LIKE && port->assembler.asxxxx)
+          if (!nm->is_const && TARGET_PDK_LIKE)
             {
               /* The Padauk's program memory is word addressed and its RAM
-                 byte addressed, so under ASxxxx a RAM area has to say so;
+                 byte addressed, so a RAM area has to say so; under ASxxxx
                  an area that does not takes the code area's word length. */
               const char *attr = " (DSEG,BANK=_DSEG)";
               char *sname = Safe_alloc (strlen (symbolspace->name) + strlen (attr) + 1);

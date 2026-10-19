@@ -207,20 +207,13 @@ _hc08_genAssemblerStart (FILE * of)
   symbol *mainExists=newSymbol("main", 0);
   mainExists->block=0;
 
-  /* SDAS's .optsdcc and ASxxxx's .abi are the same O record carrying the
-     same string, and each assembler rejects the other's spelling, so the
-     directive follows whichever toolchain the port is built against. */
+  /* The compatibility key, which aslink compares across modules. */
   if (!options.noOptsdccInAsm)
-    {
-      if (port->assembler.asxxxx)
-        fprintf (of, "\t.abi -m%s\n", port->target);
-      else
-        fprintf (of, "\t.optsdcc -m%s\n", port->target);
-    }
+    fprintf (of, "\t.abi -m%s\n", port->target);
 
-  /* Same subset, different spelling: SDAS calls it .cs08, ASxxxx .hcs08. */
+  /* The S08's wider instruction set. */
   if (TARGET_IS_S08)
-    fprintf (of, port->assembler.asxxxx ? "\t.hcs08\n" : "\t.cs08\n");
+    fprintf (of, "\t.hcs08\n");
 
   fprintf (of, "\n");
 
@@ -278,13 +271,10 @@ _hc08_genAssemblerStart (FILE * of)
       fprintf (of, "00001$:\n");
       fprintf (of, "        cphx #l_XINIT\n");
       fprintf (of, "        beq  00002$\n");
-      /* The start of an area is s_<area> to sdld but a_<area> to ASxxxx,
-         which spells s_<area>_<n> the base of module n's own segment.  The
-         length, l_<area>, is the same in both.  Getting this wrong does not
-         misplace the copy - it fails the link outright with the area symbol
-         undefined, which is the one mercy here. */
-      fprintf (of, "        lda  %s_XINIT,x\n", port->linker.asxxxx ? "a" : "s");
-      fprintf (of, "        sta  %s_XISEG,x\n", port->linker.asxxxx ? "a" : "s");
+      /* a_<area> is the start of an area and l_<area> its length
+         (s_<area>_<n> is the base of module n's own segment). */
+      fprintf (of, "        lda  a_XINIT,x\n");
+      fprintf (of, "        sta  a_XISEG,x\n");
       fprintf (of, "        aix  #1\n");
       fprintf (of, "        bra  00001$\n");
       fprintf (of, "00002$:\n");
@@ -799,20 +789,18 @@ s08_get_model (void)
     $L is the list of extra options that should be passed on the command line...
     MUST be terminated with a NULL.
 */
-/* hc08/s08 target vendor's as6808/aslink directly rather than SDAS's
-   sdas6808/sdld6808.  as6808 covers both parts - the .hcs08 directive
-   _hc08_genAssemblerStart() emits for s08 selects the wider instruction
-   subset, exactly as SDAS's .cs08 did - so one command serves both ports.
+/* hc08/s08 assemble and link with ASxxxx as6808/aslink.  as6808 covers
+   both parts - the .hcs08 directive _hc08_genAssemblerStart() emits for
+   s08 selects the wider instruction subset - so one command serves both.
    It takes "[-options] file1 [file2...]" and derives the object name from
    the input, which already gives the .rel name SDCC expects, so there is
    no separate output argument.
 
    The linker reuses the "$1.lk" script the shared linkEdit() writes
-   (needLinkerScript stays 1); linker.asxxxx below makes that script
-   ASxxxx's dialect - -a rather than -b for an area base, -i+name rather
-   than -i name, a trailing separator on -k paths, and -o+ so the map and
-   debug files are named after the program rather than after whichever
-   object happened to come first.  See the i8085 port for the same pair. */
+   (needLinkerScript stays 1):  -a area bases, -i+name output, a trailing
+   separator on -k paths, and -o+ so the map and debug files are named
+   after the program rather than after whichever object came first.  See
+   the i8085 port for the same pair. */
 static const char *_linkCmd[] =
 {
   "aslink", "-nf", "$1", "$L", NULL
@@ -821,7 +809,7 @@ static const char *_linkCmd[] =
 /* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts.
    Those option strings already carry "g" (undefined symbols made global),
    which is what lets ASxxxx accept the implicit externals SDCC emits
-   without a .globl - SDAS assumed them. */
+   without a .globl. */
 static const char *_asmCmd[] =
 {
   "as6808", "$l", "$3", "$1.asm", NULL
@@ -852,7 +840,7 @@ PORT hc08_port =
     0,
     ".asm",
     NULL,                       /* no do_assemble function */
-    TRUE,                       /* ASxxxx as6808, not sdas */
+    TRUE,                       /* ASxxxx as6808 */
   },
   {                             /* Linker */
     _linkCmd,
@@ -862,7 +850,7 @@ PORT hc08_port =
     1,
     NULL,                       /* crt */
     _libs_hc08,                 /* libs */
-    TRUE,                       /* ASxxxx aslink, not sdld */
+    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _hc08_defaultRules,
@@ -1004,7 +992,7 @@ PORT s08_port =
     0,
     ".asm",
     NULL,                       /* no do_assemble function */
-    TRUE,                       /* ASxxxx as6808, not sdas */
+    TRUE,                       /* ASxxxx as6808 */
   },
   {                             /* Linker */
     _linkCmd,
@@ -1014,7 +1002,7 @@ PORT s08_port =
     1,
     NULL,                       /* crt */
     _libs_s08,                  /* libs */
-    TRUE,                       /* ASxxxx aslink, not sdld */
+    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _s08_defaultRules,

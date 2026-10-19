@@ -35,7 +35,6 @@ static const ASM_MAPPING _i8085_asm_mapping[] = {
     { "mems", "(%s)" },
     { "adjustsp", "lda sp,-%d(sp)" },
     { "here", "." },
-    { "optsdcc", ".optsdcc" },
     { NULL, NULL }
 };
 

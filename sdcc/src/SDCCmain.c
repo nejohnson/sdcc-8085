@@ -1799,12 +1799,9 @@ parseCmdLine (int argc, char **argv)
       options.float_rent++;
     }
 
-  /* .function and .endfunc are ASxxxx directives;  the sdas forks do not
-     have them at all.  Refuse the option rather than let it produce
-     assembly the port's own assembler cannot assemble.  Asking the port
-     which assembler it invokes is exact, where the earlier test on the
-     z80 family was only a proxy - and the wrong one, since every
-     TARGET_Z80_LIKE port ran sdasz80 until this commit. */
+  /* .function and .endfunc are ASxxxx directives, which gputils (the
+     PICs) does not have.  Refuse the option rather than let it produce
+     assembly the port's own assembler cannot assemble. */
   if (options.ffunction_sections && !port->assembler.asxxxx)
     {
       fprintf (stderr,
@@ -1868,15 +1865,14 @@ getOutFmtExt (void)
 /*                                                                 */
 /* ASxxxx joins the -k path to the library or module name with no  */
 /* separator of its own, so the path has to carry one - its manual */
-/* writes them that way ("-k c:\\iosystem\\").  sdld inserts the     */
-/* separator itself, so SDCC has never had to supply it.           */
+/* writes them that way ("-k c:\\iosystem\\").                      */
 /*-----------------------------------------------------------------*/
 static const char *
 libPathSep (const char *path)
 {
   size_t n = strlen (path);
 
-  if (!port->linker.asxxxx || (n && IS_DIR_SEPARATOR (path[n - 1])))
+  if (n && IS_DIR_SEPARATOR (path[n - 1]))
     return "";
   return DIR_SEPARATOR_STRING;
 }
@@ -1949,17 +1945,16 @@ linkEdit (char **envp)
   if (port->linker.needLinkerScript)
     {
       char out_fmt = (options.out_fmt == 0) ? 'i' : options.out_fmt;
-      /* Both linkers name the output file with the option that selects its
-         format, but they separate option from name differently: the sdld
-         forks take it as the option's argument, ASxxxx aslink appends it
-         to the option letter with a '+'. */
-      const char *out_sep = port->linker.asxxxx ? "+" : " ";
       /* An object file does not say which CPU it is for, so aslink is told
          an ELF file's machine number as part of the option: -E<n>+name.
          EM_STM8 is 186, EM_68HC08 71; these are the two ports with ELF. */
       char out_mach[8] = "";
 
-      if (port->linker.asxxxx && out_fmt == 'E')
+      /* The link file below is aslink's; the ports that link otherwise
+         (the PICs, with gplink) have their own do_link. */
+      wassert (port->linker.asxxxx);
+
+      if (out_fmt == 'E')
         snprintf (out_mach, sizeof out_mach, "%d", TARGET_IS_STM8 ? 186 : 71);
 
       if (NULL != fullDstFileName)
@@ -1980,56 +1975,26 @@ linkEdit (char **envp)
           exit (EXIT_FAILURE);
         }
 
-      if (TARGET_Z80_LIKE||TARGET_MOS6502_LIKE)
-        {
-          fprintf (lnkfile, "-mjwx\n-%c%s%s%s\n", out_fmt, out_mach, out_sep, dbuf_c_str (&binFileName));
-        }
-      else                      /* For all the other ports which need linker script */
-        {
-          /* aslink has no -u (it is sdld's "update" flag) and no -M. */
-          fprintf (lnkfile, "%s\n-%c%s%s%s\n",
-                   port->linker.asxxxx ? "-mwx" : "-muwx",
-                   out_fmt, out_mach, out_sep, dbuf_c_str (&binFileName));
-          if (TARGET_MCS51_LIKE && !port->linker.asxxxx)
-            fprintf (lnkfile, "-M\n");
-        }
+      /* The output file is named with the option that selects its format,
+         the name following a '+'. */
+      fprintf (lnkfile, "%s\n-%c%s+%s\n",
+               (TARGET_Z80_LIKE || TARGET_MOS6502_LIKE) ? "-mjwx" : "-mwx",
+               out_fmt, out_mach, dbuf_c_str (&binFileName));
 
       /* aslink names the map and the debug files after the first object
          file, which is the crt0 sitting in the library directory - the
          wrong name, and unwritable if that directory is not the user's.
          -o+ gives them the program's name instead.  The linked output is
          already named by the -i+/-s+/-t+ above, which takes precedence. */
-      if (port->linker.asxxxx)
-        fprintf (lnkfile, "-o+%s\n", dstFileName);
+      fprintf (lnkfile, "-o+%s\n", dstFileName);
 
-      /* -I, -S, -X and -C are sdld's memory-size options and aslink has
-         none of them.  They are not merely diagnostic either - sdld's -S
-         allocates the stack - so a port that drives aslink has to get the
-         same effect from area bases and sizes, and asking for them here
-         would just be an unknown option. */
-      if (!TARGET_Z80_LIKE && !port->linker.asxxxx)
-        {
-          /* if iram size specified */
-          if (options.iram_size)
-            fprintf (lnkfile, "-I 0x%04x\n", options.iram_size);
+      /* aslink has no memory-size options; a port gets the same effect
+         from area bases, and bank sizes in the assembly. */
 
-          /* if stack size specified */
-          if (options.stack_size)
-            fprintf (lnkfile, "-S 0x%02x\n", options.stack_size);
-
-          /* if xram size specified */
-          if (options.xram_size_set)
-            fprintf (lnkfile, "-X 0x%04x\n", options.xram_size);
-
-          /* if code size specified */
-          if (options.code_size)
-            fprintf (lnkfile, "-C 0x%04x\n", options.code_size);
-        }
-
-      /* sdld wrote an AOMF51 file for every 8051 link with debugging
-         information; aslink writes one when asked, with -yo. */
+      /* SDCDB output with debugging information, and for an 8051 an
+         AOMF51 file as well (-yo). */
       if (options.debug)
-        fprintf (lnkfile, (TARGET_IS_MCS51 && port->linker.asxxxx) ? "-yo\n" : "-y\n");
+        fprintf (lnkfile, TARGET_IS_MCS51 ? "-yo\n" : "-y\n");
 
 #define WRITE_SEG_LOC(N, L) \
   if (N) \
@@ -2037,8 +2002,7 @@ linkEdit (char **envp)
     char *c, *segName; \
     segName = Safe_strdup (N); \
     c = strtok (segName, " \t"); \
-    fprintf (lnkfile, "%s %s = 0x%04x\n", \
-             port->linker.asxxxx ? "-a" : "-b", c, L); \
+    fprintf (lnkfile, "-a %s = 0x%04x\n", c, L); \
     if (segName) { Safe_free (segName); } \
   }
 
@@ -2059,14 +2023,11 @@ linkEdit (char **envp)
              the best place for xdata */
           if (options.xdata_loc)
             {
-              if (TARGET_MCS51_LIKE && port->linker.asxxxx)
+              if (TARGET_MCS51_LIKE)
                 {
-                  /* XSEG and PSEG were both based at the xdata location,
-                     which sdld could carry because it kept one location
-                     counter per address space and the areas it laid out
-                     from it were the ones it had pre-declared.  Here they
-                     are one bank and one chain, and two areas based at the
-                     same address in a chain is not a layout: whichever is
+                  /* XSEG and PSEG are one bank and one chain, and two areas
+                     based at the same address in a chain is not a layout:
+                     whichever is
                      processed last leaves the counter at its own base, and
                      XISEG - which has no base and so follows - lands on top
                      of whatever the other one holds.  That is what put a
@@ -2089,91 +2050,74 @@ linkEdit (char **envp)
                 {
                   WRITE_SEG_LOC (XDATA_NAME, options.xdata_loc);
                 }
-              else if (port->linker.asxxxx)
-                {
-                  /* "_DATA" is an area the assembler predefines, and the two
-                     assemblers place it differently in the object file's area
-                     list: SDAS emits it where the source first names it, after
-                     ZP and OSEG, while ASxxxx emits it and "_CODE" ahead of
-                     every source-declared area because they are entries 0 and 1
-                     of its built-in table - and puts it in its own bank, so a
-                     base given for it never reaches the chain the other areas
-                     are laid out in.  aslink runs one location counter per
-                     bank, resetting it wherever an area carries an explicit
-                     base, so the anchor has to be an area that really sits at
-                     the head of the xdata group.  That is XIDATA_NAME ("DATA"),
-                     which crt0 declares immediately before BSS; basing it
-                     reproduces the SDAS layout exactly. */
-                  WRITE_SEG_LOC (XIDATA_NAME, options.xdata_loc);
-                }
               else
                 {
-                  WRITE_SEG_LOC ("_DATA", options.xdata_loc);
+                  /* "_DATA" is an area the assembler predefines:  it and
+                     "_CODE" come ahead of every source-declared area in the
+                     object file, because they are entries 0 and 1 of its
+                     built-in table, and "_DATA" is in a bank of its own, so
+                     a base given for it never reaches the chain the other
+                     areas are laid out in.  aslink runs one location counter
+                     per bank, resetting it wherever an area carries an
+                     explicit base, so the anchor has to be an area that
+                     really sits at the head of the xdata group.  That is
+                     XIDATA_NAME ("DATA"), which crt0 declares immediately
+                     before BSS. */
+                  WRITE_SEG_LOC (XIDATA_NAME, options.xdata_loc);
                 }
             }
 
           /* pdata/xstack segment start. If zero, the linker
              chooses the best place for them */
-          if (options.xstack_loc && !(TARGET_MCS51_LIKE && port->linker.asxxxx))
+          if (options.xstack_loc && !TARGET_MCS51_LIKE)
             {
               WRITE_SEG_LOC (PDATA_NAME, options.xstack_loc);
             }
 
-          /* indirect data.  Not for an ASxxxx link: idata shares the
-             internal RAM with the register banks, the bit bank, DSEG,
-             OSEG and SSEG, and under banks they are one chain that lays
-             them out one after another.  Basing ISEG at 0 - which is what
-             an idata_loc of 0 means, since this one is written whether or
-             not a location was asked for - resets that chain back over
-             the register banks.  sdld could do it because it kept a
-             separate location counter per address space; the chain is
-             what replaces those counters here. */
-          if (IDATA_NAME && !(TARGET_MCS51_LIKE && port->linker.asxxxx))
+          /* indirect data.  Not for an 8051: idata shares the internal
+             RAM with the register banks, the bit bank, DSEG, OSEG and
+             SSEG, and under banks they are one chain that lays them out
+             one after another.  Basing ISEG at 0 - which is what an
+             idata_loc of 0 means, since this one is written whether or not
+             a location was asked for - would reset that chain back over
+             the register banks. */
+          if (IDATA_NAME && !TARGET_MCS51_LIKE)
             {
               WRITE_SEG_LOC (IDATA_NAME, options.idata_loc);
             }
 
-          /* bit segment start.  For an ASxxxx link the first byte of the
+          /* bit segment start.  On an 8051 the first byte of the
              bit-addressable region, 0x20, belongs to BIT_BANK - see
              below - so the user's own __bit variables start at bit 8,
              in byte 0x21. */
-          WRITE_SEG_LOC (BIT_NAME,
-                         (TARGET_MCS51_LIKE && port->linker.asxxxx) ? 8 : 0);
+          WRITE_SEG_LOC (BIT_NAME, TARGET_MCS51_LIKE ? 8 : 0);
 
           /* The eight bit registers the mcs51 allocator spills into live
              in one byte of BIT_BANK, and SDCCglue.c gives their addresses
-             as the constants 0 to 7 when the assembler is ASxxxx, because
-             ASxxxx has no relocation that converts a byte address into a
-             bit address.  Those constants are only right if the byte is
-             at 0x20, the first bit-addressable one, so say so here rather
-             than leave it to where the area happens to fall.  sdld put it
-             at 0x20 too, after the four register banks - in all 214
-             programs of the regression corpus that used it. */
-          if (TARGET_MCS51_LIKE && port->linker.asxxxx)
+             as the constants 0 to 7, because ASxxxx has no relocation
+             that converts a byte address into a bit address.  Those
+             constants are only right if the byte is at 0x20, the first
+             bit-addressable one, so say so here rather than leave it to
+             where the area happens to fall. */
+          if (TARGET_MCS51_LIKE)
             {
               fprintf (lnkfile, "-a BIT_BANK = 0x0020\n");
 
               /* DSEG is deliberately *not* moved above the bit-addressable
-                 region, though that is what sdld's layout amounts to.
-                 sdld keeps BSEG_BYTES between the register banks and DSEG
-                 and sizes it from the bits actually used; aslink cannot
-                 size it - there is no relocation turning a byte address
-                 into a bit address, and nothing to derive the count from -
-                 so the only faithful version reserves all sixteen bytes.
+                 region.  The bytes between the register banks and DSEG
+                 would have to be sized from the bits actually used, which
+                 aslink cannot do - there is no relocation turning a byte
+                 address into a bit address, and nothing to derive the
+                 count from - so moving it means reserving all sixteen.
                  Measured on mcs51-small, that fixes absolute_mem___code
                  and costs more than it fixes: failing cases go from 13 to
                  22, picking up bigstack, tst_string and wchar, which is
                  internal RAM running out.  So __at data in 0x20-0x2F can
                  still be overlaid by DSEG.  See mcs51-asxxxx-status.md. */
 
-              /* sdld builds the 8051's memory model into the linker:
-                 lkmain.c pre-declares BSEG_BYTES, BIT_BANK, DSEG, OSEG,
-                 ISEG and SSEG, pins the four register banks at 0x00, 0x08,
-                 0x10 and 0x18 and BSEG_BYTES at 0x20, and defines l_IRAM
-                 as the -I size or 0x100.  aslink is target agnostic and
-                 knows none of it, but the link script can say all of it,
-                 which is where it belongs: a linker should not have to
-                 know what an 8051 is.
+              /* aslink is target agnostic and knows nothing of the 8051's
+                 memory model, so the link script says it:  a linker should
+                 not have to know what an 8051 is.
 
                  l_IRAM first, because the runtime's crtclear.asm clears
                  internal RAM with "mov r0,#(l_IRAM-1)" and an undefined
@@ -2201,16 +2145,13 @@ linkEdit (char **envp)
           WRITE_SEG_LOC ("_DATA", options.data_loc);
           /* The Rabbit reaches extended memory through an MMU, and the
              default xdata location is the physical 0x84000 - outside the
-             16 bit space the linker places areas in.  sdld masked it and
-             placed _XDATA at 0x4000, over the data area, silently; aslink
-             reports a base that does not fit, which would refuse every
-             link rather than only the ones that use __far.  Neither is a
-             way to place extended memory, so do not ask for a base that
-             cannot be honoured.  __far is unsupported on the ASxxxx
-             Rabbit ports until there is an answer for how a >64K physical
-             space is expressed to a 16 bit linker at all. */
-          if (TARGET_RABBIT_LIKE &&
-              !(port->linker.asxxxx && options.xdata_loc > 0xFFFF))
+             16 bit space the linker places areas in, and aslink reports a
+             base that does not fit, which would refuse every link rather
+             than only the ones that use __far.  So no base is asked for
+             that cannot be honoured.  __far is unsupported on the Rabbit
+             ports until there is an answer for how a >64K physical space
+             is expressed to a 16 bit linker at all. */
+          if (TARGET_RABBIT_LIKE && options.xdata_loc <= 0xFFFF)
             WRITE_SEG_LOC ("_XDATA", options.xdata_loc);
         }
 

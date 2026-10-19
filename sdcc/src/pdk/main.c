@@ -291,7 +291,7 @@ PORT pdk13_port =
     0,
     ".asm",
     0,                          /* do_assemble */
-    true,                       /* ASxxxx aspdk, not sdaspdk */
+    true,                       /* ASxxxx aspdk */
   },
   {                             /* Linker */
     _linkCmd,
@@ -301,7 +301,7 @@ PORT pdk13_port =
     1,
     0,                          /* crt */
     _libs_pdk13,                /* libs */
-    true,                       /* ASxxxx aslink, not sdldpdk */
+    true,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     pdk_defaultRules,
@@ -468,7 +468,7 @@ PORT pdk14_port =
     0,
     ".asm",
     0,                          /* do_assemble */
-    true,                       /* ASxxxx aspdk, not sdaspdk */
+    true,                       /* ASxxxx aspdk */
   },
   {                             /* Linker */
     _linkCmd,
@@ -478,7 +478,7 @@ PORT pdk14_port =
     1,
     0,                          /* crt */
     _libs_pdk14,                /* libs */
-    true,                       /* ASxxxx aslink, not sdldpdk */
+    true,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     pdk_defaultRules,
@@ -643,7 +643,7 @@ PORT pdk15_port =
     0,
     ".asm",
     0,                          /* do_assemble */
-    true,                       /* ASxxxx aspdk, not sdaspdk */
+    true,                       /* ASxxxx aspdk */
   },
   {                             /* Linker */
     _linkCmd,
@@ -653,7 +653,7 @@ PORT pdk15_port =
     1,
     0,                          /* crt */
     _libs_pdk15,                /* libs */
-    true,                       /* ASxxxx aslink, not sdldpdk */
+    true,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     pdk_defaultRules,

@@ -84,9 +84,6 @@ enum target {
 #define TARGET_PDK_LIKE    (TARGET_IS_PDK13 || TARGET_IS_PDK14 || TARGET_IS_PDK15 || TARGET_IS_PDK16)
 #define TARGET_MOS6502_LIKE (TARGET_IS_MOS6502 || TARGET_IS_MOS65C02)
 
-/* is using sdas / sdld assembler / linker */
-#define IS_SDASLD          (TARGET_Z80_LIKE || TARGET_MCS51_LIKE || TARGET_HC08_LIKE)
-
 #define MAX_BUILTIN_ARGS        16
 
 struct ebbIndex;
@@ -153,11 +150,10 @@ typedef struct
     const char *file_ext;
     /** If non-null will be used to execute the assembler. */
     void (*do_assemble) (set *);
-    /** TRUE when cmd invokes Alan Baldwin's ASxxxx assembler rather than
-        one of SDCC's sdas forks.  ASxxxx names its object file with
-        -o+base instead of taking the name as a separate argument, has no
-        .optsdcc directive, and is the only one of the two providing
-        .function / .endfunc. */
+    /** TRUE when cmd invokes Alan Baldwin's ASxxxx assembler, as every
+        port but the PICs (gputils) does.  ASxxxx names its object file
+        with -o+base, marks a module's calling convention with .abi, and
+        provides .function / .endfunc. */
     bool asxxxx;
   }
   assembler;
@@ -177,12 +173,10 @@ typedef struct
     const int needLinkerScript;
     const char *const *crt;
     const char *const *libs;
-    /** TRUE when cmd invokes Alan Baldwin's ASxxxx aslink rather than one
-        of SDCC's sdld forks.  aslink sets an area's base address with -a,
-        reserving -b for a *bank* base, and renames an output file with
-        -i+name rather than -i name.  It also reads only the plain-list
-        library format, so device libraries must be built with
-        LIB_TYPE=LIB rather than the default ar archives. */
+    /** TRUE when cmd invokes Alan Baldwin's ASxxxx aslink, as every port
+        but the PICs (gputils) does.  aslink sets an area's base address
+        with -a, reserving -b for a *bank* base, names an output file with
+        -i+name, and reads a library as a plain list of object files. */
     bool asxxxx;
   }
   linker;

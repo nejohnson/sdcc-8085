@@ -3528,8 +3528,7 @@ aopAdrStr (asmop * aop, int loffset, bool bit16)
       if (offset)
 	/* No parentheses around an addressing-mode operand:  ASxxxx reads
 	   "(expr)" as 6502 indirect addressing and rejects it where the
-	   expression is only being grouped.  sdas accepts either form, so
-	   the bare expression suits both assemblers. */
+	   expression is only being grouped. */
 	sprintf (s, "%s+%d", aop->aopu.aop_dir, offset);
       else
 	sprintf (s, "%s", aop->aopu.aop_dir);
