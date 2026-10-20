@@ -25,8 +25,12 @@
 .\" grohtml makes the contents itself, and there are no pages.
 .if '\*[.T]'html' .PH ""
 .\" Option dashes and minus signs are ASCII '-', so that commands copied
-.\" from the manual work.
+.\" from the manual work.  In plain text hyphens and quotes are too, rather
+.\" than Unicode's.
 .char \- \N'45'
+.if n .char - \N'45'
+.if n .shc \N'45'
+.if n .char ' \N'39'
 .\" mmroff's first pass (Ref=1) keeps everything sent to the terminal,
 .\" as references:  tbl's warnings are left to the second pass.
 .de no-tm
@@ -38,9 +42,11 @@
 .PGFORM 17c 29.7c 2c
 .\" The PostScript pass that makes HTML's images has 11in pages, and a
 .\" table that crosses a page cannot be an image:  that pass keeps each
-.\" table on one page (see TK).
+.\" table on one page (see TK).  Elsewhere a table starts only where
+.\" there is room for its heading and a few rows.
 .if r ps4html .PGFORM 17c 11i 2c
 .de TK
+.ne 1i
 .if r ps4html .DS
 ..
 .de TKE
@@ -83,11 +89,11 @@ SDCC \*[sdcc-version]
 .IND "Z80, Z180, SM83, Rabbit 2000/3000, Rabbit 3000A CPU"
 ), the Intel 8080 and 8085, STMicroelectronics STM8\c
 .IND "STM8"
-, Padauk PDK14 and PDK15. It can be retargeted for other microprocessors; support for Padauk PDK13, Rabbit 4000/5000/6000, and MOS6502 is under development, whereas Microchip PIC is currently unmaintained. The entire source code for the compiler is distributed under GPL. SDCC uses a modified version of ASXXXX\c
-.IND "sdas (sdasgb, sdas6808, sdas8051, sdasz80)"
- & ASLINK\c
-.IND "sdld"
-, free open source retargetable assembler & linker. SDCC has extensive language extensions suitable for utilizing various microcontrollers and underlying hardware effectively. \c
+, Padauk PDK14 and PDK15. It can be retargeted for other microprocessors; support for Padauk PDK13, Rabbit 4000/5000/6000, and MOS6502 is under development, whereas Microchip PIC is currently unmaintained. The entire source code for the compiler is distributed under GPL. SDCC uses Alan Baldwin's ASxxxx\c
+.IND "ASxxxx (assemblers)"
+ assemblers and ASlink\c
+.IND "aslink (linker)"
+ linker, free open source retargetable assemblers and linker, for every port except the PICs, which use gputils. SDCC has extensive language extensions suitable for utilizing various microcontrollers and underlying hardware effectively. \c
 .br
 You might also want to have a look at the wiki \c
 .URL "https://sourceforge.net/p/sdcc/wiki/" "" "."
@@ -156,9 +162,9 @@ long	32 bits, 4 bytes	signed	\-2.147.483.648, +2.147.483.647	T{
 0, +4.294.967.295
 T}
 _
-long long\u\s-2a\s+2\d	64 bits, 8 bytes	signed		
+long long	64 bits, 8 bytes	signed		
 _
-_BitInt\u\s-2b\s+2\d	8 to 64 bits, 1 to 8 bytes			
+_BitInt	8 to 64 bits, 1 to 8 bytes			
 _
 float	4 bytes similar to IEEE 754	signed		T{
 1.175494351E-38, 3.402823466E+38
@@ -166,19 +172,13 @@ T}
 _
 pointer	1, 2, 3 or 4 bytes	generic		
 _
-__bit\u\s-2c\s+2\d	1 bit	unsigned	\-	T{
+__bit\u\s-2a\s+2\d	1 bit	unsigned	\-	T{
 0, 1
 T}
 _
 .TE
 .TKE
 .FS a
-Incomplete support in the pic14 and pic16 backends.
-.FE
-.FS b
-Incomplete support in the pic14 and pic16 backends.
-.FE
-.FS c
 Only supported in the mcs51, ds390, ds400 backends.
 .FE
 \c
@@ -218,11 +218,11 @@ derived from GCC cpp preprocessor \c
 .URL "http://gcc.gnu.org/" "" ";"
 GPLv3 license
 .LI
-sdas assemblers and sdld linker:\c
+ASxxxx assemblers and ASlink linker:\c
 .br
-derived from ASXXXX \c
-.URL "https://shop-pdp.net/ashtml/" "" ";"
-GPLv3 license
+the ASxxxx Cross Assemblers \c
+.URL "https://shop-pdp.net/ashtml/" "" ","
+built from vendor/asxxxx; GPLv3 license
 .LI
 SDCC run-time libraries:\c
 .br
@@ -310,8 +310,14 @@ Boost Software License 1.0 (BSL-1.0)\c
 .LE
 .H 2 "\&Documentation"
 .P
-This documentation is maintained using a free open source word processor (LyX) \c
-.URL "http://www.lyx.org/" "" "."
+The source of this manual is sdcc/doc/sdccman.mm, written for groff\c
+.IND "groff"
+ with the mm macros, tbl for the tables and pic for the figures \c
+.URL "https://www.gnu.org/software/groff/" "" "."
+It is built as PDF, HTML and plain text; see section \c
+.GETHN sec:Building-the-Documentation Rf80
+.Rd Rf80
+\*[Rf80].
 .H 2 "\&Typographic conventions"
 .IND "Typographic conventions"
 .P
@@ -431,7 +437,7 @@ New behaviour:\f[CR]\c
 \f[CR]/* s.a = 1, s.b = 2 */\f[R]
 .LI
 In 2.9.0 libraries included in SDCC packages, are in ar format. See section \c
-.GETHN subsec:Using-sdar-to Rf2
+.GETHN subsec:Creating-a-library Rf2
 .Rd Rf2
 \*[Rf2].
 .LI
@@ -566,6 +572,30 @@ In 4.5.20, some non-matching return types that previously raised warnings raise 
 In 4.5.23, \f[CR]_Generic\f[R] works as clarified by C23, more attention is payed to implicit \f[CR]char\f[R] signedness, string literals are only \f[CR]const\f[R] if requested with \f[CR]\-\-fconst\-str\f[R], and a read-only \f[CR]__code\f[R] address space only implies \f[CR]const\f[R] if requested with \f[CR]\-\-fconst\-code\f[R].
 .LI
 In 4.5.24, \f[CR]\-\-fconst\-str\f[R] has been renamed to \f[CR]\-\-fconst\-stringlit\f[R].
+.LI
+After 4.6.2, the sdas assemblers and the sdld linker have been removed. Every port except pic14 and pic16 assembles and links with the ASxxxx assemblers and aslink, which are installed under their own names (as8051, asz80, as8085, asst8, aslink and so on); see section \c
+.GETHN subsec:ASxxxx-and-aslink Rf81
+.Rd Rf81
+\*[Rf81]. Assembler source written for sdas may need changes, and options passed with \-Wa or \-Wl are now those of ASxxxx; in particular aslink's \-b sets the base of a bank, and \-a the base of an area.
+.LI
+After 4.6.2, a library is a text file listing its object files, which is what aslink reads; ar archives made with sdar cannot be linked. See section \c
+.GETHN subsec:Creating-a-library Rf82
+.Rd Rf82
+\*[Rf82].
+.LI
+After 4.6.2, the linker no longer writes a .mem file, and does not check \-\-code-size, \-\-xram-size or \-\-stack-size. On the mcs51, sdcc itself refuses a program whose directly addressed data does not fit below 0x80. The .rst files are written only if asked for with \-Wl\-u.
+.LI
+After 4.6.2, the Intel 8080 and 8085 have a back-end of their own, and the compiler writes Intel mnemonics for them; see section \c
+.GETHN sec:Intel-8080-8085 Rf83
+.Rd Rf83
+\*[Rf83].
+.LI
+After 4.6.2, the stm8 start-up code is in a crt0, and \-\-no-std-crt0 is an stm8 option; see section \c
+.GETHN subsec:STM8-Startup-Code Rf84
+.Rd Rf84
+\*[Rf84].
+.LI
+After 4.6.2, the f8 and f8l ports have been removed.
 .LE
 .H 2 "\&System Requirements"
 .P
@@ -642,9 +672,13 @@ Excludes the SM83 port
 .LI "\-\&\-disable-tlcs90-port"
 Excludes the TLCS-90 port
 .LI "\-\&\-disable-ez80-port"
-Excludes the e80 port
+Excludes the eZ80 port
 .LI "\-\&\-disable-r800-port"
 Excludes the r800 port
+.LI "\-\&\-disable-i8080-port"
+Excludes the Intel 8080 port
+.LI "\-\&\-disable-i8085-port"
+Excludes the Intel 8085 port
 .LI "\-\&\-disable-ds390-port"
 Excludes the DS390 port
 .LI "\-\&\-disable-ds400-port"
@@ -676,7 +710,7 @@ Disables automatically building device libraries
 .LI "\-\&\-disable-packihx"
 Disables building packihx
 .LI "\-\&\-enable-doc"
-Build pdf, html and txt files from the lyx sources
+Build pdf, html and txt files of this manual from its groff source
 .LI "\-\&\-enable-libgc"
 Use the Bohem memory allocator. Lower runtime footprint.
 .LI "\-\&\-without-ccache"
@@ -824,13 +858,13 @@ CXX=\[dq]g++ \-mno\-cygwin\[dq]
 .TK
 .TS
 center tab(	);
-| c | cw(4.5c) | cw(4c) | cw(4c) |
-| c | cw(4.5c) | cw(4c) | cw(4c) |
-| c | cw(4.5c) | cw(4c) | cw(4c) |
-| c | cw(4.5c) | cw(4c) | cw(4c) |
-| c | cw(4.5c) | cw(4c) | cw(4c) |
-| c | cw(4.5c) | cw(4c) | cw(4c) |
-| c | cw(4.5c) | cw(4c) | cw(4c) |.
+| c | cw(4c) | cw(3.6c) | cw(3.6c) |
+| c | cw(4c) | cw(3.6c) | cw(3.6c) |
+| c | cw(4c) | cw(3.6c) | cw(3.6c) |
+| c | cw(4c) | cw(3.6c) | cw(3.6c) |
+| c | cw(4c) | cw(3.6c) | cw(3.6c) |
+| c | cw(4c) | cw(3.6c) | cw(3.6c) |
+| c | cw(4c) | cw(3.6c) | cw(3.6c) |.
 _
 \f[B]Description\f[R]	T{
 \f[B]Path\f[R]
@@ -1305,6 +1339,8 @@ Bring up a command line terminal, such as xterm.
 .LI
 Unpack the file using a command like: \f[HB]"tar \-xvjf sdcc-src-yyyymmdd-rrrr.tar.bz2\[rq]\f[R], this will create a sub-directory called sdcc with all of the sources.
 .LI
+The assemblers and the linker are built from the ASxxxx sources in vendor/asxxxx, beside the sdcc directory. In a git checkout this is a submodule; if it is empty, type \f[HB]git submodule update \-\&\-init\f[R] at the top of the repository. configure stops with a message if the sources are missing.
+.LI
 Change directory into the main SDCC directory, for example type: \f[HB]"cd sdcc\f[HR]".\f[R]
 .LI
 Type \f[HB]"./configure\f[R]". This configures the package for compilation on your system. When the treedec library is available, it should be found and used automatically (improving the compilation time / code quality trade-off). As of SDCC 3.7.0, the current develop branch from https://github.com/freetdi/tdlib is a suitable version of treedec.
@@ -1513,19 +1549,17 @@ That's it! \f[B]configure\f[R] will create the directory tree will all the neces
 .br
 This is not only usefull for building different binaries, e.g. when cross compiling. It also gives you a much better overview in the source tree when all the generated files are not scattered between the source files. And the best thing is: if you want to change a file you can leave the original file untouched in the source directory. Simply copy it to the build directory, edit it, enter `make clean', `rm Makefile.dep' and `make'. \f[B]make\f[R] will do the rest for you!
 .H 2 "\&Building the Documentation"
+.SETR sec:Building-the-Documentation
 .P
-Add \-\&\-enable-doc to the configure arguments to build the documentation together with all the other stuff. You will need several tools (LyX, LaTeX, LaTeX2HTML, pdflatex, dvipdf, dvips and makeindex) to get the job done. Another possibility is to change to the doc directory and to type \f[HB]\[rq]make\[rq]\f[R] there. You're invited to make changes and additions to this manual (sdcc/doc/sdccman.lyx). Using LyX \c
-.URL "http://www.lyx.org" ""
- as editor is straightforward. Prebuilt documentation is available from \c
-.URL "http://sdcc.sourceforge.net/snap.php" "" "."
+Add \-\&\-enable-doc to the configure arguments to build the documentation together with all the other stuff. Another possibility is to change to the doc directory and to type \f[HB]make\f[R] there. Either way you will need groff\c
+.IND "groff"
+ (with its mm macros, tbl, pic and the PDF and HTML output devices) and mmroff, which comes with it; Ghostscript and pnmtopng (from netpbm) make the images for the HTML version. The result is sdccman.pdf (A4), sdccman.txt, and sdccman.html, a directory with one page per chapter.
+.P
+You're invited to make changes and additions to this manual. Its source is sdcc/doc/sdccman.mm, plain text in the groff mm macros: headings are \f[CR].H\f[R], lists \f[CR].BL\f[R], \f[CR].AL\f[R] or \f[CR].VL\f[R], tables tbl and figures pic. Each output is set in two passes, the first of which collects the cross-references and the index.
 .H 2 "\&Reading the Documentation"
 .IND "Documentation"
 .P
-Currently, reading the document in PDF format is recommended, as for unknown reason the hyperlinks are working there whereas in the HTML version they are not\*F\c
-.FS
-If you should know why please drop us a note
-.FE
-\&.\c
+This manual is available as PDF, as HTML and as plain text; the figures are in the PDF and HTML versions only.\c
 .br
 You'll find the PDF version\c
 .IND "PDF version of this document"
@@ -1563,7 +1597,7 @@ The first thing you should do after installing your SDCC compiler is to see if i
 .IND "version"
 \f[R] at the prompt, and the program should run and output its version like: \c
 .br
-\f[CR]SDCC : mcs51/z80/z80n/z180/r2k/r2ka/r3ka/sm83/tlcs90/ez80/r800/ds390/pic16/pic14/TININative/ds400/hc08/s08/stm8/pdk13/pdk14/pdk15/mos6502/mos65c02 4.4.0 #14546 (Linux)\f[R]
+\f[CR]SDCC : mcs51/z80/z180/sm83/tlcs90/ez80/z80n/r800/i8080/i8085/ds390/pic16/pic14/TININative/ds400/hc08/s08/stm8/pdk13/pdk14/pdk15/mos6502/mos65c02 4.6.2 #16710 (Linux)\f[R]
 .P
 If it doesn't run, or gives a message about not finding sdcc program, then you need to check over your installation. Make sure that the sdcc bin directory is in your executable search path defined by the PATH environment setting (see section \c
 .GETHN subsec:Install-Trouble-shooting Rf10
@@ -1655,21 +1689,23 @@ sdcc \- The compiler.
 .LI
 sdcpp \- The C preprocessor.
 .LI
-sdas8051 \- The assembler for 8051 type processors.
+as8051 \- The ASxxxx assembler for 8051 type processors.
 .LI
-sdas390 \- The assembler for DS80C390 processor.
+as8xcxxx \- The ASxxxx assembler for the DS80C390 and DS80C400.
 .LI
-sdasz80\f[B],\f[R] sdasgb \- The Z80 and GameBoy Z80 assemblers.
+asz80, asez80, asrab, astlcs90, asgb \- The ASxxxx assemblers for the Z80, Z180, Z80N and R800; the eZ80; the Rabbits; the TLCS-90; and the SM83 (GameBoy).
 .LI
-sdas6808 \- The 6808 assembler.
+as8085 \- The ASxxxx assembler for the Intel 8080 and 8085.
 .LI
-sdasstm8 \- The STM8 assembler.
+as6808 \- The ASxxxx assembler for the HC08 and S08.
 .LI
-sdld \-The linker for 8051 and STM8 type processors.
+as6500 \- The ASxxxx assembler for the MOS6502 and WDC65C02.
 .LI
-sdldz80\f[B],\f[R] sdldgb \- The Z80 and GameBoy Z80 linkers.
+asst8 \- The ASxxxx assembler for the STM8.
 .LI
-sdld6808 \- The 6808 linker.
+aspdk13, aspdk14, aspdk15 \- The ASxxxx assemblers for the Padauk PDK13, PDK14 and PDK15.
+.LI
+aslink \- The ASxxxx linker, for all of these.
 .LI
 ucsim_51, s51 \- The ucSim 8051 simulator.
 .LI
@@ -1679,9 +1715,14 @@ ucsim_stm8 \- The ucSim STM8 simulator.
 .LI
 ucsim_z80 \- The ucSim Z80 simulator.
 .LI
+ucsim_i8085 \- The ucSim 8080/8085 simulator.
+.LI
 sdcdb \- The source debugger.
 .LI
-sdar, sdranlib, sdnm, sdobjcopy \- The sdcc archive managing and indexing utilites.
+sdar, sdranlib, sdnm, sdobjcopy \- Utilities from GNU Binutils. aslink does not read ar archives, so sdar is not the way to make a library; see section \c
+.GETHN subsec:Creating-a-library Rf85
+.Rd Rf85
+\*[Rf85].
 .LI
 packihx \- A tool to pack (compress) Intel hex files.
 .LI
@@ -1730,26 +1771,44 @@ The preprocessor\c
  preprocessor \c
 .URL "http://gcc.gnu.org/" "" "."
 The C preprocessor is used to pull in #include sources, process #ifdef statements, #defines and so on.
-.H 3 "\&sdas, sdld \- The Assemblers and Linkage Editors"
+.H 3 "\&ASxxxx and aslink \- The Assemblers and Linkage Editor"
+.SETR subsec:ASxxxx-and-aslink
+.IND "ASxxxx (assemblers)"
+.IND "aslink (linker)"
 .P
-This is a set of retargettable assemblers and linkage editors, which was developed by Alan Baldwin. John Hartman created the version for 8051, and I (Sandeep) have made some enhancements and bug fixes for it to work properly with SDCC.
+The ASxxxx Cross Assemblers \c
+.URL "https://shop-pdp.net/" "" ","
+ developed by Alan Baldwin and available under the GPL license (GPLv3 or later), are a set of retargettable assemblers sharing one linker, aslink. SDCC builds the assemblers its configured ports need, and aslink, from the sources in vendor/asxxxx, and installs them beside sdcc under their ASxxxx names. sdcc runs them itself, so they are needed only for hand-written assembler or for options that sdcc does not pass on (see \-Wa and \-Wl in section \c
+.GETHN sec:Command-Line-Options Rf86
+.Rd Rf86
+\*[Rf86]).
 .P
-SDCC used an about 1998 branch of asxxxx version 2.0 which unfortunately is not compatible with the more advanced (f.e. macros, more targets) ASxxxx Cross Assemblers nowadays available from Alan Baldwin \c
-.URL "https://shop-pdp.net/" "" "."
-In 2009 Alan made his ASxxxx Cross Assemblers version 5.0 available under the GPL license (GPLv3 or later), so a reunion is now a work in progress. Thanks Alan!
+Their manual is vendor/asxxxx/asxdoc/asmlnk.txt in the source tree, and is online at \c
+.URL "https://shop-pdp.net/ashtml/" "" "."
+It describes the assembler directives, the options of the assemblers and of aslink, and the object, library and map file formats.
+.P
+The pic14 and pic16 ports use gputils (gpasm and gplink) instead; see sections \c
+.GETHN sec:PIC14 Rf87
+.Rd Rf87
+\*[Rf87] and \c
+.GETHN sec:PIC16 Rf88
+.Rd Rf88
+\*[Rf88].
 .H 3 "\&ucsim_51, ucsim_z80, ucsim_stm8 etc. \- The Simulators"
 .P
 ucsim_51 (or s51)\c
 .IND "s51 (simulator)"
 , ucsim_z80\c
 .IND "sz80 (simulator)"
- ucsim_m68hc08\c
+, ucsim_i8085\c
+.IND "ucsim_i8085 (simulator)"
+, ucsim_m68hc08\c
 .IND "shc08 (simulator)"
  and ucsim_stm8 \c
 .IND "sstm8 (simulator)"
 , as well as similarly named programs provided with SDCC, are free open source simulators developed by Daniel Drotos. The simulators are built as part of the build process. For more information visit Daniel's web site at: \c
 .URL "http://mazsola.iit.uni-miskolc.hu/~drdani/embedded/s51" "" "."
-It currently supports the core mcs51, the Dallas DS80C390, the Phillips XA51 family, the Z80, 6808 the STM8 and various others.
+It currently supports the core mcs51, the Dallas DS80C390, the Phillips XA51 family, the Z80, the Intel 8080 and 8085, the 6808, the STM8 and various others.
 .H 3 "\&sdcdb \- Source Level Debugger"
 .P
 SDCDB\c
@@ -2130,7 +2189,11 @@ sourcefile.rst\c
 .IND "<file>.rst"
  \- Assembler listing\c
 .IND "Assembler listing"
- file updated with linkedit information, created by linkage editor
+ file updated with linkedit information, created by the linker if asked for with \-Wl\-u
+.LI
+sourcefile.hlr\c
+.IND "<file>.hlr"
+ \- hints from the assembler that let the linker update the listing
 .LI
 sourcefile.sym\c
 .IND "<file>.sym"
@@ -2149,10 +2212,6 @@ sourcefile.map\c
  \- The memory map\c
 .IND "Memory map"
  for the load module, created by the Linker
-.LI
-sourcefile.mem\c
-.IND "<file>.mem"
- \- A file with a summary of the memory usage
 .LI
 sourcefile.ihx\c
 .IND "<file>.ihx"
@@ -2186,11 +2245,11 @@ sourcefile.cdb\c
 .LI
 sourcefile.omf\c
 .IND "<file>.omf"
- \- An optional AOMF or AOMF51\c
+ \- An optional AOMF51\c
 .IND "AOMF, AOMF51"
  \c
 .SETR OMF-file
-file containing debug information (generated with option \-\&\-debug). The (Intel) \f[I]a\f[R]bsolute \f[I]o\f[R]bject \f[I]m\f[R]odule \f[I]f\f[R]ormat is a subformat of the OMF51 format and is commonly used by third party tools (debuggers\c
+file containing debug information (written by the linker for the mcs51 port with option \-\&\-debug). The (Intel) \f[I]a\f[R]bsolute \f[I]o\f[R]bject \f[I]m\f[R]odule \f[I]f\f[R]ormat is a subformat of the OMF51 format and is commonly used by third party tools (debuggers\c
 .IND "Debugger"
 , simulators, emulators).
 .LI
@@ -2268,39 +2327,40 @@ sdcc\ \-c\ foomain.c\c
 .br
 sdcc\ custom_crt0.rel\ foomain.rel\ foo1.rel\ foo2.rel\c
 .sp
-\f[R]\f[B]The file containing the main() function must be the first file specified in the command line\f[R], since the linkage editor processes object files in the order they are presented to it. The linker is invoked from SDCC using a script file with extension .lnk\c
-.IND "<file>.lnk"
+\f[R]\f[B]The file containing the main() function must be the first file specified in the command line\f[R], since the linkage editor processes object files in the order they are presented to it. The linker is invoked from SDCC using a script file with extension .lk\c
+.IND "<file>.lk"
 \&. You can view this file to troubleshoot linking problems such as those arising from missing libraries.
 .H 3 "\&Projects with Additional Libraries"
 .IND "Libraries"
 .P
-Some reusable routines may be compiled into a library, see the documentation for the assembler and linkage editor (which are in <installdir>/share/sdcc/doc) for how to create a \f[I].lib\c
+Some reusable routines may be compiled into a library, a \f[I].lib\c
 .IND "<file>.lib"
-\f[R] library file. Section \c
-.GETHN subsec:Using-sdar-to Rf19
+\f[R] file; section \c
+.GETHN subsec:Creating-a-library Rf19
 .Rd Rf19
-\*[Rf19] below contains a minimal example. Libraries created in this manner can be included in the command line. Make sure you include the \-L <library-path> option to tell the linker where to look for these files if they are not in the current directory. Here is an example, assuming you have the source file \f[I]foomain.c\f[R] and a library \f[I]foolib.lib\f[R] in the directory \f[I]mylib\f[R] (if that is not the same as your current project):\c
+\*[Rf19] below shows how to make one. Libraries can be included in the command line. Make sure you include the \-L <library-path> option to tell the linker where to look for these files if they are not in the current directory. Here is an example, assuming you have the source file \f[I]foomain.c\f[R] and a library \f[I]foolib.lib\f[R] in the directory \f[I]mylib\f[R] (if that is not the same as your current project):\c
 .sp
-\f[HB]sdcc foomain.c foolib.lib \-L mylib\c
+\f[HB]sdcc foomain.c foolib.lib \-L mylib\f[R]\c
 .sp
-\f[R]Note here that \f[I]mylib\f[R] must be an absolute path name.\c
-.sp
-The most efficient way to use libraries is to keep separate modules in separate source files. The lib file now should name all the modules.rel\c
+The most efficient way to use libraries is to keep separate modules in separate source files: the linker takes from a library only the object files that define a symbol the program needs. For an example see the standard library file \f[I]libsdcc.lib\f[R] in the directory <installdir>/share/sdcc/lib/small.
+.H 3 "\&Creating a library"
+.IND "Libraries"
+.SETR subsec:Creating-a-library
+.P
+A library is a text file naming its object files, one to a line; this is the library format aslink\c
+.IND "aslink (linker)"
+ reads. A name with no directory is looked for beside the library file, and the .rel\c
 .IND "<file>.rel"
- files. For an example see the standard library file \f[I]libsdcc.lib\f[R] in the directory <installdir>/share/lib/small.
-.H 3 "\&Using sdar to Create and Manage Libraries"
-.IND "sdar"
-.SETR subsec:Using-sdar-to
+ extension may be left out. So a library of foo1.c and foo2.c is made with
+.DS I
+.ft CR
+\f[CR]sdcc \-c foo1.c
+sdcc \-c foo2.c
+printf 'foo1.rel\[rs]nfoo2.rel\[rs]n' > foolib.lib
+.ft
+.DE
 .P
-Support for sdar format libraries was introduced in SDCC 2.9.0.\f[B]\c
-.sp
-\f[R]Both the GNU and BSD ar format variants are supported by sdld linkers.\f[B]\c
-.sp
-\f[R]To create a library containing sdas object files, you should use the following sequence:\f[B]\c
-.br
-\f[R]
-.P
-\f[HB]sdar \-rc <library name>.lib <list of .rel files>\f[R]
+and the library and its .rel files are kept together. ar archives, such as sdar makes, cannot be linked. The format is described with the linker's options, in vendor/asxxxx/asxdoc/asmlnk.txt.
 .H 2 "\&Command Line Options"
 .IND "Command Line Options"
 .SETR sec:Command-Line-Options
@@ -2438,8 +2498,8 @@ Generate code for the Intel 8080\c
 .IND "-mi8085"
 Generate code for the Intel 8085\c
 .IND "8085"
- processor. See\c
-.GETHN sub:Intel-8080-8085 Rf20
+ processor. See \c
+.GETHN sec:Intel-8080-8085 Rf20
 .Rd Rf20
 \*[Rf20].
 .LI "\f[B]\-mr2k\f[R]"
@@ -2764,7 +2824,7 @@ All functions in the source file will be compiled as \f[I]reentrant\f[R]\c
 \c
 .IND "--callee-saves"
 \c
-.SETR lyx:--callee-saves-function1-.function2--.function3-...
+.SETR opt:--callee-saves-function1-.function2--.function3-...
 function1[,function2][,function3].... The compiler by default uses a caller saves convention for register saving across function calls, however this can cause unnecessary register pushing and popping when calling small functions from larger functions. This option can be used to switch the register saving convention for the function names specified. The compiler will not save registers when calling these functions, no extra code will be generated at the entry and exit (function prologue\f[B]\c
 .IND "function prologue"
 \f[R] and epilogue\f[B]\c
@@ -2781,9 +2841,9 @@ Function of \-\&\-callee-saves will be applied to all functions by default.
 .LI "\f[B]\-\&\-debug\f[R]"
 \c
 .IND "--debug"
-When this option is used the compiler will generate debug information. By default, the debug information collected in a file with .cdb extension can be used with the SDCDB. For more information see documentation for SDCDB. Another file with a .omf extension contains debug information in AOMF or AOMF51\c
+When this option is used the compiler will generate debug information. By default, the debug information collected in a file with .cdb extension can be used with the SDCDB. For more information see documentation for SDCDB. For the mcs51 port, the linker also writes a file with a .omf extension, the debug information in AOMF51\c
 .IND "AOMF, AOMF51"
- format which is commonly used by third party tools. When \[rs][en]out-gmt-elf is used, the debug information is in DWARF format instead.
+ format which is commonly used by third party tools. When \-\&\-out-fmt-elf is used, the debug information is in DWARF format instead.
 .LI "\f[B]\-S\f[R]"
 \c
 .IND "-S"
@@ -2844,7 +2904,7 @@ Include i-codes in the asm file. Sounds like noise but is helpful for debugging 
 \c
 .IND "--less-pedantic"
 \c
-.SETR lyx:--less-pedantic
+.SETR opt:--less-pedantic
 Disable some of the more pedantic warnings\c
 .IND "Warnings"
 \&. For more details, see the less_pedantic pragma \c
@@ -2881,12 +2941,12 @@ Pass the asmOption to the assembler\c
 .IND "Options assembler"
 \c
 .IND "Assembler options"
-\&. See file sdcc/sdas/doc/asmlnk.txt for assembler options.cd
+\&. The assembler is the port's ASxxxx assembler (gpasm for the PICs); its options are in vendor/asxxxx/asxdoc/asmlnk.txt.
 .LI "\f[B]\-\&\-codeseg\f[R]\ <Name>"
 \c
 .IND "--codeseg <Value>"
 \c
-.SETR lyx:-codeseg
+.SETR opt:-codeseg
 The name to be used for the code\c
 .IND "code"
  segment, default CSEG. This is useful if you need to tell the compiler to put the code in a special segment so you can later on tell the linker to put this segment in a special place in memory. Can be used for instance when using bank switching to put the code in a bank.
@@ -2902,7 +2962,7 @@ The name to be used for the const\c
 \c
 .IND "pedantic"
 Actually this is \f[BI]not\f[R] a SDCC compiler option but if you want \f[I]more\f[R] warnings you can use a separate tool dedicated to syntax checking like splint\c
-.SETR lyx:more-pedantic-SPLINT
+.SETR opt:more-pedantic-SPLINT
 \c
 .IND "lint (syntax checking tool)"
  \c
@@ -2920,7 +2980,7 @@ Splint has an excellent on line manual at \c
 \c
 .IND "--use-non-free"
 \c
-.SETR lyx:--use-non-free
+.SETR opt:--use-non-free
 Search / include non-free licensed libraries and header files, located under the non-free directory \- see section \c
 .GETHN subsec:Search-Paths Rf26
 .Rd Rf26
@@ -3000,23 +3060,23 @@ The linker output (final object code) is in Motorola S19 format\c
 \&. The format itself is documented in the documentation of srecord.
 .LI "\f[B]\-\&\-out-fmt-elf\f[R]"
 \c
-.IND "--out-fmt-s19"
+.IND "--out-fmt-elf"
 \c
 .IND "HC08" "Options" "--out-fmt-elf"
 The linker output (final object code) is in ELF format\c
 .IND "ELF format"
 \&. (Currently only supported for the HC08\c
 .IND "HC08"
-, S08 and STM8 processors). When used with \[rs][en]debug, the debug info is in DWARF format instead of CDB.
+, S08 and STM8 processors). When used with \-\&\-debug, the debug info is in DWARF format instead of CDB.
 .LI "\f[B]\-Wl\ linkOption[,linkOption]\f[R]..."
 \c
 .IND "-Wl linkOption[,linkOption]"
 \c
-.SETR lyx:-Wl-option
-Pass the linkOption to the linker. If a bootloader is used an option like \[lq]\-Wl\ \-bCSEG=0x1000\[rq] would be typical to set the start of the code segment. Either use the double quotes around this option or use no space (e.g. \-Wl-bCSEG=0x1000). See also #pragma constseg and #pragma codeseg in section\c
+.SETR opt:-Wl-option
+Pass the linkOption to the linker, aslink (gplink for the PICs). If a bootloader is used an option like \[lq]\-Wl\ \-aCSEG=0x1000\[rq] would be typical to set the start of the code area (aslink's \-a sets the base of an area, \-b the base of a bank). Either use the double quotes around this option or use no space (e.g. \-Wl-aCSEG=0x1000). See also #pragma constseg and #pragma codeseg in section \c
 .GETHN sec:Pragmas Rf27
 .Rd Rf27
-\*[Rf27]. File sdcc/sdas/doc/asmlnk.txt has more on linker options.
+\*[Rf27]. File vendor/asxxxx/asxdoc/asmlnk.txt has more on linker options.
 .LE
 .H 3 "\&MCS51 Options"
 .IND "Options MCS51"
@@ -3050,19 +3110,19 @@ Uses a pseudo stack in the __pdata\c
 .LI "\f[B]\-\&\-iram-size\f[R]\ <Value>"
 \c
 .IND "--iram-size <Value>"
-Causes the linker to check if the internal ram usage is within limits of the given value.
+The size of the internal RAM, which the start-up code clears; the default is 256 bytes. Whatever the size, sdcc refuses a program whose directly addressed data (the register banks, bit variables, __data and overlaid locals) goes past 0x7F, where direct addressing reaches the SFRs instead of RAM.
 .LI "\f[B]\-\&\-xram-size\f[R]\ <Value>"
 \c
 .IND "--xram-size <Value>"
-Causes the linker to check if the external ram usage is within limits of the given value.
+The size of the external RAM. aslink does not check the program against it.
 .LI "\f[B]\-\&\-code-size\f[R]\ <Value>"
 \c
 .IND "--code-size <Value>"
-Causes the linker to check if the code memory usage is within limits of the given value.
+The size of the code memory. aslink does not check the program against it.
 .LI "\f[B]\-\&\-stack-size\f[R]\ <Value>"
 \c
 .IND "--stack-size <Value>"
-Causes the linker to check if there is at minimum <Value> bytes for stack.
+The space for the stack. aslink does not check the program against it.
 .LI "\f[B]\-\&\-acall-ajmp\f[R]\ "
 \c
 .IND "--acall-ajmp"
@@ -3137,7 +3197,7 @@ Determinate PORT I/O mode (<Value> is z80 or z180).
 .LI "\f[B]\-\&\-asm=\f[R]<Value>"
 \c
 .IND "Z80" "Options" "--asm=<Value>"
-Define assembler name (<Value> is rgbds, sdasz80, isas or z80asm).
+Define assembler name (<Value> is asxxxx, the default, rgbds, isas, z80asm or gas).
 .LI "\f[B]\-\&\-reserve-regs-iy\f[R]"
 \c
 .IND "Z80" "Options" "--reserve-regs-iy"
@@ -3263,7 +3323,7 @@ Path, see section \c
 Path, see section \c
 .GETHN subsec:Search-Paths Rf32
 .Rd Rf32
-\*[Rf32]\ \[lq]Search Paths\[rq]..
+\*[Rf32]\ \[lq]Search Paths\[rq].
 .LE
 .P
 There are some more environment variables recognized by SDCC, but these are mainly used for debugging purposes. They can change or disappear very quickly, and won't be documented\*F\c
@@ -3601,11 +3661,9 @@ By default the 8051 linker will place the stack after the last byte of __(i)data
 .IND "--code-size <Value>"
 \&. If in doubt, don't specify any options and see if the resulting memory layout is appropriate, then you can adjust it.
 .P
-The linker generates two files with memory allocation information. The first, with extension .map\c
+The linker writes the memory allocation to a file with extension .map\c
 .IND "<file>.map"
- shows all the variables and segments. The second with extension .mem\c
-.IND "<file>.mem"
- shows the final memory layout. The linker will complain either if memory segments overlap, there is not enough memory, or there is not enough space for stack. If you get any linking warnings and/or errors related to stack or segments allocation, take a look at either the .map or .mem files to find out what the problem is. The .mem file may even suggest a solution to the problem.
+, which shows all the variables and areas. aslink does not check the sizes given with \-\&\-code-size, \-\&\-xram-size or \-\&\-stack-size. sdcc does check the directly addressed internal RAM: if the register banks, bit variables, __data and overlaid locals do not fit below 0x80, the link fails with error 387, which names the area. Moving some of the data to __idata, __pdata or __xdata is the cure; the .map file shows what is where.
 .H 3 "\&Z80/Z180/eZ80 and 8080/8085 intrinsic named address spaces"
 .H 4 "\&__sfr (in/out to 8-bit addresses)"
 .IND "__sfr"
@@ -3721,7 +3779,7 @@ box wid 79.37 ht 83.15 with .nw at (7.56,-56.69)
 .DE
 .\}
 .P
-Support for __far is still very incomplete and should be considered experimental.
+Support for __far is still very incomplete and should be considered experimental. In particular, aslink places areas in a 16-bit address space, so __far objects cannot at present be placed in physical memory on the Rabbit ports, and programs using __far do not link correctly.
 .H 3 "\&HC08/S08 intrinsic named address spaces"
 .H 4 "\&__data"
 .IND "__data (hc08 named address space)"
@@ -4300,7 +4358,10 @@ _
 .TKE
 .H 3 "\&Intel 8080 and 8085 Interrupt Service Routines"
 .P
-On the Intel 8080 and 8085, which have neither RETI nor RETN (both are Z80 instructions), an interrupt service routine written with __interrupt returns with a plain RET, preceded by EI to re-enable interrupts. As on the Z80, SDCC does not generate an interrupt vector table; the handler must be reached through the target's own vectors (for example the 8085 RST and TRAP vectors).
+On the Intel 8080 and 8085, an interrupt service routine written with __interrupt re-enables interrupts with EI and returns with RET. SDCC does not generate an interrupt vector table; the handler must be reached through the target's own vectors (for example the 8085 RST and TRAP vectors). See section \c
+.GETHN sec:Intel-8080-8085 Rf90
+.Rd Rf90
+\*[Rf90].
 .H 3 "\&STM8 Interrupt Service Routines"
 .P
 The STM8 interrupt table contains 31 entries: Reset (used by SDCC for program startup), trap and user interrupts 0 to 29. Where the keyword \f[I]__interrupt\c
@@ -4622,12 +4683,12 @@ t_b_end$:
 .ft
 .DE
 .P
-The inline assembler code can contain any valid code understood by the assembler, this includes any assembler directives and comment lines. The assembler does not like some characters like ':' or ''' in comments. You'll find an 100+ pages assembler manual in sdcc/sdas/doc/asmlnk.txt\c
-.IND "sdas (sdasgb, sdas6808, sdas8051, sdasz80)"
+The inline assembler code can contain any valid code understood by the assembler, this includes any assembler directives and comment lines. The assembler does not like some characters like ':' or ''' in comments. You'll find the 100+ page manual of the ASxxxx assemblers in vendor/asxxxx/asxdoc/asmlnk.txt\c
+.IND "ASxxxx (assemblers)"
 \c
 .IND "Assembler documentation"
  or online at \c
-.URL "http://svn.code.sf.net/p/sdcc/code/trunk/sdcc/sdas/doc/asmlnk.txt" "" "."
+.URL "https://shop-pdp.net/ashtml/" "" "."
 .P
 The compiler does not do any validation of the code within the \f[CR]__asm\c
 .IND "__asm"
@@ -5210,16 +5271,16 @@ Programmers coding for embedded systems are not especially famous for being enth
 .IND "MCS51 memory model"
 .H 4 "\&Small, Medium, Large and Huge"
 .P
-SDCC allows four memory models for MCS51 code, \f[I]small, medium, large\f[R] and \f[I]huge\f[R]. Modules compiled with different memory models should \f[I]never\f[R] be combined together or the results would be unpredictable. The library routines supplied with the compiler are compiled for all models (however, the libraries for \[rs][en]stack-auto are compiled for the small and large models only). The compiled library modules are contained in separate directories as small, medium, large and huge so that you can link to the appropriate set.
+SDCC allows four memory models for MCS51 code, \f[I]small, medium, large\f[R] and \f[I]huge\f[R]. Modules compiled with different memory models should \f[I]never\f[R] be combined together or the results would be unpredictable. The library routines supplied with the compiler are compiled for all models (however, the libraries for \-\&\-stack-auto are compiled for the small and large models only). The compiled library modules are contained in separate directories as small, medium, large and huge so that you can link to the appropriate set.
 .P
 When the medium, large or huge model is used all variables declared without specifying an intrinsic named address space will be allocated into the external ram, this includes all parameters and local variables (for non-reentrant\c
 .IND "reentrant"
  functions). Medium model uses pdata and large and huge models use xdata. When the small model is used variables without an explicitly specified intrinsic named address space are allocated in the internal ram.
 .P
-The huge model compiles all functions as \f[I]banked\c
+The huge model compiles all functions as \f[I]banked\f[R] (see section \c
 .GETHN subsec:Bankswitching Rf43
 .Rd Rf43
-\*[Rf43]\f[R] and is otherwise equal to large for now. All other models compile the functions without bankswitching by default.
+\*[Rf43]) and is otherwise equal to large for now. All other models compile the functions without bankswitching by default.
 .P
 Judicious usage of the processor specific intrinsic named address spaces\c
 .IND "intrinsic named address space"
@@ -5312,7 +5373,7 @@ SDCC supports the following #pragma directives:
 \- The compiler by default uses a caller saves convention for register saving across function calls, however this can cause unnecessary register pushing and popping\c
 .IND "push/pop"
  when calling small functions from larger functions. This option can be used to switch off the register saving convention for the function names specified. The compiler will not save registers when calling these functions, extra code need to be manually inserted at the entry and exit for these functions to save and restore the registers used by these functions, this can SUBSTANTIALLY reduce code and improve run time performance of the generated code. In the future the compiler (with inter procedural analysis) may be able to determine the appropriate scheme to use for each function call. If \-\&\-callee-saves command line option is used (see page \c
-.GETPN lyx:--callee-saves-function1-.function2--.function3-... Rf46
+.GETPN opt:--callee-saves-function1-.function2--.function3-... Rf46
 on page \*[Rf46]), the function names specified in #pragma\ callee_saves\c
 .IND "#pragma callee_saves"
  is appended to the list of functions specified in the command line.
@@ -5338,7 +5399,7 @@ on page \*[Rf46]), the function names specified in #pragma\ callee_saves\c
 \c
 .SETR ite:less_pedantic
  \- the compiler will not warn you anymore for obvious mistakes, you're on your own now ;-(. See also the command line option \-\&\-less-pedantic \c
-.GETPN lyx:--less-pedantic Rf47
+.GETPN opt:--less-pedantic Rf47
 on page \*[Rf47]. \c
 .br
 More specifically, the following warnings will be disabled: \f[I]comparison is always [true/false] due to limited range of data type\f[R] (94); \f[I]overflow in implicit constant conversion\f[R] (158); [the (in)famous] \f[I]conditional flow changed by optimizer: so said EVELYN the modified DOG\f[R] (110); \f[I]function '[function name]' must return value\f[R] (59). \c
@@ -5359,7 +5420,7 @@ Furthermore, warnings of less importance (of PEDANTIC and INFO warning level) ar
 .LI
 \f[B]noinvariant\f[R]\c
 .IND "#pragma noinvariant"
- \- will not do loop invariant optimizations. For more details see Loop Invariants in section\c
+ \- will not do loop invariant optimizations. For more details see Loop Invariants in section \c
 .GETHN subsec:Loop-Optimizations Rf48
 .Rd Rf48
 \*[Rf48].
@@ -5611,7 +5672,7 @@ _
 T{
 SDCC
 T}	T{
-OBSOLETE. WILL BE REMOVED IN THE FUTURE. CURRENTLY Only defined for the mcs51 backend (and only if \[rs][en]std-cXX is not used). This macro has been available since SDCC 2.5.6 and is the version number as an int (ex. 256). PLEASE USE OTHER VERSION MACROS INSTEAD!
+OBSOLETE. WILL BE REMOVED IN THE FUTURE. CURRENTLY Only defined for the mcs51 backend (and only if \-\&\-std-cXX is not used). This macro has been available since SDCC 2.5.6 and is the version number as an int (ex. 256). PLEASE USE OTHER VERSION MACROS INSTEAD!
 T}
 _
 T{
@@ -5837,7 +5898,7 @@ To create a function that can be called from another bank it requires the keywor
 Normally all functions you write end up in the segment CSEG. If you want a function explicitly to reside in the common area put it in segment HOME. This applies for instance to interrupt service routines as they should not be banked.
 .P
 Functions that need to be in a switched bank must be put in a named segment. The name can be mostly anything up to eight characters (e.g. BANK1). To do this you either use \-\&\-codeseg BANK1 (See \c
-.GETHN lyx:-codeseg Rf52
+.GETHN opt:-codeseg Rf52
 .Rd Rf52
 \*[Rf52]) on the command line when compiling or #pragma codeseg BANK1 (See \c
 .GETHN sec:Pragmas Rf53
@@ -5845,7 +5906,7 @@ Functions that need to be in a switched bank must be put in a named segment. The
 \*[Rf53]) at the top of the C source file. The segment name always applies to the whole source file and generated object so functions for different banks need to be defined in different source files.\c
 .sp
 When linking your objects you need to tell the linker where to put your segments. To do this you use the following command line option to SDCC: \-Wl-b BANK1=0x18000 (See \c
-.GETHN lyx:-Wl-option Rf54
+.GETHN opt:-Wl-option Rf54
 .Rd Rf54
 \*[Rf54]). This sets the virtual start address of this segment. It sets the banknumber to 0x01 and maps the bank to 0x8000 and up. The linker will not check for overflows, again this is your responsibility.
 .H 3 "\&MCS51/DS390 Startup Code"
@@ -5974,12 +6035,11 @@ See also the compiler option \f[I]\-\&\-no-xinit\f[R]\-\f[I]opt\f[R]\c
 .P
 While these initialization modules are meant as generic startup code there might be the need for customization. Let's assume the return value of \f[I]__sdcc_external_startup()\f[R] in \f[I]crtstart.asm\f[R] should not be checked (or \f[I]__sdcc_external_startup()\f[R] should not be called at all). The recommended way would be to copy \f[I]crtstart.asm\f[R] (f.e. from \c
 .URL "http://svn.code.sf.net/p/sdcc/code/trunk/sdcc/device/lib/mcs51/crtstart.asm" "" ")"
-into the source directory, adapt it there, then assemble it with \f[I]sdas8051 \-plosgff\*F\c
+into the source directory, adapt it there, then assemble it with \f[I]as8051 \-plosgff\*F\c
 .FS
-\[lq]\-plosgff\[rq] are the assembler options used in \c
-.URL "http://sdcc.svn.sourceforge.net/viewvc/sdcc/trunk/sdcc/device/lib/mcs51/Makefile.in?view=markup " ""
+\[lq]\-plosgff\[rq] are the assembler options sdcc itself uses for the mcs51 port.
 .FE
- crtstart.asm\f[R] and when linking your project explicitly specify \f[I]crtstart.rel\f[R]. As a bonus a listing of the relocated object file \f[I]crtstart.rst\f[R] is generated.
+ crtstart.asm\f[R] and when linking your project explicitly specify \f[I]crtstart.rel\f[R]. With \-Wl\-u a listing of the relocated object file \f[I]crtstart.rst\f[R] is generated as well.
 .H 3 "\&Interfacing with Assembler Code"
 .IND "Assembler routines"
 .H 4 "\&Global Registers used for Parameter Passing"
@@ -5997,7 +6057,7 @@ The compiler always uses the global registers \f[I]DPL, DPH\c
 .IND "return value"
 of function; according to the following scheme: one byte return value in \f[I]DPL\f[R], two byte value in \f[I]DPL\f[R] (LSB) and \f[I]DPH\f[R] (MSB). three byte values (generic pointers) in \f[I]DPH\f[R], \f[I]DPL\f[R] and \f[I]B\f[R], and four byte values in \f[I]DPH\f[R], \f[I]DPL\f[R], \f[I]B\f[R] and \f[I]ACC\f[R]. Generic pointers\c
 .IND "generic pointer"
- contain type of accessed memory in \f[I]B\f[R]: \f[B]0x00\f[R] \[rs][en] xdata/far, \f[B]0x40\f[R] \[rs][en] idata/near \[rs][en] , \f[B]0x60\f[R] \[rs][en] pdata, \f[B]0x80\f[R] \[rs][en] code.
+ contain type of accessed memory in \f[I]B\f[R]: \f[B]0x00\f[R] \[en] xdata/far, \f[B]0x40\f[R] \[en] idata/near \[en] , \f[B]0x60\f[R] \[en] pdata, \f[B]0x80\f[R] \[en] code.
 .P
 Further such parameters (and all struct parameters, as well as the bit parameters from the 9th onwards) are either allocated on the stack (for reentrant routines or if \-\&\-stack-auto is used) or in data/xdata memory (depending on the memory model).
 .P
@@ -6066,7 +6126,7 @@ The parameter naming convention is _<function_name>_PARM_<n>, where n is the par
 .sp
 Assemble the assembler routine with the following command:\c
 .sp
-\f[HB]sdas8051 \-losg asmfunc.asm\c
+\f[HB]as8051 \-losg asmfunc.asm\c
 .sp
 \f[R]Then compile and link the assembler routine to the C source file with the following command:\c
 .sp
@@ -6146,13 +6206,11 @@ The DS80C400\c
  microcontroller has a rich set of peripherals. In its built-in ROM library it includes functions to access some of the features, among them is a TCP stack with IP4 and IP6 support. Library headers (currently in beta status) and other files are provided at \s[-2]\c
 .URL "ftp://ftp.dalsemi.com/pub/tini/ds80c400/c_libraries/sdcc/index.html" "" "."
 \s[0]
-.H 2 "\&The Z80, Z80N, Z180, Intel 8080, Intel 8085, Rabbit 2000, Rabbit 2000A, Rabbit 3000A, Rabbit 4000, Rabbit 5000, Rabbit 6000, SM83 (GameBoy), TLCS-90, eZ80, and R800 ports"
+.H 2 "\&The Z80, Z80N, Z180, Rabbit 2000, Rabbit 2000A, Rabbit 3000A, Rabbit 4000, Rabbit 5000, Rabbit 6000, SM83 (GameBoy), TLCS-90, eZ80, and R800 ports"
 .P
 SDCC can target the Z80\c
 .IND "Z80"
-, Z80N, Z180, eZ80, the Intel 8080 and 8085\c
-.IND "8080"
-, Rabbit 2000, Rabbit 2000A, Rabbit 3000A and LR35902, the Sharp SM83 (used .e.g in the Nintendo GameBoy) sm83\c
+, Z80N, Z180, eZ80, Rabbit 2000, Rabbit 2000A, Rabbit 3000A and LR35902, the Sharp SM83 (used .e.g in the Nintendo GameBoy) sm83\c
 .IND "sm83 (GameBoy Z80)"
 \&.
 .P
@@ -6160,32 +6218,6 @@ When a frame pointer is used, it resides in IX. Register A, B, C, D, E, H, L and
 .P
 When enabling optimizations using \f[CR]\-\-opt\-code\f[R] size and a sufficiently high value for \f[CR]\-\-max\-allocs\-per\-node\f[R] SDCC typically generates much better code for these architectures than many other compilers. A comparison of compilers for these architecture can be found at \c
 .URL "http://sdcc.sourceforge.net/wiki/index.php/Z80_code_size" "" "."
-.H 3 "\&Intel 8080/8085"
-.SETR sub:Intel-8080-8085
-.P
-SDCC supports the Intel 8080 (\-mi8080) and Intel 8085 (\-mi8085) as sub-targets of the Z80 back-end. Both are strict subsets of the Z80: there are no index registers (IX/IY), no relative jumps (JR/DJNZ), no alternate register set (EXX/EX AF,AF'), and none of the ED- or CB-prefixed instructions \- so there are no block moves, no 16-bit ADC/SBC HL, and no bit/shift (BIT/SET/RES/SLA/SRL/...) group. Because there is no index register, a frame pointer cannot reside in IX as it does on the Z80; stack-relative addressing is used instead.
-.P
-The __dynamicc calling convention is not supported on the 8080/8085: it has the caller save IX as a frame pointer, and these processors have no index register (it was a Rabbit/Z180-only convention). Using it results in a diagnostic.
-.P
-By default only documented instructions are emitted. When compiling for the 8085 with \-\-allow-undocumented-instructions\c
-.IND "--allow-undocumented-instructions"
-, the \-mi8085 port additionally exploits the undocumented 8085 instructions and the two undocumented flags (V, overflow; and K/X5, the signed-comparison flag) to generate smaller and faster code. The following undocumented instructions are used:
-.BL
-.LI
-DSUB \- 16-bit subtract HL = HL \- BC.
-.LI
-ARHL \- arithmetic (signed) shift right of HL by one.
-.LI
-RDEL \- rotate DE left through carry (the 16-bit "adc de, de" the 8080/8085 otherwise lack), used in wide left shifts.
-.LI
-LDHI \- DE = HL + immediate, combined with LHLX for 16-bit struct/array member loads.
-.LI
-LDSI \- DE = SP + immediate.
-.LI
-LHLX / SHLX \- load/store HL through a pointer in DE, giving DE a role as a second data pointer.
-.LE
-.P
-The V and K/X5 flags are modelled accurately by the ucsim simulator. The \-mi8080 port never emits undocumented instructions, even with \-\-allow-undocumented-instructions.
 .H 3 "\&Startup Code"
 .P
 On the Z80\c
@@ -6428,7 +6460,7 @@ Pointers to objects that are not __far-qualified objects are represented by thei
 The default crt0 that ships with SDCC uses a 32KB \[lq]Root\[rq] segment followed by a 8KB \[lq]Data\[rq] segment, a 16KB \[lq]Stack\[rq] segment and the 8KB \[lq]XPC\[rq] segment.
 .H 3 "\&Z80, Z180, Z80N and R800 calling conventions"
 .P
-The current default is the SDCC calling convention, version 1. Using the command-line option \[rs][en]sdcccall 0, the default can be changed to version 0. There are four other calling conventions supported, which can be specified using the keywords __smallc, __z88dk_fastcall, __z88dk_callee and __dynamicc. They are primarily intended for compatibility with libraries written for other compilers. For __z88dk_fastcall, there may be only one parameter of at most 32 bits, which is passed the same way as the return value of __sdcccall(0). For __z88dk_callee, the stack is not adjusted for stack parameters the parameters after the call (thus the callee has to do this instead). __z88dk_callee can be combined with __smallc, __sdcccall(0) or __sdcccall(1).
+The current default is the SDCC calling convention, version 1. Using the command-line option \-\&\-sdcccall 0, the default can be changed to version 0. There are four other calling conventions supported, which can be specified using the keywords __smallc, __z88dk_fastcall, __z88dk_callee and __dynamicc. They are primarily intended for compatibility with libraries written for other compilers. For __z88dk_fastcall, there may be only one parameter of at most 32 bits, which is passed the same way as the return value of __sdcccall(0). For __z88dk_callee, the stack is not adjusted for stack parameters the parameters after the call (thus the callee has to do this instead). __z88dk_callee can be combined with __smallc, __sdcccall(0) or __sdcccall(1).
 .H 4 "\&Z80 SDCC calling convention, version 1"
 .P
 This calling convention can be chosen per function via __sdcccall(1). 8-bit return values are passed in a, 16-bit values in de, 24-bit values in lde, 32-bit values in hlde. Larger return values (as well as struct and union independent of their size) are passed in memory in a location specified by the caller through a hidden pointer argument.
@@ -6520,7 +6552,7 @@ If __z88dk_callee is not used, after the call, the stack parameters are cleaned 
 This calling convention can be chosen per function via __sdcccall(0). All parameters are passed on the stack, right-to-left. 8-bit return values are passed in l, 16-bit values in hl, 24-bit values in ehl, 32-bit values in dehl. Except for the SM83, where 8-bit values are passed in e, 16-bit values in de, 32-bit values in hlde. Larger return values (as well as struct and union independent of their size) are passed in a memory in a location specified by the caller through a hidden pointer argument. Unless __z88dk_callee is used, all stack parameters are cleaned up by the caller.
 .H 3 "\&Rabbit 2000, Rabbit 2000A, Rabbit 3000A, Rabbit 4000, Rabbit 5000, Rabbit 6000, eZ80 and TLCS-90 calling conventions"
 .P
-The current default is the Rabbit calling convention described here, version 1. Using the command-line option \[rs][en]sdcccall 8, the default can be changed to version 0 of the Z80 calling convention, described above. There are four other calling conventions supported, which can be specified using the keywords __smallc, __z88dk_fastcall, __z88dk_callee and __dynamicc. They are primarily intended for compatibility with libraries written for other compilers. For __z88dk_fastcall, there may be only one parameter of at most 32 bits, which is passed the same way as the return value. For __z88dk_callee, the stack is not adjusted for stack parameters the parameters after the call (thus the callee has to do this instead). __z88dk_callee can be combined with __smallc, __sdcccall(0) or __sdcccall(1).
+The current default is the Rabbit calling convention described here, version 1. Using the command-line option \-\&\-sdcccall 8, the default can be changed to version 0 of the Z80 calling convention, described above. There are four other calling conventions supported, which can be specified using the keywords __smallc, __z88dk_fastcall, __z88dk_callee and __dynamicc. They are primarily intended for compatibility with libraries written for other compilers. For __z88dk_fastcall, there may be only one parameter of at most 32 bits, which is passed the same way as the return value. For __z88dk_callee, the stack is not adjusted for stack parameters the parameters after the call (thus the callee has to do this instead). __z88dk_callee can be combined with __smallc, __sdcccall(0) or __sdcccall(1).
 .H 4 "\&Rabbit SDCC calling convention, version 1"
 .P
 This calling convention can be chosen per function via __sdcccall(1). 8-bit return values are passed in a, 16-bit values in hl, 24-bit values in lde, 32-bit values in hlde. Larger return values (as well as struct and union independent of their size) are passed in memory in a location specified by the caller through a hidden pointer argument.
@@ -6613,7 +6645,7 @@ spline -> from D1.SE to (4.5, -1.2) then to E2.n + (0.1, 0); " Yes" ljust at (4.
 If __z88dk_callee is not used, after the call, the stack parameters are cleaned up by the caller, with the following exceptions: functions that do not have variable arguments and return void or a type of at most 16 bits, or have both a first parameter of type float and a return value of type float.
 .H 3 "\&SM83 calling conventions"
 .P
-The current default is the SDCC calling convention, version 1. Using the command-line option \[rs][en]sdcccall 0, the default can be changed to version 0. There is another calling conventions supported, which can be specified using the keyword __dynamicc.
+The current default is the SDCC calling convention, version 1. Using the command-line option \-\&\-sdcccall 0, the default can be changed to version 0. There is another calling conventions supported, which can be specified using the keyword __dynamicc.
 .H 4 "\&SM83 SDCC calling convention, version 1"
 .P
 This calling convention can be chosen per function via __sdcccall(1).
@@ -6696,12 +6728,14 @@ The Z80 and some derivatives support complex instructions, such as ldir, cpir, .
 Depending on the target, code generation options and the parameters to the call, SDCC emits ldir or ldi for memcpy(), ldir or lsidr for memset(), ldi or ldir for strcpy(), ldi for strncpy(). Other library functions use the complex instructions as well, but for those, function calls are generated.
 .H 3 "\&Unsafe reads"
 .P
-Usually, Z80-based systems (except for the SM83 and TLCS-90) have separate I/O and memory spaces, and any normal memory location can be read without side-effects. For such systems, the option \[rs][en]allow-unsafe-reads can be used to enable some extra optimizations that rely on this.
+Usually, Z80-based systems (except for the SM83 and TLCS-90) have separate I/O and memory spaces, and any normal memory location can be read without side-effects. For such systems, the option \-\&\-allow-unsafe-reads can be used to enable some extra optimizations that rely on this.
 .H 3 "\&Z80 banked calls"
 .P
 Banked calls are supported via __banked. Banked calls are done via a trampoline (__sdcc_bcall if \-\-legacy-banking is specified, __sdcc_bcall_abc for z88dk_fastcall, __sdcc_bcall_ehl for other calls). Default trampolines are provided in the library. The default trampolines calls user supplied helper functions set_bank and get_bank that set the current bank to the value in register a, or return the current bank in register a.
 .P
 For banked functions, the calling convention is slightly different: the stack is always cleared up by the caller. Unless __z88dk_fastcall is used, all parameters are passed on the stack.
+.P
+On the SM83, the code of a banked Game Boy ROM goes in areas named _CODE_<n>. aslink does not place these at their bank addresses, as the old sdldgb linker did; it lays them out one after another, without a warning. Banked Game Boy ROMs therefore cannot at present be built with SDCC.
 .H 3 "\&Side channels"
 .P
 The command line option and pragma to avoid the introduction of side channels are supported in the backend. However, some side channels remain even when using it; these include:
@@ -6715,6 +6749,103 @@ Comparisons can leak operand data in the sm83 backend.
 .LI
 Floating-point operations (except unary minus) can leak operand data.
 .LE
+.H 2 "\&The Intel 8080 and 8085 ports"
+.SETR sec:Intel-8080-8085
+.IND "8080"
+.IND "8085"
+.P
+SDCC targets the Intel 8080 with \-mi8080\c
+.IND "-mi8080"
+ and the Intel 8085 with \-mi8085\c
+.IND "-mi8085"
+\&. The two ports share one back-end, and without \-\&\-allow-undocumented-instructions they generate the same code. They differ in the instructions the assembler accepts, which matters for inline assembler (RIM and SIM are 8085 instructions), and in the library they link: lib/i8080, lib/i8085, or lib/i8085-undoc when the undocumented instructions are allowed. The ports are tested on the ucsim_i8085 simulator\c
+.IND "ucsim_i8085 (simulator)"
+\&.
+.P
+The compiler writes Intel mnemonics (MOV, MVI, LXI, DAD and so on) for the ASxxxx assembler as8085, with # before an immediate operand, and inline or hand-written assembler uses the same syntax. Each module begins with a .8080, .8085 or .8085x directive, which selects the instruction set as8085 accepts, and an .abi line naming the target and the calling convention, which aslink compares across modules so that incompatible modules are not linked together.
+.P
+There is no index register, so a function's locals and parameters are addressed relative to SP (LXI H,#n then DAD SP) and there is no frame pointer.
+.H 3 "\&Options"
+.VL 18n
+.LI "\f[B]\-\&\-allow-undocumented-instructions\f[R]"
+\c
+.IND "--allow-undocumented-instructions"
+Use the undocumented 8085 instructions where they make the code smaller or faster (see below). Ignored for \-mi8080.
+.LI "\f[B]\-\&\-sdcccall\f[R]\ <Value>"
+\c
+.IND "--sdcccall <Value>"
+The default calling convention: 1 (the default) or 0. See below.
+.LI "\f[B]\-\&\-callee-saves-bc\f[R]"
+\c
+.IND "--callee-saves-bc"
+Every function saves and restores BC if it uses it, so a caller can keep a value in BC across a call.
+.LI "\f[B]\-\&\-no-std-crt0\f[R]"
+\c
+.IND "--no-std-crt0"
+Do not link the standard crt0.rel; see section \c
+.GETHN subsec:Intel-8080-8085-Startup Rf89
+.Rd Rf89
+\*[Rf89].
+.LI "\f[B]\-\&\-codeseg\f[R]\ <Name>, \f[B]\-\&\-constseg\f[R]\ <Name>, \f[B]\-\&\-dataseg\f[R]\ <Name>"
+The names of the code, constant and data areas.
+.LI "\f[B]\-\&\-emit-externs\f[R]"
+\c
+.IND "--emit-externs"
+Declare every external symbol in the generated assembler source.
+.LI "\f[B]\-\&\-asm=asxxxx\f[R]"
+The assembler syntax; ASxxxx is the only one.
+.LE
+.P
+\-\&\-code-loc\c
+.IND "--code-loc <Value>"
+ and \-\&\-data-loc\c
+.IND "--data-loc <Value>"
+ set the start of the code and data areas; the defaults are 0x0200 and 0x8000.
+.H 3 "\&Undocumented 8085 instructions"
+.P
+By default only documented instructions are emitted. With \-\&\-allow-undocumented-instructions\c
+.IND "--allow-undocumented-instructions"
+, the \-mi8085 port also uses seven of the 8085's undocumented instructions:
+.BL
+.LI
+DSUB \- 16-bit subtract, HL = HL \- BC.
+.LI
+ARHL \- arithmetic (signed) shift right of HL by one.
+.LI
+RDEL \- rotate DE left through carry, used in wide left shifts.
+.LI
+LDHI \- DE = HL + an 8-bit immediate, combined with LHLX for 16-bit struct and array member loads.
+.LI
+LDSI \- DE = SP + an 8-bit immediate.
+.LI
+LHLX / SHLX \- load or store HL through a pointer in DE.
+.LE
+.P
+In inline assembler, as8085 then also accepts the other three, RSTV and the jumps on the undocumented K flag, JX5 and JNX5; without the option it refuses all ten. The V (overflow) and K/X5 flags are modelled by the ucsim simulator. The \-mi8080 port never emits undocumented instructions.
+.H 3 "\&Calling conventions"
+.P
+The default is the SDCC calling convention, version 1. With \-\&\-sdcccall 0 the default is version 0, and either can be chosen for one function with __sdcccall(0) or __sdcccall(1). __smallc, __z88dk_fastcall and __z88dk_callee are supported as well; __dynamicc is refused with an error. For __z88dk_fastcall there may be only one parameter, of at most 32 bits, which is passed in L, HL or DEHL, and the return value is passed as for version 0.
+.H 4 "\&SDCC calling convention, version 1"
+.P
+For functions that have variable arguments, all parameters are passed on the stack. Otherwise the first parameter is passed in A if it has 8 bits, in HL if it has 16 bits and in HLDE if it has 32 bits; if the first is in A and the second has 8 bits, the second is passed in L. All other parameters are passed on the stack, right-to-left. Independent of their size, struct / union parameters and all following parameters are always passed on the stack.
+.P
+8-bit return values are passed in A, 16-bit values in DE, 24-bit values in LDE and 32-bit values in HLDE. Larger return values, and struct and union independent of their size, are passed in memory at a location given by the caller through a hidden pointer argument.
+.P
+Unless __z88dk_callee is used, the stack parameters are cleaned up by the caller, with the following exceptions: functions that do not have variable arguments and return void or a type of at most 16 bits, or have both a first parameter of type float and a return value of type float, clean up their own.
+.H 4 "\&SDCC calling convention, version 0"
+.P
+All parameters are passed on the stack, right-to-left. 8-bit return values are passed in L, 16-bit values in HL, 24-bit values in EHL and 32-bit values in DEHL; larger return values, and struct and union, as for version 1. Unless __z88dk_callee is used, the stack parameters are cleaned up by the caller.
+.H 3 "\&Startup Code"
+.SETR subsec:Intel-8080-8085-Startup
+.P
+The startup code is crt0.rel, made from sdcc/device/lib/i8080/crt0.s or sdcc/device/lib/i8085/crt0.s and linked first. At the reset vector, address 0, it jumps to 0x100, where it sets SP to the top of memory, clears the uninitialised data, copies the initial values of initialised data from code memory, runs each module's static initialisation and calls main. If main returns, interrupts are disabled and the processor halts.
+.P
+The interrupt vectors are not set up: to use interrupts, copy crt0.s, add a jump to each handler at its vector (for example 0x3C for RST 7.5, or 0x24 for TRAP), assemble it with \f[HB]as8085 \-plosgff crt0.s\f[R] and link it with \-\&\-no-std-crt0\c
+.IND "--no-std-crt0"
+, listing your crt0.rel first.
+.H 3 "\&Interrupt Service Routines"
+.P
+A function declared __interrupt saves the registers it uses and returns with RET. Interrupts are re-enabled with EI as the function starts, so a higher priority interrupt can interrupt it; a __critical __interrupt function runs with interrupts disabled and executes EI just before its RET. The interrupt number is not used, since SDCC does not generate the vector table. A __critical function or block that is not an interrupt handler disables interrupts with DI and enables them with EI when it ends, whether or not they were enabled before.
 .H 2 "\&The HC08 and S08 ports"
 .P
 The port to the Freescale/Motorola HC08\c
@@ -6738,9 +6869,21 @@ Shift operations can leak right operand data.
 Floating-point operations (except unary minus) can leak operand data.
 .LE
 .H 2 "\&The STM8 port"
+.H 3 "\&Startup Code"
+.SETR subsec:STM8-Startup-Code
+.P
+The STM8\c
+.IND "STM8"
+ startup code is crt0.rel, made from sdcc/device/lib/stm8/crt0.s (and stm8-large/crt0.s for \-\&\-model-large). The compiler writes the interrupt vector table into the module holding main, with the reset vector pointing at the crt0's __sdcc_gs_init_startup. The crt0 calls __sdcc_external_startup() and, unless that returns non-zero, clears the uninitialised data and copies the initial values of initialised data from flash; then each module's static initialisation runs and main is called. The startup code runs first whatever the order the modules are linked in.
+.P
+SP is left at the device's reset value. With \-\&\-stack-loc\c
+.IND "--stack-loc <Value>"
+, the reset vector points instead at a short piece of code after the vector table that loads SP and jumps to __sdcc_gs_init_startup. To use different startup code, compile with \-\&\-no-std-crt0\c
+.IND "--no-std-crt0"
+ and link your own crt0.rel, which must define __sdcc_gs_init_startup.
 .H 3 "\&Calling conventions"
 .P
-By default, the SDCC calling convention, version 1 is used. Using the option \[rs][en]sdcccall 0, the default can be changed to version 0.
+By default, the SDCC calling convention, version 1 is used. Using the option \-\&\-sdcccall 0, the default can be changed to version 0.
 .P
 Arguments are passed on the stack right-to-left. Return values are in a (8 bit), x (16 bit), xyl (24 bit), xy (32 bit) or use a hidden extra pointer parameter pointing to the location (anything wider than 32 bit, and all struct / union).
 .H 4 "\&SDCC calling convention, version 1"
@@ -6824,17 +6967,20 @@ On the MOS6502\c
 ISR can be written in C using SDCC. However, to hook interrupts is necessary to customize crt0.asm and have the interrupt vectors point to the C functions.
 .H 3 "\&Reentrancy"
 .P
-Due to the very limited stack space, the MOS6502 port by default generates non-reentrant code. Re-entrant functions should be declared using the __reentrant keyword. Alternatively the entire program can be compiled using \[rs][en]stack-auto. On the MOS6502 re-entrant code is, in general, much less efficient.
+Due to the very limited stack space, the MOS6502 port by default generates non-reentrant code. Re-entrant functions should be declared using the __reentrant keyword. Alternatively the entire program can be compiled using \-\&\-stack-auto. On the MOS6502 re-entrant code is, in general, much less efficient.
 .H 3 "\&Code and Data placement"
 .P
 The compiler can pass segment location to the linker. On the MOS6502 the following switches are supported:
 .P
-\[rs][en]code-loc: start address of the code segment
+\-\&\-code-loc: start address of the code segment
 .P
-\[rs][en]data-loc: start address of the zero page
+\-\&\-data-loc: start address of the zero page
 .P
-\[rs][en]xram-loc: start address of the data segment
+\-\&\-xram-loc: start address of the data segment
 .H 2 "\&The PDK13, PDK14, PDK15 ports"
+.H 3 "\&Memory limits"
+.P
+Every module declares the part's RAM and ROM sizes to the linker, so a program too big for either fails to link, with an aslink error naming the area that overflows. Objects placed with __at, and SFRs, at an address the part does not have are errors too. The startup code is written by the compiler, into the module holding main; there is no crt0.
 .H 3 "\&Side channels"
 .P
 The command line option and pragma to avoid the introduction of side channels are supported in the backend. However, some side channels remain even when using it; these include:
@@ -6853,6 +6999,7 @@ Comparisons can leak operand data.
 Floating-point operations (except unary minus) can leak operand data.
 .LE
 .H 2 "\&The PIC14 port"
+.SETR sec:PIC14
 .IND "PIC14"
 .P
 The PIC14 port adds support for Microchip\c
@@ -7147,6 +7294,8 @@ The PIC14 library currently only contains support routines required by the compi
 SDCC/PIC14 has experimental support for devices with the enhanced 14-bit cores (such as pic12f1822). Due to differences in required code, the libraries provided with SDCC (\f[CR]libm.lib\f[R] and \f[CR]libsdcc.lib\f[R]) are now provided in two variants: \f[CR]libm.lib\f[R] and \f[CR]libsdcc.lib\f[R] are compiled for the regular, non-enhanced devices. \f[CR]libme.lib\f[R] and \f[CR]libsdcce.lib\f[R] (note the trailing '\f[CR]e\f[R]') are compiled for enhanced devices. When linking manually, make sure to select the proper variant!
 .P
 When SDCC is used to invoke the linker, SDCC will automatically select the \f[CR]libsdcc.lib\f[R]\-variant suitable for the target device. However, no such magic has been conjured up for \f[CR]libm.lib\f[R]!
+.P
+On enhanced cores the address of an object in program memory carries bit 15 (0x8000), which is where FSR reads program memory, so a pointer initialised with the address compares equal to one computed in code. An integer constant cast to a __code pointer is taken as written.
 .H 4 "\&Accessing bits of special function registers"
 .P
 Individual bits within SFRs can be accessed either using \f[CR]<sfrname>bits.<bitname>\f[R] or using a shorthand \f[CR]<bitname>\f[R], which is defined in the respective device header for all \f[CR]<bitname>\f[R]s. In order to avoid polluting the global namespace with the names of all the bits, you can \f[CR]#define NO_BIT_DEFINES\f[R] before inclusion of the device header file.
@@ -7166,14 +7315,42 @@ This warning can usually be ignored due to the very good compatibility amongst 1
  devices.
 .P
 You might also consider recompiling the library for your specific device by changing the ARCH=p16f877 (default target) entry in \f[CR]device/lib/pic/Makefile.in\f[R] and \f[CR]device/lib/pic/Makefile\f[R] to reflect your device. This might even improve performance for smaller devices as unnecessary BANKSELs might be removed.
+.H 3 "\&Programs the port refuses"
+.P
+The PIC14 has no data stack: each function's parameters and locals are in static storage, and the return addresses are on a hardware stack of 8 levels (16 on enhanced cores). A program that would not run correctly under these limits is refused with an error, rather than built:
+.BL
+.LI
+__reentrant functions (error 373) and \-\&\-stack-auto (374);
+.LI
+recursion (375), within a module or, at link time, across modules or through function pointers;
+.LI
+variable arguments in a call through a function pointer (372);
+.LI
+a variable placed with __at on a core register that is mirrored in every bank, such as INDF or STATUS (386).
+.LE
+.P
+When sdcc runs the link, it first reads the objects and the library modules they need, builds the call graph and refuses a program in which
+.BL
+.LI
+the deepest chain of calls, with the interrupt handler's on top, needs more levels than the hardware stack has (376, with the chain);
+.LI
+a function (377) or a table of constants (378) is bigger than a code page;
+.LI
+a module's locals (379) or variables (380) are bigger than a RAM bank, or the program does not fit program memory (381) or RAM (382);
+.LI
+a function with static storage is reached from both the interrupt handler and the main program (383), two functions of a module that share locals reach each other through another module (384), or the interrupt handler and the main program share locals (385).
+.LE
+.P
+The page, bank and memory sizes are taken from gplink's linker script for the device. Programs linked by running gplink directly are not checked.
 .H 3 "\&Known Bugs"
 .H 4 "\&Function arguments"
 .P
-Functions with variable argument lists (like printf) are not yet supported. Similarly, taking the address of the first argument passed into a function does not work: It is currently passed in WREG and has no address...
+Functions with variable argument lists (like printf) are supported. The variable arguments go in a static area of the called function, so, like any PIC14 function, a variadic function is not reentrant.
 .H 4 "\&Regression tests fail"
 .P
-Though the small subset of regression tests in src/regression passes, SDCC regression test suite does not, indicating that there are still major bugs in the port. However, many smaller projects have successfully used SDCC in the past...
+The SDCC regression test suite runs on the PIC16F877 and, for the enhanced core, the PIC16F1788, under gpsim; several hundred of its test cases still fail, so there are still bugs in the port. However, many smaller projects have successfully used SDCC in the past...
 .H 2 "\&The PIC16 port"
+.SETR sec:PIC16
 .IND "PIC16"
 .P
 The PIC16 port adds support for Microchip\c
@@ -8105,18 +8282,26 @@ Generic pointers are implemented in PIC16 port as 3-byte (24-bit) types. There a
 .TK
 .TS
 center tab(	);
-| c | c | c | c c |
-| c | c | c | c c |
-| c | c | c | c c |
-| c | c | c | c c |
-| c | c | c | c c |.
+| c | c | c | c | lw(5c) |
+| c | c | c | c | lw(5c) |
+| c | c | c | c | lw(5c) |
+| c | c | c | c | lw(5c) |
+| c | c | c | c | lw(5c) |.
 _
 pointer type	7th bit	6th bit	rest of the pointer	description
 _
-data	1	0	\f[CI]uuuuuu uuuuxxxx xxxxxxxx\f[R]	a 12-bit data pointer in data RAM memory
-code	0	0	\f[CI]uxxxxx xxxxxxxx xxxxxxxx\f[R]	a 21-bit code pointer in FLASH memory
-eeprom	0	1	\f[CI]uuuuuu uuuuuuxx xxxxxxxx\f[R]	a 10-bit eeprom pointer in EEPROM memory
-(unimplemented)	1	1	\f[CI]xxxxxx xxxxxxxx xxxxxxxx\f[R]	unimplemented pointer type
+data	1	0	\f[CI]uuuuuu uuuuxxxx xxxxxxxx\f[R]	T{
+a 12-bit data pointer in data RAM memory
+T}
+code	0	0	\f[CI]uxxxxx xxxxxxxx xxxxxxxx\f[R]	T{
+a 21-bit code pointer in FLASH memory
+T}
+eeprom	0	1	\f[CI]uuuuuu uuuuuuxx xxxxxxxx\f[R]	T{
+a 10-bit eeprom pointer in EEPROM memory
+T}
+(unimplemented)	1	1	\f[CI]xxxxxx xxxxxxxx xxxxxxxx\f[R]	T{
+unimplemented pointer type
+T}
 _
 .TE
 .TKE
@@ -8180,12 +8365,14 @@ The FILE type is actually a generic pointer which defines one more type of gener
 .TK
 .TS
 center tab(	);
-| c | c | c | c | c | c c |
-| c | c | c | c | c | c c |.
+| c | c | c | c | c | c | lw(5c) |
+| c | c | c | c | c | c | lw(5c) |.
 _
-pointer type	<7:6>	<5>	<4>	<3:0>	rest of the pointer	descrption
+pointer type	<7:6>	<5>	<4>	<3:0>	rest of the pointer	description
 _
-stream	00	1	0	nnnn	\f[CI]uuuuuuuu uuuuuuuu\f[R]	upper byte high nubble is 0x2n, the rest are zeroes
+stream	00	1	0	nnnn	\f[CI]uuuuuuuu uuuuuuuu\f[R]	T{
+upper byte high nibble is 0x2n, the rest are zeroes
+T}
 _
 .TE
 .TKE
@@ -8363,7 +8550,7 @@ do not place a colon (;) at the end of the DEF_* and END_DEF macros.
 .LI
 when declaring SIGHANDLERNAKED handler never forget to use \f[I]retfie\f[R] for proper returning.
 .LE
-.H 3 "\&PIC16 Port \[rs][en] Tips"
+.H 3 "\&PIC16 Port \[en] Tips"
 .P
 Here you can find some general tips for compiling programs with SDCC/pic16.
 .H 4 "\&Stack size"
@@ -8416,12 +8603,12 @@ run a syntax-checking tool like splint\c
 \c
 .IND "lint (syntax checking tool)"
  (see \-\&\-more-pedantic \c
-.GETHN lyx:more-pedantic-SPLINT Rf62
+.GETHN opt:more-pedantic-SPLINT Rf62
 .Rd Rf62
 \*[Rf62]) over the code.
 .LI
 for the high level code use a C-compiler (like f.e. GCC) to compile run and debug the code on your host. See (see \-\&\-more-pedantic \c
-.GETHN lyx:more-pedantic-SPLINT Rf63
+.GETHN opt:more-pedantic-SPLINT Rf63
 .Rd Rf63
 \*[Rf63]) on how to handle syntax extensions like __xdata, __at(), ...
 .LI
@@ -8733,7 +8920,7 @@ The following is a list of key mapping for the debugger interface.
 ;;\f[R]
 .H 2 "\&Debugging with other debuggers (e.g. GDB): ELF / DWARF"
 .P
-For some ports, SDCC can create ELF binaries with DWARF debug information. This can e.g. be used for on-target debugging on STM8 using OpenOCD and GDB. To do so, compile with \[rs][en]debug \[rs][en]out-fmt-elf. Note that \[rs][en]out-fmt-elf needs to be specified both when compiling (to generate the debug info in DWARF rather than CDB format) and linking (to get an ELF binary instead of Intel Hex).
+For the HC08, S08 and STM8 ports, SDCC can create ELF binaries with DWARF debug information; aslink writes the ELF file. This can e.g. be used for on-target debugging on STM8 using OpenOCD and GDB. To do so, compile with \-\&\-debug \-\&\-out-fmt-elf. Note that \-\&\-out-fmt-elf needs to be specified both when compiling (to generate the debug info in DWARF rather than CDB format) and linking (to get an ELF binary instead of Intel Hex).
 .H 1 "\&TIPS"
 .P
 Here are a few guidelines that will help the compiler generate more efficient code, some of the tips are specific to this compiler others are generally good programming practice.
@@ -8904,7 +9091,7 @@ tab(	);
 _
 \f[B]Name\f[R]	\f[B]Purpose\f[R]	\f[B]Directory\f[R]
 _
-as2gbmap.py	sdas map to rrgb map and no$gmb sym file format converter	sdcc/support/scripts
+as2gbmap.py	aslink map to rrgb map and no$gmb sym file format converter	sdcc/support/scripts
 _
 cinc2h.pl	gpasm inc to c header file converter	sdcc/support/scripts
 _
@@ -8941,31 +9128,25 @@ pic18fam-h-gen.pl	helper to realization of peripheral-handling (PIC16)	sdcc/supp
 _
 repack_release.sh	repack sdcc to release package	sdcc/support/scripts
 _
-sdas390	assembler	sdcc/bin
+T{
+as8051, as8xcxxx,
+.br
+asz80, asez80, asrab,
+.br
+astlcs90, asgb, as8085,
+.br
+as6808, as6500, asst8,
+.br
+aspdk13, aspdk14, aspdk15
+T}	ASxxxx assemblers (built from vendor/asxxxx)	sdcc/bin
 _
-sdas6808	assembler	sdcc/bin
-_
-sdas6500	assembler	sdcc/bin
-_
-sdas8051	assembler	sdcc/bin
-_
-sdasgb	assembler	sdcc/bin
-_
-sdasz80	assembler	sdcc/bin
+aslink	ASxxxx linker (built from vendor/asxxxx)	sdcc/bin
 _
 sdcc_cygwin_mingw32	cross compile the sdcc with mingw32 under Cygwin	sdcc/support/scripts
 _
 sdcc_mingw32	cross compile the sdcc with mingw32	sdcc/support/scripts
 _
 SDCDB	simulator	sdcc/bin
-_
-sdld	linker	sdcc/bin
-_
-sdld6808	linker	sdcc/bin
-_
-sdldgb	linker	sdcc/bin
-_
-sdldz80	linker	sdcc/bin
 _
 T{
 uCsim\c
@@ -9017,22 +9198,22 @@ sdcc/Changelog \f[I]\ \ \ \|online at:\f[R]\c
 T}
 _
 T{
-ASXXXX\c
-.IND "sdas (sdasgb, sdas6808, sdas8051, sdasz80)"
+ASxxxx\c
+.IND "ASxxxx (assemblers)"
 \c
 .IND "Assembler documentation"
- Assemblers and\c
+ Cross Assemblers and\c
 .br
-ASLINK\c
-.IND "sdld"
+ASlink\c
+.IND "aslink (linker)"
 \c
 .IND "Linker documentation"
  Relocating Linker
 T}	T{
-sdcc/sdas/doc/asmlnk.txt \f[I]\ \ \ \|online at:\f[R]\c
+vendor/asxxxx/asxdoc/asmlnk.txt \f[I]\ \ \ \|online at:\f[R]\c
 .br
 \c
-.URL "http://svn.code.sf.net/p/sdcc/code/trunk/sdcc/sdas/doc/asmlnk.txt" ""
+.URL "https://shop-pdp.net/ashtml/" ""
 T}
 _
 T{
@@ -9336,7 +9517,7 @@ splint\c
 .IND "splint (syntax checking tool)"
 T}	T{
 Statically checks c sources (see \c
-.GETHN lyx:more-pedantic-SPLINT Rf72
+.GETHN opt:more-pedantic-SPLINT Rf72
 .Rd Rf72
 \*[Rf72])
 T}	T{
@@ -9740,7 +9921,7 @@ over assembly programming, to C to FPGA compilers (FPGAC \c
 .URL "http://sourceforge.net/projects/fpgac/" "" ")"
 and to C.
 .LI
-be able to insert excursions about skills like using a revision control system, submitting/applying patches, using a type-setting (as opposed to word-processing) engine LyX/LaTeX, using SourceForge \c
+be able to insert excursions about skills like using a revision control system, submitting/applying patches, using a type-setting (as opposed to word-processing) engine such as groff or LaTeX, using SourceForge \c
 .URL "http://sourceforge.net/" "" ","
 following some netiquette \c
 .URL "http://en.wikipedia.org/wiki/Netiquette" "" ","
@@ -10266,7 +10447,7 @@ Again, variations of these cases may \f[I]not\f[R] be recognized. They are stand
 will still be recognized.
 .H 3 "\&Placement of Bank-Selection Instructions"
 .P
-For non-intrinsic named address spaces, SDCC will place the bank selection instructions optimally. For details see Philipp Klaus Krause, \[lq]Optimal Placement of Bank Selection Instructions in Polynomial Time\[rq], Proceedings of the 16th International Workshop on Software and Compilers for Embedded Systems, M-SCOPES \[rs][cq]13, pp 23\[rs][en]30. Association for Computing Machinery, 2013.
+For non-intrinsic named address spaces, SDCC will place the bank selection instructions optimally. For details see Philipp Klaus Krause, \[lq]Optimal Placement of Bank Selection Instructions in Polynomial Time\[rq], Proceedings of the 16th International Workshop on Software and Compilers for Embedded Systems, M-SCOPES \[cq]13, pp 23\[en]30. Association for Computing Machinery, 2013.
 .H 3 "\&Lifetime-Optimal Speculative Partial Redundancy Elimination"
 .P
 SDCC has an implementation of lifetime-optimal speculative partial redundancy elimination based on tree-decompositions.
@@ -10278,7 +10459,7 @@ SDCC currently has two register allocators. One of them is optimal when optimizi
 .P
 It first creates a tree-decomposition of the control-flow graph, and then uses dynamic programming bottom-up along the tree-decomposition. Optimality is achieved through the use of a cost function, which gives cost for instructions under register assignments. The cost function is target-specific and has to be implemented for each port; in all current SDCC ports the cost function is integrated into code generation.
 .P
-For more details on how this register allocator works, see: Philipp Klaus Krause, \[lq]Optimal Register Allocation in Polynomial Time\[rq], Compiler Construction \- 22nd International Conference, CC 2013, Held as Part of the European Joint Conferences on Theory and Practice of Software, ETAPS 2013. Proceedings, Lecture Notes in Computer Science, volume 7791, pp. 1-20. Springer, 2013. Also: Philipp Klaus Krause, \[lq]Bytewise Register Allocation\[rq], Proceedings of the 18th International Workshop on Software and Compilers for Embedded Systems, SCOPES \[rs][cq]15, pp 22\[rs][en]27. Association for Computing Machinery, 2015.
+For more details on how this register allocator works, see: Philipp Klaus Krause, \[lq]Optimal Register Allocation in Polynomial Time\[rq], Compiler Construction \- 22nd International Conference, CC 2013, Held as Part of the European Joint Conferences on Theory and Practice of Software, ETAPS 2013. Proceedings, Lecture Notes in Computer Science, volume 7791, pp. 1-20. Springer, 2013. Also: Philipp Klaus Krause, \[lq]Bytewise Register Allocation\[rq], Proceedings of the 18th International Workshop on Software and Compilers for Embedded Systems, SCOPES \[cq]15, pp 22\[en]27. Association for Computing Machinery, 2015.
 .H 3 "\&Peephole Optimizer"
 .SETR subsec:Peephole-Optimizer
 .IND "Peephole optimizer"
@@ -11085,11 +11266,11 @@ Finally the code generated for this function:\c
 .P
 \s[-2]; sample.c 5\s[0]
 .P
-\s[-2]; \[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\-\s[0]
+\s[-2]; \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\s[0]
 .P
 \s[-2]; function function\s[0]
 .P
-\s[-2]; \[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\[rs][em]\-\s[0]
+\s[-2]; \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\s[0]
 .P
 \s[-2]_function:\s[0]
 .P
@@ -11373,10 +11554,11 @@ To avoid confusion, the installation and building options for SDCC itself (chapt
 .P
 .\" The index.  The first pass writes the raw entries to sdccman.ind;
 .\" mkindex.awk merges them into sdccman.idx, which the second pass sets.
+.\" Two columns, except in plain text, where they are too narrow.
 .de TYIND
 .SK
 .HU "Index"
-.2C
+.if !n .2C
 .nf
 ..
 .if !\n[Ref] .ds ind*file sdccman.idx

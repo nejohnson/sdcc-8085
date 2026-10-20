@@ -9,7 +9,7 @@ Ordered by size, not priority.
 
 ---
 
-## Removing sdas and sdld from the tree (2026-10-17) - DONE 2026-10-19, but the manual
+## Removing sdas and sdld from the tree (2026-10-17) - DONE 2026-10-19; manual 2026-10-20
 
 Neil's goal: build every port with vendor ASxxxx (and gputils for
 PIC, which never used sdas), and delete `sdcc/sdas`.  State on
@@ -43,11 +43,14 @@ and steps:
   installer and MSVC files are gone; comments that compared against
   sdas/sdld now describe ASxxxx.  sdbinutils was *not* removed:  sdcpp
   builds against its libiberty.
-- Still to do:  the manual.  `doc/sdccman.lyx` describes sdas and sdld
-  in about 52 places - the tool list, options, library format, the
-  asmlnk.txt pointers - and none of it has been rewritten yet.
+- The manual:  DONE 2026-10-20, on `docs/groff-manual`.  It is groff
+  now (`doc/sdccman.mm`), and describes the ASxxxx tools, aslink's
+  library format, the vendor asmlnk.txt, and the other changes below.
 
-sdld features with no vendor equivalent:  the memory-usage summary (`lkmem.c`), and reading `ar`/sdcclib archives.
+sdld features with no vendor equivalent:  the memory-usage summary
+(`lkmem.c`), which is also where the 8051 `--code-size`, `--xram-size`
+and `--stack-size` checks were made - sdcc still accepts the options and
+nothing checks them; and reading `ar`/sdcclib archives.
 ELF output, AOMF51 output and the Padauk RAM/ROM size checks were three
 more; all are covered as of 2026-10-17 (aslink `-e` and `-yo`, and
 `.bank` sizes).

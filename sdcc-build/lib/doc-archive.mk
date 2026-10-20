@@ -62,14 +62,14 @@ doc-archive-build-archives: $(addprefix $(_DOC_ARCHIVE_SRC_DIR)/,*.txt *.html *.
 	mkdir -p $(_DOC_ARCHIVE_TARBALL_DIR)
 	rm -rf $(_DOC_ARCHIVE_BUILDDIR)
 	mkdir -p $(_DOC_ARCHIVE_BUILDDIR)/doc/ucsim
-	mkdir -p $(_DOC_ARCHIVE_BUILDDIR)/doc/sdas
+	mkdir -p $(_DOC_ARCHIVE_BUILDDIR)/doc/as
 	# copy to build directory (sdccman.pdf used to be *.pdf below, which resulted in intermediate files being included in the documentation tarball (bug #3345))
 	cd $(_DOC_ARCHIVE_SRC_DIR); \
 	ls *.txt > /dev/null 2>&1 && cp -rpf *.txt $(_DOC_ARCHIVE_BUILDDIR)/doc; \
 	ls *.html > /dev/null 2>&1 && cp -rpf *.html $(_DOC_ARCHIVE_BUILDDIR)/doc; \
 	ls sdccman.pdf > /dev/null 2>&1 && cp -rpf sdccman.pdf $(_DOC_ARCHIVE_BUILDDIR)/doc
 	cd $(_DOC_ARCHIVE_ORIG_DIR); \
-	cp -rpf sdas/doc/* $(_DOC_ARCHIVE_BUILDDIR)/doc/sdas/; \
+	cp -rpf ../vendor/asxxxx/asxdoc/* $(_DOC_ARCHIVE_BUILDDIR)/doc/as/; \
 	cp -pf doc/*.txt doc/*.html $(_DOC_ARCHIVE_BUILDDIR)/doc; \
 	cp -pf ChangeLog $(_DOC_ARCHIVE_BUILDDIR)/doc/ChangeLog.txt
 	cd $(_DOC_ARCHIVE_ORIG_DIR)/sim/ucsim/docs; cp -rpf *.html *.jpg *.fig $(_DOC_ARCHIVE_BUILDDIR)/doc/ucsim/
