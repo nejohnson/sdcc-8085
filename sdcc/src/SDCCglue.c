@@ -863,7 +863,7 @@ printIvalType (symbol * sym, sym_link * type, initList * ilist, struct dbuf_s *o
     ilist = ilist->init.deep;
 
   val = list2val (ilist, FALSE);
-  if (val && val->sym)
+  if (val && val->sym && !IS_LITERAL (val->sym->etype))
     /* list2val() (via constExprValue()'s "literal array in code segment"
        case) can return a value that's really a symbol's address - e.g.
        a scalar initialized from a string literal cast to an integer
@@ -873,7 +873,8 @@ printIvalType (symbol * sym, sym_link * type, initList * ilist, struct dbuf_s *o
        garbage instead of the address (upstream bug #3973). Discard it
        here so the initPointer() fallback just below - already correct,
        and already exactly what a symbol-address initializer needs -
-       gets a chance to run instead. */
+       gets a chance to run instead.  A symbol that is itself a constant,
+       an enumerator, carries its value and stays on the literal path. */
     val = NULL;
 
   if (!val)
@@ -1765,8 +1766,10 @@ printIvalPtr (symbol *sym, sym_link *type, initList *ilist, struct dbuf_s *oBuf)
      carry that same storage class - require !val->sym too, or a pointer
      to a string literal gets its address's bytes individually
      reinterpreted as if they were a plain numeric value instead of being
-     emitted as a reference to the symbol (upstream bug #3973). */
-  if (IS_LITERAL (val->etype) && !val->sym)
+     emitted as a reference to the symbol (upstream bug #3973).  An
+     enumerator's symbol is itself a constant, and its value is the
+     number. */
+  if (IS_LITERAL (val->etype) && (!val->sym || IS_LITERAL (val->sym->etype)))
     {
       switch (getSize (type))
         {

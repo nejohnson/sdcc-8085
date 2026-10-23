@@ -243,8 +243,12 @@ getOperandValinfo (const iCode *ic, const operand *op, bool analysis_only)
 
   sym_link *type = operandType (op);
 
+  // A const variable's initializer is used only when it is already a number:  a
+  // global's initializer is not resolved until its data is emitted, so an
+  // enumerator there is still a bare symbol, and reads as 0.
   if (IS_INTEGRAL (type) && bitsForType (type) < 64 && !IS_OP_VOLATILE (op) && // Todo: More exact check than this bits thing?
-    (IS_OP_LITERAL (op) || IS_SYMOP (op) && SPEC_CONST (type) && OP_SYMBOL_CONST (op)->ival && IS_AST_VALUE (list2expr (OP_SYMBOL_CONST (op)->ival))) ||
+    (IS_OP_LITERAL (op) || IS_SYMOP (op) && SPEC_CONST (type) && OP_SYMBOL_CONST (op)->ival && IS_AST_VALUE (list2expr (OP_SYMBOL_CONST (op)->ival)) &&
+      IS_LITERAL (list2expr (OP_SYMBOL_CONST (op)->ival)->opval.val->etype)) ||
     (TARGET_Z80_LIKE || TARGET_IS_STM8 || IS_GENPTR (type)) && IS_PTR (type) && IS_OP_LITERAL (op)) // Port has no tag bits in pointers
     {
       struct valinfo v2;
