@@ -354,13 +354,10 @@ createStackSpil (symbol * sym)
      largest, rotate/rotate_size_64_msb_{0,1}, fits and passes.
 
      --no-zp-spill, the switch below that moves the whole lot to extended
-     space, is not a cure should a program not fit:  measured over uc6502
-     it costs 5.3% more bytes and 11.7% more ticks and, worse, it
-     miscompiles - rotate_left_type_unsigned_{int,short} and
-     serpent_op_{en,de}crypt link cleanly and then return wrong answers.
-     So the default stands, and the two underlying bugs - the unbounded
-     direct-page allocation, and whatever --no-zp-spill gets wrong - are
-     left for their own work.  */
+     space, is the way out for a program that does not fit, at a price:
+     measured over uc6502 it costs 5.3% more bytes and 11.7% more ticks.
+     So the default stands, and the unbounded direct-page allocation is
+     left for its own work.  */
   SPEC_SCLS (sloc->etype) = (options.xdata_spill)?S_XDATA:S_DATA;
   SPEC_EXTR (sloc->etype) = 0;
   SPEC_STAT (sloc->etype) = 0;

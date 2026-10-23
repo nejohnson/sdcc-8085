@@ -2357,7 +2357,8 @@ m6502_storeRegToDPTR(reg_info *reg, int dofs)
     {
       m6502_emitComment (TRACEGEN, " %s: DPTR[%d] has same literal %02x",
 			 __func__, dofs, reg->litConst);
-      m6502_freeReg(reg);
+      if (reg->isDead)
+        m6502_freeReg(reg);
       return;
     }
 
@@ -2389,7 +2390,11 @@ m6502_storeRegToDPTR(reg_info *reg, int dofs)
   _S.DPTRAttr[dofs].aop=reg->aop;
   _S.DPTRAttr[dofs].aopofs=reg->aopofs;
 
-  m6502_freeReg(reg);
+  /* The register may hold a value that outlives this iCode - the pointer
+     itself, kept in registers while its spill location is reused - and
+     the caller may then pick a free register as scratch.  */
+  if (reg->isDead)
+    m6502_freeReg(reg);
 }
 
 /**************************************************************************
