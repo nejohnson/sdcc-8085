@@ -125,6 +125,12 @@
 #undef OPT_DISABLE_EZ80
 
 /* XXX */
+#undef OPT_DISABLE_F8
+
+/* XXX */
+#undef OPT_DISABLE_F8L
+
+/* XXX */
 #undef OPT_DISABLE_HC08
 
 /* XXX */
@@ -277,6 +283,21 @@
 /* XXX */
 #undef SDCC_VERSION_STR
 
+/* The size of 'char', as computed by sizeof. */
+#undef SIZEOF_CHAR
+
+/* The size of 'int', as computed by sizeof. */
+#undef SIZEOF_INT
+
+/* The size of 'long', as computed by sizeof. */
+#undef SIZEOF_LONG
+
+/* The size of 'long long', as computed by sizeof. */
+#undef SIZEOF_LONG_LONG
+
+/* The size of 'short', as computed by sizeof. */
+#undef SIZEOF_SHORT
+
 /* Define to 1 if all of the C89 standard headers exist (not just the ones
    required in a freestanding environment). This macro is provided for
    backward compatibility; new code need not use it. */
@@ -300,6 +321,30 @@
 /* XXX */
 #undef STD_LONG_LIB
 
+/* XXX */
+#undef TYPE_BYTE
+
+/* XXX */
+#undef TYPE_DWORD
+
+/* XXX */
+#undef TYPE_QWORD
+
+/* XXX */
+#undef TYPE_UBYTE
+
+/* XXX */
+#undef TYPE_UDWORD
+
+/* XXX */
+#undef TYPE_UQWORD
+
+/* XXX */
+#undef TYPE_UWORD
+
+/* XXX */
+#undef TYPE_WORD
+
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
 #if defined AC_APPLE_UNIVERSAL_BUILD
@@ -310,6 +355,12 @@
 # ifndef WORDS_BIGENDIAN
 #  undef WORDS_BIGENDIAN
 # endif
+#endif
+
+/* Define to 1 if type 'char' is unsigned and your compiler does not
+   predefine this macro.  */
+#ifndef __CHAR_UNSIGNED__
+# undef __CHAR_UNSIGNED__
 #endif
 
 #endif /* SDCCCONF_HEADER */

@@ -463,6 +463,14 @@ fi
 # Makefiles
 ###########
 
+# LIB_TYPE:
+# *nix default: "RANLIB"
+
+AC_ARG_VAR([LIB_TYPE], [library type: LIB, SDCCLIB, AR or RANLIB (default)])
+if test "${LIB_TYPE}" = ""; then
+    LIB_TYPE="RANLIB"
+fi
+
 # include_dir_suffix:
 # *nix default: "sdcc/include"
 
@@ -741,6 +749,8 @@ AC_DO_PORT(pdk15,    pdk,    PDK15,    [Excludes the PDK15 port])
 AC_DO_PORT_ENABLER(pdk16,    pdk,    PDK16,    [Includes the PDK16 port])
 AC_DO_PORT(mos6502,  mos6502,MOS6502,  [Excludes the MOS6502 port])
 AC_DO_PORT(mos65c02, mos6502,MOS65C02, [Excludes the MOS65C02 port])
+AC_DO_PORT(f8,       f8,     F8,       [Excludes the f8 port])
+AC_DO_PORT(f8l,      f8,     F8L,      [Excludes the f8l port])
 
 # Example for a port disabled by default, in case all the above are enabled by default:
 ####AC_DO_PORT_ENABLER(avr,   avr,   AVR,   [Includes the AVR port (disabled by default)])
@@ -792,27 +802,31 @@ test $OPT_DISABLE_SDBINUTILS = 0 && AC_CONFIG_SUBDIRS(support/sdbinutils)
 AC_CONFIG_FILES([doc/Makefile])
 
 if test $OPT_DISABLE_DS390 = 0 || test $OPT_DISABLE_DS400; then
-  AC_CONFIG_FILES([src/ds390/Makefile])
+  AC_CONFIG_FILES([src/ds390/Makefile
+                   sdas/as8xcxxx/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/ds390/Makefile
                                                        device/lib/ds400/Makefile])
 fi
 
 if test $OPT_DISABLE_HC08 = 0 || test $OPT_DISABLE_S08 = 0; then
-  AC_CONFIG_FILES([src/hc08/Makefile])
+  AC_CONFIG_FILES([src/hc08/Makefile
+                   sdas/as6808/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/hc08/Makefile
                                                        device/lib/s08/Makefile
                                                        device/lib/s08-stack-auto/Makefile])
 fi
 
 if test $OPT_DISABLE_MOS6502 = 0 || test $OPT_DISABLE_MOS65C02 = 0; then
-  AC_CONFIG_FILES([src/mos6502/Makefile])
+  AC_CONFIG_FILES([src/mos6502/Makefile
+                   sdas/as6500/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/mos6502/Makefile
                                                        device/lib/mos6502-stack-auto/Makefile
                                                        device/lib/mos65c02/Makefile])
 fi
 
 if test $OPT_DISABLE_MCS51 = 0; then
-  AC_CONFIG_FILES([src/mcs51/Makefile])
+  AC_CONFIG_FILES([src/mcs51/Makefile
+                   sdas/as8051/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/mcs51/Makefile
                                                        device/lib/small/Makefile
                                                        device/lib/medium/Makefile
@@ -839,22 +853,30 @@ if test $OPT_DISABLE_Z80 = 0 || test $OPT_DISABLE_Z180 = 0 || test $OPT_DISABLE_
   AC_CONFIG_FILES([src/z80/Makefile])
 fi
 
-if test $OPT_DISABLE_I8080 = 0 || test $OPT_DISABLE_I8085 = 0; then
-  AC_CONFIG_FILES([src/i8085/Makefile])
-fi
-
 if test $OPT_DISABLE_Z80 = 0 || test $OPT_DISABLE_Z180 = 0 || test $OPT_DISABLE_EZ80 = 0 || test $OPT_DISABLE_Z80N = 0 || test $OPT_DISABLE_R800 = 0; then
+  AC_CONFIG_FILES([sdas/asz80/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/z80/Makefile
                                                        device/lib/z180/Makefile
                                                        device/lib/ez80/Makefile
                                                        device/lib/z80n/Makefile
                                                        device/lib/r800/Makefile])
-  test $OPT_DISABLE_DEVICE_LIB = 0 && test $OPT_DISABLE_I8085 = 0 && AC_CONFIG_FILES([device/lib/i8085/Makefile
+fi
+
+if test $OPT_DISABLE_I8080 = 0 || test $OPT_DISABLE_I8085 = 0; then
+  AC_CONFIG_FILES([src/i8085/Makefile])
+fi
+
+if test $OPT_DISABLE_I8085 = 0; then
+  test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/i8085/Makefile
                                                        device/lib/i8085-undoc/Makefile])
-  test $OPT_DISABLE_DEVICE_LIB = 0 && test $OPT_DISABLE_I8080 = 0 && AC_CONFIG_FILES([device/lib/i8080/Makefile])
+fi
+
+if test $OPT_DISABLE_I8080 = 0; then
+  test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/i8080/Makefile])
 fi
 
 if test $OPT_DISABLE_R2K = 0 || test $OPT_DISABLE_R2KA = 0 || test $OPT_DISABLE_R3KA = 0 || test $OPT_DISABLE_R4K = 0 || test $OPT_DISABLE_R5K = 0 || test $OPT_DISABLE_R6K = 0; then
+  AC_CONFIG_FILES([sdas/asrab/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/r2k/Makefile
                                                        device/lib/r2ka/Makefile
                                                        device/lib/r3ka/Makefile
@@ -864,15 +886,18 @@ if test $OPT_DISABLE_R2K = 0 || test $OPT_DISABLE_R2KA = 0 || test $OPT_DISABLE_
 fi
 
 if test $OPT_DISABLE_TLCS90 = 0; then
+  AC_CONFIG_FILES([sdas/astlcs90/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/tlcs90/Makefile])
 fi
 
 if test $OPT_DISABLE_SM83 = 0; then
+  AC_CONFIG_FILES([sdas/asgb/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/sm83/Makefile])
 fi
 
 if test $OPT_DISABLE_STM8 = 0; then
-  AC_CONFIG_FILES([src/stm8/Makefile])
+  AC_CONFIG_FILES([src/stm8/Makefile
+                   sdas/asstm8/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/stm8/Makefile
                                                        device/lib/stm8-large/Makefile])
 fi
@@ -882,23 +907,44 @@ if test $OPT_DISABLE_PDK13 = 0 || test $OPT_DISABLE_PDK14 = 0 || test $OPT_DISAB
 fi
 
 if test $OPT_DISABLE_PDK13 = 0; then
+  AC_CONFIG_FILES([sdas/aspdk13/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/pdk13/Makefile])
 fi
 
 if test $OPT_DISABLE_PDK14 = 0; then
+  AC_CONFIG_FILES([sdas/aspdk14/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/pdk14/Makefile])
 fi
 
 if test $OPT_DISABLE_PDK15 = 0; then
+  AC_CONFIG_FILES([sdas/aspdk15/Makefile])
   test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/pdk15/Makefile
                                                        device/lib/pdk15-stack-auto/Makefile])
+fi
+
+if test $OPT_DISABLE_PDK16 = 0; then
+  AC_CONFIG_FILES([sdas/aspdk16/Makefile])
+fi
+
+if test $OPT_DISABLE_F8 = 0 || test $OPT_DISABLE_F8L = 0; then
+  AC_CONFIG_FILES([src/f8/Makefile
+                   sdas/asf8/Makefile])
+fi
+
+if test $OPT_DISABLE_F8 = 0; then
+  test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/f8/Makefile])
+fi
+
+if test $OPT_DISABLE_F8L = 0; then
+  test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/f8l/Makefile])
 fi
 
 test $OPT_DISABLE_DEVICE_LIB = 0 && AC_CONFIG_FILES([device/lib/Makefile])
 test $OPT_DISABLE_DEVICE_LIB = 0 && test $OPT_DISABLE_NON_FREE = 0 && AC_CONFIG_FILES([device/non-free/lib/Makefile])
 
-# The ports assemble and link with the vendor ASxxxx tools, whose sources
-# are the vendor/asxxxx submodule beside this directory.
+# The i8080, i8085 and stm8 ports assemble and link with the vendor ASxxxx
+# tools, whose sources are the vendor/asxxxx submodule beside this
+# directory.
 ASXXXX_DIR=`cd "$srcdir/.." && pwd`/vendor/asxxxx
 if test ! -f "$ASXXXX_DIR/asxmak/linux/build/makefile"; then
   AC_MSG_ERROR([$ASXXXX_DIR is empty or missing:  run 'git submodule update --init' at the top of the repository])
@@ -910,6 +956,7 @@ bin/Makefile
 asxxxx/Makefile
 src/Makefile
 device/include/Makefile
+sdas/linksrc/Makefile
 support/makebin/Makefile
 support/regression/Makefile
 support/regression/cases/Makefile
@@ -993,6 +1040,8 @@ sdcc ${VERSION} is now configured for
     ez80                ${enable_ez80_port}
     z80n                ${enable_z80n_port}
     r800                ${enable_r800_port}
+    i8080               ${enable_i8080_port}
+    i8085               ${enable_i8085_port}
     stm8                ${enable_stm8_port}
     pdk13               ${enable_pdk13_port}
     pdk14               ${enable_pdk14_port}
@@ -1000,6 +1049,8 @@ sdcc ${VERSION} is now configured for
     pdk16               ${enable_pdk16_port}
     mos6502             ${enable_mos6502_port}
     mos65c02            ${enable_mos65c02_port}
+    f8                  ${enable_f8_port}
+    f8l                 ${enable_f8l_port}
 
   Disable non-free lib: ${OPT_DISABLE_NON_FREE}
   Disable packihx:      ${OPT_DISABLE_PACKIHX}
