@@ -14,10 +14,6 @@ volatile __sfr __at(0xff04) reg_LY;
 #elif defined(__SDCC_mcs51) || defined(__SDCC_ds390)
 volatile __sfr __at(0x82) reg_SCY;
 volatile __sfr __at(0x84) reg_LY;
-#elif defined(__SDCC_pic16)
-/* low data memory holds the compiler's registers; LATA and LATB are SFRs */
-volatile __sfr __at(0xf89) reg_SCY;
-volatile __sfr __at(0xf8a) reg_LY;
 #else
 volatile __sfr __at(0x02) reg_SCY;
 volatile __sfr __at(0x04) reg_LY;
