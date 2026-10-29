@@ -253,40 +253,9 @@ extern char * iComments2;
 static void
 _ds390_genAssemblerStart (FILE * of)
 {
-  /* The 8051's four address spaces are four ASxxxx banks, and aslink keeps
-     a location counter per bank.  The banks must be declared before the
-     first .area that names one - an undeclared BANK= is an undefined
-     symbol, not an implicit bank -
-     and the areas must be declared in a fixed order by *every* module,
-     because aslink lays a bank out in the order its areas are first
-     declared across the whole link and the first module linked is rarely
-     the one with an opinion.  See src/mcs51/main.c, which does the same
-     for the same reasons. */
-  fprintf (of, "\t.bank BCODE\n");
-  fprintf (of, "\t.bank BDATA\n");
-  fprintf (of, "\t.bank BXDATA\n");
-  fprintf (of, "\t.bank BBIT\n");
-  fprintf (of, "\n");
-  fprintf (of, "\t.area REG_BANK_0\t(REL,OVR,BANK=BDATA)\n");
-  fprintf (of, "\t.area REG_BANK_1\t(REL,OVR,BANK=BDATA)\n");
-  fprintf (of, "\t.area REG_BANK_2\t(REL,OVR,BANK=BDATA)\n");
-  fprintf (of, "\t.area REG_BANK_3\t(REL,OVR,BANK=BDATA)\n");
-  fprintf (of, "\t.area BIT_BANK\t(REL,OVR,BANK=BDATA)\n");
-  fprintf (of, "\t.ds 1\n");
-  fprintf (of, "\t.area BSEG_BYTES\t(REL,CON,BANK=BDATA)\n");
-  fprintf (of, "\t.area DSEG\t(BANK=BDATA)\n");
-  fprintf (of, "\t.area OSEG\t(REL,OVR,BANK=BDATA)\n");
-  fprintf (of, "\t.area ISEG\t(BANK=BDATA)\n");
-  fprintf (of, "\t.area SSEG\t(BANK=BDATA)\n");
-  fprintf (of, "\t.area PSEG\t(BANK=BXDATA)\n");
-  fprintf (of, "\t.area XSEG\t(BANK=BXDATA)\n");
-  fprintf (of, "\t.area XISEG\t(BANK=BXDATA)\n");
-  fprintf (of, "\t.area XSTK\t(BANK=BXDATA)\n");
-
   if (!options.noOptsdccInAsm)
     {
-      /* The compatibility key, which aslink compares across modules. */
-      fprintf (of, "\t.abi -m%s", port->target);
+      fprintf (of, "\t.optsdcc -m%s", port->target);
 
       switch (options.model)
         {
@@ -551,7 +520,7 @@ _ds390_genInitStartup (FILE *of)
   // (see '400 data sheet pg. 85 (TINI400 ROM Initialization code)
   if (!TARGET_IS_DS400 && !options.stack10bit)
     {
-      /* initialise the stack pointer; SSEG's place is the link's */
+      /* initialise the stack pointer.  JCF: sdld takes care of the location */
       fprintf (of, "\tmov\tsp,#__start__stack - 1\n");     /* MOF */
     }
 
@@ -571,22 +540,19 @@ _ds390_genInitStartup (FILE *of)
 /* Generate code to copy XINIT to XISEG */
 static void _ds390_genXINIT (FILE * of)
 {
-  /* ASxxxx names the start of an area a_NAME. */
-  const char *sfx = "a";
-
   fprintf (of, ";       _ds390_genXINIT() start\n");
   fprintf (of, "        mov     a,#l_XINIT\n");
   fprintf (of, "        orl     a,#l_XINIT>>8\n");
   fprintf (of, "        jz      00003$\n");
-  fprintf (of, "        mov     a,#%s_XINIT\n", sfx);
+  fprintf (of, "        mov     a,#s_XINIT\n");
   fprintf (of, "        add     a,#l_XINIT\n");
   fprintf (of, "        mov     r1,a\n");
-  fprintf (of, "        mov     a,#%s_XINIT>>8\n", sfx);
+  fprintf (of, "        mov     a,#s_XINIT>>8\n");
   fprintf (of, "        addc    a,#l_XINIT>>8\n");
   fprintf (of, "        mov     r2,a\n");
-  fprintf (of, "        mov     dptr,#%s_XINIT\n", sfx);
+  fprintf (of, "        mov     dptr,#s_XINIT\n");
   fprintf (of, "        mov     dps,#0x21\n");
-  fprintf (of, "        mov     dptr,#%s_XISEG\n", sfx);
+  fprintf (of, "        mov     dptr,#s_XISEG\n");
   fprintf (of, "00001$: clr     a\n");
   fprintf (of, "        movc    a,@a+dptr\n");
   fprintf (of, "        movx    @dptr,a\n");
@@ -605,8 +571,8 @@ static void _ds390_genXINIT (FILE * of)
   fprintf (of, "        mov	a,r0\n");
   fprintf (of, "        orl	a,#(l_PSEG >> 8)\n");
   fprintf (of, "        jz	00006$\n");
-  fprintf (of, "        mov	r1,#%s_PSEG\n", sfx);
-  fprintf (of, "        mov	_P2,#(%s_PSEG >> 8)\n", sfx);
+  fprintf (of, "        mov	r1,#s_PSEG\n");
+  fprintf (of, "        mov	_P2,#(s_PSEG >> 8)\n");
   fprintf (of, "        clr     a\n");
   fprintf (of, "00005$:	movx	@r1,a\n");
   fprintf (of, "        inc	r1\n");
@@ -616,7 +582,7 @@ static void _ds390_genXINIT (FILE * of)
   fprintf (of, "        orl	a,#(l_XSEG >> 8)\n");
   fprintf (of, "        jz	00008$\n");
   fprintf (of, "        mov	r1,#((l_XSEG + 255) >> 8)\n");
-  fprintf (of, "        mov	dptr,#%s_XSEG\n", sfx);
+  fprintf (of, "        mov	dptr,#s_XSEG\n");
   fprintf (of, "        clr     a\n");
   fprintf (of, "00007$:	movx	@dptr,a\n");
   fprintf (of, "        inc	dptr\n");
@@ -1175,15 +1141,13 @@ get_model (void)
 */
 static const char *_linkCmd[] =
 {
-  "aslink", "-nf", "$1", "$L", NULL
+  "sdld", "-nf", "$1", "$L", NULL
 };
 
 /* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
-/* ASxxxx as8xcxxx, the Dallas extended-8051 assembler.  It takes "[-options] file1 [file2...]" and derives the object name from
-   the input, so there is no separate output argument. */
 static const char *_asmCmd[] =
 {
-  "as8xcxxx", "$l", "$3", "$1.asm", NULL
+  "sdas390", "$l", "$3", "$2", "$1.asm", NULL
 };
 
 static const char * const _libs_ds390[] = { STD_DS390_LIB, NULL, };
@@ -1209,8 +1173,7 @@ PORT ds390_port =
     "-plosgffw",                /* Options without debug */
     0,
     ".asm",
-    NULL,                       /* no do_assemble function */
-    TRUE,                       /* ASxxxx as8xcxxx */
+    NULL                        /* no do_assemble function */
   },
   {                             /* Linker */
     _linkCmd,
@@ -1220,7 +1183,6 @@ PORT ds390_port =
     1,
     NULL,                       /* crt */
     _libs_ds390,                /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {
     _defaultRules,
@@ -1242,26 +1204,26 @@ PORT ds390_port =
   { 0x00, 0x40, 0x60, 0x80 },           /* far, near, xstack, code */
 
   {
-    "XSEG    (BANK=BXDATA)",
-    "STACK   (BANK=BDATA)",
-    "CSEG    (BANK=BCODE)",
-    "DSEG    (BANK=BDATA)",
-    "ISEG    (BANK=BDATA)",
-    "PSEG    (BANK=BXDATA)",
-    "XSEG    (BANK=BXDATA)",
+    "XSEG    (XDATA)",
+    "STACK   (DATA)",
+    "CSEG    (CODE)",
+    "DSEG    (DATA)",
+    "ISEG    (DATA)",
+    "PSEG    (PAG,XDATA)",
+    "XSEG    (XDATA)",
     NULL,                       // xconst_name
-    "BSEG    (BANK=BBIT)",
-    "RSEG    (BANK=BDATA)",
-    "GSINIT  (BANK=BCODE)",
-    "OSEG    (REL,OVR,BANK=BDATA)",
-    "GSFINAL (BANK=BCODE)",
-    "HOME    (BANK=BCODE)",
-    "XISEG   (BANK=BXDATA)",          // initialized xdata
-    "XINIT   (BANK=BCODE)",           // a code copy of xiseg
-    "CONST   (BANK=BCODE)",           // const_name - const data (code or not)
-    "CABS    (ABS,BANK=BCODE)",       // cabs_name - const absolute data (code or not)
-    "XABS    (ABS,BANK=BXDATA)",      // xabs_name - absolute xdata/pdata
-    "IABS    (ABS,BANK=BDATA)",       // iabs_name - absolute idata/data
+    "BSEG    (BIT)",
+    "RSEG    (DATA)",
+    "GSINIT  (CODE)",
+    "OSEG    (OVR,DATA)",
+    "GSFINAL (CODE)",
+    "HOME    (CODE)",
+    "XISEG   (XDATA)",          // initialized xdata
+    "XINIT   (CODE)",           // a code copy of xiseg
+    "CONST   (CODE)",           // const_name - const data (code or not)
+    "CABS    (ABS,CODE)",       // cabs_name - const absolute data (code or not)
+    "XABS    (ABS,XDATA)",      // xabs_name - absolute xdata/pdata
+    "IABS    (ABS,DATA)",       // iabs_name - absolute idata/data
     NULL,                       // name of segment for initialized variables
     NULL,                       // name of segment for copies of initialized variables in code space
     NULL,
@@ -1595,26 +1557,26 @@ PORT tininative_port =
   { 0x00, 0x40, 0x60, 0x80 },   /* far, near, xstack, code */
 
   {
-    "XSEG    (BANK=BXDATA)",
-    "STACK   (BANK=BDATA)",
-    "CSEG    (BANK=BCODE)",
-    "DSEG    (BANK=BDATA)",
-    "ISEG    (BANK=BDATA)",
-    "PSEG    (BANK=BXDATA)",
-    "XSEG    (BANK=BXDATA)",
+    "XSEG    (XDATA)",
+    "STACK   (DATA)",
+    "CSEG    (CODE)",
+    "DSEG    (DATA)",
+    "ISEG    (DATA)",
+    "PSEG    (PAG,XDATA)",
+    "XSEG    (XDATA)",
     NULL,                       // xconst_name
-    "BSEG    (BANK=BBIT)",
-    "RSEG    (BANK=BDATA)",
-    "GSINIT  (BANK=BCODE)",
-    "OSEG    (REL,OVR,BANK=BDATA)",
-    "GSFINAL (BANK=BCODE)",
-    "HOME    (BANK=BCODE)",
+    "BSEG    (BIT)",
+    "RSEG    (DATA)",
+    "GSINIT  (CODE)",
+    "OSEG    (OVR,DATA)",
+    "GSFINAL (CODE)",
+    "HOME    (CODE)",
     NULL,
     NULL,
-    "CONST   (BANK=BCODE)",           // const_name - const data (code or not)
-    "CABS    (ABS,BANK=BCODE)",       // cabs_name - const absolute data (code or not)
-    "XABS    (ABS,BANK=BXDATA)",      // xabs_name - absolute xdata/pdata
-    "IABS    (ABS,BANK=BDATA)",       // iabs_name - absolute idata/data
+    "CONST   (CODE)",           // const_name - const data (code or not)
+    "CABS    (ABS,CODE)",       // cabs_name - const absolute data (code or not)
+    "XABS    (ABS,XDATA)",      // xabs_name - absolute xdata/pdata
+    "IABS    (ABS,DATA)",       // iabs_name - absolute idata/data
     NULL,                       // name of segment for initialized variables
     NULL,                       // name of segment for copies of initialized variables in code space
     NULL,
@@ -1826,8 +1788,7 @@ PORT ds400_port =
     "-plosgffw",                /* Options without debug */
     0,
     ".asm",
-    NULL,                       /* no do_assemble function */
-    TRUE,                       /* ASxxxx as8xcxxx */
+    NULL                        /* no do_assemble function */
   },
   {                             /* Linker */
     _linkCmd,
@@ -1837,7 +1798,6 @@ PORT ds400_port =
     1,
     NULL,                       /* crt */
     _libs_ds400,                /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _defaultRules,
@@ -1858,26 +1818,26 @@ PORT ds400_port =
   { 0x00, 0x40, 0x60, 0x80 },   /* far, near, xstack, code */
 
   {
-    "XSEG    (BANK=BXDATA)",
-    "STACK   (BANK=BDATA)",
-    "CSEG    (BANK=BCODE)",
-    "DSEG    (BANK=BDATA)",
-    "ISEG    (BANK=BDATA)",
-    "PSEG    (BANK=BXDATA)",
-    "XSEG    (BANK=BXDATA)",
+    "XSEG    (XDATA)",
+    "STACK   (DATA)",
+    "CSEG    (CODE)",
+    "DSEG    (DATA)",
+    "ISEG    (DATA)",
+    "PSEG    (PAG,XDATA)",
+    "XSEG    (XDATA)",
     NULL,                       // xconst_name
-    "BSEG    (BANK=BBIT)",
-    "RSEG    (BANK=BDATA)",
-    "GSINIT  (BANK=BCODE)",
-    "OSEG    (REL,OVR,BANK=BDATA)",
-    "GSFINAL (BANK=BCODE)",
-    "HOME    (BANK=BCODE)",
-    "XISEG   (BANK=BXDATA)",          // initialized xdata
-    "XINIT   (BANK=BCODE)",           // a code copy of xiseg
-    "CONST   (BANK=BCODE)",           // const_name - const data (code or not)
-    "CABS    (ABS,BANK=BCODE)",       // cabs_name - const absolute data (code or not)
-    "XABS    (ABS,BANK=BXDATA)",      // xabs_name - absolute xdata/pdata
-    "IABS    (ABS,BANK=BDATA)",       // iabs_name - absolute idata/data
+    "BSEG    (BIT)",
+    "RSEG    (DATA)",
+    "GSINIT  (CODE)",
+    "OSEG    (OVR,DATA)",
+    "GSFINAL (CODE)",
+    "HOME    (CODE)",
+    "XISEG   (XDATA)",          // initialized xdata
+    "XINIT   (CODE)",           // a code copy of xiseg
+    "CONST   (CODE)",           // const_name - const data (code or not)
+    "CABS    (ABS,CODE)",       // cabs_name - const absolute data (code or not)
+    "XABS    (ABS,XDATA)",      // xabs_name - absolute xdata/pdata
+    "IABS    (ABS,DATA)",       // iabs_name - absolute idata/data
     NULL,                       // name of segment for initialized variables
     NULL,                       // name of segment for copies of initialized variables in code space
     NULL,

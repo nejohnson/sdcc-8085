@@ -104,17 +104,13 @@ As of **v0.2.0**, the code generator actively emits **`DSUB`, `ARHL`, `RDEL`, `L
 
 ---
 
-## ⚠️ Removed: SDCC's own `f8` port
+## 🧭 Scope of this fork
 
-This fork's toolchain is migrating fully onto the vendor **ASxxxx** assembler/linker suite, replacing SDCC's bundled `sdas`/`sdld`. ASxxxx ships `asf8`, targeting the real, vintage **Fairchild F8 / Mostek 3870** processor family. SDCC separately shipped its own `f8`/`f8l` port — a hobby instruction set created by one of SDCC's maintainers, unrelated to the real F8 chip. Both tools used the exact same name for two different, unrelated processors.
+This fork changes SDCC for two targets only: the **i8085 family** (`-mi8085`, `-mi8080`, and `-mi8085 --allow-undocumented-instructions`) and the **STM8** (`-mstm8`, with its large model). Both assemble and link with the vendor **ASxxxx** tools (`as8085`, `asst8`, `aslink`), built from the `vendor/asxxxx` submodule.
 
-Rather than carry that ambiguity forward, **this fork has removed SDCC's `f8`/`f8l` port entirely** — the compiler backend, its runtime library, its regression-suite port, ucsim's `f8` simulator, and every build-system reference to it. `sdcc -mf8` / `-mf8l` are no longer valid options in this fork. This is a deliberate **removal of functionality**, not a bug.
+Every other port (z80 and its relatives, mcs51, ds390, hc08, mos6502, pdk, pic14, pic16, f8) is SDCC mainline as it stands, with SDCC's own `sdas` and `sdld`. They are kept in the tree so that mainline changes merge cleanly, but this fork does not develop or test them.
 
-**ASxxxx's `asf8` is untouched, and the real F8 is not off the table.** What was removed is SDCC's port, not F8 support in general: `vendor/asxxxx/asf8` remains a complete ASxxxx target — `f8adr.c`, `f8mch.c`, `f8pst.c` and its own `tf8seq`/`tf8ext`/`tf8err` test sources. So if anyone ever writes an SDCC backend for the **actual Fairchild F8 / Mostek 3870**, the assembler and linker are already here and already in the same family of tools every other port in this fork now drives. That is a better starting position than several of the ports already migrated here started from.
-
-If SDCC's `f8` author wants it reinstated here, the bar is: (a) pick a name that doesn't collide with a real chip ASxxxx already supports, and (b) port the instruction set into ASxxxx itself under that name, so the compiler and the toolchain agree on what the name means. This fork stays private (per standing project practice), so this isn't a patch proposed upstream — it's a decision for this fork only.
-
-Nothing else changed: this has zero effect on `-mi8085`/`-mi8080`, which share no code with the removed port, and the full regression suite confirms it.
+Front-end, optimizer and glue fixes made along the way are kept, since every target benefits from them.
 
 ---
 

@@ -3,9 +3,6 @@
 
    Copyright (C) 2004, Vangelis Rokas <vrokas at otenet.gr>
 
-   Modifications for PIC14 by
-   Copyright (C) 2019 Gonzalo Pérez de Olaguer Córdoba <salo@gpoc.es>
-
    This library is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
    Free Software Foundation; either version 2, or (at your option) any
@@ -31,47 +28,56 @@
 
 #include <malloc.h>
 
-void *realloc (void *gptr, size_t size)
-{
-    void __data *ptr = gptr;
-    _malloc_rec __data *current_head, *next_head;
-    size_t current_size;
+extern unsigned char _MALLOC_SPEC *heap;
 
-    if (ptr)
-    {
-        current_head = PTR2REC(ptr);
-        current_size = current_head->bits.count - 1;
-        /* not changing the size */
-        if (size == current_size)
-            return ptr;
-        /* reduce the size of the block */
-        if (size < current_size)
-        {
-            current_head->bits.count = size + 1;
-            next_head = NEXTREC(current_head);
-            next_head->datum = current_size - size;
-            return ptr;
-        }
-        /* increase the size of the block */
-        next_head = NEXTREC(current_head);
-        while (next_head->bits.alloc == 0 && next_head->bits.count > 0)
-        {
-            current_size += next_head->bits.count;
-            if (size <= current_size)
-            {
-                current_head->bits.count = size + 1;
-                if (size < current_size)
-                {
-                    next_head = NEXTREC(current_head);
-                    next_head->datum = current_size - size;
-                }
-                return ptr;
-            }
-            next_head = NEXTREC(next_head);
-        }
+unsigned char _MALLOC_SPEC *realloc(unsigned char _MALLOC_SPEC *mblock, unsigned char len)
+{
+  _malloc_rec _MALLOC_SPEC *pHeap;			/* pointer to block header */
+  _malloc_rec _MALLOC_SPEC *temp;
+  unsigned char bLen;			/* size of block  */
+
+  if(len >= MAX_BLOCK_SIZE)
+    return ((unsigned char _MALLOC_SPEC *)0);
+
+  /* if mblock is NULL, then same as malloc */
+  if(!mblock)
+    return (malloc(len));
+
+  /* if len is 0 */
+  if(len == 0) {
+    free(mblock);
+    return ((unsigned char _MALLOC_SPEC *)0);
+  }
+  
+  pHeap = (_malloc_rec _MALLOC_SPEC *)((unsigned int)mblock - 1);
+  bLen = pHeap->bits.count;
+
+  /* block too small for len bytes + 1 byte header <===> bLen < len + 1 <===> blen <= len */
+  if (bLen <= len) {
+    /* so, new segment has size bigger than the old one, we can return a
+     * valid pointer only when after the block there is an empty block that
+     * can be merged to produce a new block of the requested size, otherwise
+     * we return NULL */
+    temp = _mergeHeapBlock(pHeap, len);
+
+    if(!temp) {
+      /* no could not find a valid block, return NULL */
+      return ((unsigned char _MALLOC_SPEC *)0);
     }
 
-    /* reallocation needed */
-    return _allocateHeap (ptr, size);
-}
+    //pHeap = temp; /* temp == pHeap */
+    bLen = pHeap->bits.count;
+  }
 
+  len++; /* increase to also count the header */
+  
+  if(bLen > len) {
+    /* new segment is smaller than the old one (or the merged one), that's easy! */
+    pHeap->bits.count = len;
+    temp = (_malloc_rec _MALLOC_SPEC *)((unsigned int)pHeap + len);
+    temp->bits.alloc = 0;
+    temp->bits.count = bLen - len;
+  }
+
+  return (mblock);
+}

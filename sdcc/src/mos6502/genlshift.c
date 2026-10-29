@@ -278,8 +278,7 @@ genlsh16 (operand * result, operand * left, int shCount)
   else if(shCount==1) // && result==AOP_REG
     {
       needpulla = storeRegTempIfSurv (m6502_reg_a);
-      /* No iCode here; the answer depends only on the current function. */
-      if(!m6502_tsxUseful(NULL))
+      if(!m6502_tsxUseful())
 	{
 	  m6502_loadRegFromAop (m6502_reg_a, AOP (left), 0);
 	  m6502_emitOp ("asl", "a");
@@ -918,10 +917,7 @@ m6502_genLeftShift (iCode * ic)
   bool dst_x = ( IS_AOP_XA (AOP (result)) || IS_AOP_XY (AOP (result)) );
   bool late_x = false;
 
-  /* A result in memory that needs no index register is shifted in place,
-     which leaves X alone; the high byte lives in X otherwise, and X ends
-     up holding it.  */
-  bool msb_in_x = (src_x || dst_x) && AOP_TYPE(result)!=AOP_DIR && AOP_TYPE(result)!=AOP_EXT;
+  bool msb_in_x = (src_x || dst_x) && AOP_TYPE(result)!=AOP_DIR;
 
 
   bool early_load_count = (AOP_TYPE(left)==AOP_SOF || AOP_TYPE(right)==AOP_SOF

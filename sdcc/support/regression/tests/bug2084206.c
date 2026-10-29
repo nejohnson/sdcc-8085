@@ -37,7 +37,7 @@ void testBug(void)
 #ifndef __SDCC_pdk15 // TODO: Decide on support for casts between object and function pointers for pdk!
 #ifndef __SDCC_pic16
 #if !((defined __SDCC_stm8) && defined(__SDCC_MODEL_LARGE)) // STM8 large model has sizeof(void *) < size of function pointers.
-#if !defined(__SDCC_ds390) && !defined(__SDCC_mcs51) && !defined(__SDCC_pic14) // DS390, PIC14 and at least some MCS-51 memory models have sizeof(void *) > size of function pointers.
+#if !defined(__SDCC_ds390) && !defined(__SDCC_mcs51) // DS390 and at least some MCS-51 memory models have sizeof(void *) > size of function pointers.
 	void* ptr = testBug;
 	mydata.f = testBug;
 	ASSERT (varargs(1, mydata.f) == (long)ptr);

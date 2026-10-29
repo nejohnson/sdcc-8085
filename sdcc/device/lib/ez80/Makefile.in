@@ -5,16 +5,16 @@ srcdir = @srcdir@
 top_builddir = @top_builddir@
 abs_top_builddir = @abs_top_builddir@
 
+LIB_TYPE     = @LIB_TYPE@
+
 EXTRA_CFLAGS = -mez80 --max-allocs-per-node 25000
-# The .s files here are assembled directly by ASxxxx asez80, not through
-# bin/sdcc, so they bypass the port's assembler.cmd.
-SAS = $(top_builddir)/bin/asez80
+SAS = $(top_builddir)/bin/sdasz80
 
 # override PORTDIR defined by super (parent) makefile
 override PORTDIR = ../build/ez80
 
 %.rel: %.s
-	@# TODO: the assembler should place its output in the current dir
+	@# TODO: sdas should place it\'s output in the current dir
 	test $(srcdir) = . || cp $< .
 	-$(AS) $(ASFLAGS) $(notdir $<)
 	test $(srcdir) = . || rm $(notdir $<)
@@ -68,8 +68,20 @@ $(PORTDIR)/crt0.rel: crt0.rel
 
 $(PORTDIR)/$(LIB): $(OBJ) $(Z8OBJECTS) Makefile
 	rm -f $@
+ifeq ($(LIB_TYPE), SDCCLIB)
+	$(top_builddir)/bin/sdcclib -a $@ $(OBJ) $(Z8OBJECTS)
+else
+  ifeq ($(LIB_TYPE), AR)
+	$(SDAR) -rcSD $@ $(OBJ) $(Z8OBJECTS)
+  else
+    ifeq ($(LIB_TYPE), RANLIB)
+	$(SDAR) -rcD $@ $(OBJ) $(Z8OBJECTS)
+    else
 	for i in $(basename $(OBJ) $(Z8OBJECTS)); do echo $$i >>$@; done
 	cp $(OBJ) $(Z8OBJECTS) $(PORTDIR)
+    endif
+  endif
+endif
 
 clean:
 	rm -f *.rel *.sym *.lst *~ $(CLEANSPEC) *.dump* *.asm *.lib

@@ -176,6 +176,7 @@ COMMON_SDCC = \
 MODELS = small medium large huge
 
 CC = ${abs_top_builddir}/bin/sdcc
+SDAR = ${abs_top_builddir}/bin/sdar
 
 %.rel: %.c
 	$(CC) $(CFLAGS) ${CPPFLAGS} ${EXTRA_CFLAGS} -c $< -o $@

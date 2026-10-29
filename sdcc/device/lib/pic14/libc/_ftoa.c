@@ -265,7 +265,7 @@ void _ftoa (float value, char *str, unsigned char prec)
         {
             _put_char('+');
         }
-        __uitoa (E10, S, 10);
+        _uitoa (E10, S, 10);
     }
     /* Format F: [-]ddd.ddd rounded to 'prec' fractional digits (prec >= 0) */
     else

@@ -23,7 +23,6 @@
 -------------------------------------------------------------------------*/
 
 #include "glue.h"
-#include "linkcheck.h"
 #include "dbuf_string.h"
 
 #include "device.h"
@@ -90,46 +89,6 @@ static set *declared = NULL;
 
 static void showAllMemmaps (FILE *of); // XXX: emits initialized symbols
 
-/* Record the functions named in initializers (function pointer tables):
-   they are reached through pointers.  Done before the pCode passes,
-   which would otherwise inline them or share their registers. */
-static void
-pic14_scanAstFuncs (ast *tree)
-{
-  if (!tree)
-    return;
-  if (IS_AST_VALUE (tree) && tree->opval.val->sym && IS_FUNC (tree->opval.val->sym->type))
-    pic14_addIndirectTarget (tree->opval.val->sym->rname);
-  if (tree->type == EX_OP)
-    {
-      pic14_scanAstFuncs (tree->left);
-      pic14_scanAstFuncs (tree->right);
-    }
-}
-
-static void
-pic14_scanIvalFuncs (initList *ilist)
-{
-  for (; ilist; ilist = ilist->next)
-    {
-      if (ilist->type == INIT_NODE)
-        pic14_scanAstFuncs (ilist->init.node);
-      else if (ilist->type == INIT_DEEP)
-        pic14_scanIvalFuncs (ilist->init.deep);
-    }
-}
-
-static void
-pic14_scanMapFuncs (memmap *map)
-{
-  symbol *sym;
-  if (!map)
-    return;
-  for (sym = setFirstItem (map->syms); sym; sym = setNextItem (map->syms))
-    if (sym->ival)
-      pic14_scanIvalFuncs (sym->ival);
-}
-
 static void
 addToPublics (symbol *sym)
 {
@@ -186,8 +145,6 @@ emitPseudoStack (struct dbuf_s *oBuf, struct dbuf_s *oBufExt)
           dbuf_printf (oBuf, "\tglobal SSAVE\n");
           dbuf_printf (oBuf, "\tglobal WSAVE\n");
         }
-      size -= 1;
-      dbuf_printf (oBuf, "\tglobal PCALL_W\n");
       for (i = size - 1; i >= 0; i--)
         {
           dbuf_printf (oBuf, "\tglobal STK%02d\n", i);
@@ -212,7 +169,6 @@ emitPseudoStack (struct dbuf_s *oBuf, struct dbuf_s *oBufExt)
           dbuf_printf (oBuf, "SSAVE\tres 1\n");
           dbuf_printf (oBuf, "WSAVE\tres 1\n"); // WSAVE *must* be in sharebank (IRQ handlers)
         }
-      dbuf_printf (oBuf, "PCALL_W\tres 1\n"); // first argument byte of a call through a pointer
       /* fill rest of sharebank with stack STKxx .. STK00 */
       for (i = size - 1; i >= 0; i--)
         {
@@ -231,8 +187,6 @@ emitPseudoStack (struct dbuf_s *oBuf, struct dbuf_s *oBufExt)
           dbuf_printf (oBufExt, "\textern SSAVE\n");
           dbuf_printf (oBufExt, "\textern WSAVE\n");
         }
-      size -= 1;
-      dbuf_printf (oBufExt, "\textern PCALL_W\n");
       for (i = size - 1; i >= 0; i--)
         {
           char buffer[128];
@@ -303,7 +257,7 @@ pic14_allocateSpace (symbol *sym, int size)
 static int in_code;
 
 static void pic14_printIvalLabel (struct dbuf_s *oBuf, symbol *sym);
-static void pic14_printLiteral (struct dbuf_s *oBuf, unsigned long long lit, int size);
+static void pic14_printLiteral (struct dbuf_s *oBuf, long lit, int size);
 static void pic14_printIval (symbol *sym, sym_link *type, initList *ilist, struct dbuf_s *oBuf, bool check);
 
 static hTab *absmap_ht = NULL;
@@ -340,46 +294,6 @@ addToAbsMap (symbol *sym)
         }                       // if
       DBG_EXIT ();
     }                           // if
-}
-
-/* Name the core register at bank offset 'off', or NULL. These registers
- * (INDF, PCL, STATUS, FSR, PCLATH, INTCON and, on enhanced cores, the
- * rest of 0x00-0x0B) appear at the same offset in every RAM bank, so a
- * variable placed there reads and writes the register instead of RAM. */
-static const char *
-coreRegAt (int off)
-{
-  static const char *const classic[12] = {
-    "INDF", NULL, "PCL", "STATUS", "FSR", NULL, NULL, NULL, NULL, NULL, "PCLATH", "INTCON"
-  };
-  static const char *const enhanced[12] = {
-    "INDF0", "INDF1", "PCL", "STATUS", "FSR0L", "FSR0H", "FSR1L", "FSR1H", "BSR", "WREG", "PCLATH", "INTCON"
-  };
-
-  if (off >= 12)
-    return NULL;
-  return pic14_getPIC ()->isEnhancedCore ? enhanced[off] : classic[off];
-}
-
-/* Reject a variable defined at an absolute data address that overlaps a
- * core register. __sfr declarations are the registers themselves. */
-static void
-checkCoreRegOverlap (symbol *sym)
-{
-  int addr, size, i;
-  const char *reg;
-
-  if (!IS_DEFINED_HERE (sym) || SPEC_SCLS (sym->etype) == S_SFR || IS_BITVAR (sym->etype) || IS_CODE (sym->etype))
-    return;
-
-  addr = SPEC_ADDR (sym->etype);
-  size = getSize (sym->type);
-  for (i = 0; i < size; i++)
-    if ((reg = coreRegAt ((addr + i) & 0x7f)))
-      {
-        werrorfl (sym->fileDef, sym->lineDef, E_CORE_REG_OVERLAP, sym->name, addr + i, reg);
-        return;
-      }
 }
 
 static void
@@ -574,91 +488,6 @@ pic14_stringInSet (const char *str, set **world, int autoAdd)
   return false;
 }
 
-/* A module's compiler-assigned locals (r0x...) normally share one
- * section, so one BANKSEL serves them all; when they need more than the
- * device's largest RAM bank, they go in sections of at most that size,
- * so they need not share one bank. Without the device's linker script,
- * the limit is 80 bytes, a bank's general-purpose RAM on every
- * multi-bank midrange part. */
-static unsigned
-localsSectionMax (void)
-{
-  int bank = pic14_maxRamBank ();
-  return bank > 0 ? bank : 80;
-}
-
-static unsigned localSections;   /* sections the module's locals need, 0 or 1 if one */
-
-static bool
-isLocalToEmit (reg_info *reg)
-{
-  return !reg->isEmitted && reg->wasUsed && !reg->isExtern && !reg->isFixed;
-}
-
-/* The first local to emit in dynAllocRegs named 'name'. */
-static reg_info *
-localRegFirstNamed (const char *name)
-{
-  set *l;
-
-  for (l = dynAllocRegs; l; l = l->next)
-    if (isLocalToEmit (l->item) && !strcmp (((reg_info *) l->item)->name, name))
-      return l->item;
-  return NULL;
-}
-
-/* Assign the module's locals to sections: called by AnalyzeBanking
-   once flow analysis has dropped unused registers, before BANKSELs are
-   placed. */
-void
-pic14_assignLocalSections (void)
-{
-  reg_info *reg, *first;
-  unsigned total = 0, used = 0;
-  set *seen = NULL;
-
-  localSections = 0;
-  if (getenv ("SDCC_PIC14_SPLIT_LOCALS"))
-    return;
-  /* registers that share a name are one location, emitted once */
-  for (reg = setFirstItem (dynAllocRegs); reg; reg = setNextItem (dynAllocRegs))
-    {
-      reg->localSection = 0;
-      if (isLocalToEmit (reg) && !pic14_stringInSet (reg->name, &seen, true))
-        total += reg->size;
-    }
-  deleteSet (&seen);
-  if (total <= localsSectionMax ())
-    return;
-  localSections = 1;
-  for (reg = setFirstItem (dynAllocRegs); reg; reg = setNextItem (dynAllocRegs))
-    {
-      if (!isLocalToEmit (reg))
-        continue;
-      if ((first = localRegFirstNamed (reg->name)) != reg)
-        {
-          reg->localSection = first->localSection;
-          continue;
-        }
-      if (used && used + reg->size > localsSectionMax ())
-        {
-          localSections++;
-          used = 0;
-        }
-      reg->localSection = localSections;
-      used += reg->size;
-    }
-}
-
-/* Are the locals 'a' and 'b' known to be in one bank? */
-int
-pic14_localsShareBank (const reg_info *a, const reg_info *b)
-{
-  if (localSections <= 1)
-    return 1;
-  return a && b && a->localSection && a->localSection == b->localSection;
-}
-
 static void
 pic14printLocals (struct dbuf_s *oBuf)
 {
@@ -666,9 +495,7 @@ pic14printLocals (struct dbuf_s *oBuf)
     dynDirectRegs, dynDirectBitRegs /*, dynInternalRegs */
   };
   reg_info *reg;
-  int i;
-  unsigned sec, current = 0, used = 0;
-  bool is_first = true;
+  int i, is_first = true;
   static unsigned sectionNr = 0;
   const char *split_locals;
 
@@ -676,68 +503,56 @@ pic14printLocals (struct dbuf_s *oBuf)
 
   DBG_MSG ("pic14printLocals ---start registers---");
   DBG_ENTRY ();
-  /* emit all registers from all possible sets, section by section when
-     the locals need several (section 0 holds everything else) */
-  for (sec = localSections > 1 ? 1 : 0; ; sec = sec == localSections ? 0 : sec + 1)
+  /* emit all registers from all possible sets */
+  for (i = 0; i < 6; i++)
     {
-      for (i = 0; i < 6; i++)
+      if (allregs[i] == NULL)
+        continue;
+
+      for (reg = setFirstItem (allregs[i]); reg; reg = setNextItem (allregs[i]))
         {
-          if (allregs[i] == NULL)
+          DBG_REG ("", reg);
+          if (reg->isEmitted)
             continue;
 
-          for (reg = setFirstItem (allregs[i]); reg; reg = setNextItem (allregs[i]))
+          if (reg->wasUsed && !reg->isExtern)
             {
-              DBG_REG ("", reg);
-              if (reg->isEmitted)
-                continue;
-              if (localSections > 1 && (allregs[i] == dynAllocRegs ? reg->localSection : 0) != sec)
-                continue;
-
-              if (reg->wasUsed && !reg->isExtern)
+              if (!pic14_stringInSet (reg->name, &emitted, true))
                 {
-                  if (!pic14_stringInSet (reg->name, &emitted, true))
+                  if (reg->isFixed)
                     {
-                      if (reg->isFixed)
+                      if (reg->pc_type != PO_DIR)
                         {
-                          if (reg->pc_type != PO_DIR)
-                            {
-                              // Should not happen, really...
-                              assert (!"Compiler-assigned variables should not be pinned... This is a bug.");
-                              dbuf_printf (oBuf, "UDL_abs_%s_%04x\tudata_ovr\t0x%04X\n%s\tres\t%d\n",
-                                           moduleName, reg->address, reg->address, reg->name, reg->size);
-                            }
+                          // Should not happen, really...
+                          assert (!"Compiler-assigned variables should not be pinned... This is a bug.");
+                          dbuf_printf (oBuf, "UDL_abs_%s_%04x\tudata_ovr\t0x%04X\n%s\tres\t%d\n",
+                                       moduleName, reg->address, reg->address, reg->name, reg->size);
+                        }
+                    }
+                  else
+                    {
+                      if (split_locals != NULL)
+                        {
+                          // assign each local register into its own section
+                          dbuf_printf (oBuf, "UDL_%s_%u\tudata\n%s\tres\t%d\n", moduleName, sectionNr++, reg->name, reg->size);
                         }
                       else
                         {
-                          if (split_locals != NULL)
+                          // group all local registers into a single section
+                          // This should greatly improve BANKSEL generation...
+                          if (is_first)
                             {
-                              // assign each local register into its own section
-                              dbuf_printf (oBuf, "UDL_%s_%u\tudata\n%s\tres\t%d\n", moduleName, sectionNr++, reg->name, reg->size);
+                              dbuf_printf (oBuf, "UDL_%s_%u\tudata\n", moduleName, sectionNr++);
+                              is_first = false;
                             }
-                          else
-                            {
-                              /* group the local registers into sections of at
-                                 most one bank; the r0x locals come first, and
-                                 keep the sections assigned to them */
-                              if (is_first || sec != current || (used && used + reg->size > localsSectionMax ()))
-                                {
-                                  dbuf_printf (oBuf, "UDL_%s_%u\tudata\n", moduleName, sectionNr++);
-                                  is_first = false;
-                                  current = sec;
-                                  used = 0;
-                                }
-                              dbuf_printf (oBuf, "%s\tres\t%d\n", reg->name, reg->size);
-                              used += reg->size;
-                            }
+                          dbuf_printf (oBuf, "%s\tres\t%d\n", reg->name, reg->size);
                         }
                     }
                 }
-              reg->isEmitted = true;
-            }                   // for
+            }
+          reg->isEmitted = true;
         }                       // for
-      if (sec == 0)
-        break;
-    }
+    }                           // for
   DBG_EXIT ();
   DBG_MSG ("pic14printLocals ---end registers---");
 }
@@ -902,19 +717,7 @@ picglue (void)
       pic14createInterruptVect (&vBuf);
     }
 
-  {
-    namedspacemap *nm;
-    memmap *maps[] = { data, initialized, idata, code, statsg, xdata, pdata, d_abs, i_abs, c_abs, x_abs, initializer };
-    int i;
-    for (i = 0; i < (int) (sizeof maps / sizeof maps[0]); i++)
-      pic14_scanMapFuncs (maps[i]);
-    for (nm = namedspacemaps; nm; nm = nm->next)
-      pic14_scanMapFuncs (nm->map);
-  }
-
   AnalyzepCode ('*');
-
-  CheckRecursion ();            // locals are static: no call may re-enter its caller
 
   ReuseReg ();                  // ReuseReg where call tree permits
 
@@ -1070,11 +873,11 @@ pic14_printIvalLabel (struct dbuf_s *oBuf, symbol *sym)
  */
 
 static void
-pic14_printLiteral (struct dbuf_s *oBuf, unsigned long long lit, int size)
+pic14_printLiteral (struct dbuf_s *oBuf, long lit, int size)
 {
   int i;
 
-  DBG_MSG ("printLiteral 0x%llx size %d", lit, size);
+  DBG_MSG ("printLiteral %ld 0x%lx size %d", lit, lit, size);
 
   if (!in_code)
     dbuf_printf (oBuf, "\tdb\t");
@@ -1162,27 +965,8 @@ pic14_printChar32 (struct dbuf_s *oBuf, const TYPE_TARGET_ULONG *s, int plen)
  * Emit a label of the specified size and pointer type.
  */
 
-/* Does the address 'val' names lie in program memory? */
-static bool
-isCodeAddress (const value *val)
-{
-  const symbol *sym = val ? val->sym : NULL;
-
-  if (!sym)
-    return false;
-  if (IS_FUNC (sym->type) || sym->isstrlit)
-    return true;
-  return SPEC_OCLS (sym->etype) && IN_CODESPACE (SPEC_OCLS (sym->etype));
-}
-
-/*
- * On enhanced cores a program-memory address carries bit 15, as FSR
- * addresses program memory: gputils sets it in high() of such a symbol,
- * so code that loads the address gets it, and 'codeAddr' adds it to an
- * initializer's dw to match.
- */
 static void
-pic14_printLabel (struct dbuf_s *oBuf, const char *name, int size, int ptype, bool codeAddr)
+pic14_printLabel (struct dbuf_s *oBuf, const char *name, int size, int ptype)
 {
   DBG_MSG ("printLabel name '%s' size %d ptype %d", name, size, ptype);
   wassertl (size >= 1 && size <= 4, "Unexpected size in printLabel");
@@ -1217,19 +1001,20 @@ pic14_printLabel (struct dbuf_s *oBuf, const char *name, int size, int ptype, bo
       if (size > 3)
         dbuf_printf (oBuf, "\tretlw 0\n");
     }
-  else if (size == 1)
-    dbuf_printf (oBuf, "\tdb\t%s\n", name);
   else
     {
-      /* "dw", not "db low(...), high(...)": gplink (gputils 1.5.2) loses
-         bit 7 of a RELOC_LOW byte in initialized data, while dw's
-         RELOC_ALL arrives intact. */
-      if (codeAddr && pic14_getPIC ()->isEnhancedCore)
-        dbuf_printf (oBuf, "\tdw\t%s + 0x8000\n", name);
+      dbuf_printf (oBuf, "\tdb\t");
+      if (size == 1)
+        dbuf_printf (oBuf, "%s", name);
       else
-        dbuf_printf (oBuf, "\tdw\t%s\n", name);
+        dbuf_printf (oBuf, "low(%s)", name);
+      if (size > 1)
+        dbuf_printf (oBuf, ", high(%s)", name);
       if (size > 2)
-        dbuf_printf (oBuf, "\tdb\t0x%02x%s\n", tag, size > 3 ? ", 0" : "");
+        dbuf_printf (oBuf, ", 0x%02x", tag);
+      if (size > 3)
+        dbuf_printf (oBuf, ", 0");
+      dbuf_printf (oBuf, "\n");
     }
 }
 
@@ -1246,17 +1031,13 @@ pic14_printTypeLabel (symbol *sym, sym_link *type, value *val, struct dbuf_s *oB
   switch (size)
     {
     case 1:
-      pic14_printLabel (oBuf, val->name, 1, 0, false);
+      pic14_printLabel (oBuf, val->name, 1, 0);
       break;
     case 2:
-      pic14_printLabel (oBuf, val->name, 2, 0, isCodeAddress (val));
+      pic14_printLabel (oBuf, val->name, 2, 0);
       break;
     case 4:
-      /* Only a generic pointer carries a tag byte; any other address is
-         zero-extended into the integer (POINTER prints a 0x00 tag). */
-      pic14_printLabel (oBuf, val->name, 4,
-                        IS_GENPTR (val->type) ? PTR_TYPE (SPEC_OCLS (val->sym->etype)) : POINTER,
-                        isCodeAddress (val));
+      pic14_printLabel (oBuf, val->name, 4, PTR_TYPE (SPEC_OCLS (val->sym->etype)));
       break;
     default:
       wassertl (0, "Attempting to initialize integer of non-handled size.");
@@ -1273,17 +1054,9 @@ pic14_printFuncPtrLabel (sym_link *type, value *val, struct dbuf_s *oBuf)
   char *name;
   int size;
 
-  char ind[SDCC_NAME_MAX + 8];
-
-  /* now generate the name: a function's address is its "_ind" entry
-     when it takes arguments in WREG/STKnn */
+  /* now generate the name */
   if (!val->sym)
     name = val->name;
-  else if (IS_FUNC (val->sym->type) && pic14_hasRegParm (val->sym->type))
-    {
-      SNPRINTF (ind, sizeof (ind), "%s_ind", val->sym->rname);
-      name = ind;
-    }
   else
     name = val->sym->rname;
 
@@ -1293,7 +1066,7 @@ pic14_printFuncPtrLabel (sym_link *type, value *val, struct dbuf_s *oBuf)
   switch (size)
     {
     case 2:
-      pic14_printLabel (oBuf, name, 2, 0, val->sym != NULL);
+      pic14_printLabel (oBuf, name, 2, 0);
       break;
     default:
       wassertl (0, "Invalid function pointer size.");
@@ -1314,7 +1087,7 @@ pic14_printCharPtrLabel (symbol *sym, sym_link *type, value *val, struct dbuf_s 
   switch (size)
     {
     case 2:
-      pic14_printLabel (oBuf, val->name, 2, 0, isCodeAddress (val));
+      pic14_printLabel (oBuf, val->name, 2, 0);
       break;
     case 3:
       if (IS_PTR (val->type))
@@ -1330,7 +1103,7 @@ pic14_printCharPtrLabel (symbol *sym, sym_link *type, value *val, struct dbuf_s 
           // this is a literal string
           ptype = CPOINTER;
         }
-      pic14_printLabel (oBuf, val->name, 3, ptype, isCodeAddress (val));
+      pic14_printLabel (oBuf, val->name, 3, ptype);
       break;
     default:
       wassertl (0, "Invalid char pointer size.");
@@ -1351,11 +1124,11 @@ pic14_printPtrLabel (symbol *sym, sym_link *type, value *val, struct dbuf_s *oBu
   switch (size)
     {
     case 2:
-      pic14_printLabel (oBuf, val->name, 2, 0, isCodeAddress (val));
+      pic14_printLabel (oBuf, val->name, 2, 0);
       break;
     case 3:
       ptype = IS_PTR (val->type) ? DCL_TYPE (val->type) : PTR_TYPE (SPEC_OCLS (val->etype));
-      pic14_printLabel (oBuf, val->name, 3, ptype, isCodeAddress (val));
+      pic14_printLabel (oBuf, val->name, 3, ptype);
       break;
     default:
       wassertl (0, "Invalid pointer size.");
@@ -1373,10 +1146,7 @@ pic14_printValue (struct dbuf_s *oBuf, sym_link *type, value *val)
   int tag = 0;
   char buf[100] = "";
 
-  int i;
-  bool ptrtag;
-
-  wassertl (size >= 1 && size <= 8, "Unexpected size in printValue");
+  wassertl (size >= 1 && size <= 4, "Unexpected size in printValue");
 
   if (val)
     {
@@ -1410,12 +1180,6 @@ pic14_printValue (struct dbuf_s *oBuf, sym_link *type, value *val)
               else
                 SNPRINTF (buf, sizeof (buf), "\t; % ld", (long) ulVal);
               break;
-            case 8:
-              if (IS_UNSIGNED (val->type))
-                SNPRINTF (buf, sizeof (buf), "\t; %llu", ullFromVal (val));
-              else
-                SNPRINTF (buf, sizeof (buf), "\t; % lld", (long long) ullFromVal (val));
-              break;
             }
         }
     }
@@ -1446,21 +1210,32 @@ pic14_printValue (struct dbuf_s *oBuf, sym_link *type, value *val)
         }
     }
 
-  /* the third byte of a 3-byte pointer is a generic pointer's tag (a
-     3-byte integer, an _BitInt(24) say, keeps its own third byte) */
-  ptrtag = size == 3 && IS_PTR (type);
   if (in_code)
     {
       dbuf_printf (oBuf, "\tretlw 0x%02x%s\n", val ? byteOfVal (val, 0) : 0, buf);
-      for (i = 1; i < size; i++)
-        dbuf_printf (oBuf, "\tretlw 0x%02x\n", (ptrtag && i == 2) ? tag : byteOfVal (val, i));
+      if (size > 1)
+        dbuf_printf (oBuf, "\tretlw 0x%02x\n", byteOfVal (val, 1));
+      if (size > 2)
+        if (size == 3)
+          dbuf_printf (oBuf, "\tretlw 0x%02x\n", tag);
+        else
+          dbuf_printf (oBuf, "\tretlw 0x%02x\n", byteOfVal (val, 2));
+      if (size > 3)
+        dbuf_printf (oBuf, "\tretlw 0x%02x\n", byteOfVal (val, 3));
     }
   else
     {
       dbuf_printf (oBuf, "\tdb\t");
       dbuf_printf (oBuf, "0x%02x", val ? byteOfVal (val, 0) : 0);
-      for (i = 1; i < size; i++)
-        dbuf_printf (oBuf, ", 0x%02x", (ptrtag && i == 2) ? tag : byteOfVal (val, i));
+      if (size > 1)
+        dbuf_printf (oBuf, ", 0x%02x", byteOfVal (val, 1));
+      if (size > 2)
+        if (size == 3)
+          dbuf_printf (oBuf, ", 0x%02x", tag);
+        else
+          dbuf_printf (oBuf, ", 0x%02x", byteOfVal (val, 2));
+      if (size > 3)
+        dbuf_printf (oBuf, ", 0x%02x", byteOfVal (val, 3));
       dbuf_printf (oBuf, "%s\n", buf);
     }
 }
@@ -1479,12 +1254,7 @@ pic14_printTypeLiteral (symbol *sym, sym_link *type, value *val, struct dbuf_s *
     {
     case 1:
     case 2:
-    case 3:                     /* 3, 5, 6, 7: _BitInt */
     case 4:
-    case 5:
-    case 6:
-    case 7:
-    case 8:
       pic14_printValue (oBuf, type, val);
       break;
     default:
@@ -1558,15 +1328,7 @@ pic14_printIvalType (symbol *sym, sym_link *type, initList *ilist, struct dbuf_s
   if (ilist && (ilist->type == INIT_DEEP))
     ilist = ilist->init.deep;
 
-  val = list2val (ilist, false);
-  /* A string literal's address (e.g. (unsigned long)"AAA") comes back
-     marked S_LITERAL but with val->sym set: it is an address, not a
-     number, so let initPointer() handle it (as SDCCglue.c, upstream
-     bug #3973). */
-  if (val && val->sym)
-    val = NULL;
-
-  if (!val)
+  if (!(val = list2val (ilist, false)))
     {
       if (!!(val = initPointer (ilist, type, 0)))
         {
@@ -1617,7 +1379,7 @@ pic14_printIvalBitFields (symbol **sym, initList **ilist, struct dbuf_s *oBuf)
 {
   symbol *lsym = *sym;
   initList *lilist = *ilist;
-  unsigned long long ival = 0;
+  unsigned long ival = 0;
   unsigned size = 0;
   unsigned bit_start = 0;
 
@@ -1657,9 +1419,9 @@ pic14_printIvalBitFields (symbol **sym, initList **ilist, struct dbuf_s *oBuf)
               werror (W_LIT_OVERFLOW);
             }
 
-          ival |= (ullFromVal (val) & (0xffffffffffffffffull >> (64 - bit_length))) << bit_start;
-          DBG_MSG ("(bitfield member) %s value 0x%02llx (%d bits, starting at %d) new value 0x%02llx",
-                   lsym->name, ullFromVal (val), bit_length, bit_start, ival);
+          ival |= (ulFromVal (val) & ((1ul << bit_length) - 1ul)) << bit_start;
+          DBG_MSG ("(bitfield member) %s value 0x%02lx (%d bits, starting at %d) new value 0x%02lx",
+                   lsym->name, ulFromVal (val), bit_length, bit_start, ival);
           lilist = lilist ? lilist->next : NULL;
         }
       bit_start += bit_length;
@@ -1672,10 +1434,19 @@ pic14_printIvalBitFields (symbol **sym, initList **ilist, struct dbuf_s *oBuf)
         }
     }
 
-  DBG_MSG ("bitfield member value %llu size %d", ival, size);
-  wassertl (size <= 8, "Unexpected bitfield length.");
-  if (size)
-    pic14_printLiteral (oBuf, ival, size);
+  DBG_MSG ("bitfield member value %ld size %d", ival, size);
+  switch (size)
+    {
+    case 0:
+      break;
+    case 1:
+    case 2:
+    case 4:
+      pic14_printLiteral (oBuf, ival, size);
+      break;
+    default:
+      wassertl (0, "Unexpected bitfield length.");
+    }
   *sym = lsym;
   *ilist = lilist;
 }
@@ -1716,29 +1487,8 @@ pic14_printIvalStruct (symbol *sym, sym_link *type, initList *ilist, struct dbuf
           sflds = sflds->next;
         }
       pic14_printIval (sym, sflds->type, iloop, oBuf, true);
-      size -= sflds->offset + getSize (sflds->type);
-
-      /* The selected alternative's members may have been flattened into
-         this union's field list (an anonymous inner struct or union):
-         then iloop's nested list holds one value per flattened member,
-         and each further field contiguous with the first takes the next
-         one instead of being zero-padded over (as SDCCglue.c,
-         upstream bug #2948). */
-      if (iloop && iloop->type == INIT_DEEP)
-        {
-          initList *inner = iloop->init.deep ? iloop->init.deep->next : NULL;
-          unsigned int offset = sflds->offset + getSize (sflds->type);
-          while (inner && sflds->next && sflds->next->offset == offset)
-            {
-              sflds = sflds->next;
-              pic14_printIval (sym, sflds->type, inner, oBuf, true);
-              offset += getSize (sflds->type);
-              size -= getSize (sflds->type);
-              inner = inner->next;
-            }
-        }
-
       /* pad out with zeros if necessary */
+      size -= getSize (sflds->type);
       if (size > 0)
         {
           DBG_MSG ("union padding %d bytes", size);
@@ -2201,9 +1951,8 @@ pic14_printIvalPtr (symbol *sym, sym_link *type, initList *ilist, struct dbuf_s 
       printFromToType (val->type, type);
     }
 
-  /* if val is literal - a string literal's address is marked S_LITERAL
-     too, but has val->sym (upstream bug #3973) */
-  if (IS_LITERAL (val->etype) && !val->sym)
+  /* if val is literal */
+  if (IS_LITERAL (val->etype))
     pic14_printPtrLiteral (sym, type, val, oBuf);
   else
     pic14_printPtrLabel (sym, type, val, oBuf);
@@ -2466,7 +2215,6 @@ pic14_emitRegularMap (memmap *map, bool addPublics, bool arFlag)
       else if (SPEC_ABSA (sym->etype) && !sym->ival)
         {
           DBG_MSG ("added to ABS not ival");
-          checkCoreRegOverlap (sym);
           addToAbsMap (sym);
         }
       else
@@ -2481,7 +2229,6 @@ pic14_emitRegularMap (memmap *map, bool addPublics, bool arFlag)
           if (SPEC_ABSA (sym->etype))
             {
               DBG_MSG ("added to ABS allocate");
-              checkCoreRegOverlap (sym);
               addToAbsMap (sym);
             }
           else if (!sym->islocal)
@@ -2697,9 +2444,6 @@ pic14_declare (struct dbuf_s *oBuf, const char *type, symbol *sym)
   DBG_MSG ("symbol %s declared %s", str, type);
   addSet (&declared, Safe_strdup (str));
   dbuf_printf (oBuf, "\t%s\t%s\n", type, str);
-  /* and its entry for calls through a pointer */
-  if (IS_FUNC (sym->type) && !IFFUNC_ISISR (sym->type) && pic14_hasRegParm (sym->type))
-    dbuf_printf (oBuf, "\t%s\t%s_ind\n", type, str);
 }
 
 /*-----------------------------------------------------------------*/
@@ -2736,7 +2480,6 @@ showAllMemmaps (FILE *of)
 {
   // trying to keep things as similar as possible to SDCCglue.c
   namedspacemap *nm;
-  symbol *sym;
   int publicsfr = true;
 
   DBG_MSG ("---begin memmaps---");
@@ -2797,35 +2540,6 @@ showAllMemmaps (FILE *of)
   // must be the last one, so externs used in ivals get marked as isref
   pic14_emitRegularMap (code, true, false);
 //    inInitMode--;
-
-  /* Static areas for variable arguments (see getStaticVaArea): every
-     module that uses one emits it as a same-named overlay section, and
-     the linker keeps the largest. */
-  for (sym = setFirstItem (staticVaAreas); sym; sym = setNextItem (staticVaAreas))
-    {
-      reg_info *reg;
-      int size = getSize (sym->type);
-
-      dbuf_printf (gloDefBuf, "VA%s\tudata_ovr\n%s\tres\t%d\n", sym->rname, sym->rname, size ? size : 1);
-      pic14_stringInSet (sym->rname, &emitted, true);
-      if ((reg = dirregWithName (sym->rname)))
-        reg->isEmitted = TRUE;
-    }
-  deleteSet (&staticVaAreas);
-
-  /* A parameter passed in its function's own variable belongs to the
-     module that defines the function; anywhere else it is extern. */
-  for (sym = setFirstItem (pic14_stackParmSyms); sym; sym = setNextItem (pic14_stackParmSyms))
-    {
-      reg_info *reg;
-
-      if (pic14_stringInSet (sym->rname, &emitted, false))
-        continue;
-      if ((reg = dirregWithName (sym->rname)))
-        reg->isExtern = TRUE;
-      addToExterns (sym);
-    }
-  deleteSet (&pic14_stackParmSyms);
 
   pic14_printPublics (gloBuf);
   pic14_printExterns (extBuf);

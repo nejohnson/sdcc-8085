@@ -2278,7 +2278,7 @@ geniCodeMultiply (operand * left, operand * right, RESULT_TYPE resultType)
      efficient in most cases than 2 bytes result = 2 bytes << literal
      if port has 1 byte muldiv */
   if ((p2 > 0) && !IS_FLOAT (letype) && !IS_FIXED (letype) &&
-      !((resultType == RESULT_TYPE_INT) && (getSize (resType) != getSize (ltype)) && !(TARGET_Z80_LIKE || TARGET_MOS6502_LIKE || TARGET_IS_STM8 && p2 == 1) /* Mimic old behaviour that tested port->muldiv, which was zero for stm8 and z80-like only. Someone should look into what really makes sense here. */) &&
+      !((resultType == RESULT_TYPE_INT) && (getSize (resType) != getSize (ltype)) && !(TARGET_Z80_LIKE || TARGET_MOS6502_LIKE || TARGET_F8_LIKE || TARGET_IS_STM8 && p2 == 1) /* Mimic old behaviour that tested port->muldiv, which was zero for stm8 and z80-like only. Someone should look into what really makes sense here. */) &&
       !TARGET_PIC_LIKE)      /* don't shift for pic */
     {
       if ((resultType == RESULT_TYPE_INT) && (getSize (resType) != getSize (ltype)))
@@ -3615,123 +3615,6 @@ geniCodeSEParms (ast *parms, int lvl, sym_link *ftype)
 }
 
 /*-----------------------------------------------------------------*/
-/* Variable arguments without a data stack (pic14): a non-reentrant */
-/* variadic function f takes them in a static area _f_VA, which     */
-/* callers fill at increasing offsets like any other parameter.     */
-/* staticVaAreas holds the areas this module uses, each sized for   */
-/* its largest use; the back end emits them as overlay sections so  */
-/* the linker keeps the largest size from any module.               */
-/*-----------------------------------------------------------------*/
-set *staticVaAreas = NULL;
-static const char *staticVaCallee;      /* function whose arguments are being generated */
-
-symbol *
-getStaticVaArea (const char *funcName, int size)
-{
-  symbol *sym;
-  char name[SDCC_NAME_MAX + 1];
-
-  SNPRINTF (name, sizeof (name), "_%s_VA", funcName);
-  for (sym = setFirstItem (staticVaAreas); sym; sym = setNextItem (staticVaAreas))
-    if (!strcmp (sym->rname, name))
-      break;
-
-  if (!sym)
-    {
-      sym = newSymbol (name, 0);
-      strncpyz (sym->rname, name, sizeof (sym->rname));
-      sym->type = newLink (DECLARATOR);
-      DCL_TYPE (sym->type) = ARRAY;
-      DCL_ELEM (sym->type) = 0;
-      sym->type->next = newCharLink ();
-      SPEC_USIGN (sym->type->next) = 1;
-      sym->etype = getSpec (sym->type);
-      SPEC_SCLS (sym->etype) = S_DATA;
-      SPEC_OCLS (sym->etype) = data;
-      addSet (&staticVaAreas, sym);
-    }
-
-  if (size > DCL_ELEM (sym->type))
-    DCL_ELEM (sym->type) = size;
-  return sym;
-}
-
-/* copy size bytes from src to dst with a call to __memcpy */
-static void
-geniCodeStaticVaMemcpy (operand *dst, operand *src, int size)
-{
-  symbol *memcpy_sym = findSym (SymbolTab, NULL, "__memcpy");
-  operand *ops[3] = { dst, src, operandFromLit (size) };
-  value *args;
-  iCode *ic;
-  int i;
-
-  wassert (memcpy_sym);
-  for (i = 0, args = FUNC_ARGS (memcpy_sym->type); i < 3; i++, args = args->next)
-    ops[i] = geniCodeCast (args->type, ops[i], false);
-  for (i = 0, args = FUNC_ARGS (memcpy_sym->type); i < 3; i++, args = args->next)
-    {
-      if (IS_REGPARM (args->etype))
-        {
-          ic = newiCode (SEND, ops[i], NULL);
-          ic->argreg = SPEC_ARGREG (args->etype);
-        }
-      else
-        {
-          ic = newiCode ('=', 0, ops[i]);
-          IC_RESULT (ic) = operandFromValue (args, false);
-        }
-      ADDTOCHAIN (ic);
-    }
-  ic = newiCode (CALL, operandFromSymbol (memcpy_sym, false), 0);
-  IC_RESULT (ic) = newiTempOperand (memcpy_sym->type->next, 0);
-  ADDTOCHAIN (ic);
-}
-
-/* store one variable argument at *offset in the callee's static area */
-static void
-geniCodeStaticVaArg (operand *pval, sym_link *ftype, int *offset, int lvl)
-{
-  sym_link *vtype = operandType (pval);
-  int size = getSize (IS_STRUCT (ftype) ? ftype : vtype);
-  sym_link *ptype, *rtype;
-  operand *ptr, *dst;
-
-  if (!staticVaCallee)
-    {
-      werror (E_VARARG_PTR_CALL_UNSUPPORTED);
-      return;
-    }
-
-  ptr = operandFromSymbol (getStaticVaArea (staticVaCallee, *offset + size), true);
-  if (*offset)
-    ptr = geniCodeAdd (ptr, operandFromLit (*offset), RESULT_TYPE_NONE, lvl);
-
-  /* A struct argument is its address: copy the struct itself. The fixed
-     parameters of a variadic function are never in registers here, so
-     the call cannot disturb them. */
-  if (IS_STRUCT (ftype))
-    {
-      geniCodeStaticVaMemcpy (ptr, pval, size);
-      *offset += size;
-      return;
-    }
-  ptype = newLink (DECLARATOR);
-  DCL_TYPE (ptype) = POINTER;
-  ptype->next = copyLinkChain (vtype);
-  ptr = geniCodeCast (ptype, ptr, true);
-  *offset += size;
-
-  /* the lvalue *ptr, as geniCodeDerefPtr makes it */
-  dst = operandFromOperand (ptr);
-  rtype = copyLinkChain (vtype);
-  setOClass (ptype, getSpec (rtype));
-  dst->isaddr = 1;
-  setOperandType (dst, rtype);
-  geniCodeAssign (dst, pval, 0, 0);
-}
-
-/*-----------------------------------------------------------------*/
 /* geniCodeParms - generates parameters                            */
 /*-----------------------------------------------------------------*/
 value *
@@ -3772,13 +3655,6 @@ send:
       ic->builtinSEND = FUNC_ISBUILTIN (ftype);
       ADDTOCHAIN (ic);
     }
-  else if (TARGET_IS_PIC14 && !argVals && IFFUNC_HASVARARGS (ftype) && !IFFUNC_ISREENT (ftype) && !options.stackAuto)
-    {
-      /* a variable argument: there is no argVals entry to advance */
-      geniCodeStaticVaArg (pval, parms->ftype, stack, lvl);
-      (*iArg)++;
-      return argVals;
-    }
   else
     {
       iCode *castic_start = 0;
@@ -3809,14 +3685,6 @@ send:
  
               // Keep this one in mind in so we can move it later.
               operand *dstop = geniCodeCast (FUNC_ARGS(builtin_memcpy->type)->type, operandFromValue (argVals, true), false);
-              operand *nop = operandFromLit (getSize (parms->ftype));
-              /* A real function, unlike the builtin, needs its arguments in
-                 the types of its prototype (pic14: generic pointers). */
-              if (!IFFUNC_ISBUILTIN (builtin_memcpy->type))
-                {
-                  pval = geniCodeCast (FUNC_ARGS(builtin_memcpy->type)->next->type, pval, false);
-                  nop = geniCodeCast (FUNC_ARGS(builtin_memcpy->type)->next->next->type, nop, false);
-                }
               castic_end = iCodeChainEnd;
               if (IS_REGPARM (FUNC_ARGS (builtin_memcpy->type)->etype))
                 {
@@ -3840,12 +3708,12 @@ send:
                 }
               if (IS_REGPARM (FUNC_ARGS (builtin_memcpy->type)->next->next->etype))
                 {
-                  nic = newiCode (SEND, nop, NULL);
+                  nic = newiCode (SEND, operandFromLit (getSize (parms->ftype)), NULL);
                   nic->argreg = SPEC_ARGREG (FUNC_ARGS (builtin_memcpy->type)->next->next->etype);
                 }
               else
                 {
-                  nic = newiCode ('=', 0, nop);
+                  nic = newiCode ('=', 0, operandFromLit (getSize (parms->ftype)));
                   IC_RESULT (nic) = operandFromValue (FUNC_ARGS(builtin_memcpy->type)->next->next, false);
                 }
               callic = newiCode (CALL, operandFromSymbol (builtin_memcpy, false), 0);
@@ -3953,11 +3821,8 @@ geniCodeCall (operand * left, ast * parms, int lvl)
   if (inCriticalPair && FUNC_ISCRITICAL (ftype))
     werror (E_INVALID_CRITICAL);
 
-  staticVaCallee = NULL;
   if (IS_FUNCPTR (ftype))
     ftype = ftype->next;
-  else if (TARGET_IS_PIC14 && IFFUNC_HASVARARGS (ftype))
-    staticVaCallee = OP_SYMBOL (left)->name;
 
   /* take care of parameters with side-effecting
      function calls in them, this is required to take care

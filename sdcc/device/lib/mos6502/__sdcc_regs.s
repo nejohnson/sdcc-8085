@@ -6,7 +6,7 @@
 
 	.module __sdcc_regs
 
-	.area	ZP
+	.area	ZP (PAG)
 REGTEMP::
 ___SDCC_m6502_ret0::
         .ds 1

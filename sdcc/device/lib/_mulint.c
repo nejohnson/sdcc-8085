@@ -131,9 +131,9 @@ __mulint:
 #if !defined(__SDCC_STACK_AUTO) || defined(__SDCC_PARMS_IN_BANK1)
 
 #if defined(__SDCC_NOOVERLAY)
-	.area DSEG    (BANK=BDATA)
+	.area DSEG    (DATA)
 #else
-	.area OSEG    (REL,OVR,BANK=BDATA)
+	.area OSEG    (OVR,DATA)
 #endif
 #if defined(__SDCC_PARMS_IN_BANK1)
 	#define bl 	(b1_0)
@@ -148,7 +148,7 @@ __mulint_PARM_2:
 	.ds	2
 #endif
 
-	.area CSEG    (BANK=BCODE)
+	.area CSEG    (CODE)
 
 	; globbered registers none
 

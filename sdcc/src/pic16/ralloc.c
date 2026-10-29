@@ -4378,77 +4378,6 @@ dumpEbbsToDebug (eBBlock ** ebbs, int count)
 void dbg_dumpregusage(void);
 
 /*-----------------------------------------------------------------*/
-/* isCodeVariable - is op a variable in program memory, whose      */
-/*                  value has to be read with a table read          */
-/*-----------------------------------------------------------------*/
-static bool
-isCodeVariable (operand *op)
-{
-  return op && IS_SYMOP (op) && !IS_ITEMP (op) && !IS_OP_LITERAL (op) &&
-         SPEC_OCLS (OP_SYM_ETYPE (op)) && IN_CODESPACE (SPEC_OCLS (OP_SYM_ETYPE (op))) &&
-         !IS_FUNC (OP_SYM_TYPE (op)) && !IS_ARRAY (OP_SYM_TYPE (op));
-}
-
-/*-----------------------------------------------------------------*/
-/* loadCodeVariables - give arithmetic, logic and comparisons the   */
-/*                     value of a program memory variable in a      */
-/*                     temporary.  Only genAssign and genCast read   */
-/*                     program memory; the others would take the     */
-/*                     variable's address for its value.             */
-/*-----------------------------------------------------------------*/
-static void
-loadCodeVariables (eBBlock **ebbs, int count)
-{
-  int i;
-
-  for (i = 0; i < count; i++)
-    {
-      iCode *ic;
-
-      for (ic = ebbs[i]->sch; ic; ic = ic->next)
-        {
-          operand **opp[2];
-          int j;
-
-          switch (ic->op)
-            {
-            case '+': case '-': case '*': case '/': case '%':
-            case '&': case '|': case '^': case LEFT_OP: case RIGHT_OP:
-            case EQ_OP: case NE_OP: case '<': case '>': case LE_OP: case GE_OP:
-            case AND_OP: case OR_OP: case UNARYMINUS: case '~': case '!':
-              break;
-            default:
-              continue;
-            }
-
-          opp[0] = &IC_LEFT (ic);
-          opp[1] = &IC_RIGHT (ic);
-          for (j = 0; j < 2; j++)
-            {
-              operand *op = *opp[j];
-              operand *tmp;
-              iCode *nic;
-
-              if (!isCodeVariable (op))
-                continue;
-
-              tmp = newiTempOperand (operandType (op), 0);
-              nic = newiCode ('=', NULL, operandFromOperand (op));
-              IC_RESULT (nic) = tmp;
-              nic->filename = ic->filename;
-              nic->lineno = ic->lineno;
-              addiCodeToeBBlock (ebbs[i], nic, ic);
-
-              OP_USES (op) = bitVectSetBit (OP_USES (op), nic->key);
-              OP_DEFS (tmp) = bitVectSetBit (OP_DEFS (tmp), nic->key);
-              *opp[j] = operandFromOperand (tmp);
-              OP_USES (tmp) = bitVectSetBit (OP_USES (tmp), ic->key);
-            }
-        }
-    }
-}
-
-/*-----------------------------------------------------------------*/
 /* pic16_assignRegisters - assigns registers to each live range as need  */
 /*-----------------------------------------------------------------*/
 void
@@ -4486,9 +4415,6 @@ pic16_assignRegisters (ebbIndex * ebbi)
   setToNull ((void *) &_G.funcrUsed);
   pic16_ptrRegReq = _G.stackExtend = _G.dataExtend = 0;
 
-
-  loadCodeVariables (ebbs, count);
-  recomputeLiveRanges (ebbs, count, FALSE);
 
   /* change assignments this will remove some
      live ranges reducing some register pressure */

@@ -30,9 +30,6 @@
 #ifndef  __DEVICE_H__
 #define  __DEVICE_H__
 
-/* A PIC18 general-purpose RAM bank */
-#define PIC16_BANK_SIZE         256
-
 #define CONFIGURATION_WORDS     20
 #define IDLOCATION_BYTES        20
 

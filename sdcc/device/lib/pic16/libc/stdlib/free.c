@@ -3,9 +3,6 @@
 
    Copyright (C) 2004, Vangelis Rokas <vrokas at otenet.gr>
 
-   Modifications for PIC14 by
-   Copyright (C) 2019 Gonzalo Pérez de Olaguer Córdoba <salo@gpoc.es>
-
    This library is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
    Free Software Foundation; either version 2, or (at your option) any
@@ -31,9 +28,10 @@
 
 #include <malloc.h>
 
-void free (void *ptr)
+extern char _MALLOC_SPEC *heap;
+
+void free(unsigned char _MALLOC_SPEC *buf)
 {
   /* mark block as deallocated */
-  if (ptr)
-    PTR2REC((void __data *)ptr)->bits.alloc = 0;
+  ((_MALLOC_SPEC _malloc_rec *)((unsigned int)buf - 1))->bits.alloc = 0;
 }

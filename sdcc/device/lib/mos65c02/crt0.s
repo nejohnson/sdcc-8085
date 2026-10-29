@@ -32,8 +32,8 @@
 ;--------------------------------------------------------
 ;  Ordering of segments for the linker.
 ;--------------------------------------------------------
-	.area ZP
-	.area OSEG    (REL,OVR)
+	.area ZP      (PAG)
+	.area OSEG    (PAG, OVR)
 
 	.area _DATA
 	.area DATA
@@ -75,7 +75,7 @@ __sdcc_gs_init_startup:
 __sdcc_init_data:
 ; clear ZP
 	lda	#0x00
-	ldx	#<a_ZP
+	ldx	#<s_ZP
 	ldy	#<l_ZP
 	beq	00101$
 00100$:
@@ -90,12 +90,12 @@ __sdcc_init_data:
 	sta	*___memcpy_PARM_3+1
 	lda	#<l_XINIT
 	sta	*___memcpy_PARM_3
-	lda	#>a_XINIT
+	lda	#>s_XINIT
 	sta	*___memcpy_PARM_2+1
-	lda	#<a_XINIT
+	lda	#<s_XINIT
 	sta	*___memcpy_PARM_2
-	lda	#<a_DATA
-	ldx	#>a_DATA
+	lda	#<s_DATA
+	ldx	#>s_DATA
 	jsr	___memcpy
 
 ; clear BSS
@@ -105,8 +105,8 @@ __sdcc_init_data:
 	sta	*_memset_PARM_3
 	lda	#0x00
 	sta	*_memset_PARM_2
-	lda	#<a_BSS
-	ldx	#>a_BSS
+	lda	#<s_BSS
+	ldx	#>s_BSS
 	jsr	_memset
 
 ;--------------------------------------------------------

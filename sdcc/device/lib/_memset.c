@@ -165,16 +165,16 @@ __endasm;
   #if defined (__SDCC_MODEL_SMALL)
 
     #if defined(__SDCC_NOOVERLAY)
-        .area DSEG    (BANK=BDATA)
+        .area DSEG    (DATA)
     #else
-        .area OSEG    (REL,OVR,BANK=BDATA)
+        .area OSEG    (OVR,DATA)
     #endif
         _memset_PARM_2::
               .ds 1
         _memset_PARM_3::
               .ds 2
 
-        .area CSEG    (BANK=BCODE)
+        .area CSEG    (CODE)
 
         _memset::
 
@@ -210,14 +210,14 @@ __endasm;
 
   #else
 
-        .area XSEG    (BANK=BXDATA)
+        .area XSEG    (XDATA)
 
         _memset_PARM_2::
                 .ds 1
         _memset_PARM_3::
                 .ds 2
 
-        .area CSEG    (BANK=BCODE)
+        .area CSEG    (CODE)
 
         _memset::
 

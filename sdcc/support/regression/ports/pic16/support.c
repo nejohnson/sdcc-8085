@@ -27,9 +27,6 @@
 
 #include <pic18f452.h>
 
-/* a long run of failure messages outlasts the watchdog */
-#pragma config WDT=OFF
-
 
 void
 _putchar(char c)

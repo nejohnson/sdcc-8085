@@ -1,7 +1,3 @@
-	.bank BCODE
-	.bank BDATA
-	.bank BXDATA
-	.bank BBIT
 ;--------------------------------------------------------------------------
 ;  crtxpush.asm :- C run-time: push registers (not R0) to xstack
 ;
@@ -33,14 +29,14 @@
 ;--------------------------------------------------------
 ; overlayable bit register bank
 ;--------------------------------------------------------
-	.area BIT_BANK	(REL,OVR,BANK=BDATA)
+	.area BIT_BANK	(REL,OVR,DATA)
 bits:
 	.ds 1
 
 	ar0 = 0x00
 	ar1 = 0x01
 
-	.area HOME    (BANK=BCODE)
+	.area HOME    (CODE)
 
 ; Push registers r1..r7 & bits on xstack
 ; Expect allocation size in ACC and mask in B

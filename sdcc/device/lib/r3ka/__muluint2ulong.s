@@ -29,7 +29,7 @@
 .module __muluint2ulong
 
 .r3ka
-.abi -mr3ka sdcccall(1)
+.optsdcc -mr3ka sdcccall(1)
   
 .globl ___muluint2ulong
 

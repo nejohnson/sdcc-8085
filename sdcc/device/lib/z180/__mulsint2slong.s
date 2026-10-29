@@ -29,6 +29,7 @@
 .module __mulsint2slong
 
 .hd64
+.optsdcc -mz180 sdcccall(1)
 
 .globl ___muluint2ulong
 .globl ___mulsint2slong

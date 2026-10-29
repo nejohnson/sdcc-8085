@@ -1,5 +1,6 @@
 #
-# Build and install the ASxxxx assemblers and linker the ports use.
+# Build and install the ASxxxx assemblers and linker the i8080, i8085
+# and stm8 ports use.
 #
 # The sources are the vendor tree, vendor/asxxxx beside sdcc/, and are
 # built with its own makefile; the objects go here rather than into the
@@ -19,63 +20,16 @@ ASXBASE         = @ASXXXX_DIR@/
 ASXMAKE         = $(ASXBASE)asxmak/linux/build/makefile
 EXEDIR          = exe/
 
-# aslink, and the assemblers for the ports this build has.
+# aslink, and the assemblers for the ASxxxx ports this build has.  The
+# other ports use sdas and sdld.
 ASX_TOOLS       = aslink
-
-ifeq ($(OPT_DISABLE_MCS51), 0)
-ASX_TOOLS      += as8051
-endif
-
-ifneq ($(OPT_DISABLE_DS390)$(OPT_DISABLE_DS400), 11)
-ASX_TOOLS      += as8xcxxx
-endif
-
-ifneq ($(OPT_DISABLE_Z80)$(OPT_DISABLE_Z180)$(OPT_DISABLE_Z80N)$(OPT_DISABLE_R800), 1111)
-ASX_TOOLS      += asz80
-endif
-
-ifeq ($(OPT_DISABLE_EZ80), 0)
-ASX_TOOLS      += asez80
-endif
-
-ifneq ($(OPT_DISABLE_R2K)$(OPT_DISABLE_R2KA)$(OPT_DISABLE_R3KA)$(OPT_DISABLE_R4K)$(OPT_DISABLE_R5K)$(OPT_DISABLE_R6K), 111111)
-ASX_TOOLS      += asrab
-endif
-
-ifeq ($(OPT_DISABLE_TLCS90), 0)
-ASX_TOOLS      += astlcs90
-endif
-
-ifeq ($(OPT_DISABLE_SM83), 0)
-ASX_TOOLS      += asgb
-endif
 
 ifneq ($(OPT_DISABLE_I8080)$(OPT_DISABLE_I8085), 11)
 ASX_TOOLS      += as8085
 endif
 
-ifneq ($(OPT_DISABLE_HC08)$(OPT_DISABLE_S08), 11)
-ASX_TOOLS      += as6808
-endif
-
-ifneq ($(OPT_DISABLE_MOS6502)$(OPT_DISABLE_MOS65C02), 11)
-ASX_TOOLS      += as6500
-endif
-
 ifeq ($(OPT_DISABLE_STM8), 0)
 ASX_TOOLS      += asst8
-endif
-
-ifeq ($(OPT_DISABLE_PDK13), 0)
-ASX_TOOLS      += aspdk13
-endif
-
-ifeq ($(OPT_DISABLE_PDK14), 0)
-ASX_TOOLS      += aspdk14
-endif
-
-ifeq ($(OPT_DISABLE_PDK15), 0)
-ASX_TOOLS      += aspdk15
 endif
 
 BINDIR          = $(top_builddir)/bin

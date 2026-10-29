@@ -37,7 +37,7 @@
 ;--------------------------------------------------------
 ; overlayable function parameters in zero page
 ;--------------------------------------------------------
-	.area	OSEG    (REL,OVR)
+	.area	OSEG    (PAG, OVR)
 ___stdc_bit_width_PARM_1:
 	.ds 8
 

@@ -775,7 +775,7 @@ mergeSpec (sym_link * dest, sym_link * src, const char *name)
   if ((SPEC_SHORT (src)  || SPEC_LONG (src)  || SPEC_LONGLONG (src)) &&
       (SPEC_SHORT (dest) || SPEC_LONG (dest) || SPEC_LONGLONG (dest)))
     {
-      if (!(options.std_c99 && SPEC_LONG (src) && SPEC_LONG (dest))) /* C99 has long long */
+      if (!(options.std_c99 && SPEC_LONG (src) && SPEC_LONG (dest) && !TARGET_IS_PIC14)) /* C99 has long long */
         werror (E_SHORTLONG, name);
     }
 
@@ -4221,8 +4221,7 @@ processFunc (symbol *func, sym_link *funcType)
 
   /* if this function has variable argument list */
   /* then make the function a reentrant one    */
-  /* (pic14 has no data stack: it passes them statically, see getStaticVaArea) */
-  if ((IFFUNC_HASVARARGS (funcType) && !TARGET_IS_PIC14) || (options.stackAuto && !funcCdef))
+  if (IFFUNC_HASVARARGS (funcType) || (options.stackAuto && !funcCdef))
     FUNC_ISREENT (funcType) = 1;
 
   /* check if this function is defined as calleeSaves
@@ -5361,7 +5360,7 @@ initCSupport (void)
           dbuf_init (&dbuf, 128);
           dbuf_printf (&dbuf, "_%s%s%s", smuldivmod[muldivmod], ssu[su], sbwd[bwd]);
           muldiv[muldivmod][bwd][su] = funcOfType2 (_mangleFunctionName (dbuf_c_str (&dbuf)),
-            multypes[((TARGET_IS_PIC16 || TARGET_IS_PIC14 || TARGET_IS_STM8 || TARGET_Z80_LIKE || TARGET_PDK_LIKE || TARGET_MOS6502_LIKE) && bwd == 0) ? 1 : bwd][(bool)su],
+            multypes[((TARGET_IS_PIC16 || TARGET_IS_PIC14 || TARGET_IS_STM8 || TARGET_Z80_LIKE || TARGET_PDK_LIKE || TARGET_MOS6502_LIKE || TARGET_F8_LIKE) && bwd == 0) ? 1 : bwd][(bool)su],
               multypes[bwd][su % 2],
               multypes[bwd][su == 1 || su == 2],
               options.intlong_rent);
@@ -5381,7 +5380,7 @@ initCSupport (void)
               dbuf_printf (&dbuf, "_%s%s%s", smuldivmod[muldivmod], ssu[su], sbwd[bwd]);
               muldiv[muldivmod][bwd][su] =
                 funcOfType (_mangleFunctionName (dbuf_c_str (&dbuf)),
-                  multypes[(TARGET_IS_PIC16 && muldivmod == 1 && bwd == 0 && su == 0 || (TARGET_IS_STM8 || TARGET_Z80_LIKE || TARGET_PDK_LIKE) && bwd == 0) ? 1 : bwd][su],
+                  multypes[(TARGET_IS_PIC16 && muldivmod == 1 && bwd == 0 && su == 0 || (TARGET_IS_STM8 || TARGET_Z80_LIKE || TARGET_PDK_LIKE || TARGET_F8_LIKE) && bwd == 0) ? 1 : bwd][su],
                   multypes[bwd][su],
                   2,
                   options.intlong_rent);

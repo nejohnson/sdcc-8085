@@ -38,7 +38,7 @@
 ;--------------------------------------------------------
 ; overlayable function parameters in zero page
 ;--------------------------------------------------------
-	.area	OSEG    (REL,OVR)
+	.area	OSEG    (PAG, OVR)
 _strcmp_PARM_2:
 	.ds 2
 

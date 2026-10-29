@@ -113,13 +113,6 @@ unsigned long int strtoul(const char *nptr, char **endptr, int base)
       return (0);
     }
 
-#if defined(__SDCC_pic14) || defined(__SDCC_pic16)
-  /* ret * b + digit overflows exactly when ret > cutoff, or ret == cutoff
-     and digit > cutlim: one division per call instead of 64-bit ckd_mul */
-  const unsigned long int cutoff = ULONG_MAX / b;
-  const unsigned char cutlim = ULONG_MAX % b;
-#endif
-
   for (ret = 0;; ptr++)
     {
       signed char digit = _isdigit (*ptr, b);
@@ -131,9 +124,12 @@ unsigned long int strtoul(const char *nptr, char **endptr, int base)
       range_error |= ckd_mul (&ret, ret, b);
       range_error |= ckd_add (&ret, ret, digit);
 #else
-      if (ret > cutoff || (ret == cutoff && (unsigned char)digit > cutlim))
+      unsigned long int oldret = ret;
+      ret *= b;
+      if (ret < oldret)
         range_error = true;
-      ret = ret * b + (unsigned char)digit;
+      ret += (unsigned char)digit;
+#warning INEXACT RANGE ERROR CHECK WILL NOT REPORT ALL OVERFLOWS (fix by implementing ckd_mul and ckd_add)
 #endif
     }
 

@@ -28,9 +28,9 @@ include $(srcdir)/fwk/lib/spec.mk
 	$(SDCC) $(SDCCFLAGS) $(LINKFLAGS) $(EXTRAS) $(PORT_CASES_DIR)/fwk.lib $< -o $@
 
 $(PORT_CASES_DIR)/%$(OBJEXT): $(PORTS_DIR)/$(PORT)/%.asm
-	@# TODO: the assembler should place its output in the current dir
+	@# TODO: sdas should place it\'s output in the current dir
 	cp $< $(PORT_CASES_DIR)
-	$(top_builddir)/bin/asgb -plosgff $(PORT_CASES_DIR)/$(notdir $<)
+	$(top_builddir)/bin/sdasgb -plosgff $(PORT_CASES_DIR)/$(notdir $<)
 	rm $(PORT_CASES_DIR)/$(notdir $<)
 
 %$(OBJEXT): %.c

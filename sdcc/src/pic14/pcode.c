@@ -23,7 +23,6 @@
 #include "pcode.h"
 #include "pcodeflow.h"
 #include "ralloc.h"
-#include "dbuf_string.h"
 
 #define ASSERT(x) assert(x)
 
@@ -44,7 +43,6 @@ pCodeOpReg pc_pclath    = {{PO_PCLATH,  "PCLATH"}, -1, NULL,0,NULL};
 pCodeOpReg *pc_indf     = &pc_indf_;
 
 pCodeOpReg pc_wsave     = {{PO_GPR_REGISTER,  "WSAVE"}, -1, NULL,0,NULL};
-pCodeOpReg pc_pcallw    = {{PO_GPR_REGISTER,  "PCALL_W"}, -1, NULL,0,NULL};
 pCodeOpReg pc_ssave     = {{PO_GPR_REGISTER,  "SSAVE"}, -1, NULL,0,NULL};
 pCodeOpReg pc_psave     = {{PO_GPR_REGISTER,  "PSAVE"}, -1, NULL,0,NULL};
 
@@ -1798,16 +1796,8 @@ void  pCodeInitRegisters(void)
 	 * memory bank. This is not needed on enhanced processors. */
 	if (!pic->isEnhancedCore)
 		stkSize = stkSize - 3;
-	/* ... and one byte for PCALL_W, which carries the first argument
-	 * byte of a call through a pointer (WREG makes the jump). */
-	stkSize = stkSize - 1;
 	assert(stkSize >= 0);
 	initStack(shareBankAddress, stkSize, haveShared);
-
-	pc_pcallw.r = allocInternalRegister(IDX_PCALLW, pc_pcallw.pcop.name, pc_pcallw.pcop.type, (pic && haveShared) ? pic->bankMask : 0);
-	pc_pcallw.rIdx = pc_pcallw.r->rIdx;
-	pc_pcallw.r->isFixed = 1;
-	pc_pcallw.r->address = shareBankAddress-stkSize;
 	
 	/* TODO: Read aliases for SFRs from regmap lines in device description. */
 	pc_status.r = allocProcessorRegister(IDX_STATUS,"STATUS", PO_STATUS, 0xf80);
@@ -1843,11 +1833,11 @@ void  pCodeInitRegisters(void)
 		pc_psave.rIdx = pc_psave.r->rIdx;
 	
 		pc_wsave.r->isFixed = 1; /* Some PIC ICs do not have a sharebank - this register needs to be reserved across all banks. */
-		pc_wsave.r->address = shareBankAddress-stkSize-1;
+		pc_wsave.r->address = shareBankAddress-stkSize;
 		pc_ssave.r->isFixed = 1; /* This register must be in the first bank. */
-		pc_ssave.r->address = shareBankAddress-stkSize-2;
+		pc_ssave.r->address = shareBankAddress-stkSize-1;
 		pc_psave.r->isFixed = 1; /* This register must be in the first bank. */
-		pc_psave.r->address = shareBankAddress-stkSize-3;
+		pc_psave.r->address = shareBankAddress-stkSize-2;
 	}
 
 	/* probably should put this in a separate initialization routine */
@@ -2369,7 +2359,6 @@ pCode *newpCodeFunction(const char *mod, const char *f, int isPublic, int isInte
 
 	pcf->isPublic    = (unsigned int)isPublic;
 	pcf->isInterrupt = (unsigned int)isInterrupt;
-	pcf->hasIndEntry = 0;
 
 	return ((pCode *)pcf);
 }
@@ -3680,10 +3669,6 @@ static void pCodePrintFunction(FILE *of, pCode *pc)
 		pBranch *exits = PCF(pc)->to;
 		int i=0;
 
-		/* Calls through a pointer enter here: WREG made the jump, so the
-		   first argument byte comes in PCALL_W instead. */
-		if (PCF(pc)->hasIndEntry)
-			fprintf(of, "%s_ind:\n\tMOVF\tPCALL_W,W\n", PCF(pc)->fname);
 		fprintf(of, "%s:", PCF(pc)->fname);
 
 		if(options.verbose)
@@ -4696,25 +4681,6 @@ static int bankCompare(const char *op1, const char *op2)
  *
  * If in doubt, return 0.
  */
-/* The compiler-assigned local named at the start of 'str' ("r0x1001",
-   "(r0x1001 + 1)"), or NULL. */
-static reg_info *
-localRegNamed (const char *str)
-{
-    char name[32];
-    int i;
-
-    while (*str == '(' || *str == ' ') str++;
-    for (i = 0; i < (int) sizeof name - 1 && isValidIdChar (str[i]); i++)
-        name[i] = str[i];
-    name[i] = 0;
-    /* walked by hand: setFirstItem would disturb a caller's walk */
-    for (set *l = dynAllocRegs; l; l = l->next)
-        if (((reg_info *) l->item)->localSection && !strcmp (((reg_info *) l->item)->name, name))
-            return l->item;
-    return NULL;
-}
-
 static int
 pic14_operandsAllocatedInSameBank(const char *str1, const char *str2) {
     // see glue.c(pic14printLocals)
@@ -4727,10 +4693,7 @@ pic14_operandsAllocatedInSameBank(const char *str1, const char *str2) {
         // In this model, all r0xXXXX are allocated into a single section
         // per file, so no BANKSEL required if accessing a r0xXXXX after a
         // (different) r0xXXXX. Works great for multi-byte operands.
-        // When the locals need several sections (glue.c), only those in
-        // the same section are known to share a bank.
-        if (str1 && str2 && str1[0] == 'r' && str2[0] == 'r')
-            return pic14_localsShareBank (localRegNamed (str1), localRegNamed (str2));
+        if (str1 && str2 && str1[0] == 'r' && str2[0] == 'r') return (1);
     } // if
 
     // assume operands in different banks
@@ -4812,15 +4775,6 @@ static void FixRegisterBanking(pBlock *pb)
 		    // reg->alias == 0: reg is in only one bank, we do not know which (may be any bank)
 		    // reg->alias != 0: reg is in 2/4/8/2**N banks, we select one of them
 		    new_mask = reg->alias;
-		} else if (pci->pcop && pci->pcop->type == PO_LITERAL) {
-		    // A literal operand (e.g. "name" is just its printed value,
-		    // like "0x00") has no register and no bank to select -
-		    // insertBankSel() would cast it to pCodeOpReg and read past
-		    // the actual (differently-shaped) allocation, eventually
-		    // dereferencing whatever garbage came out the other end.
-		    // getRegFromInstruction() already special-cases PO_LITERAL
-		    // the same way, returning no register for it.
-		    continue;
 		} else if (pci->pcop && pci->pcop->name) {
 		    new_bank = pci->pcop->name;
 		    new_mask = 0; // unknown, assume worst case
@@ -5335,8 +5289,6 @@ void AnalyzeBanking(void)
 	
 	AnalyzeFlow(0);
 	AnalyzeFlow(1);
-
-	pic14_assignLocalSections();
 	
 	for(pb = the_pFile->pbHead; pb; pb = pb->next)
 		FixRegisterBanking(pb);
@@ -5548,111 +5500,14 @@ ReuseReg(void)
 
   for(pb = the_pFile->pbHead; pb; pb = pb->next)
     {
-      /* Non static functions can be called from other modules, and
-       * functions whose address is taken through a pointer, so the call
-       * tree does not show their callers: their registers must reassign */
+      /* Non static functions can be called from other modules,
+       * so their registers must reassign */
       if (pb->function_entries
-          && (PCF(setFirstItem(pb->function_entries))->isPublic || !pb->visited
-              || pic14_isIndirectTarget (PCF(setFirstItem(pb->function_entries))->fname)))
+          && (PCF(setFirstItem(pb->function_entries))->isPublic || !pb->visited))
         {
           register_reassign(pb,peakIdx,0);
         } // if
     } // for
-}
-
-/*-----------------------------------------------------------------*/
-/* CheckRecursion - report call chains within this module that     */
-/* lead back to a function already on the chain: locals and        */
-/* parameters are static, so the inner call overwrites them.       */
-/* Chains through other modules or function pointers are checked   */
-/* at link time.                                                    */
-/*-----------------------------------------------------------------*/
-static const char *
-userName (const char *fname)
-{
-  return (fname && fname[0] == '_') ? fname + 1 : fname;
-}
-
-static bool
-checkRecursionFrom (pBlock *pb, pBlock **path, int depth)
-{
-  set *s;
-
-  if (pb->callsChecked)
-    return false;
-  pb->onCallPath = 1;
-  path[depth] = pb;
-
-  for (s = pb->function_calls; s; s = s->next)
-    {
-      pCode *pc = s->item;
-      pCode *pcn;
-      pBlock *callee;
-
-      if (pc->type != PC_OPCODE || PCI (pc)->op != POC_CALL)
-        continue;
-      pcn = findFunction (get_op_from_instruction (PCI (pc)));
-      if (!pcn)
-        continue;
-      callee = pcn->pb;
-
-      if (callee->onCallPath)
-        {
-          struct dbuf_s dbuf;
-          int i;
-
-          for (i = 0; path[i] != callee; i++)
-            ;
-          dbuf_init (&dbuf, 128);
-          for (; i <= depth; i++)
-            dbuf_printf (&dbuf, "%s -> ", userName (PCF (setFirstItem (path[i]->function_entries))->fname));
-          dbuf_append_str (&dbuf, userName (PCF (pcn)->fname));
-          {
-            symbol *fsym = findSym (SymbolTab, NULL, userName (PCF (pcn)->fname));
-            if (fsym && IS_FUNC (fsym->type))
-              werrorfl (fsym->fileDef, fsym->lineDef, E_RECURSION_UNSUPPORTED, dbuf_c_str (&dbuf));
-            else
-              werror (E_RECURSION_UNSUPPORTED, dbuf_c_str (&dbuf));
-          }
-          dbuf_destroy (&dbuf);
-          pb->onCallPath = 0;
-          pb->callsChecked = 1;   /* report each cycle once */
-          return true;
-        }
-      if (checkRecursionFrom (callee, path, depth + 1))
-        {
-          pb->onCallPath = 0;
-          pb->callsChecked = 1;
-          return true;
-        }
-    }
-
-  pb->onCallPath = 0;
-  pb->callsChecked = 1;
-  return false;
-}
-
-void
-CheckRecursion (void)
-{
-  pBlock *pb;
-  pBlock **path;
-  int n = 0;
-
-  if (!the_pFile)
-    return;
-
-  for (pb = the_pFile->pbHead; pb; pb = pb->next)
-    {
-      pb->onCallPath = 0;
-      pb->callsChecked = 0;
-      n++;
-    }
-  path = Safe_alloc ((n + 1) * sizeof (pBlock *));
-  for (pb = the_pFile->pbHead; pb; pb = pb->next)
-    if (pb->function_entries && setFirstItem (pb->function_entries))
-      checkRecursionFrom (pb, path, 0);
-  Safe_free (path);
 }
 
 /*-----------------------------------------------------------------*/
@@ -6009,9 +5864,7 @@ static void InlineFunction(pBlock *pb)
 			
 			pBranch *pbr;
 			
-			if(pcn && isPCF(pcn) && (PCF(pcn)->ncalled == 1) && !PCF(pcn)->isPublic
-			   && !pic14_isIndirectTarget (PCF(pcn)->fname) /* reached through a pointer too: keep it */
-			   && (pcp && (isPCI_BITSKIP(pcp)||!isPCI_SKIP(pcp)))) { /* Bit skips can be inverted other skips can not */
+			if(pcn && isPCF(pcn) && (PCF(pcn)->ncalled == 1) && !PCF(pcn)->isPublic && (pcp && (isPCI_BITSKIP(pcp)||!isPCI_SKIP(pcp)))) { /* Bit skips can be inverted other skips can not */
 				
 				InlineFunction(pcn->pb);
 				

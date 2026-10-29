@@ -7,12 +7,10 @@ libsdcce_a_SOURCES += _gptrget1.S
 libsdcce_a_SOURCES += _gptrget2.S
 libsdcce_a_SOURCES += _gptrget3.S
 libsdcce_a_SOURCES += _gptrget4.S
-libsdcce_a_SOURCES += _gptrget8.S
 libsdcce_a_SOURCES += _gptrput1.S
 libsdcce_a_SOURCES += _gptrput2.S
 libsdcce_a_SOURCES += _gptrput3.S
 libsdcce_a_SOURCES += _gptrput4.S
-libsdcce_a_SOURCES += _gptrput8.S
 libsdcce_a_SOURCES += macros.inc
 
 # Build for enhanced devices.

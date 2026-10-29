@@ -63,7 +63,11 @@ tracker, or to ask questions on the user mailing list. See:
  https://sourceforge.net/p/sdcc/mailman/
 
 Notes:
-* The ds400, pic14 and pic16 are currently experimental, but work is in
+* The manual is built from sdccman.mm (groff -mm).  sdccman.lyx and the
+.svg figures are mainline SDCC's manual source, kept unbuilt so that a
+merge from mainline shows what changed there; those changes are made to
+sdccman.mm by hand.
+* The ds400, f8, pic14 and pic16 are currently experimental, but work is in
 progress. Please check https://sdcc.sourceforge.net/snap.php for snapshots.
 * The TININative, avr and xa51 targets are no longer maintained.
 
@@ -74,7 +78,9 @@ COPYING    - GPL v2
 debugger/  - sdcdb debugger
 device/    - Device libraries and examples
 doc/       - sdcc and target specific documentation
+sdas/      - Assemblers and linkers, derived from asxxxx
 asxxxx/    - Builds the ASxxxx assemblers and linker from vendor/asxxxx
+             (i8080, i8085 and stm8)
 sim/       - ucsim simulator
 src/       - Source to the C compiler and targets
 support/   - Libraries and apps that may not be provided by your system.

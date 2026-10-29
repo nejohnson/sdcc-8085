@@ -376,21 +376,9 @@ allocIntoSeg (symbol *sym)
           nm->name = Safe_alloc (strlen(symbolspace->name) + 1);
           strcpy (nm->name, symbolspace->name);
           nm->is_const = (symbolspace->type && SPEC_CONST (symbolspace->type));
-          if (!nm->is_const && TARGET_PDK_LIKE)
-            {
-              /* The Padauk's program memory is word addressed and its RAM
-                 byte addressed, so a RAM area has to say so; under ASxxxx
-                 an area that does not takes the code area's word length. */
-              const char *attr = " (DSEG,BANK=_DSEG)";
-              char *sname = Safe_alloc (strlen (symbolspace->name) + strlen (attr) + 1);
-              strcpy (sname, symbolspace->name);
-              strcat (sname, attr);
-              nm->map = allocMap (0, 0, 0, 1, 0, 0, options.data_loc, sname, 'E', POINTER);
-            }
-          else
-            nm->map = nm->is_const ?
-              allocMap (0, 1, 0, 0, 0, 1, options.code_loc, symbolspace->name, 'C', CPOINTER) :
-              allocMap (0, 0, 0, 1, 0, 0, options.data_loc, symbolspace->name, 'E', POINTER);
+          nm->map = nm->is_const ?
+            allocMap (0, 1, 0, 0, 0, 1, options.code_loc, symbolspace->name, 'C', CPOINTER) :
+            allocMap (0, 0, 0, 1, 0, 0, options.data_loc, symbolspace->name, 'E', POINTER);
           nm->next = namedspacemaps;
           namedspacemaps = nm;
         }
@@ -801,16 +789,8 @@ allocParms (value *val, struct sym_link *ftype)
       sym->_isparm = 1;
       sym->ismyparm = 1;
       addSymChain (&sym);
-
-      if (TARGET_IS_PIC14 && !IFFUNC_ISREENT (ftype) && !options.stackAuto)
-        {
-          /* no data stack: the variable arguments are in the static area */
-          symbol *area = getStaticVaArea (currFunc->name, 0);
-          sym->onStack = 0;
-          strncpyz (sym->rname, area->rname, sizeof (sym->rname));
-          SPEC_OCLS (sym->etype) = SPEC_OCLS (area->etype);
-        }
-      else if (options.useXstack)
+      
+      if (options.useXstack)
         {
           SPEC_OCLS (sym->etype) = xstack;
           SPEC_STAK (sym->etype) = sym->stack = xstackPtr - 1;

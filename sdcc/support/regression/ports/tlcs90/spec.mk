@@ -4,7 +4,7 @@
 ifdef SDCC_BIN_PATH
   UCTLCS90C = $(SDCC_BIN_PATH)/ucsim_tlcs$(EXEEXT)
 
-  AS_TLCS90C = $(SDCC_BIN_PATH)/astlcs90$(EXEEXT)
+  AS_TLCS90C = $(SDCC_BIN_PATH)/sdastlcs90$(EXEEXT)
 else
   ifdef UCSIM_DIR
     UCTLCS90A = $(UCSIM_DIR)/src/sims/tlcs.src/ucsim_tlcs$(EXEEXT)
@@ -15,7 +15,7 @@ else
 
   EMU = $(WINE) $(shell if [ -f $(UCTLCS90A) ]; then echo $(UCTLCS90A); else echo $(UCTLCS90B); fi)
 
-  AS = $(WINE) $(top_builddir)/bin/astlcs90$(EXEEXT)
+  AS = $(WINE) $(top_builddir)/bin/sdastlcs90$(EXEEXT)
 
 ifndef CROSSCOMPILING
   SDCCFLAGS += --nostdinc -I$(top_srcdir)

@@ -12,13 +12,11 @@
 #include <stdio.h>
 char buf[2];
 
-#ifndef __SDCC_pic14 // No variable arguments in calls through function pointers.
 f (fp)
      int (*fp)(char *, const char *, ...);
 {
   (*fp)(buf, "%.0f", 5.0);
 }
-#endif
 #endif
 
 void

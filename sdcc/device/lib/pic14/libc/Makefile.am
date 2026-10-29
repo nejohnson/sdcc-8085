@@ -61,18 +61,6 @@ libc_a_SOURCES += bsearch.c
 libc_a_SOURCES += _calloc.c
 libc_a_SOURCES += free.c
 libc_a_SOURCES += labs.c
-libc_a_SOURCES += ckd_add.c
-libc_a_SOURCES += ckd_mul.c
-libc_a_SOURCES += ckd_sub.c
-libc_a_SOURCES += div.c
-libc_a_SOURCES += ldiv.c
-libc_a_SOURCES += llabs.c
-libc_a_SOURCES += uabs.c
-libc_a_SOURCES += ulabs.c
-libc_a_SOURCES += ullabs.c
-libc_a_SOURCES += imaxabs.c
-libc_a_SOURCES += umaxabs.c
-libc_a_SOURCES += memalignment.c
 libc_a_SOURCES += malloc.c
 libc_a_SOURCES += mblen.c
 libc_a_SOURCES += mbstowcs.c
@@ -80,7 +68,6 @@ libc_a_SOURCES += mbtowc.c
 libc_a_SOURCES += memfree.c
 libc_a_SOURCES += memfreemax.c
 libc_a_SOURCES += memmisc.c
-libc_a_SOURCES += _heap.c
 libc_a_SOURCES += qsort.c
 libc_a_SOURCES += rand.c
 libc_a_SOURCES += realloc.c
@@ -88,19 +75,6 @@ libc_a_SOURCES += strtol.c
 libc_a_SOURCES += strtoul.c
 libc_a_SOURCES += wcstombs.c
 libc_a_SOURCES += wctomb.c
-
-# stdbit.h
-libc_a_SOURCES += __stdc_bit_ceilull.c
-libc_a_SOURCES += __stdc_bit_width.c
-libc_a_SOURCES += __stdc_count_ones.c
-libc_a_SOURCES += __stdc_first_leading_one.c
-libc_a_SOURCES += __stdc_first_trailing_one.c
-libc_a_SOURCES += __stdc_leading_zeros.c
-libc_a_SOURCES += __stdc_trailing_ones.c
-libc_a_SOURCES += stdc_load8.c
-libc_a_SOURCES += stdc_memreverse8.c
-libc_a_SOURCES += stdc_memreverse8u.c
-libc_a_SOURCES += stdc_store8.c
 
 # string.h
 libc_a_SOURCES += _memchr.c

@@ -27,6 +27,7 @@
 ;--------------------------------------------------------------------------
 
 	.module atomic_flag_test_and_set
+	.optsdcc -mz80 sdcccall(1)
 
 	.area   _CODE
 

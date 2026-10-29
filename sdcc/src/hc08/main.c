@@ -207,18 +207,16 @@ _hc08_genAssemblerStart (FILE * of)
   symbol *mainExists=newSymbol("main", 0);
   mainExists->block=0;
 
-  /* The compatibility key, which aslink compares across modules. */
   if (!options.noOptsdccInAsm)
-    fprintf (of, "\t.abi -m%s\n", port->target);
+    fprintf (of, "\t.optsdcc -m%s\n", port->target);
 
-  /* The S08's wider instruction set. */
   if (TARGET_IS_S08)
-    fprintf (of, "\t.hcs08\n");
+    fprintf (of, "\t.cs08\n");
 
   fprintf (of, "\n");
 
   tfprintf (of, "\t!area\n",HOME_NAME);
-  tfprintf (of, "\t.area GSINIT0\n");
+  tfprintf (of, "\t.area GSINIT0 (CODE)\n");
   tfprintf (of, "\t!area\n",STATIC_NAME);
   tfprintf (of, "\t!area\n",GSFINAL_NAME);
   tfprintf (of, "\t!area\n",CODE_NAME);
@@ -271,10 +269,8 @@ _hc08_genAssemblerStart (FILE * of)
       fprintf (of, "00001$:\n");
       fprintf (of, "        cphx #l_XINIT\n");
       fprintf (of, "        beq  00002$\n");
-      /* a_<area> is the start of an area and l_<area> its length
-         (s_<area>_<n> is the base of module n's own segment). */
-      fprintf (of, "        lda  a_XINIT,x\n");
-      fprintf (of, "        sta  a_XISEG,x\n");
+      fprintf (of, "        lda  s_XINIT,x\n");
+      fprintf (of, "        sta  s_XISEG,x\n");
       fprintf (of, "        aix  #1\n");
       fprintf (of, "        bra  00001$\n");
       fprintf (of, "00002$:\n");
@@ -789,30 +785,15 @@ s08_get_model (void)
     $L is the list of extra options that should be passed on the command line...
     MUST be terminated with a NULL.
 */
-/* hc08/s08 assemble and link with ASxxxx as6808/aslink.  as6808 covers
-   both parts - the .hcs08 directive _hc08_genAssemblerStart() emits for
-   s08 selects the wider instruction subset - so one command serves both.
-   It takes "[-options] file1 [file2...]" and derives the object name from
-   the input, which already gives the .rel name SDCC expects, so there is
-   no separate output argument.
-
-   The linker reuses the "$1.lk" script the shared linkEdit() writes
-   (needLinkerScript stays 1):  -a area bases, -i+name output, a trailing
-   separator on -k paths, and -o+ so the map and debug files are named
-   after the program rather than after whichever object came first.  See
-   the i8085 port for the same pair. */
 static const char *_linkCmd[] =
 {
-  "aslink", "-nf", "$1", "$L", NULL
+  "sdld6808", "-nf", "$1", "$L", NULL
 };
 
-/* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts.
-   Those option strings already carry "g" (undefined symbols made global),
-   which is what lets ASxxxx accept the implicit externals SDCC emits
-   without a .globl. */
+/* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
 static const char *_asmCmd[] =
 {
-  "as6808", "$l", "$3", "$1.asm", NULL
+  "sdas6808", "$l", "$3", "$2", "$1.asm", NULL
 };
 
 static const char * const _libs_hc08[] = { "hc08", NULL, };
@@ -839,8 +820,7 @@ PORT hc08_port =
     "-plosgffw",                /* Options without debug */
     0,
     ".asm",
-    NULL,                       /* no do_assemble function */
-    TRUE,                       /* ASxxxx as6808 */
+    NULL                        /* no do_assemble function */
   },
   {                             /* Linker */
     _linkCmd,
@@ -850,7 +830,6 @@ PORT hc08_port =
     1,
     NULL,                       /* crt */
     _libs_hc08,                 /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _hc08_defaultRules,
@@ -865,22 +844,22 @@ PORT hc08_port =
   {
     "XSEG",
     "STACK",
-    "CSEG",
-    "DSEG",
+    "CSEG    (CODE)",
+    "DSEG    (PAG)",
     NULL, /* "ISEG" */
     NULL, /* "PSEG" */
     "XSEG",
     NULL,                // xconst_name
     NULL, /* "BSEG" */
     "RSEG    (ABS)",
-    "GSINIT",
-    "OSEG    (REL,OVR)",
-    "GSFINAL",
-    "HOME",
+    "GSINIT  (CODE)",
+    "OSEG    (PAG, OVR)",
+    "GSFINAL (CODE)",
+    "HOME    (CODE)",
     "XISEG",              // initialized xdata
-    "XINIT",     // a code copy of xiseg
-    "CONST",     // const_name - const data (code or not)
-    "CABS    (ABS)", // cabs_name - const absolute data (code or not)
+    "XINIT   (CODE)",     // a code copy of xiseg
+    "CONST   (CODE)",     // const_name - const data (code or not)
+    "CABS    (ABS,CODE)", // cabs_name - const absolute data (code or not)
     "XABS    (ABS)",      // xabs_name - absolute xdata
     "IABS    (ABS)",      // iabs_name - absolute data
     NULL,                 // name of segment for initialized variables
@@ -991,8 +970,7 @@ PORT s08_port =
     "-plosgffw",                /* Options without debug */
     0,
     ".asm",
-    NULL,                       /* no do_assemble function */
-    TRUE,                       /* ASxxxx as6808 */
+    NULL                        /* no do_assemble function */
   },
   {                             /* Linker */
     _linkCmd,
@@ -1002,7 +980,6 @@ PORT s08_port =
     1,
     NULL,                       /* crt */
     _libs_s08,                  /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _s08_defaultRules,
@@ -1017,22 +994,22 @@ PORT s08_port =
   {
     "XSEG",
     "STACK",
-    "CSEG",
-    "DSEG",
+    "CSEG    (CODE)",
+    "DSEG    (PAG)",
     NULL, /* "ISEG" */
     NULL, /* "PSEG" */
     "XSEG",
     NULL,                // xconst_name
     NULL, /* "BSEG" */
     "RSEG    (ABS)",
-    "GSINIT",
-    "OSEG    (REL,OVR)",
-    "GSFINAL",
-    "HOME",
+    "GSINIT  (CODE)",
+    "OSEG    (PAG, OVR)",
+    "GSFINAL (CODE)",
+    "HOME    (CODE)",
     "XISEG",              // initialized xdata
-    "XINIT",     // a code copy of xiseg
-    "CONST",     // const_name - const data (code or not)
-    "CABS    (ABS)", // cabs_name - const absolute data (code or not)
+    "XINIT   (CODE)",     // a code copy of xiseg
+    "CONST   (CODE)",     // const_name - const data (code or not)
+    "CABS    (ABS,CODE)", // cabs_name - const absolute data (code or not)
     "XABS    (ABS)",      // xabs_name - absolute xdata
     "IABS    (ABS)",      // iabs_name - absolute data
     NULL,                 // name of segment for initialized variables

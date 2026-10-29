@@ -29,14 +29,22 @@
 
 #include <string.h>
 
-/* the last of the first count bytes of s equal to c */
 void *
-memrchr (const void *s, int c, size_t count)
+memrchr (void *s, char c, size_t count)
 {
-  const unsigned char *p = (const unsigned char *)s + count;
+  if (!count)
+    return NULL;
 
-  while (count--)
-    if (*--p == (unsigned char)c)
-      return (void *)p;
-  return NULL;
+  s = (char *)s + sizeof (char *) * count;
+
+  while (*(char *)s != c && count)
+    {
+      s = (char *)s - sizeof(char *);
+      --count;
+    }
+
+  if (count)
+    return s;
+  else
+    return NULL;
 }

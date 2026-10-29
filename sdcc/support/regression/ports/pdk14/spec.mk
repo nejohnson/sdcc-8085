@@ -4,7 +4,7 @@
 ifdef SDCC_BIN_PATH
   UCPDK14C = $(SDCC_BIN_PATH)/ucsim_pdk$(EXEEXT)
 
-  AS_PDK14C = $(SDCC_BIN_PATH)/aspdk14$(EXEEXT)
+  AS_PDK14C = $(SDCC_BIN_PATH)/sdaspdk$(EXEEXT)
 else
   ifdef UCSIM_DIR
     UCPDK14A = $(UCSIM_DIR)/src/sims/pdk.src/ucsim_pdk$(EXEEXT)
@@ -15,7 +15,7 @@ else
 
   EMU = $(WINE) $(shell if [ -f $(UCPDK14A) ]; then echo $(UCPDK14A); else echo $(UCPDK14B); fi)
 
-  AS = $(WINE) $(top_builddir)/bin/aspdk14$(EXEEXT)
+  AS = $(WINE) $(top_builddir)/bin/sdaspdk$(EXEEXT)
 
 ifndef CROSSCOMPILING
   SDCCFLAGS += --nostdinc -I$(top_srcdir)

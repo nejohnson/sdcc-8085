@@ -6,14 +6,9 @@
 #include <stddef.h>
 
 #ifdef __SDCC_pic16
-/* 0x200-0x2FE is the regression support's software stack (#pragma stack) */
-# define ADDRESS(x) (0x05 ## x)
+# define ADDRESS(x) (0x02 ## x)
 #elif defined(__SDCC_pic14)
 # define ADDRESS(x) (0x01 ## x)
-# if defined(__SDCC_PIC14_ENHANCED)
-/* enhanced cores give a program-memory address bit 15, as FSR sees it */
-#  define OBJBIT___code 0x8000
-# endif
 #elif defined(__SDCC_stm8)
 # define ADDRESS(x) (0x10 ## x)
 #elif defined(__SDCC_f8) || defined(__SDCC_f8l)
@@ -21,12 +16,6 @@
 #else
 # define ADDRESS(x) (0xCA ## x)
 #endif
-#ifndef OBJBIT___code
-# define OBJBIT___code 0
-#endif
-#define OBJBIT___xdata 0
-/* pasted unexpanded: some ports define __xdata as another keyword */
-#define OBJBIT(m) OBJBIT_##m
 
 #if !defined(__SDCC_pdk13) && !defined(__SDCC_pdk14) && !defined(__SDCC_pdk15) // TODO: Make test suitable for pdk
 typedef struct
@@ -69,10 +58,10 @@ testAbsolute(void)
   ASSERT(pC[6] == 's');
   ASSERT(pI[0] == 0x1234);
 
-  ASSERT((unsigned int)&pc==(ADDRESS(A0)|OBJBIT({mem})));
-  ASSERT((unsigned int)&p==(ADDRESS(A4)|OBJBIT({mem})));
-  ASSERT((unsigned int)&a==(ADDRESS(A8)|OBJBIT({mem})));
-  ASSERT((unsigned int)&f==(ADDRESS(AC)|OBJBIT({mem})));
+  ASSERT((unsigned int)&pc==ADDRESS(A0));
+  ASSERT((unsigned int)&p==ADDRESS(A4));
+  ASSERT((unsigned int)&a==ADDRESS(A8));
+  ASSERT((unsigned int)&f==ADDRESS(AC));
 
   //bug 2941749
   ASSERT((*((TestStruct *)&k)).a == 0x1234);
