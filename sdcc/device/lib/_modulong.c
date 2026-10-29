@@ -69,9 +69,9 @@ __modulong:
 	#define b3      (b1_3)
 #else
 #if defined(__SDCC_NOOVERLAY)
-	.area DSEG    (BANK=BDATA)
+	.area DSEG    (DATA)
 #else
-	.area OSEG    (REL,OVR,BANK=BDATA)
+	.area OSEG    (OVR,DATA)
 #endif
 
 	.globl __modulong_PARM_2
@@ -81,7 +81,7 @@ __modulong_PARM_2:
 __modslong_PARM_2:
 	.ds	4
 
-	.area CSEG    (BANK=BCODE)
+	.area CSEG    (CODE)
 
 	#define b0      (__modulong_PARM_2)
 	#define b1      (__modulong_PARM_2 + 1)

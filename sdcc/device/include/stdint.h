@@ -32,8 +32,10 @@
 
 /* Exact integral types.  */
 
+#if !defined(__SDCC_pic14)
 #if __STDC_VERSION__ >= 199901L
 #define __SDCC_LONGLONG
+#endif
 #endif
 
 #ifndef __SPECIFIED_WIDTH_INTEGER_TYPES_DEFINED
@@ -222,7 +224,7 @@ typedef unsigned long long int  uintmax_t;
 /* Limits of other integer types.  */
 
 /* Limits of `ptrdiff_t' type.  */
-#if defined (__SDCC_mcs51) || defined (__SDCC_ds390) || defined (__SDCC_pic14)
+#if defined (__SDCC_mcs51) || defined (__SDCC_ds390)
 #define PTRDIFF_MIN           (-2147483647L-1)
 #define PTRDIFF_MAX           (2147483647L)
 #else

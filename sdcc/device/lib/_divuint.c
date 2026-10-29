@@ -90,9 +90,9 @@ __divint:			; entry point for __divsint
   #else // __SDCC_STACK_AUTO
 
     #if defined(__SDCC_NOOVERLAY)
-	.area DSEG    (BANK=BDATA)
+	.area DSEG    (DATA)
     #else
-	.area OSEG    (REL,OVR,BANK=BDATA)
+	.area OSEG    (OVR,DATA)
     #endif
 
 	.globl __divuint_PARM_2
@@ -102,7 +102,7 @@ __divuint_PARM_2:
 __divsint_PARM_2:
 	.ds	2
 
-	.area CSEG    (BANK=BCODE)
+	.area CSEG    (CODE)
 
 	#define yl      (__divuint_PARM_2)
 	#define yh      (__divuint_PARM_2 + 1)
