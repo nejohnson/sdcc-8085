@@ -5,21 +5,18 @@ srcdir = @srcdir@
 top_builddir = @top_builddir@
 abs_top_builddir = @abs_top_builddir@
 
+LIB_TYPE     = @LIB_TYPE@
+
 EXTRA_CFLAGS = -mtlcs90 --max-allocs-per-node 25000
-# The .s files here are assembled directly by ASxxxx astlcs90, not through
-# bin/sdcc, so they bypass the port's assembler.cmd.
-SAS = $(top_builddir)/bin/astlcs90
+SAS = $(top_builddir)/bin/sdastlcs90
 
 # override PORTDIR defined by super (parent) makefile
 override PORTDIR = ../build/tlcs90
 
 %.rel: %.s
-	@# TODO: the assembler should place its output in the current dir
+	@# TODO: sdas should place it\'s output in the current dir
 	test $(srcdir) = . || cp $< .
-# No -I, which to ASxxxx means "list include files", not a search path.
-# ASxxxx resolves .include relative to the including file, which is what
-# t90regs.s needs.
-	-$(AS) $(ASFLAGS) $(notdir $<)
+	-$(AS) $(ASFLAGS) -I$(dir $<) $(notdir $<)
 	test $(srcdir) = . || rm $(notdir $<)
 
 include $(srcdir)/../incl.mk
@@ -75,8 +72,20 @@ Makefile: $(srcdir)/Makefile.in
 
 $(PORTDIR)/$(LIB): $(OBJ) $(Z8OBJECTS) Makefile
 	rm -f $@
+ifeq ($(LIB_TYPE), SDCCLIB)
+	$(top_builddir)/bin/sdcclib -a $@ $(OBJ) $(Z8OBJECTS)
+else
+  ifeq ($(LIB_TYPE), AR)
+	$(SDAR) -rcSD $@ $(OBJ) $(Z8OBJECTS)
+  else
+    ifeq ($(LIB_TYPE), RANLIB)
+	$(SDAR) -rcD $@ $(OBJ) $(Z8OBJECTS)
+    else
 	for i in $(basename $(OBJ) $(Z8OBJECTS)); do echo $$i >>$@; done
 	cp $(OBJ) $(Z8OBJECTS) $(PORTDIR)
+    endif
+  endif
+endif
 
 clean:
 	rm -f *.rel *.sym *.lst *~ $(CLEANSPEC) *.dump* *.asm *.lib

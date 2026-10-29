@@ -178,7 +178,7 @@ reg_info* m6502_getFreeByteReg();
 reg_info* m6502_getFreeIdxReg();
 void m6502_copy (operand * result, operand * source);
 bool m6502_keepTSX();
-bool m6502_tsxUseful(const iCode *ic);
+bool m6502_tsxUseful();
 
 
 // code emit

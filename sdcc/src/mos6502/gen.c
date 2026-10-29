@@ -2357,8 +2357,7 @@ m6502_storeRegToDPTR(reg_info *reg, int dofs)
     {
       m6502_emitComment (TRACEGEN, " %s: DPTR[%d] has same literal %02x",
 			 __func__, dofs, reg->litConst);
-      if (reg->isDead)
-        m6502_freeReg(reg);
+      m6502_freeReg(reg);
       return;
     }
 
@@ -2390,11 +2389,7 @@ m6502_storeRegToDPTR(reg_info *reg, int dofs)
   _S.DPTRAttr[dofs].aop=reg->aop;
   _S.DPTRAttr[dofs].aopofs=reg->aopofs;
 
-  /* The register may hold a value that outlives this iCode - the pointer
-     itself, kept in registers while its spill location is reused - and
-     the caller may then pick a free register as scratch.  */
-  if (reg->isDead)
-    m6502_freeReg(reg);
+  m6502_freeReg(reg);
 }
 
 /**************************************************************************
@@ -2835,7 +2830,7 @@ static asmop * aopForRemat (symbol * sym)
   if (ic->op == ADDRESS_OF) {
     if (val) {
       SNPRINTF (buffer, sizeof (buffer),
-                "%s%c0x%04x", OP_SYMBOL (IC_LEFT (ic))->rname, val >= 0 ? '+' : '-', abs (val) & 0xffff);
+                "(%s%c0x%04x)", OP_SYMBOL (IC_LEFT (ic))->rname, val >= 0 ? '+' : '-', abs (val) & 0xffff);
     } else {
       strncpyz (buffer, OP_SYMBOL (IC_LEFT (ic))->rname, sizeof (buffer));
     }
@@ -3352,7 +3347,7 @@ static asmop * aopDerefAop (asmop * aop, int offset)
       newaop->aopu.aop_dir = aop->aopu.aop_immd;
     else {
       dbuf_init (&dbuf, 64);
-      dbuf_printf (&dbuf, "%s+%d", aop->aopu.aop_immd, offset);
+      dbuf_printf (&dbuf, "(%s+%d)", aop->aopu.aop_immd, offset);
       newaop->aopu.aop_dir = dbuf_detach_c_str (&dbuf);
     }
     break;
@@ -3531,10 +3526,7 @@ aopAdrStr (asmop * aop, int loffset, bool bit16)
       if (regalloc_dry_run)
 	return "dry";
       if (offset)
-	/* No parentheses around an addressing-mode operand:  ASxxxx reads
-	   "(expr)" as 6502 indirect addressing and rejects it where the
-	   expression is only being grouped. */
-	sprintf (s, "%s+%d", aop->aopu.aop_dir, offset);
+	sprintf (s, "(%s+%d)", aop->aopu.aop_dir, offset);
       else
 	sprintf (s, "%s", aop->aopu.aop_dir);
       rs = Safe_calloc (1, strlen (s) + 1);
@@ -7022,7 +7014,7 @@ static void genPointerGet (iCode * ic, iCode * ifx)
 	    pa = storeRegTempIfSurv(m6502_reg_a);
             for(offset=0; offset<AOP_SIZE(result); offset++)
               {
-		m6502_emitOp("lda", "%s+0x%04x+%d,%c",
+		m6502_emitOp("lda", "(%s+0x%04x+%d),%c",
 			     rematOffset, litOffset+hi_offset, offset, idx_reg );
 		m6502_storeRegToAop (m6502_reg_a, AOP (result), offset);
               }
@@ -7030,17 +7022,17 @@ static void genPointerGet (iCode * ic, iCode * ifx)
 	  }
 	else
 	  {
- 	    m6502_emitOp(dst_reg, "%s+0x%04x+%d,%c",
+ 	    m6502_emitOp(dst_reg, "(%s+0x%04x+%d),%c",
 			 rematOffset, litOffset+hi_offset, 0, idx_reg );
             if(IS_AOP_XA(AOP(result)))
               {
-		m6502_emitOp("ldx", "%s+0x%04x+%d,%c",
+		m6502_emitOp("ldx", "(%s+0x%04x+%d),%c",
 			     rematOffset, litOffset+hi_offset, 1, idx_reg );
                  
               }              
             if(IS_AOP_XY(AOP(result)))
               {
-		m6502_emitOp("lda", "%s+0x%04x+%d,%c",
+		m6502_emitOp("lda", "(%s+0x%04x+%d),%c",
 			     rematOffset, litOffset+hi_offset, 1, idx_reg );
                 m6502_transferRegReg(m6502_reg_a, m6502_reg_x, true);  
               }
@@ -7663,7 +7655,7 @@ genPointerSet (iCode * ic)
       for (offset=0; offset<size; offset++)
 	{
 	  m6502_loadRegFromAop (m6502_reg_a, AOP (right), offset);        
-	  m6502_emitOp("sta", "%s+0x%04x+%d,%s",
+	  m6502_emitOp("sta", "(%s+0x%04x+%d),%s",
 		       rematOffset, hi_offset+litOffset, offset, idx_reg->name );
 	}
         
@@ -8518,17 +8510,11 @@ genm6502iCode (iCode *ic)
     printf ("ic %d op %d stack pushed %d\n", ic->key, ic->op, G.stack.pushed);
 #endif
 
-  /* A builtin's parameters are a run of SEND iCodes which getBuiltinParms()
-     consumes as a group, marking every one of them generated.  The dry run
-     costs each iCode on its own and re-visits the group's first SEND, so
-     that one has to be cleared again or the builtin costs nothing.  Only
-     the first may be cleared: clearing the rest makes genBuiltIn() re-enter
-     part way down the parameter list, where it reads past the end of the
-     array it was handed.  */
-  if (ic->op == SEND && ic->builtinSEND
-      && (!ic->prev || ic->prev->op != SEND || !ic->prev->builtinSEND))
+  if(ic->op==SEND && ic->builtinSEND)
     {
-      ic->generated = 0;
+      // FIXME: the send is marked generated
+      // workaround to mark the send as not generated
+      ic->generated=0;
     }
 
   if (resultRemat (ic))

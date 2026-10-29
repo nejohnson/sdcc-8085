@@ -31,7 +31,7 @@
 static void dummy(void) __naked
 {
 	__asm
-	.area HOME    (BANK=BCODE)
+	.area HOME    (CODE)
 
 ; compares two generic pointers.
 ; if p1 < p2  return NZ and C

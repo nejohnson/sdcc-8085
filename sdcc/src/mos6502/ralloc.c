@@ -342,22 +342,6 @@ createStackSpil (symbol * sym)
   /* set the type to the spilling symbol */
   sloc->type = copyLinkChain (sym->type);
   sloc->etype = getSpec (sloc->type);
-  /* S_DATA sends the spill to the zero page, by way of the overlay area
-     OSEG, which is where the speed of this port comes from and also its
-     one unbounded allocation: there is a set of these per function, the
-     area is OVR so it sizes to the largest of them, and nothing anywhere
-     checks that largest against the 256 bytes a zero page has.  Past
-     0x00FF the "*sym" direct accesses the port emits cannot encode the
-     address, and aslink reports a Page0 relocation error and writes no
-     output rather than truncate it.  Since the overlay is sized as an
-     overlay - the largest set, not the sum - the regression suite's
-     largest, rotate/rotate_size_64_msb_{0,1}, fits and passes.
-
-     --no-zp-spill, the switch below that moves the whole lot to extended
-     space, is the way out for a program that does not fit, at a price:
-     measured over uc6502 it costs 5.3% more bytes and 11.7% more ticks.
-     So the default stands, and the unbounded direct-page allocation is
-     left for its own work.  */
   SPEC_SCLS (sloc->etype) = (options.xdata_spill)?S_XDATA:S_DATA;
   SPEC_EXTR (sloc->etype) = 0;
   SPEC_STAT (sloc->etype) = 0;
@@ -1239,13 +1223,8 @@ packRegisters (eBBlock ** ebpp, int count)
 	{
 	  //packRegsForLiteral (ic);
       
-	  /* move SEND to immediately precede its CALL/PCALL.  Never do this
-	     for a builtin: its SENDs are already required to run contiguously
-	     into the CALL (getBuiltinParms() asserts as much while it walks
-	     them), and their order is the parameter order.  moveSendToCall()
-	     relocates only the first two of them, which silently rotated the
-	     arguments of any builtin taking three, such as __builtin_memset. */
-	  if (ic->op == SEND && !ic->builtinSEND && ic->next &&
+	  /* move SEND to immediately precede its CALL/PCALL */
+	  if (ic->op == SEND && ic->next &&
 	      ic->next->op != CALL && ic->next->op != PCALL)
 	    {
 	      ic = moveSendToCall (ic, ebp);

@@ -3,9 +3,6 @@
 
    Copyright (C) 2005, Vangelis Rokas <vrokas at otenet.gr>
 
-   Modifications for PIC14 by
-   Copyright (C) 2019 Gonzalo Pérez de Olaguer Córdoba <salo@gpoc.es>
-
    This library is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
    Free Software Foundation; either version 2, or (at your option) any
@@ -31,24 +28,22 @@
 
 #include <malloc.h>
 
-size_t memfree (void)
+extern unsigned char _MALLOC_SPEC *heap;
+
+unsigned int memfree(void)
 {
-    _malloc_rec __data *head;
-    size_t size = 0;
-    size_t len;
- 
-    if (_malloc_heap == NULL)
-      return 0;
- 
-    head = _malloc_heap;
- 
-    while ((len = head->bits.count) != 0)
-    {
-        if (!head->bits.alloc)
-            size += len - 1;
+  _malloc_rec _MALLOC_SPEC *pHeap;
+  unsigned int hsize=0;
+  unsigned char bLen;
   
-        head = NEXTREC(head);
-    }
- 
-    return size;
+  pHeap = (_malloc_rec _MALLOC_SPEC *)&heap;
+  
+  while ((bLen = pHeap->bits.count)) {
+    if(!pHeap->bits.alloc)
+      hsize += bLen - 1;
+    
+    pHeap = (_malloc_rec _MALLOC_SPEC *)((unsigned int)pHeap + bLen);
+  }
+  
+  return (hsize);
 }

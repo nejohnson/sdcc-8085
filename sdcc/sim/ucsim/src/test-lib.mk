@@ -11,16 +11,16 @@ VPATH := $(srcdir)
 # are going to have to define things in *.src/test-conf.mk some and
 # individual tests are likely to have to override on a per-target
 # basis using:
-#     target: CC=... AS=... LD=...
+#     target: CC=... SDAS=... SDLD=...
 #     target: prereqs
 #             recipe
 TARGET ?= $(patsubst s%,%,$(notdir $(SIM)))
 
 CC ?= sdcc -m$(TARGET)
 PACKIHX ?= packihx
-AS ?= as$(TARGET)
+AS ?= sdas$(TARGET)
 ASFLAGS ?= -plosgffw
-LD ?= aslink
+LD ?= sdld$(TARGET)
 LDFLAGS ?=
 
 
@@ -111,8 +111,7 @@ POSTCOMPILE = cp $*.d.tmp $*.d \
 %.hex:	%.ihx
 	$(PACKIHX) '$<' >'$@'
 
-# Build rules assuming an sdcc tool-chain, which assembles and links
-# with ASxxxx. Override in per-target
+# Build rules assuming an sdcc tool-chain. Override in per-target
 # test-conf.mk to use something else. Ideally pre-build tests and
 # ship the .ihx - we are NOT testing tool-chains!
 %.ihx:	%.c
@@ -121,10 +120,10 @@ POSTCOMPILE = cp $*.d.tmp $*.d \
 	$(POSTCOMPILE)
 
 %.rel:	%.asm
-	$(AS) $(ASFLAGS) -o+'$*' '$<'
+	$(AS) $(ASFLAGS) '$@' '$<'
 
 %.ihx:	%.rel
-	$(LD) $(LINKFLAGS) -i+'$@' '$<'
+	$(LD) $(LINKFLAGS) -i '$@' '$<'
 
 
 include $(wildcard *.d)

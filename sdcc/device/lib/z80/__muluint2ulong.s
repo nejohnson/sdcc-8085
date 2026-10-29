@@ -27,6 +27,7 @@
 ;--------------------------------------------------------------------------
 
 	.module __muluint2slong
+	.optsdcc -mz80 sdcccall(1)
 
 .globl ___muluint2ulong
 

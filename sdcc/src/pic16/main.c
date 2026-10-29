@@ -123,10 +123,6 @@ _pic16_regparm (sym_link * l, bool reentrant)
   if (IFFUNC_HASVARARGS (regParmFuncType))
     return 0;
 
-  /* A struct is copied into the callee's own parameter variable. */
-  if (IS_STRUCT (l))
-    return 0;
-
   /* force all parameters via SEND/RECEIVE */
   if(0 /*pic16_options.ip_stack*/) {
     /* for this processor it is simple
@@ -838,37 +834,9 @@ _pic16_linkEdit (void)
 
   shash_add (&linkValues, "libs", joinStrSet (processStrSet (libFilesSet, NULL, NULL, shell_escape)));
 
-  /* gplink can report an error and still exit with 0: the link worked
-     only if it wrote the hex file */
-  {
-    const char *out = fullDstFileName ? fullDstFileName : dstFileName;
-    const char *slash = strrchr (out, '/');
-    const char *dot = strrchr (slash ? slash : out, '.');
-    struct dbuf_s hex;
-
-    dbuf_init (&hex, 128);
-    dbuf_append (&hex, out, dot ? (size_t)(dot - out) : strlen (out));
-    dbuf_append_str (&hex, ".hex");
-    remove (dbuf_c_str (&hex));
-
-    lcmd = msprintf(linkValues, LFRM);
-    ret = sdcc_system (lcmd);
-    Safe_free (lcmd);
-
-    if (!ret)
-      {
-        FILE *f = fopen (dbuf_c_str (&hex), "r");
-
-        if (f)
-          fclose (f);
-        else
-          {
-            fprintf (stderr, "%s: linking failed: no %s\n", pic16_linkCmd[0], dbuf_c_str (&hex));
-            ret = 1;
-          }
-      }
-    dbuf_destroy (&hex);
-  }
+  lcmd = msprintf(linkValues, LFRM);
+  ret = sdcc_system (lcmd);
+  Safe_free (lcmd);
 
   if (ret)
       exit (1);
@@ -1264,8 +1232,7 @@ static bool
 hasExtBitOp (int op, sym_link *left, int right)
 {
   unsigned int lbits = bitsForType (left);
-  /* RLF/RRF chains rotate whole bytes only */
-  return (op == ROT && lbits % 8 == 0 && ((right % lbits) == 1 || (right % lbits) == lbits - 1) ||
+  return (op == ROT && ((right & lbits) == 1 || (right % lbits) == lbits - 1) ||
     op == GETABIT);
 }
 
@@ -1351,7 +1318,7 @@ PORT pic16_port =
     3,      /* banked func ptr */
     1,      /* bit */
     4,      /* float */
-    64,     /* _BitInt (in bits) */
+    0,      /* _BitInt (in bits) */
   },
 
     /* generic pointer tags */

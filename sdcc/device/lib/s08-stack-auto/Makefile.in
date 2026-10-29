@@ -5,8 +5,10 @@ srcdir = @srcdir@
 top_builddir = @top_builddir@
 abs_top_builddir = @abs_top_builddir@
 
+LIB_TYPE     = @LIB_TYPE@
+
 EXTRA_CFLAGS = -ms08 --stack-auto --max-allocs-per-node 25000
-SAS = $(top_builddir)/bin/as6808
+SAS = $(top_builddir)/bin/sdas6808
 
 # override PORTDIR defined by super (parent) makefile
 override PORTDIR = ../build/s08-stack-auto
@@ -70,9 +72,22 @@ CFLAGS = -I$(srcdir)/../../include -I. --std-c23
 all: $(PORTDIR)/$(LIB)
 
 $(PORTDIR)/$(LIB): $(OBJ) $(HC08OBJECTS) Makefile
+ifeq ($(LIB_TYPE), SDCCLIB)
+	rm -f $@; \
+	$(top_builddir)/bin/sdcclib -a $@ $(OBJ) $(HC08OBJECTS)
+else
+  ifeq ($(LIB_TYPE), AR)
+	$(SDAR) -rcSD $@ $(OBJ) $(HC08OBJECTS)
+  else
+    ifeq ($(LIB_TYPE), RANLIB)
+	$(SDAR) -rcD $@ $(OBJ) $(HC08OBJECTS)
+    else
 	rm -f $@
 	for i in $(basename $(OBJ) $(HC08OBJECTS)); do echo $$i >>$@; done
 	cp $(OBJ) $(HC08OBJECTS) $(PORTDIR)
+    endif
+  endif
+endif
 
 clean:
 	rm -f *.rel *.sym *.lst *~ $(CLEANSPEC) *.dump* *.asm *.lib

@@ -1,3 +1,3 @@
 CC = sdcc -mpdk15
-AS = aspdk15
-LD = aslink
+AS = sdaspdk15
+LD = sdldpdk

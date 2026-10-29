@@ -28,7 +28,7 @@
 ;--------------------------------------------------------------------------
 
 	.module crt0
-	.z80
+	.ez80
 
 	.globl	_main
 
@@ -76,17 +76,17 @@ init:
 	jp	_exit
 
 	;; Ordering of segments for the linker.
-	.area	_HOME (BANK=_CSEG)
+	.area	_HOME
 	.area	_CODE
-	.area	_INITIALIZER (BANK=_CSEG)
-	.area   _GSINIT (BANK=_CSEG)
-	.area   _GSFINAL (BANK=_CSEG)
+	.area	_INITIALIZER
+	.area   _GSINIT
+	.area   _GSFINAL
 
 	.area	_DATA
-	.area	_INITIALIZED (BANK=_DSEG)
-	.area	_BSEG (BANK=_DSEG)
-	.area   _BSS (BANK=_DSEG)
-	.area   _HEAP (BANK=_DSEG)
+	.area	_INITIALIZED
+	.area	_BSEG
+	.area   _BSS
+	.area   _HEAP
 
 	.area   _CODE
 __clock::
@@ -110,7 +110,7 @@ gsinit::
         ld      a, b
         or      a, c
         jr      Z, zeroed_data
-        ld      hl, #a__DATA
+        ld      hl, #s__DATA
         ld      (hl), #0x00
         dec     bc
         ld      a, b
@@ -127,8 +127,8 @@ zeroed_data:
 	ld	a, b
 	or	a, c
 	jr	Z, gsinit_next
-	ld	de, #a__INITIALIZED
-	ld	hl, #a__INITIALIZER
+	ld	de, #s__INITIALIZED
+	ld	hl, #s__INITIALIZER
 	ldir
 
 gsinit_next:

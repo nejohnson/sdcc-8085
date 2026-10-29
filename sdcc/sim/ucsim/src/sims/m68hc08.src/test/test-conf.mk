@@ -1,3 +1,3 @@
 CC = sdcc -mhc08
-AS = as6808
-LD = aslink
+AS = sdas6808
+LD = sdld6808

@@ -55,7 +55,7 @@
 ;--------------------------------------------------------
 ; overlayable items in ram
 ;--------------------------------------------------------
-	.area	OSEG    (REL,OVR)
+	.area	OSEG    (PAG, OVR)
 _float_PARM_1:
 _fabsf_PARM_1:
 _cosf_PARM_1:

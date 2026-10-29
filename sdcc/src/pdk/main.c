@@ -55,24 +55,13 @@ pdk_genAssemblerStart (FILE *of)
 {
   if (!options.noOptsdccInAsm)
     {
-      fprintf (of, "\t.abi -m%s", port->target);
+      fprintf (of, "\t.optsdcc -m%s", port->target);
       fprintf (of, "\n");
     }
 
-  /* The part's RAM, in bytes, and ROM, in bytes of its words.  The linker
-     fails a program that does not fit rather than lay it over itself, but
-     it only measures the areas that name their bank, so the code areas are
-     given theirs here, in the order the linker is to lay them down. */
-  fprintf (of, "\n; memory sizes, and default segment ordering for linker\n");
-  fprintf (of, "\t.bank\t_DSEG\t(SIZE=%d)\n", TARGET_IS_PDK13 ? 64 : TARGET_IS_PDK14 ? 128 : 256);
-  fprintf (of, "\t.bank\t_CSEG\t(SIZE=%d)\n", TARGET_IS_PDK13 ? 2048 : TARGET_IS_PDK14 ? 4096 : 8192);
+  fprintf (of, "\n; default segment ordering in RAM for linker\n");
   tfprintf (of, "\t!area\n", DATA_NAME);
   tfprintf (of, "\t!area\n", OVERLAY_NAME);
-  fprintf (of, "\t.area\t%s (BANK=_CSEG)\n", HOME_NAME);
-  fprintf (of, "\t.area\t%s (BANK=_CSEG)\n", STATIC_NAME);
-  fprintf (of, "\t.area\t%s (BANK=_CSEG)\n", port->mem.post_static_name);
-  fprintf (of, "\t.area\t%s (BANK=_CSEG)\n", options.code_seg);
-  fprintf (of, "\t.area\t%s (BANK=_CSEG)\n", options.const_seg);
   fprintf (of, "\n");
 }
 
@@ -87,7 +76,7 @@ int
 pdk_genIVT(struct dbuf_s *oBuf, symbol **intTable, int intCount)
 {
   dbuf_tprintf (oBuf, "\t.area\tHEADER (ABS)\n");
-  dbuf_tprintf (oBuf, "\t.org\t 0x0010\n");
+  dbuf_tprintf (oBuf, "\t.org\t 0x0020\n");
   if (interrupts[0])
     dbuf_tprintf (oBuf, "\tgoto\t%s\n", interrupts[0]->rname);
   else
@@ -99,12 +88,12 @@ pdk_genIVT(struct dbuf_s *oBuf, symbol **intTable, int intCount)
 static void
 pdk_genInitStartup (FILE *of)
 {
-  fprintf (of, "\t.area\tPREG (ABS,DSEG,BANK=_DSEG)\n");
+  fprintf (of, "\t.area\tPREG (ABS)\n");
   fprintf (of, "\t.org 0x00\n");
   fprintf (of, "p::\n");
   fprintf (of, "\t.ds 2\n");
   
-  // WARNING: program memory word 0x10 is reserved for the
+  // WARNING: program memory address 0x20:21 (0x10 in words) is reserved for the
   // global singular interrupt vector. Ensure startup code never grows too large
   // and intrudes on this location.
 
@@ -123,7 +112,7 @@ pdk_genInitStartup (FILE *of)
     }
   else
     {
-      fprintf (of, "\tmov\ta, #a_OSEG\n");
+      fprintf (of, "\tmov\ta, #s_OSEG\n");
       fprintf (of, "\tadd\ta, #l_OSEG + 1\n");
       fprintf (of, "\tand\ta, #0xfe\n");
       fprintf (of, "\tmov.io\tsp, a\n");
@@ -152,14 +141,14 @@ pdk_genInitStartup (FILE *of)
   fprintf (of, "__sdcc_init_data:\n");
 
   /* Zeroing memory (required by standard for static & global variables) */
-  fprintf (of, "\tmov\ta, #a_DATA\n");
+  fprintf (of, "\tmov\ta, #s_DATA\n");
   fprintf (of, "\tmov\tp, a\n");
   fprintf (of, "\tgoto\t00002$\n");
   fprintf (of, "00001$:\n");
   fprintf (of, "\tmov\ta, #0x00\n");
   fprintf (of, "\tidxm\tp, a\n");
   fprintf (of, "\tinc\tp\n");
-  fprintf (of, "\tmov\ta, #a_DATA\n");
+  fprintf (of, "\tmov\ta, #s_DATA\n");
   fprintf (of, "00002$:\n");
   fprintf (of, "\tadd\ta, #l_DATA\n");
   fprintf (of, "\tceqsn\ta, p\n");
@@ -209,7 +198,7 @@ pdk_setDefaultOptions (void)
 {
   options.out_fmt = 'i';        /* Default output format is ihx */
   options.data_loc = 0x02;      /* First two bytes of RAM are used for the pseudo-register p */
-  options.code_loc = 0x0011;      /* in words:  after the interrupt vector at 0x10 */
+  options.code_loc = 0x0022;
   options.stack_loc = -1;
 }
 
@@ -259,13 +248,13 @@ get_model (void)
 */
 static const char *_linkCmd[] =
 {
-  "aslink", "-nf", "\"$1\"", "$L", NULL
+  "sdldpdk", "-nf", "\"$1\"", "$L", NULL
 };
 
 /* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
 static const char *pdk13AsmCmd[] =
 {
-  "aspdk13", "$l", "$3", "-o+\"$1\"", "\"$1.asm\"", NULL
+  "sdaspdk13", "$l", "$3", "\"$1.asm\"", NULL
 };
 
 static const char *const _libs_pdk13[] = { "pdk13", NULL, };
@@ -289,9 +278,7 @@ PORT pdk13_port =
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    0,                          /* do_assemble */
-    true,                       /* ASxxxx aspdk */
+    ".asm"
   },
   {                             /* Linker */
     _linkCmd,
@@ -301,7 +288,6 @@ PORT pdk13_port =
     1,
     0,                          /* crt */
     _libs_pdk13,                /* libs */
-    true,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     pdk_defaultRules,
@@ -338,22 +324,22 @@ PORT pdk13_port =
     "XSEG",
     "STACK",
     "CODE",                     /* code */
-    "DATA (DSEG,BANK=_DSEG)",   /* data */
+    "DATA",                     /* data */
     NULL,                       /* idata */
     NULL,                       /* pdata */
     NULL,                       /* xdata */
     NULL,                       // xconst
     NULL,                       /* bit */
-    "RSEG (ABS,DSEG,BANK=_DSEG)", /* reg */
+    "RSEG (ABS)",               /* reg */
     "GSINIT",                   /* static initialization */
-    "OSEG (REL,OVR,DSEG,BANK=_DSEG)", /* overlay */
+    "OSEG (OVR,DATA)",          /* overlay */
     "GSFINAL",                  /* gsfinal */
     "HOME",                     /* home */
     NULL,                       /* xidata */
     NULL,                       /* xinit */
     "CONST",                    /* const_name */
     "CABS (ABS)",               /* cabs_name */
-    "DABS (ABS,DSEG,BANK=_DSEG)", /* xabs_name */
+    "DABS (ABS)",               /* xabs_name */
     0,                          /* iabs_name */
     0,                          /* name of segment for initialized variables */
     0,                          /* name of segment for copies of initialized variables in code space */
@@ -442,7 +428,7 @@ PORT pdk13_port =
 /* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
 static const char *pdk14AsmCmd[] =
 {
-  "aspdk14", "$l", "$3", "-o+\"$1\"", "\"$1.asm\"", NULL
+  "sdaspdk14", "$l", "$3", "\"$1.asm\"", NULL
 };
 
 static const char *const _libs_pdk14[] = { "pdk14", NULL, };
@@ -466,9 +452,7 @@ PORT pdk14_port =
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    0,                          /* do_assemble */
-    true,                       /* ASxxxx aspdk */
+    ".asm"
   },
   {                             /* Linker */
     _linkCmd,
@@ -478,7 +462,6 @@ PORT pdk14_port =
     1,
     0,                          /* crt */
     _libs_pdk14,                /* libs */
-    true,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     pdk_defaultRules,
@@ -513,22 +496,22 @@ PORT pdk14_port =
     "XSEG",
     "STACK",
     "CODE",                     /* code */
-    "DATA (DSEG,BANK=_DSEG)",   /* data */
+    "DATA",                     /* data */
     NULL,                       /* idata */
     NULL,                       /* pdata */
     NULL,                       /* xdata */
     NULL,                       // xconst
     NULL,                       /* bit */
-    "RSEG (ABS,DSEG,BANK=_DSEG)", /* reg */
+    "RSEG (ABS)",               /* reg */
     "GSINIT",                   /* static initialization */
-    "OSEG (REL,OVR,DSEG,BANK=_DSEG)", /* overlay */
+    "OSEG (OVR,DATA)",          /* overlay */
     "GSFINAL",                  /* gsfinal */
     "HOME",                     /* home */
     NULL,                       /* xidata */
     NULL,                       /* xinit */
     "CONST",                    /* const_name */
     "CABS (ABS)",               /* cabs_name */
-    "DABS (ABS,DSEG,BANK=_DSEG)", /* xabs_name */
+    "DABS (ABS)",               /* xabs_name */
     0,                          /* iabs_name */
     0,                          /* name of segment for initialized variables */
     0,                          /* name of segment for copies of initialized variables in code space */
@@ -617,7 +600,7 @@ PORT pdk14_port =
 /* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
 static const char *pdk15AsmCmd[] =
 {
-  "aspdk15", "$l", "$3", "-o+\"$1\"", "\"$1.asm\"", NULL
+  "sdaspdk15", "$l", "$3", "\"$1.asm\"", NULL
 };
 
 static const char *const _libs_pdk15[] = { "pdk15", NULL, };
@@ -641,9 +624,7 @@ PORT pdk15_port =
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    0,                          /* do_assemble */
-    true,                       /* ASxxxx aspdk */
+    ".asm"
   },
   {                             /* Linker */
     _linkCmd,
@@ -653,7 +634,6 @@ PORT pdk15_port =
     1,
     0,                          /* crt */
     _libs_pdk15,                /* libs */
-    true,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     pdk_defaultRules,
@@ -688,22 +668,22 @@ PORT pdk15_port =
     "XSEG",
     "STACK",
     "CODE",                     /* code */
-    "DATA (DSEG,BANK=_DSEG)",   /* data */
+    "DATA",                     /* data */
     NULL,                       /* idata */
     NULL,                       /* pdata */
     NULL,                       /* xdata */
     NULL,                       // xconst
     NULL,                       /* bit */
-    "RSEG (ABS,DSEG,BANK=_DSEG)", /* reg */
+    "RSEG (ABS)",               /* reg */
     "GSINIT",                   /* static initialization */
-    "OSEG (REL,OVR,DSEG,BANK=_DSEG)", /* overlay */
+    "OSEG (OVR,DATA)",          /* overlay */
     "GSFINAL",                  /* gsfinal */
     "HOME",                     /* home */
     NULL,                       /* xidata */
     NULL,                       /* xinit */
     "CONST",                    /* const_name */
     "CABS (ABS)",               /* cabs_name */
-    "DABS (ABS,DSEG,BANK=_DSEG)", /* xabs_name */
+    "DABS (ABS)",               /* xabs_name */
     0,                          /* iabs_name */
     0,                          /* name of segment for initialized variables */
     0,                          /* name of segment for copies of initialized variables in code space */

@@ -5,16 +5,16 @@ srcdir = @srcdir@
 top_builddir = @top_builddir@
 abs_top_builddir = @abs_top_builddir@
 
+LIB_TYPE     = @LIB_TYPE@
+
 EXTRA_CFLAGS = -mpdk13 --max-allocs-per-node 25000
-# The .s files here are assembled directly by ASxxxx aspdk13, not through
-# bin/sdcc, so they bypass the port's assembler.cmd.
-SAS = $(top_builddir)/bin/aspdk13
+SAS = $(top_builddir)/bin/sdaspdk13
 
 # override PORTDIR defined by super (parent) makefile
 override PORTDIR = ../build/pdk13
 
 %.rel: %.s
-	@# TODO: the assembler should place its output in the current dir
+	@# TODO: sdas should place it\'s output in the current dir
 	test $(srcdir) = . || cp $< .
 	-$(AS) $(ASFLAGS) $(notdir $<)
 	test $(srcdir) = . || rm $(notdir $<)
@@ -80,9 +80,22 @@ CFLAGS = -I$(srcdir)/../../include -I. --std-c23
 all: $(PORTDIR)/$(LIB)
 
 $(PORTDIR)/$(LIB): $(OBJ) $(PDK13OBJECTS) Makefile
+ifeq ($(LIB_TYPE), SDCCLIB)
+	rm -f $@; \
+	$(top_builddir)/bin/sdcclib -a $@ $(OBJ) $(PDK13OBJECTS)
+else
+  ifeq ($(LIB_TYPE), AR)
+	$(SDAR) -rcSD $@ $(OBJ) $(PDK13OBJECTS)
+  else
+    ifeq ($(LIB_TYPE), RANLIB)
+	$(SDAR) -rcD $@ $(OBJ) $(PDK13OBJECTS)
+    else
 	rm -f $@
 	for i in $(basename $(OBJ) $(PDK13OBJECTS)); do echo $$i >>$@; done
 	cp $(OBJ) $(PDK13OBJECTS) $(PORTDIR)
+    endif
+  endif
+endif
 
 clean:
 	rm -f *.rel *.sym *.lst *~ $(CLEANSPEC) *.dump* *.asm *.lib

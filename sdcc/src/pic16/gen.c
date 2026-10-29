@@ -712,7 +712,7 @@ aopForSym (iCode * ic, operand * op, bool result)
           aop->size = FARPTRSIZE;
         }
       else
-        aop->size = getSize (sym->type);
+        assert (0);
     }
 
   DEBUGpic16_emitcode (";", "%d size = %d", __LINE__, aop->size);
@@ -2489,15 +2489,14 @@ pic16_toBoolean (operand * oper)
     return;
 
   /* Load the MSB first, because for floating-point types, we need to mask off
-   * the sign bit so -0 becomes false.  A constant (an address, &x) has
-   * literal bytes, not file registers. */
-  pic16_mov2w (AOP (oper), size);
+   * the sign bit so -0 becomes false. */
+  pic16_emitpcode (POC_MOVFW, pic16_popGet (AOP (oper), size));
   if (IS_FLOAT (operandType (oper)))
     pic16_emitpcode (POC_ANDLW, pic16_popGetLit (0x7F));
   while (size)
     {
       --size;
-      pic16_emitpcode (pic16_isLitAop (AOP (oper)) ? POC_IORLW : POC_IORFW, pic16_popGet (AOP (oper), size));
+      pic16_emitpcode (POC_IORFW, pic16_popGet (AOP (oper), size));
     }
 }
 
@@ -2913,19 +2912,10 @@ genCall (iCode * ic)
   int use_wreg = 0;
   int inwparam = 0;
   char *fname;
-  char litname[16];
 
   FENTRY;
 
-  if (IS_OP_LITERAL (IC_LEFT (ic)))
-    {
-      /* a call to a constant address: (*(void (*) (void)) 0x1234) () */
-      ftype = operandType (IC_LEFT (ic));
-      if (IS_FUNCPTR (ftype))
-        ftype = ftype->next;
-    }
-  else
-    ftype = OP_SYM_TYPE (IC_LEFT (ic));
+  ftype = OP_SYM_TYPE (IC_LEFT (ic));
   /* if caller saves & we have not saved then */
 //    if (!ic->regsSaved)
 //      saveRegisters(ic);
@@ -2933,17 +2923,8 @@ genCall (iCode * ic)
   /* initialise stackParms for IPUSH pushes */
 //      stackParms = pseudoStkPtr;
 //      fprintf(stderr, "%s:%d ic parmBytes = %d\n", __FILE__, __LINE__, ic->parmBytes);
-  if (IS_OP_LITERAL (IC_LEFT (ic)))
-    {
-      SNPRINTF (litname, sizeof (litname), "0x%06lx", (unsigned long) ulFromVal (OP_VALUE (IC_LEFT (ic))));
-      fname = litname;
-      inwparam = FUNC_ISWPARAM (ftype);
-    }
-  else
-    {
-      fname = OP_SYMBOL (IC_LEFT (ic))->rname[0] ? OP_SYMBOL (IC_LEFT (ic))->rname : OP_SYMBOL (IC_LEFT (ic))->name;
-      inwparam = (inWparamList (OP_SYMBOL (IC_LEFT (ic))->name)) || (FUNC_ISWPARAM (ftype));
-    }
+  fname = OP_SYMBOL (IC_LEFT (ic))->rname[0] ? OP_SYMBOL (IC_LEFT (ic))->rname : OP_SYMBOL (IC_LEFT (ic))->name;
+  inwparam = (inWparamList (OP_SYMBOL (IC_LEFT (ic))->name)) || (FUNC_ISWPARAM (OP_SYM_TYPE (IC_LEFT (ic))));
 
 #if 0
   gpsimDebug_StackDump (__FILE__, __LINE__, fname);
@@ -2972,50 +2953,6 @@ genCall (iCode * ic)
 
           pic16_aopOp (IC_LEFT (sic), sic, FALSE);
           size = AOP_SIZE (IC_LEFT (sic));
-
-          if (sic->op == IPUSH_VALUE_AT_ADDRESS)
-            {
-              /* a struct argument: push the bytes left points to, last
-                 first, as any other argument */
-              int i;
-
-              size = getSize (operandType (IC_LEFT (sic))->next);
-              stackParms += size;
-              if (inwparam)
-                werror (E_INTERNAL_ERROR, __FILE__, __LINE__, "struct argument passed in WREG");
-              if (PIC_IS_DATA_PTR (operandType (IC_LEFT (sic))))
-                {
-                  pic16_mov2w (AOP (IC_LEFT (sic)), 0);
-                  pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_fsr0l));
-                  pic16_mov2w (AOP (IC_LEFT (sic)), 1);
-                  pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_fsr0h));
-                  for (i = size - 1; i >= 0; i--)
-                    {
-                      pic16_emitpcode (POC_MOVLW, pic16_popGetLit (i));
-                      pic16_emitpcode (POC_MOVFF, pic16_popGet2p (pic16_popCopyReg (&pic16_pc_plusw0), pic16_popCopyReg (&pic16_pc_postdec1)));
-                    }
-                }
-              else
-                /* through a generic pointer, which reads forwards: point
-                   it at each byte in turn */
-                for (i = size - 1; i >= 0; i--)
-                  {
-                    pic16_mov2w (AOP (IC_LEFT (sic)), 0);
-                    pic16_emitpcode (POC_ADDLW, pic16_popGetLit (i));
-                    pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_tblptrl));
-                    pic16_mov2w (AOP (IC_LEFT (sic)), 1);
-                    emitSKPNC;
-                    pic16_emitpcode (POC_ADDLW, pic16_popGetLit (1));
-                    pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_tblptrh));
-                    pic16_mov2w (AOP (IC_LEFT (sic)), 2);
-                    pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_pclath));
-                    pic16_callGenericPointerLoad ();
-                    pic16_callGenericPointerRW (0, 1);
-                    pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_postdec1));
-                  }
-              pic16_freeAsmop (IC_LEFT (sic), NULL, sic, TRUE);
-              continue;
-            }
 
           stackParms += size;
 
@@ -3106,7 +3043,7 @@ genCall (iCode * ic)
        * this would use (used...) the uninitialized PRODL! */
       /* FIXME: Need a proper way to obtain size of function result type,
        * OP_SYM_ETYPE does not work: it dereferences pointer types! */
-      assignResultValue (IC_RESULT (ic), getSize (ftype->next), 1);
+      assignResultValue (IC_RESULT (ic), getSize (OP_SYM_TYPE (IC_LEFT (ic))->next), 1);
 
       DEBUGpic16_emitcode ("; ", "%d left %s", __LINE__, pic16_AopType (AOP_TYPE (IC_RESULT (ic))));
 
@@ -4093,7 +4030,6 @@ genMult (iCode * ic)
   assert (0);
 
 release:
-  pic16_fixBitIntTop (result, 0);
   pic16_freeAsmop (left, NULL, ic, (RESULTONSTACK (ic) ? FALSE : TRUE));
   pic16_freeAsmop (right, NULL, ic, (RESULTONSTACK (ic) ? FALSE : TRUE));
   pic16_freeAsmop (result, NULL, ic, TRUE);
@@ -5297,7 +5233,7 @@ genCmpEq (iCode * ic, iCode * ifx)
   int preserve_result = 0;
   int generate_result = 0;
   int i = 0;
-  unsigned long long lit = -1;
+  unsigned long lit = -1;
 
   FENTRY;
 
@@ -5324,7 +5260,7 @@ genCmpEq (iCode * ic, iCode * ifx)
 
   if (AOP_TYPE (right) == AOP_LIT)
     {
-      lit = ullFromVal (AOP (right)->aopu.aop_lit);
+      lit = ulFromVal (AOP (right)->aopu.aop_lit);
     }
 
   if (regsInCommon (left, result) || regsInCommon (right, result))
@@ -5351,7 +5287,7 @@ genCmpEq (iCode * ic, iCode * ifx)
         }
       if (pic16_isLitOp (right))
         {
-          if (pic16_isLitOp (left) || i >= 8 || (0 != ((lit >> (8 * i)) & 0x00FF)))
+          if (pic16_isLitOp (left) || (0 != ((lit >> (8 * i)) & 0x00FF)))
             {
               pic16_emitpcode (POC_XORLW, pic16_popGet (AOP (right), i));
             }
@@ -8332,95 +8268,6 @@ genlshFour (operand * result, operand * left, int shCount)
     }
 }
 
-/* Keep an _BitInt result normalised: clear the bits above its width in
-   the top byte (unsigned), or with extend, copy its sign bit into them
-   (signed).  Signed overflow in + - << is undefined, so those only
-   ask for unsigned. */
-void
-pic16_fixBitIntTop (operand *result, int extend)
-{
-  sym_link *type = operandType (result);
-  unsigned w, mask;
-  int top;
-
-  if (!IS_BITINT (type) || !(SPEC_BITINTWIDTH (type) % 8) || !AOP (result) || AOP_SIZE (result) < 1)
-    return;
-  w = SPEC_BITINTWIDTH (type) % 8;
-  mask = 0xffu >> (8 - w);
-  top = AOP_SIZE (result) - 1;
-  if (SPEC_USIGN (type) || extend)
-    {
-      pic16_emitpcode (POC_MOVLW, pic16_popGetLit (mask));
-      pic16_emitpcode (POC_ANDWF, pic16_popGet (AOP (result), top));
-    }
-  if (!SPEC_USIGN (type) && extend)
-    {
-      pic16_emitpcode (POC_MOVLW, pic16_popGetLit (~mask & 0xff));
-      pic16_emitpcode (POC_BTFSC, pic16_popCopyGPR2Bit (pic16_popGet (AOP (result), top), w - 1));
-      pic16_emitpcode (POC_IORWF, pic16_popGet (AOP (result), top));
-    }
-}
-
-/*-----------------------------------------------------------------*/
-/* genShiftLiteralBytes - shift left (or right, sign-filled if      */
-/* sign) by a known count, for any operand size: whole bytes are   */
-/* moved, then the rest is shifted a bit at a time through carry    */
-/*-----------------------------------------------------------------*/
-static void
-genShiftLiteralBytes (operand * result, operand * left, int size, int shCount, int isLeft, int sign)
-{
-  int bytes = shCount / 8;
-  int bits = shCount % 8;
-  int i;
-
-  if (AOP_SIZE (left) < size)
-    {
-      werror (E_INTERNAL_ERROR, __FILE__, __LINE__, "shift of a value narrower than its result");
-      return;
-    }
-
-  if (isLeft)
-    {
-      /* from the top down: a byte is read before it is overwritten */
-      for (i = size - 1; i >= 0; i--)
-        if (i >= bytes)
-          movLeft2Result (left, i - bytes, result, i);
-        else
-          pic16_emitpcode (POC_CLRF, pic16_popGet (AOP (result), i));
-      while (bits--)
-        {
-          emitCLRC;
-          for (i = bytes; i < size; i++)
-            pic16_emitpcode (POC_RLCF, pic16_popGet (AOP (result), i));
-        }
-    }
-  else
-    {
-      for (i = 0; i < size - bytes; i++)
-        movLeft2Result (left, i + bytes, result, i);
-      for (; i < size; i++)
-        {
-          pic16_emitpcode (POC_CLRF, pic16_popGet (AOP (result), i));
-          if (sign)
-            {
-              pic16_emitpcode (POC_BTFSC, pic16_popCopyGPR2Bit (pic16_popGet (AOP (result), size - bytes - 1), 7));
-              pic16_emitpcode (POC_SETF, pic16_popGet (AOP (result), i));
-            }
-        }
-      while (bits--)
-        {
-          emitCLRC;
-          if (sign)
-            {
-              pic16_emitpcode (POC_BTFSC, pic16_popCopyGPR2Bit (pic16_popGet (AOP (result), size - 1), 7));
-              emitSETC;
-            }
-          for (i = size - 1; i >= 0; i--)
-            pic16_emitpcode (POC_RRCF, pic16_popGet (AOP (result), i));
-        }
-    }
-}
-
 /*-----------------------------------------------------------------*/
 /* genLeftShiftLiteral - left shifting by known count              */
 /*-----------------------------------------------------------------*/
@@ -8464,19 +8311,20 @@ pic16_genLeftShiftLiteral (operand * left, operand * right, operand * result, iC
           break;
 
         case 2:
+        case 3:
           genlshTwo (result, left, shCount);
           break;
 
         case 4:
           genlshFour (result, left, shCount);
           break;
-
+        case 8:
         default:
-          genShiftLiteralBytes (result, left, size, shCount, 1, 0);
+          pic16_emitcode ("; ", "UNIMPLEMENTED left shift from value of size %d to result of size %d", getSize(operandType(left)), size);
+          fprintf (stderr, "UNIMPLEMENTED left shift from value of size %d to result of size %d\n", getSize(operandType(left)), size);
           break;
         }
     }
-  pic16_fixBitIntTop (result, 0);
   pic16_freeAsmop (left, NULL, ic, TRUE);
   pic16_freeAsmop (result, NULL, ic, TRUE);
 }
@@ -8770,12 +8618,10 @@ genRightShiftLiteral (operand * left, operand * right, operand * result, iCode *
         case 4:
           genrshFour (result, left, shCount, sign);
           break;
-
+        case 8:
         default:
-          if (lsize != res_size)
-            werror (E_INTERNAL_ERROR, __FILE__, __LINE__, "right shift into a narrower result");
-          else
-            genShiftLiteralBytes (result, left, res_size, shCount, 0, sign);
+          pic16_emitcode ("; ", "UNIMPLEMENTED right shift from value of size %d to result of size %d", getSize(operandType(left)), res_size);
+          fprintf (stderr, "UNIMPLEMENTED right shift from value of size %d to result of size %d\n", getSize(operandType(left)), res_size);
           break;
         }
     }
@@ -8975,8 +8821,6 @@ genGenericShift (iCode * ic, int isShiftLeft)
   pic16_emitpLabel (label_complete->key);
 
 release:
-  if (isShiftLeft)
-    pic16_fixBitIntTop (result, 0);
   pic16_freeAsmop (right, NULL, ic, TRUE);
   pic16_freeAsmop (left, NULL, ic, TRUE);
   pic16_freeAsmop (result, NULL, ic, TRUE);
@@ -9139,68 +8983,6 @@ pic16_derefPtr (operand * ptr, int p_type, int doWrite, int *fsr0_setup)
 }
 
 /*-----------------------------------------------------------------*/
-/* genUnpackBytes - read the first nbytes bytes of a bit-field's     */
-/* storage, directly or through left, into result                    */
-/*-----------------------------------------------------------------*/
-static void
-genUnpackBytes (operand * result, operand * left, int nbytes)
-{
-  sym_link *ltype = operandType (left);
-  int offset;
-
-  if (!IS_PTR (ltype) || IS_DIRECT (left))
-    {
-      for (offset = 0; offset < nbytes; offset++)
-        {
-          pic16_mov2w (AOP (left), offset);
-          pic16_emitpcode (POC_MOVWF, pic16_popGet (AOP (result), offset));
-        }
-      return;
-    }
-
-  switch (DCL_TYPE (ltype))
-    {
-    case CPOINTER:
-      mov2fp (pic16_popCopyReg (&pic16_pc_tblptrl), AOP (left), 0);
-      mov2fp (pic16_popCopyReg (&pic16_pc_tblptrh), AOP (left), 1);
-      mov2fp (pic16_popCopyReg (&pic16_pc_tblptru), AOP (left), 2);
-      for (offset = 0; offset < nbytes; offset++)
-        {
-          pic16_emitpcodeNULLop (POC_TBLRD_POSTINC);
-          pic16_emitpcode (POC_MOVFF, pic16_popGet2p (pic16_popCopyReg (&pic16_pc_tablat), pic16_popGet (AOP (result), offset)));
-        }
-      break;
-
-    case GPOINTER:
-      mov2fp (pic16_popCopyReg (&pic16_pc_tblptrl), AOP (left), 0);
-      mov2fp (pic16_popCopyReg (&pic16_pc_tblptrh), AOP (left), 1);
-      mov2fp (pic16_popCopyReg (&pic16_pc_pclath), AOP (left), 2);
-      pic16_callGenericPointerLoad ();
-      for (offset = 0; offset < nbytes; offset += PIC16_GENPTRRW_MAXSIZE)
-        {
-          int chunk = nbytes - offset < PIC16_GENPTRRW_MAXSIZE ? nbytes - offset : PIC16_GENPTRRW_MAXSIZE;
-
-          /* the bytes come back in WREG, PRODL, PRODH and TABLAT */
-          pic16_callGenericPointerRW (0, chunk);
-          pic16_emitpcode (POC_MOVWF, pic16_popGet (AOP (result), offset));
-          if (chunk > 1)
-            pic16_loadFromReturn (result, offset + 1, pic16_popCopyReg (&pic16_pc_prodl));
-          if (chunk > 2)
-            pic16_loadFromReturn (result, offset + 2, pic16_popCopyReg (&pic16_pc_prodh));
-          if (chunk > 3)
-            pic16_loadFromReturn (result, offset + 3, pic16_popCopyReg (&pic16_pc_tablat));
-        }
-      break;
-
-    default:
-      pic16_loadFSR0 (left, 0);
-      for (offset = 0; offset < nbytes; offset++)
-        pic16_emitpcode (POC_MOVFF, pic16_popGet2p (pic16_popCopyReg (&pic16_pc_postinc0), pic16_popGet (AOP (result), offset)));
-      break;
-    }
-}
-
-/*-----------------------------------------------------------------*/
 /* genUnpackBits - generates code for unpacking bits               */
 /*-----------------------------------------------------------------*/
 static void
@@ -9213,8 +8995,6 @@ genUnpackBits (operand * result, operand * left, char *rname, int ptype)
   pCodeOp *op;
 
   DEBUGpic16_emitcode ("; ***", "%s  %d", __FUNCTION__, __LINE__);
-  /* The bit-field's type, signedness included, is the result's: left
-     need not be a symbol (*(volatile T *)ABS_ADDR, say). */
   etype = getSpec (operandType (result));
 
   //    if(IS_BITFIELD(etype)) {
@@ -9223,8 +9003,8 @@ genUnpackBits (operand * result, operand * left, char *rname, int ptype)
   //    }
 
   DEBUGpic16_emitcode ("; ***", "%s  %d - reading %s bitfield int %s destination", __FUNCTION__, __LINE__,
-                       SPEC_USIGN (etype) ? "an unsigned" : "a signed",
-                       SPEC_USIGN (etype) ? "an unsigned" : "a signed");
+                       SPEC_USIGN (OP_SYM_ETYPE (left)) ? "an unsigned" : "a signed",
+                       SPEC_USIGN (OP_SYM_TYPE (result)) ? "an unsigned" : "a signed");
 
 #if 1
   if ((blen == 1) && (bstr < 8) && (!IS_PTR (operandType (left)) || IS_DIRECT (left) || PIC_IS_DATA_PTR (operandType (left))))
@@ -9248,7 +9028,7 @@ genUnpackBits (operand * result, operand * left, char *rname, int ptype)
           pic16_emitpcode (POC_BTFSC, pic16_popCopyGPR2Bit (pic16_popCopyReg (&pic16_pc_indf0), bstr));
         }
 
-      if (SPEC_USIGN (etype))
+      if (SPEC_USIGN (OP_SYM_ETYPE (left)))
         {
           /* unsigned bitfields result in either 0 or 1 */
           pic16_emitpcode (POC_INCF, op);
@@ -9263,7 +9043,7 @@ genUnpackBits (operand * result, operand * left, char *rname, int ptype)
           pic16_emitpcode (POC_MOVWF, pic16_popGet (AOP (result), 0));
         }
 
-      pic16_addSign (result, 1, !SPEC_USIGN (etype));
+      pic16_addSign (result, 1, !SPEC_USIGN (OP_SYM_TYPE (result)));
       return;
     }
 
@@ -9298,7 +9078,7 @@ genUnpackBits (operand * result, operand * left, char *rname, int ptype)
        */
 
       /* extend signed bitfields to 8 bits */
-      if (!SPEC_USIGN (etype) && (bstr + blen < 8))
+      if (!SPEC_USIGN (OP_SYM_ETYPE (left)) && (bstr + blen < 8))
         {
           assert (blen + bstr > 0);
           pic16_emitpcode (POC_BTFSC, pic16_popCopyGPR2Bit (pic16_popCopyReg (&pic16_pc_wreg), bstr + blen - 1));
@@ -9307,32 +9087,13 @@ genUnpackBits (operand * result, operand * left, char *rname, int ptype)
 
       pic16_emitpcode (POC_MOVWF, pic16_popGet (AOP (result), 0));
 
-      pic16_addSign (result, 1, !SPEC_USIGN (etype));
+      pic16_addSign (result, 1, !SPEC_USIGN (OP_SYM_TYPE (result)));
       return;
     }
 
-  /* A bit-field of 8 bits or more starts on a byte boundary: read its
-     bytes, then mask (and sign-extend) the bits left in the last one. */
-  {
-    int nbytes = (blen + 7) / 8;
-    int rem = blen % 8;
-    int last = nbytes - 1;
-
-    wassertl (bstr == 0, "multi-byte bit-field not byte aligned");
-    genUnpackBytes (result, left, nbytes);
-    if (rem)
-      {
-        pic16_emitpcode (POC_MOVLW, pic16_popGetLit ((1 << rem) - 1));
-        pic16_emitpcode (POC_ANDWF, pic16_popGet (AOP (result), last));
-        if (!SPEC_USIGN (etype))
-          {
-            pic16_emitpcode (POC_MOVLW, pic16_popGetLit ((0xff << rem) & 0xff));
-            pic16_emitpcode (POC_BTFSC, pic16_popCopyGPR2Bit (pic16_popGet (AOP (result), last), rem - 1));
-            pic16_emitpcode (POC_IORWF, pic16_popGet (AOP (result), last));
-          }
-      }
-    pic16_addSign (result, nbytes, !SPEC_USIGN (etype));
-  }
+  fprintf (stderr, "SDCC pic16 port error: the port currently does not support *reading*\n");
+  fprintf (stderr, "bitfields of size >=8. Instead of generating wrong code, bailing out...\n");
+  exit (EXIT_FAILURE);
 }
 
 
@@ -9746,87 +9507,6 @@ genPointerGet (iCode * ic)
 }
 
 /*-----------------------------------------------------------------*/
-/* genPackBytes - store right into a bit-field of more than 8 bits  */
-/* (which starts on a byte boundary), directly or through result    */
-/*-----------------------------------------------------------------*/
-static void
-genPackBytes (operand * result, operand * right, unsigned blen)
-{
-  int nbytes = (blen + 7) / 8;
-  int full = blen / 8;
-  int rem = blen % 8;
-  unsigned char mask = (1 << rem) - 1;
-  int direct = (IS_SYMOP (result) && !IS_PTR (operandType (result))) || IS_DIRECT (result);
-  int gptr = !direct && DCL_TYPE (operandType (result)) == GPOINTER;
-  pCodeOp *last = NULL;
-  int offset;
-
-  /* the generic pointer helpers advance the pointer on each byte */
-#define LOAD_GPTR() do { \
-    mov2fp (pic16_popCopyReg (&pic16_pc_tblptrl), AOP (result), 0); \
-    mov2fp (pic16_popCopyReg (&pic16_pc_tblptrh), AOP (result), 1); \
-    mov2fp (pic16_popCopyReg (&pic16_pc_pclath), AOP (result), 2); \
-    pic16_callGenericPointerLoad (); \
-  } while (0)
-
-  if (rem)
-    {
-      /* the last byte is shared with other fields: merge right's bits
-         into its old value first */
-      last = pic16_popGetTempReg (1);
-      if (direct)
-        pic16_mov2w (AOP (result), full);
-      else if (gptr)
-        {
-          LOAD_GPTR ();
-          for (offset = 0; offset <= full; offset++)
-            pic16_callGenericPointerRW (0, 1);
-        }
-      else
-        {
-          pic16_loadFSR0 (result, 0);
-          for (offset = 0; offset < full; offset++)
-            pic16_emitpcode (POC_MOVFW, pic16_popCopyReg (&pic16_pc_postinc0));
-          pic16_emitpcode (POC_MOVFW, pic16_popCopyReg (&pic16_pc_indf0));
-        }
-      pic16_emitpcode (POC_ANDLW, pic16_popGetLit (~mask & 0xff));
-      pic16_emitpcode (POC_MOVWF, pic16_pCodeOpCopy (last));
-      if (full < AOP_SIZE (right))
-        {
-          pic16_mov2w (AOP (right), full);
-          pic16_emitpcode (POC_ANDLW, pic16_popGetLit (mask));
-          pic16_emitpcode (POC_IORWF, pic16_pCodeOpCopy (last));
-        }
-    }
-
-  if (gptr)
-    LOAD_GPTR ();
-  else if (!direct)
-    pic16_loadFSR0 (result, 0);
-
-  for (offset = 0; offset < nbytes; offset++)
-    {
-      if (offset == full)
-        pic16_emitpcode (POC_MOVFW, pic16_pCodeOpCopy (last));
-      else if (offset < AOP_SIZE (right))
-        pic16_mov2w (AOP (right), offset);
-      else
-        pic16_emitpcode (POC_MOVLW, pic16_popGetLit (0));
-
-      if (direct)
-        pic16_emitpcode (POC_MOVWF, pic16_popGet (AOP (result), offset));
-      else if (gptr)
-        pic16_callGenericPointerRW (1, 1);
-      else
-        pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_postinc0));
-    }
-#undef LOAD_GPTR
-
-  if (last)
-    pic16_popReleaseTempReg (last, 1);
-}
-
-/*-----------------------------------------------------------------*/
 /* genPackBits - generates code for packed bit storage             */
 /*-----------------------------------------------------------------*/
 static void
@@ -9834,6 +9514,7 @@ genPackBits (sym_link * etype, operand * result, operand * right, char *rname, i
 {
   unsigned shCnt = 0;
   int offset = 0;
+  int rLen = 0;
   unsigned blen, bstr;
   int shifted_and_masked = 0;
   unsigned long lit = (unsigned long) - 1;
@@ -9842,14 +9523,6 @@ genPackBits (sym_link * etype, operand * result, operand * right, char *rname, i
   DEBUGpic16_emitcode ("; ***", "%s  %d", __FUNCTION__, __LINE__);
   blen = SPEC_BLEN (etype);
   bstr = SPEC_BSTR (etype);
-
-  /* a bit-field of more than 8 bits starts on a byte boundary */
-  if (blen > 8)
-    {
-      wassertl (bstr == 0, "multi-byte bit-field not byte aligned");
-      genPackBytes (result, right, blen);
-      return;
-    }
 
   retype = getSpec (operandType (right));
 
@@ -10006,6 +9679,111 @@ genPackBits (sym_link * etype, operand * result, operand * right, char *rname, i
 
       return;
     }
+
+
+#if 0
+  fprintf (stderr, "SDCC pic16 port error: the port currently does not support\n");
+  fprintf (stderr, "bitfields of size >=8. Instead of generating wrong code, bailing out...\n");
+  exit (EXIT_FAILURE);
+#endif
+
+
+  pic16_loadFSR0 (result, 0);   // load FSR0 with address of result
+  rLen = SPEC_BLEN (etype) - 8;
+
+  /* now generate for lengths greater than one byte */
+  while (1)
+    {
+      rLen -= 8;
+      if (rLen <= 0)
+        {
+          mov2fp (pic16_popCopyReg (&pic16_pc_prodh), AOP (right), offset);
+          break;
+        }
+
+      switch (p_type)
+        {
+        case POINTER:
+          pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_postinc0));
+          break;
+
+          /*
+             case FPOINTER:
+             MOVA(l);
+             pic16_emitcode("movx","@dptr,a");
+             break;
+
+             case GPOINTER:
+             MOVA(l);
+             DEBUGpic16_emitcode(";lcall","__gptrput");
+             break;
+           */
+        default:
+          assert (0);
+        }
+
+
+      pic16_mov2w (AOP (right), offset++);
+    }
+
+  /* last last was not complete */
+  if (rLen)
+    {
+      /* save the byte & read byte */
+      switch (p_type)
+        {
+        case POINTER:
+          //                pic16_emitpcode(POC_MOVWF, pic16_popCopyReg(&pic16_pc_prodl));
+          pic16_emitpcode (POC_MOVFW, pic16_popCopyReg (&pic16_pc_indf0));
+          break;
+
+          /*
+             case FPOINTER:
+             pic16_emitcode ("mov","b,a");
+             pic16_emitcode("movx","a,@dptr");
+             break;
+
+             case GPOINTER:
+             pic16_emitcode ("push","b");
+             pic16_emitcode ("push","acc");
+             pic16_emitcode ("lcall","__gptrget");
+             pic16_emitcode ("pop","b");
+             break;
+           */
+        default:
+          assert (0);
+        }
+      DEBUGpic16_emitcode (";", "rLen = %i", rLen);
+      pic16_emitpcode (POC_ANDLW, pic16_popGetLit ((unsigned char) - 1 << -rLen));
+      pic16_emitpcode (POC_IORFW, pic16_popCopyReg (&pic16_pc_prodh));
+      //        pic16_emitcode ("anl","a,#0x%02x",((unsigned char)-1 << -rLen) );
+      //        pic16_emitcode ("orl","a,b");
+    }
+
+  //    if (p_type == GPOINTER)
+  //        pic16_emitcode("pop","b");
+
+  switch (p_type)
+    {
+
+    case POINTER:
+      pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_indf0));
+      //        pic16_emitcode("mov","@%s,a",rname);
+      break;
+      /*
+         case FPOINTER:
+         pic16_emitcode("movx","@dptr,a");
+         break;
+
+         case GPOINTER:
+         DEBUGpic16_emitcode(";lcall","__gptrput");
+         break;
+       */
+    default:
+      assert (0);
+    }
+
+  //    pic16_freeAsmop(right, NULL, ic, TRUE);
 }
 
 /*-----------------------------------------------------------------*/
@@ -10302,11 +10080,6 @@ genPointerSet (iCode * ic)
       genGenPointerSet (right, result, ic);
       break;
 
-    case CPOINTER:
-      /* A store into program memory (a string literal, say) is undefined,
-         and the front end has warned about it; there is nothing to emit. */
-      break;
-
     default:
       werror (E_INTERNAL_ERROR, __FILE__, __LINE__, "genPointerSet: illegal pointer type");
     }
@@ -10452,7 +10225,7 @@ genAssign (iCode * ic)
   operand *result, *right;
   sym_link *restype, *rtype;
   int size, offset, know_W;
-  unsigned long long lit = 0;
+  unsigned long lit = 0L;
 
   result = IC_RESULT (ic);
   right = IC_RIGHT (ic);
@@ -10528,7 +10301,7 @@ genAssign (iCode * ic)
     {
       if (!(IS_FLOAT (operandType (right)) || IS_FIXED (operandType (right))))
         {
-          lit = ullFromVal (AOP (right)->aopu.aop_lit);
+          lit = ulFromVal (AOP (right)->aopu.aop_lit);
 
           /* patch tag for literals that are cast to pointers */
           if (IS_CODEPTR (restype))
@@ -10552,11 +10325,7 @@ genAssign (iCode * ic)
                     }
                   else if (!IS_PTR (rtype) || IS_GENPTR (rtype))
                     {
-                      /* keep the tag given; an integer that is a data
-                         address (12 bits) gets the data tag, as in
-                         pic16aopLiteral */
-                      if (lit && lit <= 0xfff)
-                        lit |= (unsigned long) GPTR_TAG_DATA << 16;
+                      //fprintf (stderr, "%s:%u: INFO: `(generic*)literal' -- accepting specified tag %02x\n", ic->filename, ic->lineno, (unsigned char)(lit >> 16));
                     }
                   else if (IS_PTR (rtype))
                     {
@@ -10978,58 +10747,6 @@ release:
 }
 
 /*-----------------------------------------------------------------*/
-/* genCastFromCode - cast the value of a variable in program memory */
-/* (right), which has to be read with TBLRD                         */
-/*-----------------------------------------------------------------*/
-static void
-genCastFromCode (operand * result, operand * right, sym_link * restype, sym_link * rtype)
-{
-  int rsize = getSize (rtype);
-  int size = AOP_SIZE (result);
-  int offset;
-
-  pic16_emitpcode (POC_MOVLW, pic16_popGet (AOP (right), 0));
-  pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_tblptrl));
-  pic16_emitpcode (POC_MOVLW, pic16_popGet (AOP (right), 1));
-  pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_tblptrh));
-  pic16_emitpcode (POC_MOVLW, pic16_popGet (AOP (right), 2));
-  pic16_emitpcode (POC_MOVWF, pic16_popCopyReg (&pic16_pc_tblptru));
-
-  if (IS_BOOL (restype))
-    {
-      /* 1 if any byte is nonzero */
-      pic16_emitpcode (POC_CLRF, pic16_popGet (AOP (result), 0));
-      for (offset = 0; offset < rsize; offset++)
-        {
-          pic16_emitpcodeNULLop (POC_TBLRD_POSTINC);
-          pic16_emitpcode (offset ? POC_IORFW : POC_MOVFW, pic16_popCopyReg (&pic16_pc_tablat));
-        }
-      emitSKPZ;
-      pic16_emitpcode (POC_INCF, pic16_popGet (AOP (result), 0));
-      pic16_addSign (result, 1, 0);
-      return;
-    }
-
-  for (offset = 0; offset < rsize && offset < size; offset++)
-    {
-      pic16_emitpcodeNULLop (POC_TBLRD_POSTINC);
-      pic16_emitpcode (POC_MOVFF, pic16_popGet2p (pic16_popCopyReg (&pic16_pc_tablat), pic16_popGet (AOP (result), offset)));
-    }
-
-  if (size <= rsize)
-    return;
-  if (IS_PTR (restype) && IS_PTR (rtype))
-    {
-      /* a data pointer widened to a generic one gets the data tag */
-      while (offset < size - 1)
-        pic16_emitpcode (POC_CLRF, pic16_popGet (AOP (result), offset++));
-      pic16_movLit2f (pic16_popGet (AOP (result), size - 1), GPTR_TAG_DATA);
-    }
-  else
-    pic16_addSign (result, rsize, !SPEC_USIGN (getSpec (rtype)));
-}
-
-/*-----------------------------------------------------------------*/
 /* genCast - gen code for casting                                  */
 /*-----------------------------------------------------------------*/
 static void
@@ -11054,15 +10771,6 @@ genCast (iCode * ic)
 
   DEBUGpic16_pic16_AopType (__LINE__, NULL, right, result);
 
-  /* a variable in program memory: its value is wanted (an array or a
-     function would stand for its address) */
-  if (IS_SYMOP (right) && !IS_ITEMP (right) && AOP_TYPE (right) != AOP_LIT && AOP_TYPE (result) != AOP_CRY
-      && SPEC_OCLS (OP_SYM_ETYPE (right)) && IN_CODESPACE (SPEC_OCLS (OP_SYM_ETYPE (right)))
-      && !IS_FUNC (OP_SYM_TYPE (right)) && !IS_ARRAY (OP_SYM_TYPE (right)))
-    {
-      genCastFromCode (result, right, restype, rtype);
-      goto release;
-    }
 
   /* if the result is a bit */
   if (AOP_TYPE (result) == AOP_CRY)
@@ -11442,7 +11150,6 @@ genCast (iCode * ic)
     }
 
 release:
-  pic16_fixBitIntTop (result, 1);
   pic16_freeAsmop (right, NULL, ic, TRUE);
   pic16_freeAsmop (result, NULL, ic, TRUE);
 
@@ -11656,7 +11363,6 @@ genpic16Code (iCode * lic)
           break;
 
         case IPUSH:
-        case IPUSH_VALUE_AT_ADDRESS:
           genIpush (ic);
           break;
 

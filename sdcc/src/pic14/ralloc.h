@@ -62,7 +62,6 @@ typedef struct reg_info
   unsigned address;           /* reg's address if isFixed | isMapped is true */
   unsigned size;              /* 0 for byte, 1 for int, 4 for long */
   unsigned alias;             /* Alias mask if register appears in multiple banks */
-  unsigned localSection;      /* module locals section (from 1) when they need several, else 0 */
   struct reg_info *reg_alias; /* If more than one register share the same address 
                                * then they'll point to each other. (primarily for bits)*/
   pCodeRegLives reglives;     /* live range mapping */
@@ -85,11 +84,8 @@ extern set *dynInternalRegs;
 
 
 void initStack(int base_address, int size, int shared);
-int pic14_stackSize(void);
 reg_info *pic14_regWithIdx(int);
 reg_info *dirregWithName(const char *name);
-int pic14_localsShareBank (const reg_info *a, const reg_info *b);
-void pic14_assignLocalSections (void);
 void pic14_assignRegisters(ebbIndex *ebbi);
 reg_info *pic14_findFreeReg(short type);
 reg_info *pic14_allocWithIdx (int idx);
@@ -121,7 +117,6 @@ reg_info *allocNewDirReg(sym_link *symlnk, const char *name);
 #define IDX_WSAVE   0x7ffe
 #define IDX_SSAVE   0x7ffd
 #define IDX_PSAVE   0x7ffc
-#define IDX_PCALLW  0x7ffb
 
 #define pic14_nRegs 128
 

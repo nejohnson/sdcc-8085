@@ -25,9 +25,7 @@ typedef enum
     SUB_EZ80_Z80,
     SUB_EZ80,
     SUB_Z80N,
-    SUB_R800,
-    SUB_8080,
-    SUB_8085
+    SUB_R800
   }
 Z80_SUB_PORT;
 
@@ -67,16 +65,9 @@ extern Z80_OPTS z80_opts;
 #define IS_EZ80 (z80_opts.sub == SUB_EZ80)
 #define IS_Z80N (z80_opts.sub == SUB_Z80N)
 #define IS_R800 (z80_opts.sub == SUB_R800)
-#define IS_8080 (z80_opts.sub == SUB_8080)
-#define IS_8085 (z80_opts.sub == SUB_8085)
-/* Intel 8080/8085: a subset of the Z80 with no index registers, no relative
-   jumps, no alternate register set, and no CB/ED-prefix instructions. */
-#define IS_8080LIKE (IS_8080 || IS_8085)
 #define HAS_IYL_INST (IS_Z80N || IS_EZ80 || IS_R800 || IS_Z80 && options.allow_undoc_inst)
 
-/* The 8080/8085 have no IY (or IX) at all, so treat IY as permanently
-   reserved: every "IY not usable" fallback then applies to them too. */
-#define IY_RESERVED (z80_opts.reserveIY || IS_8080LIKE)
+#define IY_RESERVED (z80_opts.reserveIY)
 
-#define OPTRALLOC_IY !(IY_RESERVED || IS_SM83 || IS_TLCS870 || IS_8080LIKE)
+#define OPTRALLOC_IY !(IY_RESERVED || IS_SM83 || IS_TLCS870)
 

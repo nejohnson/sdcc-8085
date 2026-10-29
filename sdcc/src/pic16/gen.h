@@ -164,7 +164,6 @@ void pic16_genPlusBits (iCode *ic);
 void pic16_genPlus (iCode *ic);
 bool pic16_genMinusDec (iCode *ic);
 void pic16_addSign(operand *result, int offset, int sign);
-void pic16_fixBitIntTop (operand *result, int extend);
 void pic16_genMinusBits (iCode *ic);
 void pic16_genMinus (iCode *ic);
 void pic16_genLeftShiftLiteral (operand *left, operand *right, operand *result, iCode *ic);

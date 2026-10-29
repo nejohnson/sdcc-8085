@@ -36,7 +36,7 @@ else
   DEV_NULL ?= /dev/null
 endif
 
-SDCCFLAGS += -mds390 --less-pedantic
+SDCCFLAGS += -mds390 --less-pedantic -Wl-r
 LINKFLAGS += libsdcc.lib liblong.lib liblonglong.lib libint.lib libfloat.lib
 LINKFLAGS += libds390.lib
 

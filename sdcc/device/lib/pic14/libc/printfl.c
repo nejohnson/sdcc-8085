@@ -70,7 +70,7 @@ static __data long val;
    At the beginning resp. end of the loop the compiler inserts a "push ar2"
    resp. "pop ar2", which badly interferes with the push/pop in the source.
 
-   Library functions should be rock solid and portable. There's an __ltoa in
+   Library functions should be rock solid and portable. There's an _ltoa in
    the library, so let's use it and don't reinvent the wheel.
 
    Bernhard
@@ -197,7 +197,7 @@ void printf_small (char * fmt, ... ) __reentrant
               static char __idata buffer[12]; /* 37777777777(oct) */
               char __idata * stri;
 
-              __ltoa (val, buffer, radix);
+              _ltoa (val, buffer, radix);
               stri = buffer;
               while (*stri)
                 {

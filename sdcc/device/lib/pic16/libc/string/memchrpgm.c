@@ -29,17 +29,17 @@
 
 #include <string.h>
 
-const __code void *
-memchrpgm (const __code void *s, char c, size_t count)
+__code void *
+memchrpgm (__code void *s, char c, size_t count)
 {
-  while (count && (*(const __code char *)s != c))
+  while (count && (*(__code char *)s != c))
     {
-      s = (const __code char *)s + sizeof (char);
+      s = (__code char *)s + sizeof (char);
       --count;
     }
 
   if (count)
-    return s;
+    return (__code void *)s;
   else
     return NULL;
 }

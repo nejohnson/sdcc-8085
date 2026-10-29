@@ -1,7 +1,3 @@
-	.bank BCODE
-	.bank BDATA
-	.bank BXDATA
-	.bank BBIT
 ;--------------------------------------------------------------------------
 ;  crtxstack.asm - C run-time: setup xstack
 ;
@@ -30,20 +26,20 @@
 ;  might be covered by the GNU General Public License.
 ;--------------------------------------------------------------------------
 
-	.area CSEG    (BANK=BCODE)
-	.area GSINIT0 (BANK=BCODE)
-	.area GSINIT1 (BANK=BCODE)
-	.area GSINIT2 (BANK=BCODE)
-	.area GSINIT3 (BANK=BCODE)
-	.area GSINIT4 (BANK=BCODE)
-	.area GSINIT5 (BANK=BCODE)
-	.area GSINIT  (BANK=BCODE)
-	.area GSFINAL (BANK=BCODE)
+	.area CSEG    (CODE)
+	.area GSINIT0 (CODE)
+	.area GSINIT1 (CODE)
+	.area GSINIT2 (CODE)
+	.area GSINIT3 (CODE)
+	.area GSINIT4 (CODE)
+	.area GSINIT5 (CODE)
+	.area GSINIT  (CODE)
+	.area GSFINAL (CODE)
 
 	.globl __start__xstack
 	.globl __XPAGE
 
-	.area GSINIT1 (BANK=BCODE)
+	.area GSINIT1 (CODE)
 
 __sdcc_init_xstack::
 
@@ -53,7 +49,7 @@ __sdcc_init_xstack::
 	mov	__XPAGE,#(__start__xstack >> 8)
 	mov	_spx,#__start__xstack
 
-	.area GSINIT5 (BANK=BCODE)
+	.area GSINIT5 (CODE)
 
 ; Need to initialize in GSINIT5 because __mcs51_genXINIT modifies __XPAGE
 ; and __mcs51_genRAMCLEAR modifies _spx.

@@ -6,7 +6,7 @@ EMU_PORT_FLAG=-tr5ksdcc
 ifdef SDCC_BIN_PATH
   UCZ80C = $(SDCC_BIN_PATH)/ucsim_rxk$(EXEEXT)
 
-  AS_Z80C = $(SDCC_BIN_PATH)/asrab$(EXEEXT)
+  AS_Z80C = $(SDCC_BIN_PATH)/sdasrab$(EXEEXT)
 else
   ifdef UCSIM_DIR
     SZ80A = $(UCSIM_DIR)/src/sims/rxk.src/ucsim_rxk$(EXEEXT)
@@ -17,7 +17,7 @@ else
 
   EMU = $(WINE) $(shell if [ -f $(SZ80A) ]; then echo $(SZ80A); else echo $(SZ80B); fi)
 
-  AS = $(WINE) $(top_builddir)/bin/asrab$(EXEEXT)
+  AS = $(WINE) $(top_builddir)/bin/sdasrab$(EXEEXT)
 
 ifndef CROSSCOMPILING
   SDCCFLAGS += --nostdinc -I$(top_srcdir)
@@ -43,7 +43,7 @@ EXTRAS = $(PORT_CASES_DIR)/testfwk$(OBJEXT) $(PORT_CASES_DIR)/support$(OBJEXT)
 include $(srcdir)/fwk/lib/spec.mk
 
 $(PORT_CASES_DIR)/%$(OBJEXT): $(PORTS_DIR)/$(PORT)/%.asm
-	@# TODO: the assembler should place its output in the current dir
+	@# TODO: sdas should place it\'s output in the current dir
 	cp $< $(PORT_CASES_DIR)
 	$(AS) -plosgff $(PORT_CASES_DIR)/$(notdir $<)
 	rm $(PORT_CASES_DIR)/$(notdir $<)

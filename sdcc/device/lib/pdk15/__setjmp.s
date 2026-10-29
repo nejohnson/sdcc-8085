@@ -26,7 +26,7 @@
 ;   might be covered by the GNU General Public License.
 ;--------------------------------------------------------------------------
 
-        .area DATA (DSEG,BANK=_DSEG)
+        .area DATA
 ___setjmp_PARM_1::
         .ds 2
 _longjmp_PARM_1::

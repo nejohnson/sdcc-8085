@@ -6,7 +6,6 @@
 */
 #include "common.h"
 #include "dbuf_string.h"
-#include "linkcheck.h"
 #include "SDCCmacro.h"
 
 #include "device.h"
@@ -70,7 +69,6 @@ static char *_pic14_keywords[] =
 };
 
 static int regParmFlg = 0;  /* determine if we can register a parameter */
-static int regParmBytes = 0; /* bytes of parameters passed in WREG/STKnn so far */
 static struct sym_link *regParmFuncType;
 
 /** $1 is always the basename.
@@ -102,7 +100,6 @@ static void
 _pic14_reset_regparm (struct sym_link *funcType)
 {
   regParmFlg = 0;
-  regParmBytes = 0;
   regParmFuncType = funcType;
 }
 
@@ -112,21 +109,12 @@ _pic14_regparm (sym_link * l, bool reentrant)
   if (IFFUNC_HASVARARGS (regParmFuncType))
     return 0;
 
-  /* A struct is copied into the callee's own parameter variable. */
-  if (IS_STRUCT (l))
-    return 0;
+/* for this processor it is simple
+  can pass only the first parameter in a register */
+  //if (regParmFlg)
+  //  return 0;
 
-  /* Parameters travel in WREG and the STKnn pseudo-stack.  From the
-     first one that would not fit on, they are stored straight into the
-     callee's own parameter variables instead. */
-  if (regParmFlg < 0 || regParmBytes + getSize (l) > pic14_stackSize () + 1)
-    {
-      regParmFlg = -1;
-      return 0;
-    }
-
-  regParmBytes += getSize (l);
-  regParmFlg++;
+  regParmFlg++;// = 1;
   return 1;
 }
 
@@ -145,9 +133,6 @@ _pic14_finaliseOptions (void)
   struct dbuf_s dbuf;
 
   pCodeInitRegisters();
-
-  if (options.stackAuto)
-    werrorfl (NULL, 0, E_STACK_AUTO_UNSUPPORTED);
 
   port->mem.default_local_map = data;
   port->mem.default_globl_map = data;
@@ -180,9 +165,6 @@ _pic14_finaliseOptions (void)
       addSet (&preArgvSet, Safe_strdup (dbuf_detach_c_str (&dbuf)));
     }
 
-  /* Variable arguments are passed in a static area per function */
-  addSet (&preArgvSet, Safe_strdup ("-D__SDCC_PIC14_HAS_VARARGS"));
-
   /* Report the actual stack size */
   {
     int size;
@@ -191,8 +173,6 @@ _pic14_finaliseOptions (void)
     /* non-enhanced cores take PSAVE, SSAVE and WSAVE from stack */
     if (!pic14_getPIC()->isEnhancedCore)
       size -= 3;
-    /* and every core PCALL_W */
-    size -= 1;
 
     /* Actual stack size includes WREG and STK00, ... */
     dbuf_set_length (&dbuf, 0);
@@ -272,8 +252,7 @@ static bool
 hasExtBitOp (int op, sym_link *left, int right)
 {
   unsigned int lbits = bitsForType (left);
-  /* RLF/RRF chains rotate whole bytes only */
-  return (op == ROT && lbits % 8 == 0 && ((right % lbits) == 1 || (right % lbits) == lbits - 1) ||
+  return (op == ROT && ((right & lbits) == 1 || (right % lbits) == lbits - 1) ||
     op == GETABIT);
 }
 
@@ -361,25 +340,6 @@ _pic14_do_link (void)
 
   shash_add (&linkValues, "libs", joinStrSet (processStrSet (libFilesSet, NULL, NULL, shell_escape)));
 
-  /* Recursion, call depth, interrupt sharing, sizes: errors, not a
-     program that fails at run time. */
-  {
-    set *objects = NULL;
-
-    if (fullSrcFileName)
-      {
-        struct dbuf_s dbuf;
-
-        dbuf_init (&dbuf, 128);
-        dbuf_append_str (&dbuf, fullDstFileName ? fullDstFileName : dstFileName);
-        dbuf_append (&dbuf, ".o", 2);
-        addSet (&objects, dbuf_detach_c_str (&dbuf));
-      }
-    mergeSets (&objects, relFilesSet);
-    if (pic14_linkCheck (objects, libFilesSet, tSet))
-      exit (1);
-  }
-
   lcmd = msprintf(linkValues, LFRM);
   ret = sdcc_system (lcmd);
   Safe_free (lcmd);
@@ -423,7 +383,7 @@ PORT pic_port =
   },
   {
   /* Sizes: char, short, int, long, long long, near ptr, far ptr, gptr, func ptr, banked func ptr, bit, float, _BitInt (in bits) */
-    1, 2, 2, 4, 8, 2, 2, 3, 2, 3, 1, 4, 64
+    1, 2, 2, 4, 8, 2, 2, 3, 2, 3, 1, 4, 0
     /* TSD - I changed the size of gptr from 3 to 1. However, it should be
        2 so that we can accommodate the PIC's with 4 register banks (like the
        16f877)

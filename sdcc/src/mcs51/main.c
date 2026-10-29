@@ -206,68 +206,9 @@ _mcs51_getRegName (const struct reg_info *reg)
 static void
 _mcs51_genAssemblerStart (FILE * of)
 {
-  /* The 8051's four address spaces are four ASxxxx banks, and aslink runs
-     one location counter per bank.  The banks have to be declared before
-     the first .area that names one - an undeclared BANK= is an undefined
-     symbol, not an implicit bank. */
-  fprintf (of, "\t.bank BCODE\n");
-  fprintf (of, "\t.bank BDATA\n");
-  fprintf (of, "\t.bank BXDATA\n");
-  fprintf (of, "\t.bank BBIT\n");
-
-  /* And the order of the internal RAM areas, which matters because
-     the chain lays them out in the order they are first declared and
-     the stack grows up from the end of it.  aslink has no built-in
-     idea of an 8051, so every module declares them - empty, if it has
-     nothing to put in them.  One module's idea of the order is not enough:
-     the first module linked is usually the test framework, which has
-     no overlaid locals, so OSEG would first appear in some later
-     module and be laid out after the stack it must sit below. */
-  fprintf (of, "\n");
-  fprintf (of, "\t.area REG_BANK_0\t(REL,OVR,BANK=BDATA)\n");
-  fprintf (of, "\t.area REG_BANK_1\t(REL,OVR,BANK=BDATA)\n");
-  fprintf (of, "\t.area REG_BANK_2\t(REL,OVR,BANK=BDATA)\n");
-  fprintf (of, "\t.area REG_BANK_3\t(REL,OVR,BANK=BDATA)\n");
-  /* BIT_BANK is pinned at 0x20 and always occupies that byte, so the
-     bit addresses SDCCglue.c gives its eight registers - the constants
-     0 to 7 - are right whether or not anything uses them, and so that
-     BSEG_BYTES below always starts at 0x21, where bit 8 lives.  One
-     byte, and it buys the alignment everything else here rests on. */
-  fprintf (of, "\t.area BIT_BANK\t(REL,OVR,BANK=BDATA)\n");
-  fprintf (of, "\t.ds 1\n");
-  /* The bytes behind the bits.  aslink cannot size them from the bit
-     count, so each module reserves the bytes for its own bits and the areas add up (CON).  The sum of
-     the ceilings is never less than the ceiling of the sum, so it is
-     always enough, and it costs nothing at all when no module declares
-     a __bit - which is the usual case, and what makes this affordable
-     where reserving the whole 0x20-0x2F region was not. */
-  fprintf (of, "\t.area BSEG_BYTES\t(REL,CON,BANK=BDATA)\n");
-  /* DSEG, OSEG and ISEG are offered the gap that pinning BIT_BANK
-     at 0x20 leaves behind it - 0x08 to 0x1F, the three register
-     banks almost nothing uses.  FIT is a hint: an area that does
-     not fit the gap is laid down exactly where it would have been,
-     so a module with a hundred bytes of data or idata is placed as
-     before and one with twelve takes the space.  Twenty five bytes
-     of a hundred and twenty eight, and because SSEG is last in the
-     chain it is the stack that gets them back. */
-  fprintf (of, "\t.area DSEG\t(FIT,BANK=BDATA)\n");
-  fprintf (of, "\t.area OSEG\t(REL,OVR,FIT,BANK=BDATA)\n");
-  fprintf (of, "\t.area ISEG\t(FIT,BANK=BDATA)\n");
-  fprintf (of, "\t.area SSEG\t(BANK=BDATA)\n");
-
-  /* And the external RAM areas, for the same reason: pdata is the
-     first page of xdata, the initialised xdata has to follow both,
-     and the order cannot be left to whichever module happens to
-     mention one of them first. */
-  fprintf (of, "\t.area PSEG\t(BANK=BXDATA)\n");
-  fprintf (of, "\t.area XSEG\t(BANK=BXDATA)\n");
-  fprintf (of, "\t.area XISEG\t(BANK=BXDATA)\n");
-  fprintf (of, "\t.area XSTK\t(BANK=BXDATA)\n");
-
   if (!options.noOptsdccInAsm)
     {
-      /* The compatibility key, which aslink compares across modules. */
-      fprintf (of, "\t.abi -m%s", port->target);
+      fprintf (of, "\t.optsdcc -m%s", port->target);
 
       switch (options.model)
         {
@@ -443,12 +384,12 @@ static void
 _mcs51_genExtraAreas(FILE *of, bool hasMain)
 {
   tfprintf (of, "\t!area\n", HOME_NAME);
-  tfprintf (of, "\t!area\n", "GSINIT0 (BANK=BCODE)");
-  tfprintf (of, "\t!area\n", "GSINIT1 (BANK=BCODE)");
-  tfprintf (of, "\t!area\n", "GSINIT2 (BANK=BCODE)");
-  tfprintf (of, "\t!area\n", "GSINIT3 (BANK=BCODE)");
-  tfprintf (of, "\t!area\n", "GSINIT4 (BANK=BCODE)");
-  tfprintf (of, "\t!area\n", "GSINIT5 (BANK=BCODE)");
+  tfprintf (of, "\t!area\n", "GSINIT0 (CODE)");
+  tfprintf (of, "\t!area\n", "GSINIT1 (CODE)");
+  tfprintf (of, "\t!area\n", "GSINIT2 (CODE)");
+  tfprintf (of, "\t!area\n", "GSINIT3 (CODE)");
+  tfprintf (of, "\t!area\n", "GSINIT4 (CODE)");
+  tfprintf (of, "\t!area\n", "GSINIT5 (CODE)");
   tfprintf (of, "\t!area\n", STATIC_NAME);
   tfprintf (of, "\t!area\n", port->mem.post_static_name);
   tfprintf (of, "\t!area\n", CODE_NAME);
@@ -1021,20 +962,15 @@ get_model (void)
     $L is the list of extra options that should be passed on the command line...
     MUST be terminated with a NULL.
 */
-/* This port assembles and links with ASxxxx as8051/aslink.  as8051 takes
-   "[-options] file1 [file2...]" and derives the object name from the input,
-   so there is no separate output argument.  The linker reuses the "$1.lk"
-   script the shared linkEdit() writes.  See the i8085, hc08 and mos6502
-   ports for the same pair. */
 static const char *_linkCmd[] =
 {
-  "aslink", "-nf", "$1", "$L", NULL
+  "sdld", "-nf", "$1", "$L", NULL
 };
 
 /* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
 static const char *_asmCmd[] =
 {
-  "as8051", "$l", "$3", "$1.asm", NULL
+  "sdas8051", "$l", "$3", "$2", "$1.asm", NULL
 };
 
 static const char * const _libs[] = { "mcs51", STD_LIB, STD_INT_LIB, STD_LONG_LIB, STD_FP_LIB, NULL, };
@@ -1060,8 +996,7 @@ PORT mcs51_port =
     "-plosgffw",                /* Options without debug */
     0,
     ".asm",
-    NULL,                       /* no do_assemble function */
-    TRUE,                       /* ASxxxx as8051 */
+    NULL                        /* no do_assemble function */
   },
   {                             /* Linker */
     _linkCmd,
@@ -1071,7 +1006,6 @@ PORT mcs51_port =
     1,
     NULL,                       /* crt */
     _libs,                      /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _defaultRules,
@@ -1091,26 +1025,26 @@ PORT mcs51_port =
   /* tags for generic pointers */
   { 0x00, 0x40, 0x60, 0x80 },   /* far, near, xstack, code */
   {
-    "XSTK    (PAG,BANK=BXDATA)",      // xstack_name
-    "STACK   (BANK=BDATA)",           // istack_name
-    "CSEG    (BANK=BCODE)",           // code_name
-    "DSEG    (FIT,BANK=BDATA)",       // data_name
-    "ISEG    (FIT,BANK=BDATA)",       // idata_name
-    "PSEG    (BANK=BXDATA)",      // pdata_name
-    "XSEG    (BANK=BXDATA)",          // xdata_name
+    "XSTK    (PAG,XDATA)",      // xstack_name
+    "STACK   (DATA)",           // istack_name
+    "CSEG    (CODE)",           // code_name
+    "DSEG    (DATA)",           // data_name
+    "ISEG    (DATA)",           // idata_name
+    "PSEG    (PAG,XDATA)",      // pdata_name
+    "XSEG    (XDATA)",          // xdata_name
     NULL,                       // xconst_name
-    "BSEG    (BANK=BBIT)",            // bit_name
-    "RSEG    (ABS,BANK=BDATA)",       // reg_name
-    "GSINIT  (BANK=BCODE)",           // static_name
-    "OSEG    (REL,OVR,FIT,BANK=BDATA)", // overlay_name
-    "GSFINAL (BANK=BCODE)",           // post_static_name
-    "HOME    (BANK=BCODE)",           // home_name
-    "XISEG   (BANK=BXDATA)",          // xidata_name - initialized xdata
-    "XINIT   (BANK=BCODE)",           // xinit_name - a code copy of xiseg
-    "CONST   (BANK=BCODE)",           // const_name - const data (code or not)
-    "CABS    (ABS,BANK=BCODE)",       // cabs_name - const absolute data (code or not)
-    "XABS    (ABS,BANK=BXDATA)",      // xabs_name - absolute xdata/pdata
-    "IABS    (ABS,BANK=BDATA)",       // iabs_name - absolute idata/data
+    "BSEG    (BIT)",            // bit_name
+    "RSEG    (ABS,DATA)",       // reg_name
+    "GSINIT  (CODE)",           // static_name
+    "OSEG    (OVR,DATA)",       // overlay_name
+    "GSFINAL (CODE)",           // post_static_name
+    "HOME    (CODE)",           // home_name
+    "XISEG   (XDATA)",          // xidata_name - initialized xdata
+    "XINIT   (CODE)",           // xinit_name - a code copy of xiseg
+    "CONST   (CODE)",           // const_name - const data (code or not)
+    "CABS    (ABS,CODE)",       // cabs_name - const absolute data (code or not)
+    "XABS    (ABS,XDATA)",      // xabs_name - absolute xdata/pdata
+    "IABS    (ABS,DATA)",       // iabs_name - absolute idata/data
     NULL,                       // name of segment for initialized variables
     NULL,                       // name of segment for copies of initialized variables in code space
     NULL,

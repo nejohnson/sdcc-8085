@@ -3,9 +3,6 @@
 
    Copyright (C) 2005, Vangelis Rokas <vrokas at otenet.gr>
 
-   Modifications for PIC14 by
-   Copyright (C) 2019 Gonzalo Pérez de Olaguer Córdoba <salo@gpoc.es>
-
    This library is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
    Free Software Foundation; either version 2, or (at your option) any
@@ -30,96 +27,72 @@
 -------------------------------------------------------------------------*/
 
 #include <malloc.h>
-#include <string.h>
 
-_malloc_rec __data *_malloc_heap = NULL;
-
-void _initHeap (void __data *ptr, size_t size)
+void _initHeap(unsigned char _MALLOC_SPEC *dheap, unsigned int heapsize)
 {
-    _malloc_rec __data *head;
-    size_t used_size = 0;
-    size_t block_size;
-
-    if (ptr == NULL || size == 0)
-    {
-        _malloc_heap = NULL;
-        return;
-    }
-
-    _malloc_heap = (_malloc_rec __data *)ptr;
-    head = _malloc_heap;
+  _malloc_rec _MALLOC_SPEC *pHeap;
+  unsigned int hsize=0;
+  int bsize;
+  
+    pHeap = (_malloc_rec _MALLOC_SPEC *)dheap;
+    if (heapsize == 0) return;
     /* we need one byte as the end of block list marker */
-    size--;
+    heapsize--;
+    
+    while (hsize < heapsize) {
+      /* a guess of the next block size */
+      bsize = (heapsize - hsize); /* thus: bsize > 0 */
+      if(bsize > MAX_BLOCK_SIZE) bsize = MAX_BLOCK_SIZE;
+      
+      /* now we can create the block */
+      pHeap->datum = bsize;
+      pHeap = (_malloc_rec _MALLOC_SPEC *)((unsigned int)pHeap + bsize);
 
-    while (used_size < size) {
-        /* a guess of the next block size */
-        block_size = (size - used_size); /* thus: block_size > 0 */
-        if (block_size > MAX_BLOCK_SIZE)
-	    block_size = MAX_BLOCK_SIZE;
- 
-        /* now we can create the block */
-        head->datum = block_size;
-        head = NEXTREC(head);
- 
-        used_size += block_size;
+      hsize += bsize;
     }
 
     /* mark end of block list */
-    head->datum = 0;
+    pHeap->datum = 0;
 }
 
-/* try to allocate a block from the heap of at least size bytes,
- * merging adjacent blocks if necessary.
- * if ptr is not NULL, it may be included into the merged blocks.
- */
-void __data *_allocateHeap (void __data *ptr, size_t size)
+/* search heap starting from sBlock for a block of size bSize, merging
+ * adjacent blocks if necessary */
+_malloc_rec _MALLOC_SPEC *_mergeHeapBlock(_malloc_rec _MALLOC_SPEC *sBlock, unsigned char bSize)
 {
-    _malloc_rec __data *current_head, *next_head, *realloc_head;
-    size_t block_size;
-
-    if (_malloc_heap == NULL)
-        _initDefaultHeap ();
-
-    if (size >= MAX_BLOCK_SIZE)
-        return ((void __data *)NULL);
-
-    if (ptr)
-        realloc_head = PTR2REC(ptr);
-    else
-        realloc_head = NULL;
-
-    current_head = next_head = _malloc_heap;
-    block_size = 0;
-    size++;
-    while (next_head->datum != 0)
-    {
-        if (next_head->bits.alloc == 0 || next_head == realloc_head)
-        {
-            block_size += next_head->bits.count;
-            if (block_size >= size)
-            {
-                /* block found */
-                if (realloc_head)
-                {
-                    memmove (REC2PTR(current_head), ptr, realloc_head->bits.count - 1);
-                    if (next_head != realloc_head)
-                        realloc_head->bits.alloc = 0;
-                }
-                current_head->datum = ALLOC_FLAG + size;
-                if (block_size > size)
-                {
-                    next_head = NEXTREC(current_head);
-                    next_head->datum = block_size - size;
-                }
-                return REC2PTR(current_head);
-            }
-            next_head = NEXTREC(next_head);
-        }
-        else
-        {
-            current_head = next_head = NEXTREC(next_head);
-            block_size = 0;
-        }
+  _malloc_rec _MALLOC_SPEC *temp;
+  unsigned char bLen;
+  unsigned char eLen;
+  unsigned char dat;
+  
+    bLen = sBlock->bits.count;
+  
+    /* current block is not enough, see if we can merge some adjacent memory
+     * blocks to make it fit */
+    temp = (_malloc_rec _MALLOC_SPEC *)((unsigned int)sBlock + bLen);	//sBlock->bits.count);
+    eLen = bLen;
+    while((temp->datum) && (!temp->bits.alloc) && (eLen <= bSize)) {
+      eLen += (dat=temp->bits.count);
+      temp = (_malloc_rec _MALLOC_SPEC *)((unsigned int)temp + dat);
     }
-    return ((void __data *)NULL);
+
+    if(eLen > bSize) {
+      unsigned char i;
+            
+        /* yes, there are some free blocks that can be merged, so merge them... */
+        temp = sBlock;
+        while(eLen > 0) {
+          if(eLen > MAX_BLOCK_SIZE)i = MAX_BLOCK_SIZE;
+            else i = eLen;
+          temp->datum = i;
+          temp = (_malloc_rec _MALLOC_SPEC *)((unsigned int)temp + i);
+          eLen -= i;
+        }
+
+        /* return block starts at the old block start address */
+        return (sBlock);
+    } else {
+      
+      /* no, there are no free blocks after sBlock, so return NULL */
+      return ((_malloc_rec _MALLOC_SPEC *)0);
+    }
 }

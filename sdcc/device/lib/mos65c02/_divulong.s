@@ -48,7 +48,7 @@
 ;--------------------------------------------------------
 ; overlayable function parameters in zero page
 ;--------------------------------------------------------
-	.area	OSEG    (REL,OVR)
+	.area	OSEG    (PAG, OVR)
 __divulong_PARM_1:
 __divslong_PARM_1:
 __modulong_PARM_1:

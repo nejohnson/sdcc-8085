@@ -49,7 +49,6 @@ extern set *externs;
 static PIC_device *pic = NULL;
 
 static pCodeOp *popGetImmd (const char *name, unsigned int offset, int index, int is_func);
-static void codeByteGet (operand *op, int index);
 static pCodeOp *popRegFromString (const char *str, int size, int offset);
 static int aop_isLitLike (asmop * aop);
 static void genCritical (iCode * ic);
@@ -63,6 +62,7 @@ static void genEndCritical (iCode * ic);
         (!IS_ITEMP (op)                     /* --> iTemps never reside in __code */    \
         && IS_SYMOP (op)                    /* --> must be an immediate (otherwise we would be in genConstPointerGet) */    \
         && !IS_FUNC (OP_SYM_TYPE (op))      /* --> we would want its address instead of the first instruction */    \
+        && !IS_CODEPTR (OP_SYM_TYPE (op))   /* --> get symbols address instead */    \
         && IN_CODESPACE (SPEC_OCLS (getSpec (OP_SYM_TYPE (op)))))
 
 /*
@@ -80,92 +80,15 @@ static char *one = "0x01";
 static char *spname = "sp";
 
 unsigned fReturnSizePic = 4;    /* shared with ralloc.c */
-
-/* Parameters passed in the callee's own variables rather than in
-   WREG/STKnn, as referenced by this module.  glue.c declares those whose
-   function is defined elsewhere as extern. */
-set *pic14_stackParmSyms = NULL;
-
-/* Functions whose address this module takes (rnames).  They can be
-   called through a pointer, so the pCode passes must neither inline
-   them nor share their registers by the static call tree. */
-set *pic14_indirectTargets = NULL;
-
-void
-pic14_addIndirectTarget (const char *rname)
-{
-  if (!pic14_isIndirectTarget (rname))
-    addSet (&pic14_indirectTargets, Safe_strdup (rname));
-}
-
-int
-pic14_isIndirectTarget (const char *rname)
-{
-  const char *s;
-  for (s = setFirstItem (pic14_indirectTargets); s; s = setNextItem (pic14_indirectTargets))
-    if (!strcmp (s, rname))
-      return 1;
-  return 0;
-}
-
-/* Keep an _BitInt result normalised: clear the bits above its width in
-   the top byte (unsigned), or with extend, copy its sign bit into them
-   (signed).  Signed overflow in + - << is undefined, so those only
-   ask for unsigned. */
-void
-pic14_fixBitIntTop (operand *result, int extend)
-{
-  sym_link *type = operandType (result);
-  unsigned w, mask;
-  int top;
-
-  if (!IS_BITINT (type) || !(SPEC_BITINTWIDTH (type) % 8) || !AOP (result) || AOP_SIZE (result) < 1)
-    return;
-  w = SPEC_BITINTWIDTH (type) % 8;
-  mask = 0xffu >> (8 - w);
-  top = AOP_SIZE (result) - 1;
-  if (SPEC_USIGN (type) || extend)
-    {
-      emitpcode (POC_MOVLW, popGetLit (mask));
-      emitpcode (POC_ANDWF, popGet (AOP (result), top));
-    }
-  if (!SPEC_USIGN (type) && extend)
-    {
-      emitpcode (POC_MOVLW, popGetLit (~mask & 0xff));
-      emitpcode (POC_BTFSC, newpCodeOpBit (aopGet (AOP (result), top, FALSE, FALSE), w - 1, 0));
-      emitpcode (POC_IORWF, popGet (AOP (result), top));
-    }
-}
-
-/* Does a function of this type take arguments in WREG/STKnn?  Then a
-   call through a pointer enters at its "_ind" entry, which loads the
-   WREG byte back from PCALL_W. */
-int
-pic14_hasRegParm (sym_link *ftype)
-{
-  value *arg;
-  for (arg = FUNC_ARGS (ftype); arg; arg = arg->next)
-    if (IS_REGPARM (arg->etype))
-      return 1;
-  return 0;
-}
 static char *fReturnpic14[] = { "temp1", "temp2", "temp3", "temp4" };
 
 static char **fReturn = fReturnpic14;
-
-static int op_isVariable (operand * op);
-static int op_isImmediateAddr (operand * op);
-
-/* bytes of ___sdcc_saved_stk, the interrupt handler's save area for
-   the pseudo-stack and PCALL_W (defined in the handler's module) */
-#define PIC14_ISR_SAVE_SIZE 16
 
 static struct
 {
   short accInUse;
   short nRegsSaved;
   set *sendSet;
-  pCode *isrSaveAfter;          /* ISR prologue: where the pseudo-stack save goes */
 } _G;
 
 /*
@@ -407,8 +330,6 @@ aopForSym (iCode * ic, symbol * sym, bool result)
   /* if it is in direct space */
   if (IN_DIRSPACE (space))
     {
-      if (sym->_isparm && !IS_REGPARM (sym->etype))
-        addSetIfnotP (&pic14_stackParmSyms, sym);
       sym->aop = aop = newAsmop (AOP_DIR);
       aop->aopu.aop_dir = sym->rname;
       aop->size = getSize (sym->type);
@@ -420,13 +341,8 @@ aopForSym (iCode * ic, symbol * sym, bool result)
   if (IS_FUNC (sym->type))
     {
 
-      char ind[SDCC_NAME_MAX + 8];
-
-      /* a function's address is where calls through a pointer enter */
-      pic14_addIndirectTarget (sym->rname);
-      SNPRINTF (ind, sizeof (ind), "%s_ind", sym->rname);
       sym->aop = aop = newAsmop (AOP_PCODE);
-      aop->aopu.pcop = popGetImmd (pic14_hasRegParm (sym->type) ? ind : sym->rname, 0, 0, 1);
+      aop->aopu.pcop = popGetImmd (sym->rname, 0, 0, 1);
       PCOI (aop->aopu.pcop)->_const = IN_CODESPACE (space);
       PCOI (aop->aopu.pcop)->_function = TRUE;
       PCOI (aop->aopu.pcop)->index = 0;
@@ -791,23 +707,6 @@ pic14AopOp (operand *op, iCode *ic, bool result)
   /* must be in a register */
   DEBUGpic14_emitcode (";", "%d register type nRegs=%d", __LINE__, sym->nRegs);
   sym->aop = op->aop = aop = newAsmop (AOP_REG);
-  /* aop_reg holds eight, enough for a long long.  A symbol wants
-     getSize() of them, so anything wider would be written past the end
-     of the asmop; refuse it instead. */
-  if (sym->nRegs > (int) (sizeof (aop->aopu.aop_reg) / sizeof (aop->aopu.aop_reg[0])))
-    {
-      int max = (int) (sizeof (aop->aopu.aop_reg) / sizeof (aop->aopu.aop_reg[0]));
-
-      werror (E_TOO_MANY_REGS_FOR_OPERAND, sym->name ? sym->name : "", sym->nRegs, max);
-      /* The diagnostic has already failed the compile, so nothing below
-         will be emitted for real.  Hand back a full asmop of the width we
-         can hold rather than an empty one:  every caller indexes aop_reg
-         by the operand's own size and would walk off a zero-sized aop. */
-      aop->size = max;
-      for (i = 0; i < max; i++)
-        aop->aopu.aop_reg[i] = sym->regs[i];
-      return;
-    }
   aop->size = sym->nRegs;
   for (i = 0; i < sym->nRegs; i++)
     aop->aopu.aop_reg[i] = sym->regs[i];
@@ -861,7 +760,7 @@ pic14aopLiteral (value * val, int offset)
   /* otherwise it is fairly simple */
   if (!IS_FLOAT (val->type))
     {
-      unsigned long long v = ullFromVal (val);
+      unsigned long v = ulFromVal (val);
 
       return ((v >> (offset * 8)) & 0xff);
     }
@@ -1478,7 +1377,7 @@ mov2w_op (operand * op, int offset)
   else
     {
       /* access value stored in op */
-      emitpcode (POC_MOVFW, popGet (AOP (op), offset));
+      mov2w (AOP (op), offset);
     }
 }
 
@@ -1500,18 +1399,6 @@ mov2w (asmop * aop, int offset)
   else
     emitpcode (POC_MOVFW, popGet (aop, offset));
 
-}
-
-/* Combine W with byte 'offset' of an operand: the register form for a
-   register operand, the literal form (on the address byte) for an
-   immediate. */
-static void
-opWithW (PIC_OPCODE regOp, PIC_OPCODE litOp, asmop * aop, int offset)
-{
-  if (aop_isLitLike (aop))
-    emitpcode (litOp, popGetAddr (aop, offset, 0));
-  else
-    emitpcode (regOp, popGet (aop, offset));
 }
 
 static void
@@ -2034,17 +1921,7 @@ assignResultValue (iCode *ic)
       sym_link *ftype = operandType (IC_LEFT (ic));
       /* the size of the return value */
       int rsize = getSize (ftype->next);
-      /* The return value comes back in WREG and the STKnn pseudo-stack
-         registers (see get_return_val_pcop()), so it can be no wider than
-         those together.  Say so, and clamp rsize so the loop below still
-         runs; the diagnostic has already failed the compile. */
-      int maxsize = pic14_stackSize () + 1;
-      if (rsize < 1 || rsize > maxsize)
-        {
-          symbol *fsym = IS_SYMOP (IC_LEFT (ic)) ? OP_SYMBOL (IC_LEFT (ic)) : NULL;
-          werror (E_RETURN_VALUE_TOO_WIDE, fsym && fsym->name ? fsym->name : "", rsize, maxsize);
-          rsize = rsize < 1 ? 1 : maxsize;
-        }
+      assert(rsize > 0 && rsize <= 4);
       if (rsize > size)
         {
           offset += rsize - size;
@@ -2221,12 +2098,37 @@ unsaverbank (int bank, iCode * ic, bool popPsw)
 }
 
 /*-----------------------------------------------------------------*/
-/* pic14_sendArgs - pass the pending SEND parameters: all but the  */
-/* last byte in STKnn, the last in WREG                            */
+/* genCall - generates a call statement                            */
 /*-----------------------------------------------------------------*/
 static void
-pic14_sendArgs (void)
+genCall (iCode * ic)
 {
+  sym_link *dtype, *etype;
+  symbol *sym;
+  char *name, buf[20];
+  int isExtern;
+
+  FENTRY;
+
+  DEBUGpic14_emitcode ("; ***", "%s  %d", __FUNCTION__, __LINE__);
+
+  /* if caller saves & we have not saved then */
+  if (!ic->regsSaved)
+    saveRegisters (ic);
+
+  /* if we are calling a function that is not using
+     the same register bank then we need to save the
+     destination registers on the stack */
+  dtype = operandType (IC_LEFT (ic));
+  etype = getSpec(dtype);
+  if (currFunc && dtype &&
+      (FUNC_REGBANK (currFunc->type) != FUNC_REGBANK (dtype)) && IFFUNC_ISISR (currFunc->type) && !ic->bankSaved)
+
+    saverbank (FUNC_REGBANK (dtype), ic, TRUE);
+
+  /* if send set is not empty the assign */
+  if (_G.sendSet)
+    {
       iCode *sic;
       /* For the Pic port, there is no data stack.
        * So parameters passed to functions are stored
@@ -2275,40 +2177,7 @@ pic14_sendArgs (void)
           pic14FreeAsmop (sic->left, NULL, sic, true);
         }
       _G.sendSet = NULL;
-}
-
-/*-----------------------------------------------------------------*/
-/* genCall - generates a call statement                            */
-/*-----------------------------------------------------------------*/
-static void
-genCall (iCode * ic)
-{
-  sym_link *dtype, *etype;
-  symbol *sym;
-  char *name, buf[20];
-  int isExtern;
-
-  FENTRY;
-
-  DEBUGpic14_emitcode ("; ***", "%s  %d", __FUNCTION__, __LINE__);
-
-  /* if caller saves & we have not saved then */
-  if (!ic->regsSaved)
-    saveRegisters (ic);
-
-  /* if we are calling a function that is not using
-     the same register bank then we need to save the
-     destination registers on the stack */
-  dtype = operandType (IC_LEFT (ic));
-  etype = getSpec(dtype);
-  if (currFunc && dtype &&
-      (FUNC_REGBANK (currFunc->type) != FUNC_REGBANK (dtype)) && IFFUNC_ISISR (currFunc->type) && !ic->bankSaved)
-
-    saverbank (FUNC_REGBANK (dtype), ic, TRUE);
-
-  /* if send set is not empty the assign */
-  if (_G.sendSet)
-    pic14_sendArgs ();
+    }
   /* make the call */
   if (IS_LITERAL(etype))
     {
@@ -2394,7 +2263,6 @@ genPcall (iCode * ic)
   symbol *blbl = newiTempLabel (NULL);
   PIC_OPCODE poc;
   pCodeOp *pcop;
-  pCodeOp *fromCode[2] = { NULL, NULL };
   operand *left;
 
   FENTRY;
@@ -2417,27 +2285,13 @@ genPcall (iCode * ic)
 
   poc = (op_isLitLike (IC_LEFT (ic)) ? POC_MOVLW : POC_MOVFW);
 
-  /* a function pointer held in __code is read before the arguments are
-     set up, as reading it uses W, STK00 and STK01 */
-  if (OP_IN_CODE_SPACE (left))
-    {
-      fromCode[0] = popGetTempReg ();
-      codeByteGet (left, 0);
-      emitpcode (POC_MOVWF, pCodeOpCopy (fromCode[0]));
-      fromCode[1] = popGetTempReg ();
-      codeByteGet (left, 1);
-      emitpcode (POC_MOVWF, pCodeOpCopy (fromCode[1]));
-    }
-
   pushSide (IC_LEFT (ic), FARPTRSIZE);
 
   /* if send set is not empty, assign parameters */
-  /* WREG makes the jump, so the byte that would travel in WREG goes in
-     PCALL_W, and the callee's "_ind" entry loads it back */
   if (_G.sendSet)
     {
-      pic14_sendArgs ();
-      emitpcode (POC_MOVWF, popCopyReg (&pc_pcallw));
+      DEBUGpic14_emitcode ("; ***", "%s  %d - WARNING arg-passing to indirect call not supported", __FUNCTION__, __LINE__);
+      /* no way to pass args - W always gets used to make the call */
     }
   /* first idea - factor out a common helper function and call it.
      But don't know how to get it generated only once in its own block
@@ -2462,22 +2316,10 @@ genPcall (iCode * ic)
   emitpcode (POC_GOTO, pcop);
   emitpLabel (albl->key);
 
-  if (fromCode[0])
-    {
-      emitpcode (POC_MOVFW, pCodeOpCopy (fromCode[1]));
-      emitpcode (POC_MOVWF, popCopyReg (&pc_pclath));
-      emitpcode (POC_MOVFW, pCodeOpCopy (fromCode[0]));
-      emitpcode (POC_MOVWF, popCopyReg (&pc_pcl));
-      popReleaseTempReg (fromCode[1]);
-      popReleaseTempReg (fromCode[0]);
-    }
-  else
-    {
-      emitpcode (poc, popGetAddr (AOP (left), 1, 0));
-      emitpcode (POC_MOVWF, popCopyReg (&pc_pclath));
-      emitpcode (poc, popGetAddr (AOP (left), 0, 0));
-      emitpcode (POC_MOVWF, popCopyReg (&pc_pcl));
-    }
+  emitpcode (poc, popGetAddr (AOP (left), 1, 0));
+  emitpcode (POC_MOVWF, popCopyReg (&pc_pclath));
+  emitpcode (poc, popGetAddr (AOP (left), 0, 0));
+  emitpcode (POC_MOVWF, popCopyReg (&pc_pcl));
 
   emitpLabel (blbl->key);
 
@@ -2554,19 +2396,11 @@ genFunction (iCode * ic)
   pic14_emitcode (";", " function %s", (sym = OP_SYMBOL (IC_LEFT (ic)))->name);
   pic14_emitcode (";", "-----------------------------------------");
 
-  /* Locals and parameters are static: a reentrant function's are not. */
-  if (IFFUNC_ISREENT (sym->type))
-    werrorfl (sym->fileDef, sym->lineDef, E_REENTRANT_UNSUPPORTED, sym->name);
-
   /* prevent this symbol from being emitted as 'extern' */
   pic14_stringInSet (sym->rname, &pic14_localFunctions, 1);
 
   pic14_emitcode ("", "%s:", sym->rname);
-  {
-    pCode *pcf = newpCodeFunction (moduleName, sym->rname, !IS_STATIC (sym->etype), IFFUNC_ISISR (sym->type));
-    PCF (pcf)->hasIndEntry = !IFFUNC_ISISR (sym->type) && pic14_hasRegParm (sym->type);
-    addpCode2pBlock (pb, pcf);
-  }
+  addpCode2pBlock (pb, newpCodeFunction (moduleName, sym->rname, !IS_STATIC (sym->etype), IFFUNC_ISISR (sym->type)));
 
   /* mark symbol as NOT extern (even if it was declared so previously) */
   assert (IS_SPEC (sym->etype));
@@ -2634,7 +2468,6 @@ genFunction (iCode * ic)
             }
         }
 
-      _G.isrSaveAfter = IFFUNC_ISNAKED (sym->type) ? NULL : pb->pcTail;
       pBlockConvert2ISR (pb);
       pic14_hasInterrupt = 1;
     }
@@ -2727,45 +2560,6 @@ genFunction (iCode * ic)
       pic14_emitcode ("mov", "_spx,a");
     }
 
-}
-
-/*-----------------------------------------------------------------*/
-/* genIsrPseudoStack - an interrupt handler that calls anything     */
-/* saves the pseudo-stack (STK00.., PCALL_W) that the interrupted   */
-/* code may be using, and restores it before returning             */
-/*-----------------------------------------------------------------*/
-static void
-genIsrPseudoStack (void)
-{
-  pCode *pc, *at = _G.isrSaveAfter;
-  int n = pic14_stackSize (), i;
-
-  for (pc = pb->pcHead; pc; pc = pc->next)
-    if (isPCI (pc) && PCI (pc)->op == POC_CALL)
-      break;
-  if (!pc)
-    return;
-
-  wassertl (n + 1 <= PIC14_ISR_SAVE_SIZE, "pseudo-stack larger than the interrupt save area");
-  /* defined in this module, all PIC14_ISR_SAVE_SIZE bytes in one bank */
-  popRegFromString ("___sdcc_saved_stk", PIC14_ISR_SAVE_SIZE, 0);
-
-  for (i = 0; i <= n; i++)
-    {
-      pCodeOp *reg = i < n ? popRegFromIdx (Gstack_base_addr - i) : popCopyReg (&pc_pcallw);
-      pCode *load = newpCode (POC_MOVFW, reg);
-      pCode *store = newpCode (POC_MOVWF, popRegFromString ("___sdcc_saved_stk", PIC14_ISR_SAVE_SIZE, i));
-
-      if (at)
-        pCodeInsertAfter (at, load);
-      else
-        pCodeInsertBefore (pb->pcHead, load);
-      pCodeInsertAfter (load, store);
-      at = store;
-
-      emitpcode (POC_MOVFW, popRegFromString ("___sdcc_saved_stk", PIC14_ISR_SAVE_SIZE, i));
-      emitpcode (POC_MOVWF, i < n ? popRegFromIdx (Gstack_base_addr - i) : popCopyReg (&pc_pcallw));
-    }
 }
 
 /*-----------------------------------------------------------------*/
@@ -2867,9 +2661,6 @@ genEndFunction (iCode * ic)
           debugFile->writeEndFunction (currFunc, ic, 1);
         }
 
-      if (_G.isrSaveAfter)
-        genIsrPseudoStack ();
-
       /* generate ISR epilog if not enhanced core and not naked */
       if (!pic->isEnhancedCore && !IFFUNC_ISNAKED (sym->type))
         {
@@ -2927,54 +2718,6 @@ genEndFunction (iCode * ic)
 }
 
 /*-----------------------------------------------------------------*/
-/* codeByteGet - read byte <index> of a variable in __code into W  */
-/* (only STK00/STK01 are used to pass the address)                 */
-/*-----------------------------------------------------------------*/
-static void
-codeByteGet (operand *op, int index)
-{
-  emitpcode (POC_MOVLW, popGetAddr (AOP (op), 0, index));
-  emitpcode (POC_MOVWF, popRegFromIdx (Gstack_base_addr - 1));
-  emitpcode (POC_MOVLW, popGetAddr (AOP (op), 1, index));
-  emitpcode (POC_MOVWF, popRegFromIdx (Gstack_base_addr));
-  emitpcode (POC_MOVLW, popGetLit (GPTRTAG_CODE));
-  call_libraryfunc ("__gptrget1");
-}
-
-/*-----------------------------------------------------------------*/
-/* genRetFromCode - return the value of a variable in __code       */
-/*-----------------------------------------------------------------*/
-static void
-genRetFromCode (operand *op, int size)
-{
-  /* The bytes for WREG, STK00 and STK01 are fetched into temporaries
-     first: reading any later byte overwrites STK00/STK01. */
-  pCodeOp *temps[3] = { NULL, NULL, NULL };
-  int offset, idx;
-
-  for (idx = 0; idx < 3 && idx < size; idx++)
-    {
-      temps[idx] = popGetTempReg ();
-      codeByteGet (op, size - 1 - idx);
-      emitpcode (POC_MOVWF, pCodeOpCopy (temps[idx]));
-    }
-  for (offset = 0; offset < size - 3; offset++)
-    {
-      codeByteGet (op, offset);
-      emitpcode (POC_MOVWF, get_argument_pcop (size - 1 - offset));
-    }
-  for (idx = 2; idx >= 0; idx--)
-    {
-      if (!temps[idx])
-        continue;
-      emitpcode (POC_MOVFW, pCodeOpCopy (temps[idx]));
-      if (idx)
-        emitpcode (POC_MOVWF, get_argument_pcop (idx));
-      popReleaseTempReg (temps[idx]);
-    }
-}
-
-/*-----------------------------------------------------------------*/
 /* genRet - generate code for return statement                     */
 /*-----------------------------------------------------------------*/
 static void
@@ -2995,25 +2738,10 @@ genRet (iCode * ic)
   pic14AopOp (ic->left, ic, false);
   size = AOP_SIZE (IC_LEFT (ic));
 
-  /* "return *p" for a struct can leave the operand with a wider type than
-     the struct (upstream bug #3803): trust the declared return type. */
-  if (currFunc && IS_STRUCT (currFunc->type->next) && getSize (currFunc->type->next) < size)
-    size = getSize (currFunc->type->next);
-
-  /* WREG and the STKnn pseudo-stack registers carry the return value */
-  if (size > pic14_stackSize () + 1)
+  for (offset = 0; offset < size; offset++)
     {
-      werror (E_RETURN_VALUE_TOO_WIDE, currFunc ? currFunc->name : "", size, pic14_stackSize () + 1);
-      size = pic14_stackSize () + 1;
+      pass_argument (IC_LEFT (ic), offset, size - 1 - offset);
     }
-
-  if (OP_IN_CODE_SPACE (IC_LEFT (ic)) && !IS_ARRAY (operandType (IC_LEFT (ic))))
-    genRetFromCode (IC_LEFT (ic), size);
-  else
-    for (offset = 0; offset < size; offset++)
-      {
-        pass_argument (IC_LEFT (ic), offset, size - 1 - offset);
-      }
 
   pic14FreeAsmop (ic->left, NULL, ic, true);
 
@@ -4053,7 +3781,7 @@ genCmpEq (iCode * ic, iCode * ifx)
     }
   else
     {
-      /* right is no literal; either operand may be an address immediate */
+      /* right is no literal */
       int i;
 
       /* special case: generic pointer comparison */
@@ -4061,9 +3789,9 @@ genCmpEq (iCode * ic, iCode * ifx)
         {
           /* check if both operands are NULL */
           mov2w (AOP (left), 0);
-          opWithW (POC_IORFW, POC_IORLW, AOP (left), 1);
-          opWithW (POC_IORFW, POC_IORLW, AOP (right), 0);
-          opWithW (POC_IORFW, POC_IORLW, AOP (right), 1);
+          emitpcode (POC_IORFW, popGet (AOP (left), 1));
+          emitpcode (POC_IORFW, popGet (AOP (right), 0));
+          emitpcode (POC_IORFW, popGet (AOP (right), 1));
           /* now Z is set iff `left == right' */
           emitSKPNZ;
           true_label = newiTempLabel (NULL);
@@ -4073,7 +3801,7 @@ genCmpEq (iCode * ic, iCode * ifx)
       for (i = 0; i < size; i++)
         {
           mov2w (AOP (right), i);
-          opWithW (POC_XORFW, POC_XORLW, AOP (left), i);
+          emitpcode (POC_XORFW, popGet (AOP (left), i));
           /* now Z is cleared if `left != right' */
           emitSKPZ;
           if (!false_label)
@@ -5904,7 +5632,6 @@ genGenericShift (iCode * ic, int shiftRight)
 {
   operand *right, *left, *result;
   int size;
-  int leftShift;
   symbol *tlbl, *tlbl1, *inverselbl;
 
   FENTRY;
@@ -5922,7 +5649,6 @@ genGenericShift (iCode * ic, int shiftRight)
   right = IC_RIGHT (ic);
   left = IC_LEFT (ic);
   result = IC_RESULT (ic);
-  leftShift = !shiftRight;
 
   pic14AopOp (right, ic, false);
   pic14AopOp (left, ic, false);
@@ -5943,8 +5669,6 @@ genGenericShift (iCode * ic, int shiftRight)
         shiftRight_Left2ResultLit (left, result, lit, !SPEC_USIGN (operandType (left)));
       else
         shiftLeft_Left2ResultLit (left, result, lit);
-      if (leftShift)
-        pic14_fixBitIntTop (result, 0);
       //genRightShiftLiteral (left,right,result,ic, 0);
       return;
     }
@@ -6022,9 +5746,6 @@ genGenericShift (iCode * ic, int shiftRight)
 
   emitpLabel (tlbl1->key);
 
-  if (leftShift)
-    pic14_fixBitIntTop (result, 0);
-
   pic14FreeAsmop (left, NULL, ic, true);
   pic14FreeAsmop (right, NULL, ic, true);
   pic14FreeAsmop (result, NULL, ic, true);
@@ -6082,7 +5803,7 @@ SetIrp (operand * result)
       else
         emitCLRIRP;
     }
-  else if (op_isImmediateAddr (result))
+  else if ((AOP_TYPE (result) == AOP_PCODE) && (AOP (result)->aopu.pcop->type == PO_IMMEDIATE))
     {
       emitCLRIRP;           /* always ensure this is clear as it may have previously been set */
       emitpcode (POC_MOVLW, popGetAddr (AOP (result), 1, 0));
@@ -6273,16 +5994,9 @@ static void
 emitPtrGet (operand * result, operand * left, int ptype, int blen, int bstr)
 {
     /* emit call to __gptrget */
-    char *func[] = { NULL, "__gptrget1", "__gptrget2", "__gptrget3", "__gptrget4", NULL, NULL, NULL, "__gptrget8" };
+    char *func[] = { NULL, "__gptrget1", "__gptrget2", "__gptrget3", "__gptrget4" };
     int offset = 0;
     int size, mask = 0;
-    /* The bitfield's own type (signedness in particular) lives on the
-       result, same as its blen/bstr do - not on left, which need not
-       even be a symbol (e.g. *(volatile T *)ABS_ADDR). OP_SYM_ETYPE(left)
-       asserted exactly that assumption; use the already-correct,
-       symbol-independent pattern every other port's genUnpackBits uses
-       instead. */
-    sym_link *etype = getSpec (operandType (result));
 
     if (blen == 0)
       {
@@ -6308,7 +6022,7 @@ emitPtrGet (operand * result, operand * left, int ptype, int blen, int bstr)
           }
       }
 
-    assert (size > 0 && size <= 8);
+    assert (size > 0 && size <= 4);
 
     switch (ptype)
       {
@@ -6367,7 +6081,6 @@ emitPtrGet (operand * result, operand * left, int ptype, int blen, int bstr)
 
     /* This is for GPOINTER and CPOINTER only */
 
-    assert (func[size]);
     call_libraryfunc (func[size]);
 
     if (blen)
@@ -6391,7 +6104,7 @@ manage_signs:
         if (bstr)
           AccRsh (popGet (AOP (result), offset), bstr, 1);       /* zero extend the bitfield */
 
-        if (!SPEC_USIGN (etype))
+        if (!SPEC_USIGN (OP_SYM_ETYPE (left)))
           {
             /* signed bitfield */
             emitpcode (POC_MOVLW, popGetLit (0x00ff << blen));
@@ -6401,7 +6114,7 @@ manage_signs:
       }
 
     if (AOP_SIZE(result) > ++offset)
-        pic14AddSign (result, offset, !SPEC_USIGN (etype));
+        pic14AddSign (result, offset, !SPEC_USIGN (OP_SYM_ETYPE (left)));
 }
 
 /*-----------------------------------------------------------------*/
@@ -6430,19 +6143,6 @@ genUnpackBits (operand * result, operand * left, int ptype, iCode * ifx)
           resolvedIfx rIfx;
 
           resolveIfx (&rIfx, ifx);
-          if (ptype == GPOINTER || ptype == CPOINTER)
-            {
-              /* not in RAM (or maybe not): fetch the byte, test the bit in W */
-              emitPtrByteGet (left, ptype, FALSE);
-              emitpcode (POC_ANDLW, popGetLit (1UL << bstr));
-              if (rIfx.condition)
-                emitSKPZ;
-              else
-                emitSKPNZ;
-              emitpcode (POC_GOTO, popGetLabel (rIfx.lbl->key));
-              ifx->generated = TRUE;
-              return;
-            }
           if (ptype == -1)      /* direct */
             pcop = newpCodeOpBit (aopGet (AOP (left), 0, FALSE, FALSE), bstr, 0);
           else
@@ -6501,11 +6201,11 @@ genUnpackBits (operand * result, operand * left, int ptype, iCode * ifx)
           /* move sign-/zero extended bit to result */
           if (haveResult)
             {
-              if (SPEC_USIGN (etype))
+              if (SPEC_USIGN (OP_SYM_ETYPE (left)))
                 emitpcode (POC_INCF, popGet (AOP (result), 0));
               else
                 emitpcode (POC_DECF, popGet (AOP (result), 0));
-              pic14AddSign (result, 1, !SPEC_USIGN (etype));
+              pic14AddSign (result, 1, !SPEC_USIGN (OP_SYM_ETYPE (left)));
             } // if
         }
     }
@@ -6590,7 +6290,7 @@ genNearPointerGet (operand * left, operand * result, iCode * ic)
   pic14AopOp (result, ic, false);
 
   /* Check if can access directly instead of via a pointer */
-  if (op_isImmediateAddr (left))
+  if ((AOP_TYPE (left) == AOP_PCODE) && (AOP (left)->aopu.pcop->type == PO_IMMEDIATE))
     {
       direct = 1;
     }
@@ -6770,10 +6470,10 @@ static void
 emitPtrPut (operand * right, operand * result, int ptype, int blen, int bstr)
 {
     /* emit call to __gptrput */
-    char *func[] = { NULL, "__gptrput1", "__gptrput2", "__gptrput3", "__gptrput4", NULL, NULL, NULL, "__gptrput8" };
+    char *func[] = { NULL, "__gptrput1", "__gptrput2", "__gptrput3", "__gptrput4" };
     int offset = 0;
     pCodeOp *temp = NULL;
-    unsigned long long litval = 0;  /* source literal value (if AOP_LIT) */
+    int litval = 0;               /* source literal value (if AOP_LIT) */
     unsigned char mask = 0;       /* bitmask within current byte */
     int size;
     symbol *lbl = NULL;
@@ -6803,7 +6503,7 @@ emitPtrPut (operand * right, operand * result, int ptype, int blen, int bstr)
               {
                 /* Case with partial byte and literal source
                  */
-                litval = ullFromVal (AOP (right)->aopu.aop_lit);
+                litval = (int) ulFromVal (AOP (right)->aopu.aop_lit);
                 litval <<= bstr;
                 litval >>= 8 * size;
                 litval &= (~mask) & 0xff;
@@ -6835,7 +6535,7 @@ emitPtrPut (operand * right, operand * result, int ptype, int blen, int bstr)
      * it works fine both for larger and smaller types of `char c'.
      * */
     //assert (size == getSize(OP_SYM_ETYPE(result)));
-    assert (size > 0 && size <= 8);
+    assert (size > 0 && size <= 4);
 
     switch (ptype)
       {
@@ -6844,7 +6544,10 @@ emitPtrPut (operand * right, operand * result, int ptype, int blen, int bstr)
               {
                 if (size || !blen)
                   {
-                    mov2w_op (right, offset);    /* also an address constant (a function's, say) */
+                    if (AOP_TYPE (right) == AOP_LIT)
+                      emitpcode (POC_MOVLW, popGet (AOP (right), offset));
+                    else
+                      emitpcode (POC_MOVFW, popGet (AOP (right), offset));
                     movwf (AOP (result), offset);
                     if (size)
                         offset++;
@@ -6894,7 +6597,6 @@ emitPtrPut (operand * right, operand * result, int ptype, int blen, int bstr)
                 mov2w (AOP (result), 1);
                 emitpcode (POC_MOVWF, popRegFromIdx (Gstack_base_addr));
                 mov2w (AOP (result), 2);
-                assert (func[size]);
                 call_libraryfunc (func[size]);
                 break;
               }
@@ -6917,7 +6619,10 @@ emitPtrPut (operand * right, operand * result, int ptype, int blen, int bstr)
               {
                 if (size || !blen)
                   {
-                    mov2w_op (right, offset);    /* also an address constant (a function's, say) */
+                    if (AOP_TYPE (right) == AOP_LIT)
+                      emitpcode (POC_MOVLW, popGet (AOP (right), offset));
+                    else
+                      emitpcode (POC_MOVFW, popGet (AOP (right), offset));
                     emitpcode (POC_MOVWF, popCopyReg (pc_indf));
                     if (size)
                       {
@@ -7077,6 +6782,7 @@ genDataPointerSet (operand * right, operand * result, iCode * ic)
 {
   int size = 0;
   int offset = 0;
+  sym_link *rtype = operandType(right);
 
   FENTRY;
   DEBUGpic14_emitcode ("; ***", "%s  %d", __FUNCTION__, __LINE__);
@@ -7092,9 +6798,8 @@ genDataPointerSet (operand * right, operand * result, iCode * ic)
    */
   size = AOP_SIZE(right);
 
-  /* the right operand is an address constant (a function's, an array's,
-     a rematerialised &x) - not a variable, whose immediate is its location */
-  if (op_isImmediateAddr (right))
+  /*test the right operand has a pointer value*/
+  if ((AOP_TYPE(right) == AOP_PCODE) && IS_PTR(rtype))
   {
     while (size--)
     {
@@ -7170,7 +6875,7 @@ genNearPointerSet (operand * right, operand * result, iCode * ic)
   DEBUGpic14_AopType (__LINE__, NULL, right, result);
 
   /* Check if can access directly instead of via a pointer */
-  if (op_isImmediateAddr (result))
+  if ((AOP_TYPE (result) == AOP_PCODE) && (AOP (result)->aopu.pcop->type == PO_IMMEDIATE))
     {
       direct = 1;
     }
@@ -7288,20 +6993,9 @@ genPointerSet (iCode * ic)
       genGenPointerSet (right, result, ic);
       break;
 
-    case CPOINTER:
-      /* Writing through a pointer into code space - syntactically
-         valid (e.g. *(char *)"c" = 0;) but undefined behaviour if
-         ever executed. Code space on this port cannot be written by
-         a plain store either way, so there is no codegen to emit;
-         warn and move on rather than fail the compile, same as
-         mcs51's genPointerSet. */
-      werror (W_CODEMEM_WRITE);
-      break;
-
     default:
-      /* werror (E_INTERNAL_ERROR, ...) already halts the compile; the
-         exit() this line used to have right after it was unreachable. */
       werror (E_INTERNAL_ERROR, __FILE__, __LINE__, "genPointerSet: illegal pointer type");
+      exit (1);
     }
 }
 
@@ -7693,37 +7387,6 @@ genCast (iCode * ic)
       assert (!"assigning to bit variables is not supported");
     }
 
-  /* A variable in __code is read from its retlw table, and only its own
-     size: reading the result's size could run off the end of the table. */
-  if (OP_IN_CODE_SPACE (right) && !IS_ARRAY (rtype))
-    {
-      int rsize = getSize (rtype);
-      int full = AOP_SIZE (result);
-
-      if (rsize == full)
-        {
-          genConstPointerGet (right, result, ic);
-          goto release;
-        }
-      if (rsize < full && ((IS_GENPTR (restype) && IS_PTR (rtype) && !IS_GENPTR (rtype))
-                           || (IS_INTEGRAL (restype) && IS_INTEGRAL (rtype))))
-        {
-          asmop *raop = AOP (result);
-          raop->size = rsize;
-          genConstPointerGet (right, result, ic);
-          raop->size = full;
-          result->aop = raop;
-          if (IS_GENPTR (restype))
-            {
-              emitpcode (POC_MOVLW, popGetLit (IS_CODEPTR (rtype) ? GPTRTAG_CODE : GPTRTAG_DATA));
-              emitpcode (POC_MOVWF, popGet (AOP (result), GPTRSIZE - 1));
-            }
-          else
-            pic14AddSign (result, rsize, !SPEC_USIGN (getSpec (rtype)));
-          goto release;
-        }
-    }
-
   if ((AOP_TYPE (right) == AOP_CRY) && (AOP_TYPE (result) == AOP_REG))
     {
       int offset = 1;
@@ -7911,7 +7574,6 @@ genCast (iCode * ic)
   pic14AddSign (result, AOP_SIZE (right), !SPEC_USIGN (rtype));
 
 release:
-  pic14_fixBitIntTop (result, 1);
   pic14FreeAsmop (right, NULL, ic, true);
   pic14FreeAsmop (result, NULL, ic, true);
 
@@ -8314,31 +7976,10 @@ aop_isLitLike (asmop * aop)
   return FALSE;
 }
 
-/* Is op a variable (not an array or function) in RAM?  Its immediate
-   asmop then names where it is stored, not a value.  (A variable in code
-   space is read through its address, which the immediate is.) */
-static int
-op_isVariable (operand * op)
-{
-  return IS_TRUE_SYMOP (op) && !IS_FUNC (OP_SYM_TYPE (op)) && !IS_ARRAY (OP_SYM_TYPE (op))
-         && !IN_CODESPACE (SPEC_OCLS (OP_SYM_ETYPE (op)));
-}
-
-/* Is op an address known at link time: an immediate asmop that is not a variable's location? */
-static int
-op_isImmediateAddr (operand * op)
-{
-  return AOP_TYPE (op) == AOP_PCODE && AOP (op)->aopu.pcop->type == PO_IMMEDIATE && !op_isVariable (op);
-}
-
 int
 op_isLitLike (operand * op)
 {
   assert (op);
-  /* A variable's immediate asmop names its location, not its value:
-     only an array's or a function's address is the value itself. */
-  if (op_isVariable (op))
-    return FALSE;
   if (aop_isLitLike (AOP (op)))
     return TRUE;
   if (IS_SYMOP (op) && IS_FUNC (OP_SYM_TYPE (op)))

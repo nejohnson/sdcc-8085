@@ -82,12 +82,12 @@ typedef struct asmop
   union
   {
     value *aop_lit;     /* if literal */
-    reg_info *aop_reg[8];   /* array of registers */
+    reg_info *aop_reg[4];   /* array of registers */
     char *aop_dir;      /* if direct  */
     reg_info *aop_ptr;      /* either -> to r0 or r1 */
     char *aop_immd;     /* if immediate others are implied */
     int aop_stk;        /* stack offset when AOP_STK */
-    char *aop_str[8];   /* just a string array containing the location */
+    char *aop_str[4];   /* just a string array containing the location */
     pCodeOp *pcop;
   }
   aopu;
@@ -95,12 +95,6 @@ typedef struct asmop
 asmop;
 
 extern unsigned fReturnSizePic;
-extern set *pic14_stackParmSyms;
-extern set *pic14_indirectTargets;
-int pic14_hasRegParm (sym_link *ftype);
-void pic14_fixBitIntTop (operand *result, int extend);
-void pic14_addIndirectTarget (const char *rname);
-int pic14_isIndirectTarget (const char *rname);
 
 
 #define AOP(op) op->aop

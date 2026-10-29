@@ -28,8 +28,8 @@
 
 .module __mulsint2slong
 
-.z80
-.abi -mez80 sdcccall(1)
+.ez80
+.optsdcc -mez80 sdcccall(1)
 
 .globl ___muluint2ulong
 .globl ___mulsint2slong

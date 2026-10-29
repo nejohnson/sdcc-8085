@@ -66,10 +66,10 @@ extern long int strtol(const char *nptr, char **endptr, int base);
 extern unsigned long int strtoul(const char *nptr, char **endptr, int base);
 
 /* SDCC extensions */
-extern void __uitoa(unsigned int, char*, unsigned char);
-extern void __itoa(int, char*, unsigned char);
-extern void __ultoa(unsigned long, char*, unsigned char);
-extern void __ltoa(long, char*, unsigned char);
+extern void _uitoa(unsigned int, char*, unsigned char);
+extern void _itoa(int, char*, unsigned char);
+extern void _ultoa(unsigned long, char*, unsigned char);
+extern void _ltoa(long, char*, unsigned char);
 
 #if defined(__SDCC_pic14)
 
@@ -151,34 +151,6 @@ int abs(int j) __preserves_regs(b, c, iyl, iyh);
 int abs(int j);
 #endif
 long int labs(long int j);
-#if __STDC_VERSION__ >= 199901L
-long long int llabs(long long int j);
-#endif
-/* C2y Integer arithmetic functions */
-#if __STDC_VERSION__ > 202311L
-unsigned int uabs(int j);
-unsigned long int ulabs(unsigned long int j);
-unsigned long long int ullabs(long long int j);
-#endif
-
-typedef struct
-{
-	int quot;
-	int rem;
-} div_t;
-typedef struct
-{
-	long int quot;
-	long int rem;
-} ldiv_t;
-typedef struct
-{
-	long long int quot;
-	long long int rem;
-} lldiv_t;
-div_t div(int numer, int denom);
-ldiv_t ldiv(long int numer, long int denom);
-/* no lldiv: a function returns at most 13 bytes on pic14 */
 
 /* C99 Multibyte/wide character conversion functions (ISO C11 7.22.7) */
 #if __STDC_VERSION__ >= 199901L
@@ -191,11 +163,6 @@ int wctomb(char *s, wchar_t wc);
 #if __STDC_VERSION__ >= 199901L
 size_t mbstowcs(wchar_t *restrict pwcs, const char *restrict s, size_t n);
 size_t wcstombs(char *restrict s, const wchar_t *restrict pwcs, size_t n);
-#endif
-
-/* C23 Alignment of memory */
-#if __STDC_VERSION__ >= 202311L
-size_t memalignment(const void *p);
 #endif
 
 /* Bounds-checking interfaces from annex K of the C11 standard. */

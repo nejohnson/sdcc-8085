@@ -41,10 +41,8 @@
   #define NULL (void *)0
 #endif
 
-#define EOF (-1)
-
-#ifndef __SIZE_T_DEFINED
-#define __SIZE_T_DEFINED
+#ifndef _SIZE_T_DEFINED
+#define _SIZE_T_DEFINED
   typedef unsigned int size_t;
 #endif
 
@@ -90,7 +88,6 @@ typedef char *FILE;
 #define GPSIM_DEREF     0xe
 #define STREAM_GPSIM    ((FILE *)(0x002e0000UL))
 
-/* A NULL stream, stdout's initial value, writes through putchar. */
 extern FILE *stdin;
 extern FILE *stdout;
 
@@ -108,13 +105,8 @@ extern int vprintf (const char *fmt, va_list ap);
 extern int vfprintf (FILE *stream, const char *fmt, va_list ap);
 extern int vsprintf (char *str, const char *fmt, va_list ap);
 
-extern int putchar (int c);
-extern int fputc (int c, FILE *stream);
-extern int fputs (const char *s, FILE *stream);
-extern int puts (const char *s);
-
-/* the header for a putchar of one's own: PUTCHAR (c) { ... } */
-#define PUTCHAR(C)  int putchar (int C)
+#define PUTCHAR(C)  void putchar (char C) __wparam
+extern PUTCHAR (c);
 
 extern void __stream_putchar (FILE *stream, char c);
 
@@ -123,6 +115,6 @@ extern void __stream_mssp_putchar (char c) __wparam __naked;
 extern void __stream_gpsim_putchar (char c) __wparam __naked;
 
 extern char *gets (char *str);
-extern int getchar (void);
+extern char getchar (void);
 
 #endif /* __STDIO_H */

@@ -143,33 +143,6 @@ static OPTION _rab_options[] = {
   {0, NULL}
 };
 
-static OPTION _i8080_options[] = {
-  {0, OPTION_CALLEE_SAVES_BC, &z80_opts.calleeSavesBC, "Force a called function to always save BC"},
-  {0, OPTION_ASM,             NULL, "Define assembler name (asxxxx)"},
-  {0, OPTION_CODE_SEG,        &options.code_seg, "<name> use this name for the code segment", CLAT_STRING},
-  {0, OPTION_CONST_SEG,       &options.const_seg, "<name> use this name for the const segment", CLAT_STRING},
-  {0, OPTION_DATA_SEG,        &options.data_seg, "<name> use this name for the data segment", CLAT_STRING},
-  {0, OPTION_NO_STD_CRT0,     &options.no_std_crt0, "Do not link default crt0.rel"},
-  {0, OPTION_FRAMEPOINTER,    &z80_opts.noOmitFramePtr, "Do not omit frame pointer"},
-  {0, OPTION_EMIT_EXTERNS,    NULL, "Emit externs list in generated asm"},
-  {0, OPTION_SDCCCALL,        &options.sdcccall, "Set ABI version for default calling convention", CLAT_INTEGER},
-  {0, NULL}
-};
-
-static OPTION _i8085_options[] = {
-  {0, OPTION_CALLEE_SAVES_BC, &z80_opts.calleeSavesBC, "Force a called function to always save BC"},
-  {0, OPTION_ASM,             NULL, "Define assembler name (asxxxx)"},
-  {0, OPTION_CODE_SEG,        &options.code_seg, "<name> use this name for the code segment", CLAT_STRING},
-  {0, OPTION_CONST_SEG,       &options.const_seg, "<name> use this name for the const segment", CLAT_STRING},
-  {0, OPTION_DATA_SEG,        &options.data_seg, "<name> use this name for the data segment", CLAT_STRING},
-  {0, OPTION_NO_STD_CRT0,     &options.no_std_crt0, "Do not link default crt0.rel"},
-  {0, OPTION_FRAMEPOINTER,    &z80_opts.noOmitFramePtr, "Do not omit frame pointer"},
-  {0, OPTION_EMIT_EXTERNS,    NULL, "Emit externs list in generated asm"},
-  {0, OPTION_SDCCCALL,        &options.sdcccall, "Set ABI version for default calling convention", CLAT_INTEGER},
-  {0, OPTION_ALLOW_UNDOC_INST,&options.allow_undoc_inst, "Allow use of undocumented 8085 instructions and flags"},
-  {0, NULL}
-};
-
 static OPTION _sm83_options[] = {
   {0, OPTION_BO,              NULL, "<num> use code bank <num>"},
   {0, OPTION_BA,              NULL, "<num> use data bank <num>"},
@@ -314,7 +287,6 @@ static const char z80_builtins_c90[] =
   "extern void *__builtin_memset (void *s, int c, unsigned int n) __builtin__;\n";
 
 extern reg_info sm83_regs[];
-extern reg_info i8080_regs[];
 extern reg_info z80_regs[];
 extern reg_info r4k_regs[];
 extern void z80_init_asmops (void);
@@ -330,7 +302,7 @@ _z80_init (void)
       asm_addTree (&_gas_z80);
       break;
     default:
-      asm_addTree (&_asxxxx_z80_bank);
+      asm_addTree (&_asxxxx_z80);
       break;
     }
 
@@ -348,7 +320,7 @@ _z180_init (void)
       asm_addTree (&_gas_z80);
       break;
     default:
-      asm_addTree (&_asxxxx_z80_bank);
+      asm_addTree (&_asxxxx_z80);
       break;
     }
 
@@ -429,7 +401,7 @@ static void
 _tlcs90_init (void)
 {
   z80_opts.sub = SUB_TLCS90;
-  asm_addTree (&_asxxxx_z80_bank);
+  asm_addTree (&_asxxxx_z80);
 
   regsZ80 = z80_regs;
   z80_init_asmops ();
@@ -445,7 +417,7 @@ _ez80_init (void)
       asm_addTree (&_gas_z80);
       break;
     default:
-      asm_addTree (&_asxxxx_z80_bank);
+      asm_addTree (&_asxxxx_z80);
       break;
     }
 
@@ -457,7 +429,7 @@ static void
 _z80n_init (void)
 {
   z80_opts.sub = SUB_Z80N;
-  asm_addTree (&_asxxxx_z80_bank);
+  asm_addTree (&_asxxxx_z80);
 
   regsZ80 = z80_regs;
   z80_init_asmops ();
@@ -467,29 +439,9 @@ static void
 _r800_init (void)
 {
   z80_opts.sub = SUB_R800;
-  asm_addTree (&_asxxxx_z80_bank);
+  asm_addTree (&_asxxxx_z80);
 
   regsZ80 = z80_regs;
-  z80_init_asmops ();
-}
-
-static void
-_i8080_init (void)
-{
-  z80_opts.sub = SUB_8080;
-  asm_addTree (&_asxxxx_z80);
-
-  regsZ80 = i8080_regs;
-  z80_init_asmops ();
-}
-
-static void
-_i8085_init (void)
-{
-  z80_opts.sub = SUB_8085;
-  asm_addTree (&_asxxxx_z80);
-
-  regsZ80 = i8080_regs;
   z80_init_asmops ();
 }
 
@@ -500,12 +452,6 @@ _reset_regparm (struct sym_link *ftype)
   _G.regparam.ftype = ftype;
   if (IFFUNC_ISZ88DK_FASTCALL (ftype) && IFFUNC_HASVARARGS (ftype))
     werror (E_Z88DK_FASTCALL_PARAMETERS);
-  /* The Dynamic C calling convention has the caller save IX as the frame
-     pointer; the i8080/i8085 have no index register, so the convention cannot
-     be honoured ABI-compatibly (it was a Rabbit/Z180-only convention). Reject
-     it rather than silently emitting a subtly-incompatible variant. */
-  if (IFFUNC_ISDYNAMICC (ftype) && IS_8080LIKE)
-    werror (E_DYNAMICC_UNSUPPORTED);
 }
 
 static int
@@ -1127,29 +1073,11 @@ _getRegByName (const char *name)
 static void
 _z80_genAssemblerStart (FILE * of)
 {
-  /* The compatibility key:  a string every module in a link must agree
-     on, so that objects built for different calling conventions are
-     caught rather than linked into a program that misbehaves quietly.
-     ASxxxx writes it into the object file and aslink compares it.
-
-     The target name earns its place here:  a .rel file records nothing
-     about the CPU it was assembled for, so without it the linker will
-     take an object built for one target and one built for another and
-     produce a program from them. */
   if (!options.noOptsdccInAsm)
     {
-      /* ASxxxx carries the key with .abi; the other syntaxes write it as
-         a comment, through their mappings. */
-      if (_G.asmType == ASM_TYPE_ASXXXX)
-        {
-          fprintf (of, "\t.abi -m%s sdcccall(%d)\n", port->target, options.sdcccall);
-        }
-      else
-        {
-          tfprintf (of, "\t!optsdcc -m%s", port->target);
-          fprintf (of, " sdcccall(%d)", options.sdcccall);
-          fprintf (of, "\n");
-        }
+      tfprintf (of, "\t!optsdcc -m%s", port->target);
+      fprintf (of, " sdcccall(%d)", options.sdcccall);
+      fprintf (of, "\n");
     }
 
   if (TARGET_IS_Z80 && options.allow_undoc_inst)
@@ -1169,16 +1097,9 @@ _z80_genAssemblerStart (FILE * of)
   else if (TARGET_IS_TLCS90)
     fprintf (of, "\tby = 0xffed\n");
   else if (TARGET_IS_EZ80)
-    /* asez80's modes are ".adl" and ".z80"; this port is the eZ80 in
-       Z80 mode, which is also asez80's default, but say so rather than
-       rely on it. */
-    fprintf (of, "\t.z80\n");
+    fprintf (of, "\t.ez80\n");
   else if (TARGET_IS_R800)
     fprintf (of, "\t.r800\n");
-  else if (TARGET_IS_I8080)
-    fprintf (of, "\t.8080\n");
-  else if (TARGET_IS_I8085)
-    fprintf (of, options.allow_undoc_inst ? "\t.8085x\n" : "\t.8085\n");
 }
 
 #define RAB_INTERRUPTS_COUNT (IS_R2K ? 16 : 32) // The Rabbit 2000A to Rabbit 2000C also have just 16 internal interrupts, but the r2ka port is also used for the Rabbit 3000.
@@ -1312,47 +1233,46 @@ oclsExpense (struct memmap *oclass)
 }
 
 
-/* Alan Baldwin's ASxxxx tools, which every port here uses.  asz80
-   assembles the z80, z180, z80n and r800 ports' four
-   instruction sets: the Z180 mlt/in0/out0, the Z80N swapnib/ldix, and -
-   since the .r800 machine type was added upstream - the R800's multu and
-   multuw together with the IX/IY half registers.  The assembler differs
-   in one spelling: it derives every output file name from -o+base rather
-   than taking the object file name as a separate argument. */
-static const char *_asxxxxZ80AsmCmd[] = {
-  "asz80", "$l", "$3", "-o+$1", "$1.asm", NULL
+//#define LINKCMD "sdld{port} -nf {dstfilename}"
+/*
+#define LINKCMD \
+    "sdld{port} -n -c -- {z80bases} -m -j" \
+    " {z80libspec}" \
+    " {z80extralibfiles} {z80extralibpaths}" \
+    " {z80outputtypeflag} \"{linkdstfilename}\"" \
+    " {z80crt0}" \
+    " \"{dstfilename}{objext}\"" \
+    " {z80extraobj}"
+*/
+
+static const char *_z80LinkCmd[] = {
+  "sdldz80", "-nf", "$1", "$L", NULL
 };
 
-/* The eZ80 has its own ASxxxx assembler rather than a mode of asz80. */
-static const char *_asxxxxEZ80AsmCmd[] = {
-  "asez80", "$l", "$3", "-o+$1", "$1.asm", NULL
+static const char *_gbLinkCmd[] = {
+  "sdldgb", "-nf", "$1", "$L", NULL
 };
-
-/* The Rabbit likewise: asrab covers the Rabbit 2000, 3000, 3000A, 4000,
-   5000 and 6000, the Z80 and the Z180. */
-static const char *_asxxxxRabAsmCmd[] = {
-  "asrab", "$l", "$3", "-o+$1", "$1.asm", NULL
-};
-
-/* And the TLCS-90, which also has its own ASxxxx assembler. */
-static const char *_asxxxxT90AsmCmd[] = {
-  "astlcs90", "$l", "$3", "-o+$1", "$1.asm", NULL
-};
-
-/* And the SM83, the Game Boy's processor, whose ASxxxx assembler is asgb. */
-static const char *_asxxxxGBAsmCmd[] = {
-  "asgb", "$l", "$3", "-o+$1", "$1.asm", NULL
-};
-
-static const char *_asxxxxLinkCmd[] = {
-  "aslink", "-nf", "$1", "$L", NULL
-};
-
 /*
 static const char *_gnuLdCmd[] = {
   "z80-elf-ld", "", "$1", NULL
 };
 */
+/* $3 is replaced by assembler.debug_opts resp. port->assembler.plain_opts */
+static const char *_z80AsmCmd[] = {
+  "sdasz80", "$l", "$3", "$2", "$1.asm", NULL
+};
+
+static const char *_r2kAsmCmd[] = {
+  "sdasrab", "$l", "$3", "$2", "$1.asm", NULL
+};
+
+static const char *_gbAsmCmd[] = {
+  "sdasgb", "$l", "$3", "$2", "$1.asm", NULL
+};
+
+static const char *_tlcs90AsmCmd[] = {
+  "sdastlcs90", "$l", "$3", "$2", "$1.asm", NULL
+};
 /*
 static const char *_GnuAsmCmd[] = {
   "z80-elf-as", "$l", "$3", "$2", "$1.asm", NULL
@@ -1372,8 +1292,6 @@ static const char *const _libs_sm83[] = { "sm83", NULL, };
 static const char *const _libs_ez80[] = { "ez80", NULL, };
 static const char *const _libs_z80n[] = { "z80n", NULL, };
 static const char *const _libs_r800[] = { "r800", NULL, };
-static const char *const _libs_i8080[] = { "i8080", NULL, };
-static const char *const _libs_i8085[] = { "i8085", NULL, };
 
 /* Globals */
 PORT z80_port =
@@ -1390,24 +1308,21 @@ PORT z80_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _asxxxxZ80AsmCmd,
+    _z80AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx asz80 */
+    ".asm"
   },
   {                             /* Linker */
-    _asxxxxLinkCmd,             //NULL,
+    _z80LinkCmd,                //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,                          /* needLinkerScript */
     _crt,                       /* crt */
     _libs_z80,                  /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _z80_defaultRules,
@@ -1530,24 +1445,21 @@ PORT z80n_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _asxxxxZ80AsmCmd,
+    _z80AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx asz80 */
+    ".asm"
   },
   {                             /* Linker */
-    _asxxxxLinkCmd,             //NULL,
+    _z80LinkCmd,                //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_z80n,                 /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _z80n_defaultRules,
@@ -1670,24 +1582,21 @@ PORT z180_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _asxxxxZ80AsmCmd,
+    _z80AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx asz80 */
+    ".asm"
   },
   {                             /* Linker */
-    _asxxxxLinkCmd,             //NULL,
+    _z80LinkCmd,                //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_z180,                 /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _z80_defaultRules,
@@ -1810,24 +1719,20 @@ PORT r2k_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _asxxxxRabAsmCmd,
+    _r2kAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx asrab */
-  },
+    ".asm"},
   {                             /* Linker */
-    _asxxxxLinkCmd,             //NULL,
+    _z80LinkCmd,                //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_r2k,                  /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _r2k_defaultRules,
@@ -1950,24 +1855,21 @@ PORT r2ka_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _asxxxxRabAsmCmd,
+    _r2kAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx asrab */
+    ".asm"
   },
   {                             /* Linker */
-    _asxxxxLinkCmd,             //NULL,
+    _z80LinkCmd,                //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_r2ka,                 /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _r2k_defaultRules,
@@ -2090,24 +1992,21 @@ PORT r3ka_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _asxxxxRabAsmCmd,
+    _r2kAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx asrab */
+    ".asm"
   },
   {                             /* Linker */
-    _asxxxxLinkCmd,             //NULL,
+    _z80LinkCmd,                //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_r3ka,                 /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _r2k_defaultRules,
@@ -2230,24 +2129,21 @@ PORT r4k_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _asxxxxRabAsmCmd,
+    _r2kAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx asrab */
+    ".asm"
   },
   {                             /* Linker */
-    _asxxxxLinkCmd,             //NULL,
+    _z80LinkCmd,                //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_r4k,                  // libs
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _r2k_defaultRules,
@@ -2370,24 +2266,21 @@ PORT r5k_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _asxxxxRabAsmCmd,
+    _r2kAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx asrab */
+    ".asm"
   },
   {                             /* Linker */
-    _asxxxxLinkCmd,             //NULL,
+    _z80LinkCmd,                //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_r5k,                  // libs
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _r2k_defaultRules,
@@ -2510,24 +2403,21 @@ PORT r6k_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _asxxxxRabAsmCmd,
+    _r2kAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx asrab */
+    ".asm"
   },
   {                             /* Linker */
-    _asxxxxLinkCmd,             //NULL,
+    _z80LinkCmd,                //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_r6k,                  // libs
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _r2k_defaultRules,
@@ -2651,24 +2541,22 @@ PORT sm83_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _asxxxxGBAsmCmd,
+    _gbAsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
     ".asm",
-    NULL,                       /* no do_assemble function */
-    TRUE,                       /* ASxxxx asgb */
+    NULL                        /* no do_assemble function */
   },
   {                             /* Linker */
-    _asxxxxLinkCmd,             //NULL,
+    _gbLinkCmd,                 //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_sm83,                 /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _sm83_defaultRules,
@@ -2791,24 +2679,21 @@ PORT tlcs90_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _asxxxxT90AsmCmd,
+    _tlcs90AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx astlcs90 */
+    ".asm"
   },
   {                             /* Linker */
-    _asxxxxLinkCmd,             //NULL,
+    _z80LinkCmd,                //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_tlcs90,               /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _tlcs90_defaultRules,
@@ -2931,24 +2816,21 @@ PORT ez80_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _asxxxxEZ80AsmCmd,
+    _z80AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx asez80 */
+    ".asm"
   },
   {                             /* Linker */
-    _asxxxxLinkCmd,             //NULL,
+    _z80LinkCmd,                //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_ez80,             /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _ez80_defaultRules,
@@ -3071,24 +2953,21 @@ PORT r800_port =
     NULL,                       /* model == target */
   },
   {                             /* Assembler */
-    _asxxxxZ80AsmCmd,
+    _z80AsmCmd,
     NULL,
     "-plosgffwy",               /* Options with debug */
     "-plosgffw",                /* Options without debug */
     0,
-    ".asm",
-    NULL,                       /* do_assemble */
-    TRUE,                       /* ASxxxx asz80 */
+    ".asm"
   },
   {                             /* Linker */
-    _asxxxxLinkCmd,             //NULL,
+    _z80LinkCmd,                //NULL,
     NULL,                       //LINKCMD,
     NULL,
     ".rel",
     1,
     _crt,                       /* crt */
     _libs_r800,                 /* libs */
-    TRUE,                       /* ASxxxx aslink */
   },
   {                             /* Peephole optimizer */
     _z80_defaultRules,

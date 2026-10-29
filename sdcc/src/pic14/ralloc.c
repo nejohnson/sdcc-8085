@@ -469,14 +469,6 @@ void initStack(int base_address, int size, int shared)
         }
 }
 
-/*-----------------------------------------------------------------*/
-/* pic14_stackSize - number of STKnn pseudo-stack registers         */
-/*-----------------------------------------------------------------*/
-int pic14_stackSize(void)
-{
-  return Gstack_size;
-}
-
 /*-----------------------------------------------------------------*
 *-----------------------------------------------------------------*/
 reg_info *
@@ -2484,8 +2476,8 @@ regTypeNum (void)
     }
 #endif
 
-                        if (sym->nRegs > 8) {
-                                fprintf (stderr, "allocated more than 8 registers for type ");
+                        if (sym->nRegs > 4) {
+                                fprintf (stderr, "allocated more than 4 or 0 registers for type ");
         printTypeChain (sym->type, stderr);
         fprintf (stderr, "\n");
       }

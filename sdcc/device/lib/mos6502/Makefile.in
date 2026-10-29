@@ -5,14 +5,16 @@ srcdir = @srcdir@
 top_builddir = @top_builddir@
 abs_top_builddir = @abs_top_builddir@
 
+LIB_TYPE     = @LIB_TYPE@
+
 EXTRA_CFLAGS = -mmos6502 --max-allocs-per-node 25000 --opt-code-speed
-SAS = $(top_builddir)/bin/as6500
+SAS = $(top_builddir)/bin/sdas6500
 
 # override PORTDIR defined by super (parent) makefile
 override PORTDIR = ../build/mos6502
 
 %.rel: %.s
-	@# TODO: the assembler should place its output in the current dir
+	@# TODO: sdas should place it\'s output in the current dir
 	test $(srcdir) = . || cp $< .
 	-$(AS) $(ASFLAGS) $(notdir $<)
 	test $(srcdir) = . || rm $(notdir $<)
@@ -82,9 +84,22 @@ $(PORTDIR)/crt0.rel: crt0.rel
 	cp crt0.rel $(PORTDIR)/crt0.rel
 
 $(PORTDIR)/$(LIB): $(OBJ) $(MOS6502OBJECTS) Makefile
+ifeq ($(LIB_TYPE), SDCCLIB)
+	rm -f $@; \
+	$(top_builddir)/bin/sdcclib -a $@ $(OBJ) $(MOS6502OBJECTS)
+else
+  ifeq ($(LIB_TYPE), AR)
+	$(SDAR) -rcSD $@ $(OBJ) $(MOS6502OBJECTS)
+  else
+    ifeq ($(LIB_TYPE), RANLIB)
+	$(SDAR) -rcD $@ $(OBJ) $(MOS6502OBJECTS)
+    else
 	rm -f $@
 	for i in $(basename $(OBJ) $(MOS6502OBJECTS)); do echo $$i >>$@; done
 	cp $(OBJ) $(MOS6502OBJECTS) $(PORTDIR)
+    endif
+  endif
+endif
 
 clean:
 	rm -f *.rel *.sym *.lst *~ $(CLEANSPEC) *.dump* *.asm *.lib

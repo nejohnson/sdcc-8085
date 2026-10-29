@@ -26,7 +26,7 @@
 ;   might be covered by the GNU General Public License.
 ;--------------------------------------------------------------------------
 
-.z80
+.hd64
 .area   _CODE
 
 ; 16 x 16 -> 16 multiplication.

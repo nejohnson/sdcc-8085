@@ -1267,10 +1267,7 @@ m6502_genRightShift (iCode * ic)
   bool dst_x = ( IS_AOP_XA (AOP (result)) || IS_AOP_XY (AOP (result)) );
   bool late_x = false;
 
-  /* A result in memory that needs no index register is shifted in place,
-     which leaves X alone; the high byte lives in X otherwise, and X ends
-     up holding it.  */
-  bool msb_in_x = (src_x || dst_x) && AOP_TYPE(result)!=AOP_DIR && AOP_TYPE(result)!=AOP_EXT;
+  bool msb_in_x = (src_x || dst_x) && AOP_TYPE(result)!=AOP_DIR;
 
 
   bool early_load_count = (AOP_TYPE(left)==AOP_SOF || AOP_TYPE(right)==AOP_SOF

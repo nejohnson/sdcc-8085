@@ -43,7 +43,7 @@
 ;--------------------------------------------------------
 ; overlayable function parameters in zero page
 ;--------------------------------------------------------
-	.area	OSEG    (REL,OVR)
+	.area	OSEG    (PAG, OVR)
 __divuint_PARM_2:
 __divsint_PARM_2:
 __moduint_PARM_2:

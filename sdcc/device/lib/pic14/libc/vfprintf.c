@@ -113,12 +113,8 @@
 /*
  * With this macro defined, printing floats will work.
  * This also enables PRECISION and disables FLOAT_PLACEHOLDER.
- * Off by default, as on pic16: the float library does not fit the RAM
- * of most 14-bit parts. Build with -DUSE_FLOATS=1 to enable.
  */
-#if defined(USE_FLOATS) && USE_FLOATS < 1
-# undef USE_FLOATS
-#endif
+#define USE_FLOATS
 /*
  * This macro enables the use of the 'b' binary specifier and
  * the use of "%b", "%hb" and "%lb"
@@ -445,9 +441,9 @@ vfprintf (FILE *stream, const char *fmt, va_list ap)
           if (radix)
             {
               if (flags & _UNSIGNED)
-                __ultoa (val, buffer + 1, radix);
+                _ultoa (val, buffer + 1, radix);
               else
-                __ltoa (val, buffer + 1, radix);
+                _ltoa (val, buffer + 1, radix);
 #ifdef SIGN_MODIFIERS
               if ((flags & _PRINTSIGN) && (*str != '-'))
                 {

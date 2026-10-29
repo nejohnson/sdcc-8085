@@ -1,7 +1,3 @@
-	.bank BCODE
-	.bank BDATA
-	.bank BXDATA
-	.bank BBIT
 ;--------------------------------------------------------------------------
 ;  crtbank.asm - C run-time: bank switching
 ;
@@ -31,16 +27,16 @@
 ;--------------------------------------------------------------------------
 
 
-	.area HOME    (BANK=BCODE)
-	.area GSINIT0 (BANK=BCODE)
-	.area GSINIT1 (BANK=BCODE)
-	.area GSINIT2 (BANK=BCODE)
-	.area GSINIT3 (BANK=BCODE)
-	.area GSINIT4 (BANK=BCODE)
-	.area GSINIT5 (BANK=BCODE)
-	.area GSINIT  (BANK=BCODE)
-	.area GSFINAL (BANK=BCODE)
-	.area CSEG    (BANK=BCODE)
+	.area HOME    (CODE)
+	.area GSINIT0 (CODE)
+	.area GSINIT1 (CODE)
+	.area GSINIT2 (CODE)
+	.area GSINIT3 (CODE)
+	.area GSINIT4 (CODE)
+	.area GSINIT5 (CODE)
+	.area GSINIT  (CODE)
+	.area GSFINAL (CODE)
+	.area CSEG    (CODE)
 
 ; /*-------------------------------------------------------------------------
 ;   Example for SiLabs C8051F12x / C8051F13x with 128kB code memory
@@ -59,7 +55,7 @@
 
 	.globl _PSBANK
 
-	.area HOME    (BANK=BCODE)
+	.area HOME    (CODE)
 
 __sdcc_banked_call::
 	push	_PSBANK		;save return bank
