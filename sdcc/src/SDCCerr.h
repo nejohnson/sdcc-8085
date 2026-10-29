@@ -396,25 +396,7 @@ enum {
   E_CAST_PTR_FLOAT              = 366, // a pointer shall not be converted to/from a floating type
   E_ALIGNOF_INCOMPLETE_TYPE     = 367, // _Alignof applied to an incomplete type
   E_SUBSCRIPT_INCOMPLETE_TYPE   = 368, // [] applied to a pointer to an incomplete type
-  E_TOO_MANY_REGS_FOR_OPERAND   = 369, // an operand needs more registers than the back end can hold
-  E_RETURN_VALUE_TOO_WIDE       = 370, // a function's return value is wider than the back end's return mechanism can carry
-  E_NOPROTO_PARM_UNSUPPORTED    = 371, // an argument to a function called without a prototype needs register/stack assignment this front end does not yet do
-  E_VARARG_PTR_CALL_UNSUPPORTED = 372, // variable arguments through a function pointer, on a target that passes them in the callee's own storage
-  E_REENTRANT_UNSUPPORTED       = 373, // a reentrant function, on a target without a data stack
-  E_STACK_AUTO_UNSUPPORTED      = 374, // --stack-auto, on a target without a data stack
-  E_RECURSION_UNSUPPORTED       = 375, // a recursive call chain, on a target without a data stack
-  E_CALL_DEPTH_EXCEEDED         = 376, // the deepest call chain needs more levels than the hardware return stack has
-  E_FUNC_TOO_BIG                = 377, // a function does not fit one code page
-  E_CONST_TOO_BIG               = 378, // constant data does not fit one code page
-  E_LOCALS_TOO_BIG              = 379, // a module's local variables do not fit one RAM bank
-  E_DATA_TOO_BIG                = 380, // variables in one section do not fit one RAM bank
-  E_PROGRAM_TOO_BIG             = 381, // the program does not fit program memory
-  E_RAM_TOO_BIG                 = 382, // the program's variables do not fit RAM
-  E_ISR_SHARED_FUNC             = 383, // a function with static storage is called from both the interrupt handler and main code
-  E_SHARED_LOCALS               = 384, // two functions of a module share local storage, but one reaches the other through another module
-  E_ISR_SHARED_LOCALS           = 385, // interrupt-handler code and main code share local storage
-  E_CORE_REG_OVERLAP            = 386, // an absolute variable overlaps a core register mirrored in every RAM bank
-  E_DIRECT_DATA_OVERFLOW        = 387, // 8051 directly addressed internal RAM ends past 0x7f, where the SFRs are
+  E_NOPROTO_PARM_UNSUPPORTED    = 369, // an argument to a function called without a prototype needs register/stack assignment this front end does not yet do
 
   // If you get a merge conflict here, some #pragma disable_warning in support/valdiag and support/regression will likely need to be adapted to the resolution. Check there!
 

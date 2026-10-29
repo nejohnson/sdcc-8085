@@ -38,6 +38,8 @@ enum target {
   TARGET_ID_PDK16,
   TARGET_ID_MOS6502,
   TARGET_ID_MOS65C02,
+  TARGET_ID_F8,
+  TARGET_ID_F8L,
   TARGET_ID_PIC14,
   TARGET_ID_PIC16    
 };
@@ -72,6 +74,8 @@ enum target {
 #define TARGET_IS_PDK16    (port->id == TARGET_ID_PDK16)
 #define TARGET_IS_MOS6502  (port->id == TARGET_ID_MOS6502)
 #define TARGET_IS_MOS65C02 (port->id == TARGET_ID_MOS65C02)
+#define TARGET_IS_F8       (port->id == TARGET_ID_F8)
+#define TARGET_IS_F8L      (port->id == TARGET_ID_F8L)
 #define TARGET_IS_PIC14    (port->id == TARGET_ID_PIC14)
 #define TARGET_IS_PIC16    (port->id == TARGET_ID_PIC16)
 
@@ -83,6 +87,10 @@ enum target {
 #define TARGET_PIC_LIKE    (TARGET_IS_PIC14 || TARGET_IS_PIC16)
 #define TARGET_PDK_LIKE    (TARGET_IS_PDK13 || TARGET_IS_PDK14 || TARGET_IS_PDK15 || TARGET_IS_PDK16)
 #define TARGET_MOS6502_LIKE (TARGET_IS_MOS6502 || TARGET_IS_MOS65C02)
+#define TARGET_F8_LIKE     (TARGET_IS_F8 || TARGET_IS_F8L)
+
+/* is using sdas / sdld assembler / linker */
+#define IS_SDASLD          (TARGET_Z80_LIKE || TARGET_MCS51_LIKE || TARGET_HC08_LIKE)
 
 #define MAX_BUILTIN_ARGS        16
 
@@ -150,10 +158,10 @@ typedef struct
     const char *file_ext;
     /** If non-null will be used to execute the assembler. */
     void (*do_assemble) (set *);
-    /** TRUE when cmd invokes Alan Baldwin's ASxxxx assembler, as every
-        port but the PICs (gputils) does.  ASxxxx names its object file
-        with -o+base, marks a module's calling convention with .abi, and
-        provides .function / .endfunc. */
+    /** TRUE when cmd invokes Alan Baldwin's ASxxxx assembler rather than
+        sdas, as the i8080, i8085 and stm8 ports do.  ASxxxx names its
+        object file with -o+base, marks a module's calling convention with
+        .abi, and provides .function / .endfunc. */
     bool asxxxx;
   }
   assembler;
@@ -173,10 +181,11 @@ typedef struct
     const int needLinkerScript;
     const char *const *crt;
     const char *const *libs;
-    /** TRUE when cmd invokes Alan Baldwin's ASxxxx aslink, as every port
-        but the PICs (gputils) does.  aslink sets an area's base address
-        with -a, reserving -b for a *bank* base, names an output file with
-        -i+name, and reads a library as a plain list of object files. */
+    /** TRUE when cmd invokes Alan Baldwin's ASxxxx aslink rather than
+        sdld, as the i8080, i8085 and stm8 ports do.  aslink sets an area's
+        base address with -a, reserving -b for a *bank* base, names an
+        output file with -i+name, and reads a library as a plain list of
+        object files. */
     bool asxxxx;
   }
   linker;
@@ -540,5 +549,12 @@ extern PORT mos6502_port;
 #if !OPT_DISABLE_MOS65C02
 extern PORT mos65c02_port;
 #endif
+#if !OPT_DISABLE_F8
+extern PORT f8_port;
+#endif
+#if !OPT_DISABLE_F8L
+extern PORT f8l_port;
+#endif
+
 #endif /* PORT_INCLUDE */
 

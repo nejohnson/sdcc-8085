@@ -362,8 +362,6 @@ iCode *getBuiltinParms (iCode *, int *, operand **);
 int isiCodeInFunctionCall (const iCode *);
 operand *detachiCodeOperand (operand **, iCode *);
 void attachiCodeOperand (operand *, operand **, iCode *);
-extern set *staticVaAreas;
-symbol *getStaticVaArea (const char *funcName, int size);
 
 /*-----------------------------------------------------------------*/
 /* declaration of exported variables                               */
