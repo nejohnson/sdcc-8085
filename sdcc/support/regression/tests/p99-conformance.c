@@ -78,6 +78,10 @@
 #define SKIP_UNIVERSAL
 #endif
 
+#if defined(__SDCC_i8080) || defined(__SDCC_i8085) || defined(__SDCC_stm8) // ASxxxx symbols are ASCII only
+#define SKIP_UNIVERSAL
+#endif
+
 #ifndef SKIP_VA_ARGS_MACRO
 # define FIRST(X, ...) X
 # if FIRST(0, something)
