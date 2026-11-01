@@ -470,6 +470,27 @@ replaceAstWithTemporary (ast **treeptr)
 }
 
 /*-----------------------------------------------------------------*/
+/* structReturnTemporary: Replace the struct or union expression   */
+/*            pointed to by the arg with a new temporary variable  */
+/*            of the function's return type. Returns an AST which  */
+/*            assigns the expression to the temporary.             */
+/*-----------------------------------------------------------------*/
+ast *
+structReturnTemporary (ast **treeptr, sym_link *type)
+{
+  symbol *sym = inlineTempVar (type, NestLevel);
+  inlineAddDecl (sym, NULL, true, false);
+
+  ast *tempvar = newNode ('=', newAst_VALUE (symbolVal (sym)), *treeptr);
+  *treeptr = newAst_VALUE (symbolVal (sym));
+
+  sym->implicitaddtoblock = true;
+  addSymChain (&sym);
+
+  return tempvar;
+}
+
+/*-----------------------------------------------------------------*/
 /* createRMW: Create a read-modify-write expression, using a       */
 /*            temporary variable if necessary to avoid duplicating */
 /*            any side effects, for use in e.g.                    */

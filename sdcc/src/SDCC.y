@@ -60,6 +60,7 @@ int yyparse(void);
 extern int noLineno;
 char lbuff[1024];       /* local buffer */
 char function_name[256] = {0};
+static sym_link *function_rettype;  /* return type of the function being parsed */
 
 /* break & continue stacks */
 STACK_DCL(continueStack  ,symbol *,MAX_NEST_LEVEL)
@@ -2594,7 +2595,15 @@ jump_statement
            werror(E_INVALID_CRITICAL);
            $$ = NULL;
        } else {
-           $$ = newNode(RETURN,NULL,$2);
+           /* The back ends return a struct or union from a variable.
+              Anything else is assigned to a temporary first. */
+           if (function_rettype && IS_STRUCT (function_rettype) && !IS_AST_SYM_VALUE ($2))
+             {
+               ast *tmp = structReturnTemporary (&$2, function_rettype);
+               $$ = newNode(NULLOP,tmp,newNode(RETURN,NULL,$2));
+             }
+           else
+             $$ = newNode(RETURN,NULL,$2);
        }
    }
    ;
@@ -2651,6 +2660,7 @@ function_definition
                 {
                     if (FUNC_ISCRITICAL ($1->type))
                         inCriticalFunction = 1;
+                    function_rettype = $1->type->next;
                     strncpyz (function_name, $1->name, sizeof (function_name) - 3);
                     memset (function_name + sizeof (function_name) - 4, 0x00, 4);
                 }
@@ -2665,6 +2675,7 @@ function_definition
             $$ = createFunction($1, $3);
             if ($1 && FUNC_ISCRITICAL ($1->type))
                 inCriticalFunction = 0;
+            function_rettype = NULL;
         }
    | declaration_specifiers declarator
         {
@@ -2684,6 +2695,7 @@ function_definition
                           FUNC_BANKED ($2->type)         || FUNC_REGBANK ($2->type)          ||
                           FUNC_ISOVERLAY ($2->type)      || FUNC_ISISR ($2->type) ))
                         werror (W_INLINE_FUNCATTR, $2->name);
+                    function_rettype = $2->type->next;
                     strncpyz (function_name, $2->name, sizeof (function_name) - 3);
                     memset (function_name + sizeof (function_name) - 4, 0x00, 4);
                 }
@@ -2698,6 +2710,7 @@ function_definition
             $$ = createFunction($2, $4);
             if ($2 && FUNC_ISCRITICAL ($2->type))
                 inCriticalFunction = 0;
+            function_rettype = NULL;
         }
    ;
 

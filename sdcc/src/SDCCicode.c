@@ -3217,7 +3217,17 @@ geniCodeDerefPtr (operand *op, int lvl)
                 IS_STRUCT (rtype) || IS_INT (rtype) || IS_BITINT (rtype) || IS_BOOL (rtype) || IS_CHAR (rtype) || IS_FLOAT (rtype) || IS_FIXED (rtype));
 
   if (!isLvaluereq (lvl))
-    op = geniCodeRValue (op, true);
+    {
+      /* A struct or union rvalue is its address, as for a variable or a
+         member of struct type: there is no load of the whole object. */
+      if (IS_STRUCT (rtype))
+        {
+          op = operandFromOperand (op);
+          op->isaddr = 0;
+        }
+      else
+        op = geniCodeRValue (op, true);
+    }
 
   if (IS_DECL (rtype))
     {
