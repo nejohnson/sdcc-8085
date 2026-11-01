@@ -584,6 +584,10 @@ In 4.5.20, some non-matching return types that previously raised warnings raise 
 In 4.5.23, \f[CR]_Generic\f[R] works as clarified by C23, more attention is payed to implicit \f[CR]char\f[R] signedness, string literals are only \f[CR]const\f[R] if requested with \f[CR]\-\-fconst\-str\f[R], and a read-only \f[CR]__code\f[R] address space only implies \f[CR]const\f[R] if requested with \f[CR]\-\-fconst\-code\f[R].
 .LI
 In 4.5.24, \f[CR]\-\-fconst\-str\f[R] has been renamed to \f[CR]\-\-fconst\-stringlit\f[R].
+.LI
+In 4.6.3, the f8(l) assembler and simulator were switched to the new f8(l) opcode map. Assembled code is binary-incompatible with previous versions.
+.LI
+In 4.6.4, the linker uses \-a (instead of previously-used \-b) to specify an area base address.
 .LE
 .H 2 "\&System Requirements"
 .P
@@ -1316,7 +1320,7 @@ The option \-\&\-nostdlib disables all search paths except #1 and #2.
 .IND "Building SDCC"
 .P
 SDCC can be built for various host platforms using the instructions provided below. Note that the PIC14 and PIC16 library folders in the source distribution contain Autotools-generated files. These are included for convenience and to avoid introducing Autotools as an additional dependency. They have to be regenerated in case of a version mismatch. Alternatively, the PIC backends can be disabled.
-.H 3 "\&Building SDCC on Linux"
+.H 3 "\&Building SDCC on Linux and BSD"
 .SETR subsec:Building-SDCC-on-Linux
 .AL
 .LI
@@ -1331,11 +1335,21 @@ The assemblers and the linker are built from the ASxxxx sources in vendor/asxxxx
 .LI
 Change directory into the main SDCC directory, for example type: \f[HB]"cd sdcc\f[HR]".\f[R]
 .LI
-Type \f[HB]"./configure\f[R]". This configures the package for compilation on your system. When the treedec library is available, it should be found and used automatically (improving the compilation time / code quality trade-off). As of SDCC 3.7.0, the current develop branch from https://github.com/freetdi/tdlib is a suitable version of treedec.
+Type \f[CR]./configure\f[R]. This configures the package for compilation on your system.
+.BL
 .LI
-Type \f[HB]"make\f[R]". All of the source packages will compile, this can take a while.
+SDCC needs the boost libraries. On typical GNU/Linux distributions, they are in the search path, on typical BSD they are not, requiring e.g. \f[CR]CXX="c++ \-I/usr/local/include" CC=cc ./configure\f[R] instead.
 .LI
-Type \f[HB]"make install"\f[R] as root. This copies the binary executables, the include files, the libraries and the documentation to the install directories. Proceed with section \c
+The pic14 and pic16 ports require gputils. If they are not available, and PIC support is not needed, you can instead use \f[CR]./configure \-\-disable\-pic14\-port \-\-disable\-pic16\-port\f[R].
+.LI
+When the treedec library is available, it should be found and used automatically (improving the compilation time / code quality trade-off). As of SDCC 3.7.0, the current develop branch from https://github.com/freetdi/tdlib is a suitable version of treedec.
+.LI
+When the libu8ident library is available, it should be found and used automatically (improving diagnostics and standard-compliance for non-ASCII characters in identifiers). As of SDCC 4.6.0, the 0.4 release from https://github.com/rurban/libu8ident is a suitable version of libu8ident.
+.LE
+.LI
+Type \f[CR]make\f[R]. All of the source packages will compile, this can take a while.
+.LI
+Type \f[CR]make install\f[R] as root. This copies the binary executables, the include files, the libraries and the documentation to the install directories. Proceed with section \c
 .GETHN sec:Testing-the-SDCC Rf9
 .Rd Rf9
 \*[Rf9].
@@ -2882,6 +2896,10 @@ on page \*[Rf25].
 \c
 .IND "--disable-warning"
 Disable specific warning with number <nnnn>.
+.LI "\f[B]\-\&\-enable-warning\ <nnnn>\f[R]"
+\c
+.IND "--enable-warning"
+Enable specific warning with number <nnnn>, including warnings disabled by default. Later command-line options override earlier options for the same warning. A source-file pragma can subsequently override the command-line setting.
 .LI "\f[B]\-\&\-Werror\f[R]"
 \c
 .IND "--Werror"
@@ -5380,6 +5398,10 @@ Furthermore, warnings of less importance (of PEDANTIC and INFO warning level) ar
 .IND "#pragma disable_warning"
  \- the compiler will not warn you anymore about warning number <nnnn>.
 .LI
+\f[B]enable_warning\f[R] <nnnn>\c
+.IND "#pragma enable_warning"
+ \- enable warning number <nnnn>, including warnings disabled by default. For example, #pragma disable_warning 244 followed by #pragma enable_warning 244 re-enables diagnostics for incompatible pointer types. As with disable_warning, this does not enable or suppress errors, and invalid warning numbers are ignored.
+.LI
 \f[B]nogcse\f[R]\c
 .IND "#pragma nogcse"
  \- will stop global common subexpression elimination.
@@ -5854,9 +5876,9 @@ SiLabs C8051F120 example
 .TKE
 \c
 .sp
-Usually the hardware uses some sfr (an output port or an internal sfr) to select a bank and put it in the banked area of the memory map. The selected bank usually becomes active immediately upon assignment to this sfr and when running inside a bank it will switch out this code it is currently running. Therefor you cannot jump or call directly from one bank to another and need to use a so-called trampoline in the common area. For SDCC an example trampoline is in crtbank.asm and you may need to change it to your 8051 derivative or schematic. The presented code is written for the C8051F120.\c
+Usually the hardware uses some sfr (an output port or an internal sfr) to select a bank and put it in the banked area of the memory map. The selected bank usually becomes active immediately upon assignment to this sfr and when running inside a bank it will switch out the code it is currently running. Therefore it is not possible to jump or call directly from one bank to another and a so-called trampoline function in the common area is needed. For SDCC an example trampoline for the C8051F120 is in crtbank.asm and you may need to change it to match your 8051 derivative or schematic.\c
 .sp
-When calling a banked function SDCC will put the LSB of the functions address in register R0, the MSB in R1 and the bank in R2 and then call this trampoline \f[I]__sdcc_banked_call\f[R]. The current selected bank is saved on the stack, the new bank is selected and an indirect jump is made. When the banked function returns it jumps to \f[I]__sdcc_banked_ret\f[R] which restores the previous bank and returns to the caller.
+When calling a banked function SDCC will put the LSB of the functions address in register R0, the MSB in R1, the bank in R2 and then call the trampoline \f[I]sdcc_banked_call\f[R]. The trampoline function should save the currently selected bank on the stack, select the new bank and do an indirect jump to the target address. When a banked function returns SDCC will emit a jump to \f[I]sdcc_banked_ret\f[R] which should restore the previous bank and return to the caller. For regular jumps across banks \f[I]sdcc_banked_jump\f[R] is used instead, which is not supposed to save the currently selected bank but rather just switch to the new bank and do the jump. Such jumps might be used for optimizing tail calls and no-return calls.
 .H 4 "\&Software"
 .P
 When writing banked software using SDCC you need to use some special keywords and options. You also need to take over a bit of work from the linker.\c

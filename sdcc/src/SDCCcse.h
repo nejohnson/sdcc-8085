@@ -56,8 +56,6 @@ DEFSETFUNC (ifOperandsHave);
 DEFSETFUNC (findCheaperOp);
 int cseBBlock (eBBlock *, int computeOnly, ebbIndex *);
 int cseAllBlocks (ebbIndex *, int computeOnly);
-bool optionalTarget (sym_link *type);
-bool foldPointerZeroArithmetic (eBBlock **, int);
 void unsetDefsAndUses (iCode *);
 void updateSpillLocation (iCode * ic,int);
 void setUsesDefs (operand *, bitVect *, bitVect *, bitVect **);

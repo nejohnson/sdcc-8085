@@ -14,7 +14,7 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
    GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License 
+   You should have received a copy of the GNU General Public License
    along with this library; see the file COPYING. If not, write to the
    Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
    MA 02110-1301, USA.
@@ -183,11 +183,11 @@ function green_bar($text, $name)
 
 function file_name_to_snapshot_id($fname)
 {
-  $ret = preg_replace('/sdcc-snapshot-([^-]+-[^-]+-[^ ]+-\d{8}-\d+)\..*/', '$1', $fname);
+  $ret = preg_replace('/sdcc-snapshot-([^-]+-[^-]+-[^ ]+-\d{8}-\d+-[a-z0-9-]+)\..*/', '$1', $fname);
   if ($ret === $fname) {
-    $ret = preg_replace('/sdcc-snapshot-([^-]+-[^ ]+-\d{8}-\d+)\..*/', '$1', $fname);
+    $ret = preg_replace('/sdcc-snapshot-([^-]+-[^ ]+-\d{8}-\d+-[a-z0-9-]+)\..*/', '$1', $fname);
     if ($ret === $fname)
-      $ret = preg_replace('/.*-([^-]+-[^-]+-[^ ]+-\d{8}-\d+)\..*/', '$1', $fname);
+      $ret = preg_replace('/.*-([^-]+-[^-]+-[^ ]+-\d{8}-\d+-[a-z0-9-]+)\..*/', '$1', $fname);
   }
 
   return $ret;
@@ -200,19 +200,23 @@ function file_name_to_revision($fname)
 
 function rt_failed($fname)
 {
-  if ($handle = fopen($fname, "r")) {
-    while ($line = fgets($handle)) {
-      # Summary for 'host': 0 failures, 4244 tests, 596 test cases, 0 bytes, 0 ticks
+  if ($handle = gzopen($fname, "r")) {
+    while ($line = gzgets($handle)) {
+      # Summary for 'host' : 0 failures, 4244 tests, 596 test cases, 0 bytes, 0 ticks
       if (preg_match('/^Summary/', $line)) {
-        $failures = preg_replace('/^Summary for \'.+\':.* (\d+) failures, \d+ tests, \d+ test cases, \d+ bytes, \d+ ticks/',
-          '$1', $line);
-        if ($failures && $failures > 0)
+        $failures = preg_replace('/^Summary for \'.+\'\s*:\s*(\d+) failures.*/', '$1', $line);
+        if ($failures && $failures > 0) {
+          gzclose($handle);
           return true;
+        }
       }
-      if (preg_match('/Error/', $line) || preg_match('/invalid instructions/', $line))
+      if (preg_match('/Error/', $line) || preg_match('/invalid instructions/', $line)) {
+        gzclose($handle);
         return true;
+      }
     }
-  
+    gzclose($handle);
+
     return false;
   }
   else
@@ -225,7 +229,7 @@ function display_files($descdir, $lsDir, $cldir, $rtdir, $subdir)
   $lsDir->chDir($subdir);
 
   foreach ($lsDir->entries() as $file) {
-    if ($file != "HEADER.html" && $file != ".htaccess") { 
+    if ($file != "HEADER.html" && $file != ".htaccess") {
       $attr = $lsDir->getAttr($file);
       $file_name[$numfiles] = $file;
       $file_size[$numfiles] = $attr["size"];
@@ -254,6 +258,8 @@ function display_files($descdir, $lsDir, $cldir, $rtdir, $subdir)
     echo "<th align=\"left\"><font color=\"#660000\" face=\"Arial,Helvetica,Geneva,Swiss,SunSans-Regular\">CL</font></th>";
   if ($rtdir)
     echo "<th align=\"left\"><font color=\"#660000\" face=\"Arial,Helvetica,Geneva,Swiss,SunSans-Regular\">RT</font></th>";
+   if ($rtdir)
+    echo "<th align=\"left\"><font color=\"#660000\" face=\"Arial,Helvetica,Geneva,Swiss,SunSans-Regular\">RRT</font></th>";
   echo "</tr>\n";
 
   # set the default timezone to use. Available since PHP 5.1
@@ -279,8 +285,9 @@ function display_files($descdir, $lsDir, $cldir, $rtdir, $subdir)
 
     # Regression test
     $rt = '&nbsp;';
+    $rrt = '&nbsp;';
     if ($rtdir) {
-      $rtpath = $rtdir . '/' . $subdir . '/regression-test-' . file_name_to_snapshot_id($file_name[$i]) . '.log';
+      $rtpath = $rtdir . '/' . $subdir . '/regression-test-' . file_name_to_snapshot_id($file_name[$i]) . '.log.gz';
       if (is_file($rtpath)) {
         $rtpathp = preg_replace("/\s/", "%20", $rtpath);
         $failed = rt_failed($rtpathp);
@@ -290,6 +297,16 @@ function display_files($descdir, $lsDir, $cldir, $rtdir, $subdir)
           $rtIcon = '18dot2a.gif';
         $rt = "<a href=\"$rtpathp\"><img src=\"/images/$rtIcon\" border=\"0\" alt=\"Regression Test Log\" /></a>";
       }
+      $rrtpath = $rtdir . '/' . $subdir . '/rand-regression-test-' . file_name_to_snapshot_id($file_name[$i]) . '.log.gz';
+      if (is_file($rrtpath)) {
+        $rrtpathp = preg_replace("/\s/", "%20", $rrtpath);
+        $failed = rt_failed($rrtpathp);
+        if (isset($failed))
+          $rrtIcon = $failed ? '18dot1a.gif' : '18dot4a.gif';
+        else
+          $rrtIcon = '18dot2a.gif';
+        $rrt = "<a href=\"$rrtpathp\"><img src=\"/images/$rrtIcon\" border=\"0\" alt=\"Regression Test Log\" /></a>";
+      }
     }
 
     $dispthisdir = "<tr>" .
@@ -298,6 +315,7 @@ function display_files($descdir, $lsDir, $cldir, $rtdir, $subdir)
       "<td align=\"left\">$modDate</td>" .
       "<td align=\"left\">$cl</td>" .
       "<td align=\"left\">$rt</td>".
+      "<td align=\"left\">$rrt</td>".
       "</tr>";
 
     echo $dispthisdir;
@@ -342,14 +360,14 @@ function &tree_array($file)
 
 function parse_dir($descdir, $scanthis, $cldir, $rtdir)
 {
-  $linux_num = $windows_num = $windows64_num = $macosx_num = $docs_num = $other_docs_num = $source_num = $other_num = 0;
+  $linux_num = $windows_num = $windows64_num = $macos_num = $docs_num = $other_docs_num = $source_num = $other_num = 0;
 
   $lsDir = tree_array($scanthis);
   $lsDir->chDir("");
 
   foreach ($lsDir->entries() as $file) {
     if ($lsDir->isDir($file)) {
-      if (preg_match('/(i386|amd64)-.*-linux/', $file)) {
+      if (preg_match('/(i386|x86_64|amd64)-.*-linux/', $file)) {
         $linux_dir[$linux_num++] = $file;
       }
       elseif (preg_match('/msvc/', $file)) {
@@ -358,8 +376,8 @@ function parse_dir($descdir, $scanthis, $cldir, $rtdir)
       elseif (preg_match('/x86_64-w64/', $file)) {
         $windows64_dir[$windows64_num++] = $file;
       }
-      elseif (preg_match('/macosx/', $file)) {
-        $macosx_dir[$macosx_num++] = $file;
+      elseif (preg_match('/macos/', $file)) {
+        $macos_dir[$macos_num++] = $file;
       }
       elseif (preg_match('/docs$/', $file)) {
         $docs_dir[$docs_num++] = $file;
@@ -391,9 +409,9 @@ function parse_dir($descdir, $scanthis, $cldir, $rtdir)
     display_files($descdir, $lsDir, $cldir, $rtdir, $windows64_dir[$i]);
   }
 
-  green_bar("Supported Mac OS X Binaries", "MacOSX");
-  for ($i = 0; $i < $macosx_num; $i++) {
-    display_files($descdir, $lsDir, $cldir, $rtdir, $macosx_dir[$i]);
+  green_bar("Supported macOS Binaries", "macOS");
+  for ($i = 0; $i < $macos_num; $i++) {
+    display_files($descdir, $lsDir, $cldir, $rtdir, $macos_dir[$i]);
   }
 
   green_bar("Documentation", "Docs");

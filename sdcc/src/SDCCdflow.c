@@ -136,7 +136,6 @@ DEFSETFUNC (mergeInExprs)
   return 0;
 }
 
-
 /*-----------------------------------------------------------------*/
 /* mergeInDefs - merge in incoming definitions                     */
 /*-----------------------------------------------------------------*/
@@ -157,7 +156,6 @@ DEFSETFUNC (mergeInDefs)
 
   return 0;
 }
-
 
 /*------------------------------------------------------------------*/
 /* computeDataFlow - does computations for data flow across blocks */
@@ -256,9 +254,9 @@ computeDataFlow (ebbIndex * ebbi)
             }
           setToNull ((void *) &pred);
 
-          /* do cse with computeOnly flag set to TRUE */
+          /* do cse with computeOnly flag set to true */
           /* this is by far the quickest way of computing */
-          cseBBlock (ebbs[i], TRUE, ebbi);
+          cseBBlock (ebbs[i], true, ebbi);
 
           /* if it change we will need to iterate */
           blockChanged = FALSE;
@@ -344,7 +342,6 @@ usedBetweenPoints (operand * op, iCode * start, iCode * end)
   return 0;
 }
 
-
 /*------------------------------------------------------------------*/
 /* usedInRemaining - returns point of usage for an operand if found */
 /*------------------------------------------------------------------*/
@@ -396,7 +393,6 @@ usedInRemaining (operand *op, iCode *ic)
 
   return NULL;
 }
-
 
 /*-------------------------------------------------------------------*/
 /* isDefAlive - will return true if definition reaches a block & used */

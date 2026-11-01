@@ -101,10 +101,10 @@ endif
 ifeq ($(CROSSCOMPILING), 1)
 ifeq ($(TARGETOS), x86_64-w64-mingw32)
   WINVER = -DWIN64
-  SETUPNAME = $(TARBALLDIR)-setup/sdcc-$(SNAPSHOTID)-x64-setup.exe
+  SETUPNAME = $(TARBALLDIR)-setup/sdcc-x64-setup-$(SNAPSHOTID)-$(HOSTNAME).exe
 else
   WINVER =
-  SETUPNAME = $(TARBALLDIR)-setup/sdcc-$(SNAPSHOTID)-setup.exe
+  SETUPNAME = $(TARBALLDIR)-setup/sdcc-setup-$(SNAPSHOTID)-$(HOSTNAME).exe
 endif
 endif
 
@@ -112,7 +112,7 @@ generate-setup:
 ifeq ($(CROSSCOMPILING), 1)
 	mkdir -p $(dir $(SETUPNAME))
 	cp $(ORIGDIR)/sdcc/COPYING $(BUILDDIR)$(PREFIX)/COPYING.txt; $(UNIX2DOS) $(BUILDDIR)$(PREFIX)/COPYING.txt
-	cp $(ORIGDIR)/sdcc/sdas/COPYING3 $(BUILDDIR)$(PREFIX)/COPYING3.txt; $(UNIX2DOS) $(BUILDDIR)$(PREFIX)/COPYING3.txt
+	cp $(ORIGDIR)/sdcc/sdas/gpl3.txt $(BUILDDIR)$(PREFIX)/COPYING3.txt; $(UNIX2DOS) $(BUILDDIR)$(PREFIX)/COPYING3.txt
 	cp $(ORIGDIR)/sdcc/support/scripts/sdcc.nsi $(BUILDDIR)$(PREFIX)
 	cp $(ORIGDIR)/sdcc/support/scripts/sdcc.ico $(BUILDDIR)$(PREFIX)
 	$(UNIX2DOS) $(BUILDDIR)$(PREFIX)/doc/ChangeLog_head.txt

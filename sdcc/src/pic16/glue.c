@@ -78,7 +78,7 @@ unsigned int pic16aopLiteral (value *val, int offset)
   /* if it is a float then it gets tricky */
   /* otherwise it is fairly simple */
   if (!(IS_FLOAT(val->type) || IS_FIXED(val->type))) {
-    unsigned long v = ulFromVal (val);
+    unsigned long long v = ullFromVal (val);
 
     return ( (v >> (offset * 8)) & 0xff);
   }
@@ -203,8 +203,8 @@ pic16emitRegularMap (memmap * map, bool addPublics, bool arFlag)
                 /* if extern then do nothing or is a function
                  * then do nothing */
                 if (IS_FUNC (sym->type) && !IS_STATIC(sym->etype)) {
-                        if(SPEC_OCLS(sym->etype) == code) {
-//                              fprintf(stderr, "%s:%d: symbol added: %s\n", __FILE__, __LINE__, sym->rname);
+                        if(SPEC_OCLS(sym->etype) == code &&
+                                !(IFFUNC_ISINLINE(sym->type) && !IS_STATIC(sym->etype) && !IS_EXTERN(sym->etype))) {
                                 checkAddSym(&publics, sym);
                         }
                         continue;

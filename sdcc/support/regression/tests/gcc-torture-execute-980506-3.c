@@ -3,10 +3,14 @@
  */
 
 #include <testfwk.h>
+#ifdef __SDCC
+/* Preserve the original regression case, including incompatible pointer conversions. */
+#pragma disable_warning 244
+#endif
+
 
 #ifdef __SDCC
 #pragma std_c99
-#pragma disable_warning 244 /* strlen(pattern) (unsigned char*) and build_lookup("bind") (char* literal vs unsigned char* param) - upstream torture test code, preserved as-is */
 #endif
 
 #if !defined(__SDCC_mcs51) && !defined(__SDCC_pdk14) && !defined(__SDCC_pdk15) && !defined(__SDCC_pic14) // Lack of memory

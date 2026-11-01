@@ -4,9 +4,14 @@
 
 #include <testfwk.h>
 
+#ifdef __SDCC
+/* The original reproducer assigns an unsigned-byte array to a char pointer. */
+#pragma disable_warning 244
+#endif
+
 #include <string.h>
 
-const char star_star_filename[] = { '*', '.', '*', 0xff };
+const unsigned char star_star_filename[] = { '*', '.', '*', 0xff };
 
 void
 dos_catalog(const char *filename)

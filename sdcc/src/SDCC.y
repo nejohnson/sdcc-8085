@@ -112,6 +112,7 @@ bool uselessDecl = true;
 %token BITWISEAND UNARYMINUS IPUSH IPUSH_VALUE_AT_ADDRESS IPOP PCALL ENDFUNCTION JUMPTABLE
 %token ROT
 %token CAST CALL PARAM NULLOP BLOCK LABEL RECEIVE SEND ARRAYINIT
+%token POINTER_NONNULL_CHECK
 %token DUMMY_READ_VOLATILE ENDCRITICAL INLINE RESTRICT SMALLC RAISONANCE IAR COSMIC DYNAMICC SDCCCALL PRESERVES_REGS Z88DK_FASTCALL Z88DK_CALLEE Z88DK_SHORTCALL Z88DK_PARAMS_OFFSET
 
 /* C11 */
@@ -259,10 +260,17 @@ postfix_expression
 
                         /* add the specifier list to the id */
                         symbol *sym1 = prepareDeclarationSymbol(NULL, $2, sym);
-                        /* implicitly make the symbol a constexpr if the initializer allows it */
+                        /* implicitly make the symbol a constexpr if the initializer allows it.
+                           This is the compiler's own inference, not something the program wrote,
+                           so record that: a constexpr the program declares is const (C23
+                           6.7.2p6), while a compound literal without a storage class has the
+                           type written in it and nothing more (C11 6.5.2.5p4). */
                         sym1->etype = getSpec(sym1->type);
                         if (constExprTree(list2expr(sym1->ival)))
-                          SPEC_CONSTEXPR(sym1->etype) = 1;
+                          {
+                            SPEC_CONSTEXPR(sym1->etype) = 1;
+                            SPEC_IMPLICIT_CONSTEXPR(sym1->etype) = 1;
+                          }
 
                         /* mark as temporary symbol for compound literal, so that gatherImplicitVariables
                            can attach it to a block, and add the temporary symbol to the symbol table */
@@ -323,10 +331,7 @@ unary_expression
              if (isOptional (type->next))
                {
                  type = copyLinkChain (type);
-                 if (IS_DECL (type->next))
-                   DCL_PTR_OPTIONAL (type->next) = false;
-                 else
-                   SPEC_OPTIONAL (type->next) = false;
+                 removeOptionalQualifier (type->next);
                  $$ = newNode (CAST, newAst_LINK(type), $$);
                  $$->values.cast.semDeref = true;
                }
@@ -751,11 +756,21 @@ type_specifier_without_struct_or_union
    | ATOMIC '(' type_name ')' {
                   checkTypeSanity ($3, "(_Atomic)");
                   $$=$3;
-                  if (SPEC_ATOMIC($$))
+                  /* Recover with a scalar type after diagnosing an invalid
+                     derived type, so later specifier handling stays valid. */
+                  if (IS_ARRAY($$) || IS_FUNC($$))
+                    {
+                      werror (IS_ARRAY($$) ? E_ATOMIC_ARRAY : E_ATOMIC_FUNCTION);
+                      $$=newIntLink();
+                    }
+                  if (isAtomic($$))
                     werror (E_ATOMIC_SPEC_ATOMIC);
-                  if (SPEC_CONST($$) || SPEC_RESTRICT($$) || SPEC_VOLATILE($$) || SPEC_ATOMIC($$))
+                  if (isConst($$) || isRestrict($$) || isVolatile($$) || isAtomic($$))
                     werror (E_ATOMIC_SPEC_QUALIFIED);
-                  SPEC_ATOMIC($$) = 1;
+                  if (IS_PTR($$))
+                    DCL_PTR_ATOMIC($$) = 1;
+                  else
+                    SPEC_ATOMIC($$) = 1;
                   werror (E_ATOMIC_UNSUPPORTED);
                }
    | DECIMAL128 {
@@ -854,8 +869,16 @@ struct_or_union_specifier
                   /* Error if a complete type already defined in this scope */
                   if (sdef->block == currBlockno)
                     {
-                      if (sdef->fields)
-                        $3->redefinition = true;
+                      if (sdef->being_defined)
+                        {
+                          werror (E_STRUCT_DEF_NESTED, $3->tag);
+                          /* Keep the nested definition separate for recovery. */
+                        }
+                      else if (sdef->fields)
+                        {
+                          $3->redefinition = true;
+                          sdef->being_defined = true;
+                        }
                       else // We are completing an incomplete type
                         $3 = sdef;
                     }
@@ -883,6 +906,7 @@ struct_or_union_specifier
               if ($3->type != $1)
                   werror(E_BAD_TAG, $3->tag, $1==STRUCT ? "struct" : "union");
             }
+          $3->being_defined = true;
         }
    '{' member_declaration_list '}'
         {
@@ -914,14 +938,17 @@ struct_or_union_specifier
                 }
             }
 
+          $3->being_defined = false;
+
           /* Create a structdef   */
           $3->fields = reverseSyms($6);        /* link the fields */
-          $3->size = compStructSize($1, $3);   /* update size of  */
-          promoteAnonStructs ($1, $3);
+          $3->size = compStructSize($3);       /* update size of  */
+          promoteAnonStructs ($3);
 
           if ($3->redefinition) // Since C23, multiple definitions for struct / union are allowed, if they are compatible and have the same tags. The current standard draft N3047 allows redeclarations of unions to have a different order of the members. We don't. The rule in N3047 is now considered a mistake by many, and will hopefully be changed to the SDCC behaviour via a national body comment for the final version of the standard.
             {
               sdef = findSymWithBlock (StructTab, $3->tagsym, currBlockno, NestLevel);
+              sdef->being_defined = false;
               bool compatible = options.std_c23 && sdef->tagsym && $3->tagsym && !strcmp (sdef->tagsym->name, $3->tagsym->name);
               for (symbol *fieldsym1 = sdef->fields, *fieldsym2 = $3->fields; compatible; fieldsym1 = fieldsym1->next, fieldsym2 = fieldsym2->next)
                 {
@@ -931,7 +958,9 @@ struct_or_union_specifier
                     compatible = false;
                   else if (strcmp (fieldsym1->name, fieldsym2->name))
                     compatible = false;
-                  else if (compareType (fieldsym1->type, fieldsym2->type, true) <= 0)
+                  /* Corresponding members require the same type, not just
+                     compatible types with a possible composite array bound. */
+                  else if (compareTypeExact (fieldsym1->type, fieldsym2->type, -1, true) <= 0)
                     compatible = false;
                }
               if (!compatible)
@@ -1066,7 +1095,9 @@ member_declarator
           unsigned int bitsize;
           $$ = newSymbol (genSymName(NestLevel), NestLevel);
           bitsize = (unsigned int) ulFromVal(constExprValue($2, true));
-          if (!bitsize)
+          if (floatFromVal (constExprValue($2, true)) < 0)
+              werror (E_NEGATIVE_BITFLD_SIZE);
+          else if (!bitsize)
               bitsize = BITVAR_PAD;
           $$->bitVar = bitsize;
           $$->bitUnnamed = 1;
@@ -1075,8 +1106,9 @@ member_declarator
         {
           unsigned int bitsize;
           bitsize = (unsigned int) ulFromVal(constExprValue($3, true));
-
-          if (!bitsize)
+          if (floatFromVal (constExprValue($3, true)) < 0)
+              werror (E_NEGATIVE_BITFLD_SIZE);
+          else if (!bitsize)
             {
               $$ = newSymbol (genSymName(NestLevel), NestLevel);
               $$->bitVar = BITVAR_PAD;
@@ -1865,9 +1897,17 @@ parameter_declaration
 abstract_declarator
    : pointer { $$ = reverseLink($1); }
    | direct_abstract_declarator
-   | pointer direct_abstract_declarator   { $1 = reverseLink($1); $2->next = $1; $$ = $2;
-          if (IS_PTR($1) && IS_FUNC($2))
-            DCL_TYPE($1) = CPOINTER;
+   | pointer direct_abstract_declarator
+        {
+          sym_link *p;
+
+          $1 = reverseLink ($1);
+          for (p = $2; p->next; p = p->next)
+            ;
+          p->next = $1;
+          $$ = $2;
+          if (IS_PTR ($1) && IS_FUNC ($2))
+            DCL_TYPE ($1) = CPOINTER;
         }
    ;
 
@@ -1906,7 +1946,13 @@ array_abstract_declarator
         if (val && SPEC_SCLS (val->etype) == S_LITERAL)
           {
             DCL_ARRAY_LENGTH_TYPE ($$) = ARRAY_LENGTH_KNOWN_CONST;
-            DCL_ELEM ($$) = (int) ulFromVal (val);
+            if (!IS_INTEGRAL (val->type))
+              {
+                werror (E_ARRAY_LENGTH_NON_INTEGER);
+                DCL_ELEM ($$) = 1; /* Recover as for a negative array length. */
+              }
+            else
+              DCL_ELEM ($$) = (int) ulFromVal (val);
           }
         else
           {
@@ -2048,6 +2094,11 @@ designator
             if (!tval || (SPEC_SCLS(tval->etype) != S_LITERAL))
               {
                 werror (E_CONST_EXPECTED);
+                elemno = 0; /* arbitrary fixup */
+              }
+            else if (!IS_INTEGRAL (tval->type))
+              {
+                werror (E_IDX_NOT_INT);
                 elemno = 0; /* arbitrary fixup */
               }
             else
