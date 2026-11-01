@@ -75,7 +75,7 @@ set *dataDirsSet = NULL;        /* list of data search directories */
 set *includeDirsSet = NULL;     /* list of include search directories */
 set *userIncDirsSet = NULL;     /* list of user include directories */
 set *libDirsSet = NULL;         /* list of lib search directories */
-bool regalloc_dry_run = FALSE;
+bool regalloc_dry_run = false;
 
 /* language override constants and variable for handling -x during command line parsing */
 enum
@@ -125,6 +125,7 @@ char buffer[PATH_MAX * 2];
 #define OPTION_NO_LOOP_IND          "--noinduction"
 #define OPTION_LESS_PEDANTIC        "--less-pedantic"
 #define OPTION_DISABLE_WARNING      "--disable-warning"
+#define OPTION_ENABLE_WARNING       "--enable-warning"
 #define OPTION_WERROR               "--Werror"
 #define OPTION_DEBUG                "--debug"
 #define OPTION_NO_GCSE              "--nogcse"
@@ -195,6 +196,7 @@ static const OPTION optionsTable[] = {
   {0,   "--norestartseqatomics", &options.norestartseqatomics, "Omit restartable sequence support routines for atomics"},
   {0,   OPTION_LESS_PEDANTIC, NULL, "Disable some of the more pedantic warnings"},
   {0,   OPTION_DISABLE_WARNING, NULL, "<nnnn> Disable specific warning"},
+  {0,   OPTION_ENABLE_WARNING, NULL, "<nnnn> Enable specific warning"},
   {0,   OPTION_WERROR, NULL, "Treat the warnings as errors"},
   {0,   OPTION_DEBUG, NULL, "Enable debugging symbol output"},
   {0,   "--cyclomatic", &options.cyclomatic, "Display complexity of compiled functions"},
@@ -391,6 +393,9 @@ static PORT *_ports[] = {
 #endif
 #if !OPT_DISABLE_MOS65C02
   &mos65c02_port,
+#endif
+#if !OPT_DISABLE_HUC6280
+  &huc6280_port,
 #endif
 #if !OPT_DISABLE_F8
   &f8_port,
@@ -732,8 +737,8 @@ processFile (char *s)
 
   /* otherwise depending on the file type */
   extp = dbuf_c_str (&ext);
-  if (STRCASECMP (extp, ".c") == 0 || langOverride == LANG_OVERRIDE_C
-      || STRCASECMP (extp, ".h") == 0 || langOverride == LANG_OVERRIDE_C_HEADER)
+  if (STRCASECMP (extp, ".c") == 0 || langOverride == LANG_OVERRIDE_C ||
+      STRCASECMP (extp, ".h") == 0 || langOverride == LANG_OVERRIDE_C_HEADER)
     {
       char *p, *m;
 
@@ -995,7 +1000,7 @@ scanOptionsTable (const OPTION * optionsTable, char shortOpt, const char *longOp
 
               (*(int *) optionsTable[i].pparameter)++;
 
-              return TRUE;
+              return true;
             }
         }
       else
@@ -1041,18 +1046,18 @@ scanOptionsTable (const OPTION * optionsTable, char shortOpt, const char *longOp
                               Safe_strdup (getStringArg (optionsTable[i].longOpt, argv, pi, argc)));
                       break;
                     }
-                  return TRUE;
+                  return true;
                 }
               else
                 {
                   /* Not a flag.  Handled manually later. */
-                  return FALSE;
+                  return false;
                 }
             }
         }
     }
   /* Didn't find in the table */
-  return FALSE;
+  return false;
 }
 
 static bool
@@ -1075,21 +1080,21 @@ tryHandleSimpleOpt (char **argv, int *pi, int argc)
 
       if (scanOptionsTable (optionsTable, shortOpt, longOpt, argv, pi, argc))
         {
-          return TRUE;
+          return true;
         }
       else if (port && port->poptions && scanOptionsTable (port->poptions, shortOpt, longOpt, argv, pi, argc))
         {
-          return TRUE;
+          return true;
         }
       else
         {
-          return FALSE;
+          return false;
         }
     }
   else
     {
       /* Not an option, so can't be handled. */
-      return FALSE;
+      return false;
     }
 }
 
@@ -1108,17 +1113,17 @@ parseCmdLine (int argc, char **argv)
         break;
 
       /* check port specific options before general ones */
-      if (port->parseOption (&argc, argv, &i) == TRUE)
+      if (port->parseOption (&argc, argv, &i))
         {
           continue;
         }
 
-      if (tryHandleUnsupportedOpt (argv, &i) == TRUE)
+      if (tryHandleUnsupportedOpt (argv, &i))
         {
           continue;
         }
 
-      if (tryHandleSimpleOpt (argv, &i, argc) == TRUE)
+      if (tryHandleSimpleOpt (argv, &i, argc))
         {
           continue;
         }
@@ -1140,7 +1145,7 @@ parseCmdLine (int argc, char **argv)
             }
           if (strcmp (argv[i], OPTION_HELP) == 0)
             {
-              printUsage (FALSE);
+              printUsage (false);
               exit (EXIT_SUCCESS);
             }
 
@@ -1199,7 +1204,7 @@ parseCmdLine (int argc, char **argv)
           if (optstrcmp (argv[i], OPTION_XRAM_SIZE, "=", false, &charsConsumed) == 0)
             {
               options.xram_size = getIntArgEx (OPTION_XRAM_SIZE, charsConsumed, argv, &i, argc);
-              options.xram_size_set = TRUE;
+              options.xram_size_set = true;
               continue;
             }
 
@@ -1282,6 +1287,13 @@ parseCmdLine (int argc, char **argv)
             {
               int w = getIntArgEx (OPTION_DISABLE_WARNING, charsConsumed, argv, &i, argc);
               setWarningDisabled (w);
+              continue;
+            }
+
+          if (optstrcmp (argv[i], OPTION_ENABLE_WARNING, "=", false, &charsConsumed) == 0)
+            {
+              int w = getIntArgEx (OPTION_ENABLE_WARNING, charsConsumed, argv, &i, argc);
+              setWarningDisabledState (w, 0);
               continue;
             }
 
@@ -1501,7 +1513,7 @@ parseCmdLine (int argc, char **argv)
             case 'h':
               verifyShortOption (argv[i]);
 
-              printUsage (FALSE);
+              printUsage (false);
               exit (EXIT_SUCCESS);
               break;
 
@@ -1923,7 +1935,7 @@ linkEdit (char **envp)
     char *c, *segName; \
     segName = Safe_strdup (N); \
     c = strtok (segName, " \t"); \
-    fprintf (lnkfile,"-b %s = 0x%04x\n", c, L); \
+    fprintf (lnkfile,"-a %s = 0x%04x\n", c, L); \
     if (segName) { Safe_free (segName); } \
   }
 
@@ -2100,11 +2112,11 @@ linkEdit (char **envp)
   if (port->linker.cmd)
     {
       /* shell_escape file names */
-      char *b3 = shell_escape (dbuf_c_str (&linkerScriptFileName));
+      char *lfn = shell_escape (dbuf_c_str (&linkerScriptFileName));
       char *bfn = shell_escape (dbuf_c_str (&binFileName));
 
-      buf = buildCmdLine (port->linker.cmd, b3, bfn, NULL, linkOptionsSet, linkOptionsSet2);
-      Safe_free (b3);
+      buf = buildCmdLine (port->linker.cmd, lfn, bfn, NULL, linkOptionsSet, linkOptionsSet2);
+      Safe_free (lfn);
       Safe_free (bfn);
     }
   else
@@ -2880,7 +2892,7 @@ main (int argc, char **argv, char **envp)
     {
       if (options.printSearchDirs)
         exit (EXIT_SUCCESS);
-      printUsage (TRUE);
+      printUsage (true);
       exit (EXIT_FAILURE);
     }
 
@@ -2896,12 +2908,14 @@ main (int argc, char **argv, char **envp)
   /* finalize common options */
   finalizeOptions ();
 
-  /* When a non-default calling convention is requested, the default stdlib and crt0 can't be used */
-  /* This is a warning, not an error, since some users like to compile their own stdlib, and use it in the stdlib location. */
+  /* When a non-default calling convention is requested, the default stdlib and
+     crt0 can't be used. This is a warning, not an error, since some users like
+     to compile their own stdlib, and use it in the stdlib location. */
   if (options.sdcccall != port->sdcccall &&
-  	(TARGET_IS_STM8 && !options.nostdlib ||
-  	TARGET_Z80_LIKE && (!options.nostdlib || !options.no_std_crt0)))
-  	werror (W_SDCCCALL_STD_LIB_CRT0);
+      (TARGET_IS_STM8 && !options.nostdlib ||
+       TARGET_Z80_LIKE && (!options.nostdlib ||
+       !options.no_std_crt0)))
+    werror (W_SDCCCALL_STD_LIB_CRT0);
 
   if (fullSrcFileName || options.c1mode)
     {
@@ -2924,7 +2938,7 @@ main (int argc, char **argv, char **envp)
 #endif
           preamble = fdopen (p[1], "w");
           wassert (preamble);
-          fprintf (preamble, port->c_preamble);
+          fprintf (preamble, "%s", port->c_preamble);
           fclose (preamble);
           yyin = fdopen (p[0], "r");
           wassert (yyin);
@@ -2963,7 +2977,8 @@ main (int argc, char **argv, char **envp)
               if (sym->level)
                 continue;
               // Check for arrays of unknown size that get size 1 due to an implicit initializer.
-              if (IS_ARRAY (sym->type) && !IS_EXTERN (sym->etype) && DCL_ARRAY_LENGTH_TYPE (sym->type) == ARRAY_LENGTH_UNKNOWN)
+              if (IS_ARRAY (sym->type) && !IS_EXTERN (sym->etype) &&
+                  DCL_ARRAY_LENGTH_TYPE (sym->type) == ARRAY_LENGTH_UNKNOWN)
                 {
                   wassert (!DCL_ELEM (sym->type));
                   werrorfl (sym->fileDef, sym->lineDef, W_INCOMPLETE_ARRAY_IMPLICIT_1, sym->name);
@@ -2986,7 +3001,7 @@ main (int argc, char **argv, char **envp)
       else
         {
           /* this shouldn't happen */
-          assert (FALSE);
+          assert (false);
           /* in case of NDEBUG */
           glue ();
         }

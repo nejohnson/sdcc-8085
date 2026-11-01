@@ -3311,6 +3311,17 @@ status open
 .
 \end_layout
 
+\begin_layout Itemize
+In 4.6.3,
+ the f8(l) assembler and simulator were switched to the new f8(l) opcode map.
+ Assembled code is binary-incompatible with previous versions.
+\end_layout
+
+\begin_layout Itemize
+In 4.6.4,
+ the linker uses -a (instead of previously-used -b) to specify an area base address.
+\end_layout
+
 \begin_layout Section
 System Requirements
 \end_layout
@@ -3476,7 +3487,7 @@ status collapsed
 
 \end_inset
 
--bindir see table below
+-bindir see table belowi
 \end_layout
 
 \begin_layout Labeling
@@ -7359,7 +7370,7 @@ SDCC can be built for various host platforms using the instructions provided bel
 \end_layout
 
 \begin_layout Subsection
-Building SDCC on Linux
+Building SDCC on Linux and BSD 
 \begin_inset CommandInset label
 LatexCommand label
 name "subsec:Building-SDCC-on-Linux"
@@ -7444,17 +7455,66 @@ Change directory into the main SDCC directory,
 Type
 \series default
  
-\family sans
-\series bold
-"./configure
-\family default
-\series default
-".
+\begin_inset Flex Code
+status open
+
+\begin_layout Plain Layout
+./configure
+\end_layout
+
+\end_inset
+
  This configures the package for compilation on your system.
- When the treedec library is available,
+\end_layout
+
+\begin_layout Itemize
+SDCC needs the boost libraries.
+ On typical GNU/Linux distributions,
+ they are in the search path,
+ on typical BSD they are not,
+ requiring e.g.
+ 
+\begin_inset Flex Code
+status open
+
+\begin_layout Plain Layout
+CXX="c++ -I/usr/local/include" CC=cc ./configure
+\end_layout
+
+\end_inset
+
+ instead.
+\end_layout
+
+\begin_layout Itemize
+The pic14 and pic16 ports require gputils.
+ If they are not available,
+ and PIC support is not needed,
+ you can instead use 
+\begin_inset Flex Code
+status open
+
+\begin_layout Plain Layout
+./configure –disable-pic14-port –disable-pic16-port
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+When the treedec library is available,
  it should be found and used automatically (improving the compilation time / code quality trade-off).
  As of SDCC 3.7.0,
  the current develop branch from https://github.com/freetdi/tdlib is a suitable version of treedec.
+\end_layout
+
+\begin_layout Itemize
+When the libu8ident library is available,
+ it should be found and used automatically (improving diagnostics and standard-compliance for non-ASCII characters in identifiers).
+ As of SDCC 4.6.0,
+ the 0.4 release from https://github.com/rurban/libu8ident is a suitable version of libu8ident.
 \end_layout
 
 \begin_layout Enumerate
@@ -7463,13 +7523,19 @@ Type
 Type
 \series default
  
-\family sans
-\series bold
-"make
-\family default
-\series default
-"
 \series medium
+
+\begin_inset Flex Code
+status open
+
+\begin_layout Plain Layout
+
+\series medium
+make
+\end_layout
+
+\end_inset
+
 .
 
 \series default
@@ -7483,11 +7549,15 @@ Type
 Type
 \series default
  
-\family sans
-\series bold
-"make install"
-\family default
-\series default
+\begin_inset Flex Code
+status open
+
+\begin_layout Plain Layout
+make install
+\end_layout
+
+\end_inset
+
  as root
 \series medium
 .
@@ -17570,6 +17640,17 @@ status collapsed
 
 \series default
  Disable specific warning with number <nnnn>.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\series bold
+--enable-warning <nnnn>
+\series default
+ Enable specific warning with number <nnnn>, including warnings disabled by default.
+ Later command-line options override earlier options for the same warning.
+ A source-file pragma can subsequently override the command-line setting.
 \end_layout
 
 \begin_layout Labeling
@@ -40330,6 +40411,16 @@ warning
 \begin_layout Itemize
 
 \series bold
+enable_warning
+\series default
+ <nnnn> - enable warning number <nnnn>, including warnings disabled by default.
+ For example, #pragma disable_warning 244 followed by #pragma enable_warning 244 re-enables diagnostics for incompatible pointer types.
+ As with disable_warning, this does not enable or suppress errors, and invalid warning numbers are ignored.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
 nogcse
 \series default
 
@@ -44336,10 +44427,9 @@ SiLabs C8051F120 example
 \end_inset
 
 Usually the hardware uses some sfr (an output port or an internal sfr) to select a bank and put it in the banked area of the memory map.
- The selected bank usually becomes active immediately upon assignment to this sfr and when running inside a bank it will switch out this code it is currently running.
- Therefor you cannot jump or call directly from one bank to another and need to use a so-called trampoline in the common area.
- For SDCC an example trampoline is in crtbank.asm and you may need to change it to your 8051 derivative or schematic.
- The presented code is written for the C8051F120.
+ The selected bank usually becomes active immediately upon assignment to this sfr and when running inside a bank it will switch out the code it is currently running.
+ Therefore it is not possible to jump or call directly from one bank to another and a so-called trampoline function in the common area is needed.
+ For SDCC an example trampoline for the C8051F120 is in crtbank.asm and you may need to change it to match your 8051 derivative or schematic.
 \begin_inset Newline newline
 \end_inset
 
@@ -44348,18 +44438,26 @@ Usually the hardware uses some sfr (an output port or an internal sfr) to select
 \end_inset
 
 When calling a banked function SDCC will put the LSB of the functions address in register R0,
- the MSB in R1 and the bank in R2 and then call this trampoline 
+ the MSB in R1,
+ the bank in R2 and then call the trampoline
 \emph on
-__sdcc_banked_call
+sdcc_banked_call
 \emph default
 .
- The current selected bank is saved on the stack,
- the new bank is selected and an indirect jump is made.
- When the banked function returns it jumps to 
+ The trampoline function should save the currently selected bank on the stack,
+ select the new bank and do an indirect jump to the target address.
+ When a banked function returns SDCC will emit a jump to
 \emph on
-__sdcc_banked_ret
+sdcc_banked_ret
 \emph default
- which restores the previous bank and returns to the caller.
+ which should restore the previous bank and return to the caller.
+ For regular jumps across banks
+\emph on
+ sdcc_banked_jump 
+\emph default
+ is used instead,
+ which is not supposed to save the currently selected bank but rather just switch to the new bank and do the jump.
+ Such jumps might be used for optimizing tail calls and no-return calls.
 \end_layout
 
 \begin_layout Subsubsection

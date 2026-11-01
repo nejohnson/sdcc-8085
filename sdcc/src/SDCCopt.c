@@ -266,7 +266,7 @@ prependCast (iCode *ic, operand *op, sym_link *type, eBBlock *ebb)
         IC_RIGHT (ic) = newop;
       return;
     }
-            
+
   iCode *newic = newiCode (CAST, operandFromLink (type), op);
   hTabAddItem (&iCodehTab, newic->key, newic);
 
@@ -819,7 +819,7 @@ convilong (iCode *ic, eBBlock *ebp)
       if ((op == '*' || op == '/' || op == '%') && port->hasNativeMulFor && port->hasNativeMulFor (ic, operandType (IC_LEFT (ic)), operandType (IC_RIGHT (ic)))) // Avoid introducing calls to non-existing support functions.
         return;
     }
-  
+
   symbol *func = NULL;
   iCode *ip = ic->next;
   iCode *newic;
@@ -925,7 +925,7 @@ convilong (iCode *ic, eBBlock *ebp)
                     lic->op = '=';
                   OP_SYMBOL (left)->type = newLongLink ();
                   SPEC_USIGN (OP_SYMBOL (left)->type) = 1;
-                }   
+                }
 
               if (!ric)
                 ic->right = operandFromValue (valCastLiteral (roptype, operandLitValue (right), operandLitValueUll (right)), false);
@@ -934,7 +934,7 @@ convilong (iCode *ic, eBBlock *ebp)
                   ric->op = '=';
                   OP_SYMBOL (right)->type = newCharLink ();
                   SPEC_USIGN (OP_SYMBOL (right)->type) = 1;
-                }    
+                }
 
               if (func) // Use support function
                 goto found;
@@ -974,7 +974,7 @@ convilong (iCode *ic, eBBlock *ebp)
                 {
                   lic->op = '=';
                   setOperandType (left, optype);
-                }          
+                }
 
               if (!ric)
                 ic->right = operandFromValue (valCastLiteral (optype, operandLitValue (right), operandLitValueUll (right)), false);
@@ -1233,6 +1233,28 @@ convbuiltin (iCode *const ic, eBBlock *ebp)
       goto convert;
     }
 
+#if 0
+  if ((TARGET_IS_MOS6502) && (!strcmp (bif->name, "__builtin_memset")))
+    {
+      /* Replace iff return value is used or last parameter is not an integer constant (except for memcpy, where non-integers can be handled). */
+      if (bitVectIsZero (OP_USES (IC_RESULT (icc))) && (IS_OP_LITERAL (IC_LEFT (lastparam))) && operandLitValue (IC_LEFT (lastparam)) < 256 )
+        return;
+
+      strcpy(OP_SYMBOL (IC_LEFT (icc))->rname, "_memset");
+  icc=ic;
+  while (icc->op != CALL)
+    {
+      if (icc->op == SEND)
+       icc->builtinSEND=0;
+      icc->generated=0;
+      icc = icc->next;
+    }
+ftype->funcAttrs.builtin=0;
+      return;
+      goto convert;
+    }
+#endif
+
   return;
 
 convert:
@@ -1374,7 +1396,7 @@ convertToFcall (eBBlock ** ebbs, int count)
           if (ic->op == '%' && isOperandLiteral (IC_RIGHT(ic)))
             {
               bool us = IS_UNSIGNED (operandType (IC_LEFT(ic)));
-              bool upcast = FALSE;
+              bool upcast = false;
               iCode *dic = NULL;
 
               // Chek if left really is just an upcasted unsigned value.
@@ -1648,7 +1670,7 @@ separateAddressSpaces (eBBlock **ebbs, int count)
           if (right && IS_SYMOP (right))
             rightaddrspace = getAddrspace (OP_SYMBOL (right)->type);
           if (result && IS_SYMOP (result))
-            { 
+            {
               if (POINTER_SET (ic))
                 {
                   assert (!(IS_DECL (OP_SYMBOL (result)->type) && DCL_PTR_ADDRSPACE (OP_SYMBOL (result)->type)));
@@ -1861,9 +1883,7 @@ replaceRegEqvOperand (iCode *ic, operand **opp, int force_isaddr, int new_isaddr
 
       nop = operandFromOperand (OP_REQV (op));
       nop->isConstEliminated = op->isConstEliminated;
-      nop->isRestrictEliminated = op->isRestrictEliminated;
       nop->isOptionalEliminated = op->isOptionalEliminated;
-      nop->isSemDeref = op->isSemDeref;
 
       /* Copy def/use info from true symbol to register equivalent */
       /* but only if this hasn't been done already. */
@@ -1910,7 +1930,7 @@ replaceRegEqv (ebbIndex *ebbi)
               if (ic->result && IS_AGGREGATE (operandType (ic->result)))
                 setOperandType (ic->result, aggrToPtr (operandType (ic->result), false));
             }
-          
+
           if (SKIP_IC2 (ic))
             continue;
 
@@ -1938,7 +1958,7 @@ replaceRegEqv (ebbIndex *ebbi)
   /* a defining iCode or not. Only replace a local variable     */
   /* with its register equivalent if there is a defining iCode; */
   /* otherwise, the port's register allocater may choke.        */
-  cseAllBlocks (ebbi, TRUE);
+  cseAllBlocks (ebbi, true);
 
   for (i = 0; i < count; i++)
     {
@@ -2007,8 +2027,8 @@ findReqv (symbol * prereqv, eBBlock ** ebbs, int count)
 static int
 killiCode (eBBlock **ebbs, int i, int count, iCode *ic)
 {
-  bool volLeft = IS_SYMOP (IC_LEFT (ic)) && isOperandVolatile (IC_LEFT (ic), FALSE);
-  bool volRight = IS_SYMOP (IC_RIGHT (ic))  && isOperandVolatile (IC_RIGHT (ic), FALSE);
+  bool volLeft = IS_SYMOP (IC_LEFT (ic)) && isOperandVolatile (IC_LEFT (ic), false);
+  bool volRight = IS_SYMOP (IC_RIGHT (ic))  && isOperandVolatile (IC_RIGHT (ic), false);
 
   // A dead address-of operation should die, even if taking the address of a volatile object.
   if (ic->op == ADDRESS_OF)
@@ -2150,7 +2170,7 @@ killDeadCode (ebbIndex *ebbi, bool cleanblocks)
               /* valid. */
 
               /* if the result is volatile then continue */
-              if (IC_RESULT (ic) && isOperandVolatile (IC_RESULT (ic), FALSE))
+              if (IC_RESULT (ic) && isOperandVolatile (IC_RESULT (ic), false))
                 continue;
 
               /* if the result is a temp & isaddr then skip */
@@ -2200,7 +2220,7 @@ killDeadCode (ebbIndex *ebbi, bool cleanblocks)
                   kill = true;
                 }
 
-            kill: // kill this one if required    
+            kill: // kill this one if required
               if (kill)
                 {
                   if (ic->op == CALL) // Also kill parameter passing iCodes
@@ -2258,25 +2278,6 @@ checkStaticArrayParams (ebbIndex *ebbi)
   for (int i = 0; i < count; i++)
     for (iCode *ic = ebbs[i]->sch; ic; ic = ic->next)
       {
-        if (ic->left && ic->left->isSemDeref)
-          {
-            const struct valinfo v = getOperandValinfo (ic, ic->left, false);
-            if ((v.anything || !v.nonnull) && ic->left->isSemDeref)
-              werrorfl (ic->filename, ic->lineno, W_OPTIONAL_PTR_DEREF);
-          }
-        if (ic->right && ic->right->isSemDeref)
-          {
-            const struct valinfo v = getOperandValinfo (ic, ic->right, false);
-            if ((v.anything || !v.nonnull) && ic->right->isSemDeref)
-              werrorfl (ic->filename, ic->lineno, W_OPTIONAL_PTR_DEREF);
-          }
-        if (ic->result && ic->result->isSemDeref)
-          {
-            const struct valinfo v = getOperandValinfo (ic, ic->right, false);
-            if ((v.anything || !v.nonnull) && ic->result->isSemDeref)
-              werrorfl (ic->filename, ic->lineno, W_OPTIONAL_PTR_DEREF);
-          }
-          
         if ((ic->op == IPUSH || ic->op == SEND) &&
           ic->right || // variable arguments lack type information (and so do some arguments to builtin functions).
           ic->op == '=' && IS_PARM (ic->result))
@@ -2328,7 +2329,7 @@ checkStaticArrayParams (ebbIndex *ebbi)
                       sym = AST_SYMBOL (ast);
                     else
                       continue;
-                    
+
                     // Find called function
                     iCode *cic;
                     for (cic = ic->next; cic && cic->op != CALL  && cic->op != PCALL; cic = cic->next);
@@ -2375,7 +2376,7 @@ checkStaticArrayParams (ebbIndex *ebbi)
                     long long pargv = (vi.anything || vi.min < 0 || vi.min > ULONG_MAX) ? 0 : vi.min;
                     pargv *= pscale;
                     pargv += poffset;
-                    if (pargv < 1) // Array size expression 
+                    if (pargv < 1) // Array size expression
                       pargv = 0;
                     paramsize = pargv * getSize (paramtype->next);
                   }
@@ -2399,9 +2400,6 @@ checkStaticArrayParams (ebbIndex *ebbi)
               werrorfl (ic->filename, ic->lineno, W_INVALID_PTR_DEREF);
             else if (!v.anything && roff + size > (long long)v.maybemaxsize)
               werrorfl (ic->filename, ic->lineno, W_MAYBE_INVALID_PTR_DEREF);
-            if ((v.anything || !v.nonnull) &&
-              (isOptional (operandType (ic->left)->next) && !ic->left->isOptionalEliminated || ic->left->isSemDeref))
-              werrorfl (ic->filename, ic->lineno, W_OPTIONAL_PTR_DEREF);
           }
         else if (POINTER_SET (ic))
           {
@@ -2411,27 +2409,38 @@ checkStaticArrayParams (ebbIndex *ebbi)
               werrorfl (ic->filename, ic->lineno, W_INVALID_PTR_DEREF);
             else if (!v.anything && size > (long long)v.maybemaxsize)
               werrorfl (ic->filename, ic->lineno, W_MAYBE_INVALID_PTR_DEREF);
-            if ((v.anything || !v.nonnull) &&
-              (isOptional(operandType (ic->result)->next) && !ic->result->isOptionalEliminated || ic->result->isSemDeref))
-              werrorfl (ic->filename, ic->lineno, W_OPTIONAL_PTR_DEREF);
           }
-        else if (ic->op == '<' || ic->op == '>' || ic->op == LE_OP || ic->op == GE_OP)
+        else if (ic->op == POINTER_NONNULL_CHECK)
           {
-            bool left_optional_maybenull = false;
-            bool right_optional_maybenull = false;
-            if (IS_PTR (operandType (ic->left)) && isOptional (operandType (ic->left)->next) && !ic->left->isOptionalEliminated)
-              left_optional_maybenull = !getOperandValinfo (ic, ic->left, false).nonnull;
-            if (IS_PTR (operandType (ic->right)) && isOptional (operandType (ic->right)->next) && !ic->right->isOptionalEliminated)
-              right_optional_maybenull = !getOperandValinfo (ic, ic->right, false).nonnull;
-            if (left_optional_maybenull || right_optional_maybenull)
-              werrorfl (ic->filename, ic->lineno, W_OPTIONAL_RELATIONAL);
+            if (ic->left && !getOperandValinfo (ic, ic->left, false).nonnull ||
+                ic->right && !getOperandValinfo (ic, ic->right, false).nonnull)
+              werrorfl (ic->filename, ic->lineno,
+                        ic->pointerCheck == POINTER_ARITHMETIC ?
+                          W_OPTIONAL_ARITHMETIC :
+                        ic->pointerCheck == POINTER_RELATIONAL ?
+                          W_OPTIONAL_RELATIONAL : W_OPTIONAL_PTR_DEREF);
           }
-        else if (ic->op == '+' || ic->op == '-')
-          if (IS_PTR (operandType (ic->left)) && isOptional (operandType (ic->left)->next) && !ic->left->isOptionalEliminated && !getOperandValinfo (ic, ic->left, false).nonnull)
-            werrorfl (ic->filename, ic->lineno, W_OPTIONAL_ARITHMETIC);
-          else if (IS_PTR (operandType (ic->right)) && isOptional (operandType (ic->right)->next) && !ic->left->isOptionalEliminated && !getOperandValinfo (ic, ic->right, false).nonnull)
-            werrorfl (ic->filename, ic->lineno, W_OPTIONAL_ARITHMETIC);
       }
+}
+
+/* Remove diagnostic uses before optimisations for code generation. */
+static bool
+removePointerChecks (ebbIndex *ebbi)
+{
+  bool removed = false;
+  for (int i = 0; i < ebbi->count; ++i)
+    for (iCode *ic = ebbi->bbOrder[i]->sch; ic; )
+      {
+        iCode *next = ic->next;
+        if (ic->op == POINTER_NONNULL_CHECK)
+          {
+            unsetDefsAndUses (ic);
+            remiCodeFromeBBlock (ebbi->bbOrder[i], ic);
+            removed = true;
+          }
+        ic = next;
+      }
+  return removed;
 }
 
 /*-----------------------------------------------------------------*/
@@ -3205,12 +3214,12 @@ optimizeFinalCast (ebbIndex *ebbi)
             continue;
 
           // Not all backends can handle multiple global operands in all operations well.
-          if (IS_OP_GLOBAL (uic->result) && IS_OP_GLOBAL (ic->right) && 
+          if (IS_OP_GLOBAL (uic->result) && IS_OP_GLOBAL (ic->right) &&
             !TARGET_Z80_LIKE && !TARGET_IS_STM8 && !TARGET_F8_LIKE)
             continue;
 
           if (ic->op == CAST)
-            {    
+            {
               sym_link *type1 = operandType (ic->right);
               sym_link *type2 = operandType (ic->left);
 
@@ -3221,10 +3230,14 @@ optimizeFinalCast (ebbIndex *ebbi)
                 sclsFromPtr (type1) == sclsFromPtr (type2) &&
                 getAddrspace (type1) == getAddrspace (type2))
                 ;
-             else 
+             else
                 continue;
 
              if (!IS_PTR (type1) || IS_BITFIELD(type1->next) || !IS_PTR (type2) || IS_BITFIELD(type2->next))
+               continue;
+
+             /* The access must retain the volatility specified by the cast. */
+             if (isVolatile (type1->next) != isVolatile (type2->next))
                continue;
             }
 
@@ -3319,7 +3332,7 @@ optimizeNegation (eBBlock **ebbs, int count)
                   bitVectUnSetBit (OP_USES (uic->left), uic->key);
                   uic->left = ic->left;
                   bitVectSetBit (OP_USES (uic->left), uic->key);
-                  
+
                   // Make ic assignment to self, which will be optimized out.
                   bitVectUnSetBit (OP_USES (ic->left), ic->key);
                   ic->left = 0;
@@ -3515,11 +3528,11 @@ void guessCounts (iCode *start_ic, ebbIndex *ebbi)
   for (ic = start_ic; ic; ic = ic->next)
     ic->count = 0;
   start_ic->pcount = 1.0f;
-  needprop = TRUE;
+  needprop = true;
 
   for(i = 0; needprop && i < 24; i++) // 24 is an arbitrary limit to reduce runtime at the cost of accuracy.
     {
-      needprop = FALSE;
+      needprop = false;
       for (ic = start_ic; ic; ic = ic->next)
         {
           if(ic->pcount <= 0.01) // 0.01 is an arbitrary limit to reduce runtime at the cost of accuracy.
@@ -3531,7 +3544,7 @@ void guessCounts (iCode *start_ic, ebbIndex *ebbi)
             {
               iCode *target = hTabItemWithKey (labelDef, IC_LABEL (ic)->key);
               target->pcount += ic->pcount;
-              needprop = TRUE;
+              needprop = true;
             }
           else if(ic->op == IFX) // Use a classic, simple branch prediction. Works well for typical loops.
             {
@@ -3548,7 +3561,7 @@ void guessCounts (iCode *start_ic, ebbIndex *ebbi)
                   if(ic->next)
                     ic->next->pcount += ic->pcount / 4;
                 }
-              needprop = TRUE;
+              needprop = true;
             }
           else if(ic->op == JUMPTABLE)
             {
@@ -3560,7 +3573,7 @@ void guessCounts (iCode *start_ic, ebbIndex *ebbi)
                   iCode *target = hTabItemWithKey (labelDef, label->key);
                   target->pcount += ic->pcount / n;
                 }
-              needprop = TRUE;
+              needprop = true;
             }
             else if(ic->op == CALL && IS_SYMOP (IC_LEFT (ic)) && IFFUNC_ISNORETURN (OP_SYMBOL (IC_LEFT (ic))->type))
               ;
@@ -3731,7 +3744,6 @@ checkPurity (const iCode *ic)
 
   if (currFunc)
     {
-      currFunc->funcUsesVolatile = uses_volatile;
       currFunc->funcPure = pure;
     }
 }
@@ -3744,29 +3756,32 @@ checkPurity (const iCode *ic)
 static void
 fixParamPassing (iCode *ic)
 {
-  bool change = false;
+  bool change;
   do
-    for (iCode *pic = ic; pic; pic = pic->next)
-      {
-        if (pic->op == CALL || pic->op == PCALL ||
-          pic->op == SEND || pic->op == IPUSH && pic->parmPush || pic->op == IPUSH_VALUE_AT_ADDRESS) 
-          continue;
-        if (!isiCodeInFunctionCall (pic))
-          continue;
-        if (!pic->prev || !(pic->prev->op == CALL || pic->prev->op == PCALL ||
-          pic->prev->op == SEND || pic->prev->op == IPUSH && pic->prev->parmPush || pic->prev->op == IPUSH_VALUE_AT_ADDRESS)) 
-          continue;
+    {
+      change = false;
+      for (iCode *pic = ic; pic; pic = pic->next)
+        {
+          if (pic->op == CALL || pic->op == PCALL || pic->op == SEND ||
+              pic->op == IPUSH && pic->parmPush || pic->op == IPUSH_VALUE_AT_ADDRESS)
+            continue;
+          if (!isiCodeInFunctionCall (pic))
+            continue;
+          if (!pic->prev || !(pic->prev->op == CALL || pic->prev->op == PCALL || pic->prev->op == SEND ||
+              pic->prev->op == IPUSH && pic->prev->parmPush || pic->prev->op == IPUSH_VALUE_AT_ADDRESS))
+            continue;
 
-        // Found some iCode directly after a parameter passing iCodes. swap them.
-        pic->prev->next = pic->next;
-        pic->next->prev = pic->prev;
-        pic->next = pic->prev;
-        pic->prev = pic->prev->prev;
-        pic->prev->next = pic;
-        pic->next->prev = pic;
-        change = true;
-      }
-  while (change--);
+          // Found some iCode directly after a parameter passing iCodes. swap them.
+          pic->prev->next = pic->next;
+          pic->next->prev = pic->prev;
+          pic->next = pic->prev;
+          pic->prev = pic->prev->prev;
+          pic->prev->next = pic;
+          pic->next->prev = pic;
+          change = true;
+        }
+    }
+  while (change);
 }
 
 /*-----------------------------------------------------------------*/
@@ -3836,7 +3851,7 @@ eBBlockFromiCode (iCode *ic)
   killDeadCode (ebbi, false);
 
   /* do common subexpression elimination for each block */
-  change = cseAllBlocks (ebbi, FALSE);
+  change = cseAllBlocks (ebbi, false);
 
   /* dumpraw if asked for */
   if (options.dump_i_code)
@@ -3854,14 +3869,14 @@ eBBlockFromiCode (iCode *ic)
   /* global common subexpression elimination  */
   if (optimize.global_cse)
     {
-      change += cseAllBlocks (ebbi, FALSE);
+      change += cseAllBlocks (ebbi, false);
       if (options.dump_i_code)
         dumpEbbsToFileExt (DUMP_GCSE, ebbi);
     }
   else
     {
       // compute the dataflow only
-      assert(cseAllBlocks (ebbi, TRUE)==0);
+      assert(cseAllBlocks (ebbi, true)==0);
     }
 
   /* kill dead code */
@@ -3891,6 +3906,12 @@ eBBlockFromiCode (iCode *ic)
       checkStaticArrayParams (ebbi);
     }
 
+  if (removePointerChecks (ebbi))
+    {
+      computeDataFlow (ebbi);
+      kchange += killDeadCode (ebbi, false);
+    }
+
   /* do loop optimizations */
   change += (lchange = loopOptimizations (loops, ebbi));
   if (options.dump_i_code)
@@ -3906,7 +3927,7 @@ eBBlockFromiCode (iCode *ic)
   if (lchange || kchange)
     {
       computeDataFlow (ebbi);
-      change += cseAllBlocks (ebbi, FALSE);
+      change += cseAllBlocks (ebbi, false);
       if (options.dump_i_code)
         dumpEbbsToFileExt (DUMP_LOOPG, ebbi);
 

@@ -1,12 +1,13 @@
 /*-------------------------------------------------------------------------
   gen.c - source file for code generation for the 68HC08
 
-  Copyright (C) 1998, Sandeep Dutta . sandeep.dutta@usa.net
-  Copyright (C) 1999, Jean-Louis VERN.jlvern@writeme.com
+  Copyright (c) 1998, Sandeep Dutta . sandeep.dutta@usa.net
+  Copyright (c) 1999, Jean-Louis VERN.jlvern@writeme.com
   Bug Fixes - Wojciech Stryjewski  wstryj1@tiger.lsu.edu (1999 v2.1.9a)
   Hacked for the 68HC08:
-  Copyright (C) 2003, Erik Petrich
+  Copyright (c) 2003, Erik Petrich
   Copyright (c) 2023, Philipp Klaus Krause philipp@colecovision.eu
+  Copyright (c) 2026, Gabriele Gorla
 
   This program is free software; you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by the
@@ -1454,9 +1455,13 @@ storeConstToAop (int c, asmop * aop, int loffset)
     }
 }
 
-/*--------------------------------------------------------------------------*/
-/* storeImmToAop- Store immediate value c to logical offset loffset of asmop aop.*/
-/*--------------------------------------------------------------------------*/
+/**************************************************************************
+ * Store immediate value to asmop
+ *
+ * @param c pointer to the immediate value
+ * @param aop pointer to the asmop
+ * @param loffset asmop offset
+ *************************************************************************/
 static void
 storeImmToAop (char *c, asmop * aop, int loffset)
 {
@@ -2703,7 +2708,6 @@ aopDerefAop (asmop * aop, int offset)
   DD (emitcode ("", ";     aopDerefAop(%s)", aopName (aop)));
   if (aop->op)
     {
-
       type = operandType (aop->op);
       etype = getSpec (type);
       /* if op is of type of pointer then it is simple */
@@ -2868,6 +2872,9 @@ aopAdrStr (asmop * aop, int loffset, bool bit16)
     case AOP_DUMMY:
       return zero;
 
+    case AOP_REG:
+      return aop->aopu.aop_reg[loffset]->name;
+
     case AOP_IMMD:
       if (loffset)
         {
@@ -2878,9 +2885,16 @@ aopAdrStr (asmop * aop, int loffset, bool bit16)
         }
       else
         sprintf (s, "#%s", aop->aopu.aop_immd);
+
       rs = Safe_calloc (1, strlen (s) + 1);
       strcpy (rs, s);
       return rs;
+
+    case AOP_LIT:
+      if (bit16)
+        return aopLiteralLong (aop->aopu.aop_lit, loffset, 2);
+      else
+        return aopLiteral (aop->aopu.aop_lit, loffset);
 
     case AOP_DIR:
       if (regalloc_dry_run)
@@ -2903,15 +2917,6 @@ aopAdrStr (asmop * aop, int loffset, bool bit16)
       rs = Safe_calloc (1, strlen (s) + 1);
       strcpy (rs, s);
       return rs;
-
-    case AOP_REG:
-      return aop->aopu.aop_reg[loffset]->name;
-
-    case AOP_LIT:
-      if (bit16)
-        return aopLiteralLong (aop->aopu.aop_lit, loffset, 2);
-      else
-        return aopLiteral (aop->aopu.aop_lit, loffset);
 
     case AOP_SOF:
       if (!regalloc_dry_run && hc08_reg_hx->aop == &tsxaop)
@@ -4028,7 +4033,7 @@ genCall (iCode * ic)
 
   dtype = operandType (IC_LEFT (ic));
   etype = getSpec (dtype);
-  const bool bigreturn = IS_STRUCT (dtype->next);
+  const bool bigreturn = (getSize (dtype->next) > 8 );
 
   /* if send set is not empty then assign */
   if (_G.sendSet && !regalloc_dry_run)
@@ -4183,9 +4188,7 @@ genPcall (iCode * ic)
 
   /* adjust the stack for parameters if required */
   if (ic->parmBytes)
-    {
-      pullNull (ic->parmBytes);
-    }
+    pullNull (ic->parmBytes);
 
   /* if we had saved some registers then unsave them */
   if (ic->regsSaved && !IFFUNC_CALLEESAVES (dtype))
@@ -4198,12 +4201,14 @@ genPcall (iCode * ic)
 static int
 resultRemat (iCode * ic)
 {
+  operand *result = IC_RESULT (ic);
+
   if (SKIP_IC (ic) || ic->op == IFX)
     return 0;
 
-  if (IC_RESULT (ic) && IS_ITEMP (IC_RESULT (ic)))
+  if (result && IS_ITEMP (result))
     {
-      symbol *sym = OP_SYMBOL (IC_RESULT (ic));
+      symbol *sym = OP_SYMBOL (result);
       if (sym->remat && !POINTER_SET (ic))
         return 1;
     }
@@ -4454,6 +4459,8 @@ genEndFunction (iCode * ic)
 static void
 genRet (iCode * ic)
 {
+  operand *left   = IC_LEFT (ic);
+
   int size, offset = 0;
 //  int pushed = 0;
   bool delayed_x = false;
@@ -4462,14 +4469,14 @@ genRet (iCode * ic)
 
   /* if we have no return value then
      just generate the "ret" */
-  if (!IC_LEFT (ic))
+  if (!left)
     goto jumpret;
 
   /* we have something to return then
      move the return value into place */
   aopOp (IC_LEFT (ic), ic, false);
-  size = AOP_SIZE (IC_LEFT (ic));
-  const bool bigreturn = IS_STRUCT (operandType (IC_LEFT (ic)));
+  size = AOP_SIZE (left);
+  const bool bigreturn = (size>8);
 
   if (bigreturn) // todo: implement!
     {
@@ -4478,22 +4485,20 @@ genRet (iCode * ic)
       goto jumpret;
     }
 
-  if (AOP_TYPE (IC_LEFT (ic)) == AOP_LIT)
+  if (AOP_TYPE (left) == AOP_LIT)
     {
       /* If returning a literal, we can load the bytes of the return value */
       /* in any order. By loading A and X first, any other bytes that match */
       /* can use the shorter sta and stx instructions. */
-      offset = 0;
-      while (size--)
+      for(offset=0; offset<size; offset++)
         {
-          transferAopAop (AOP (IC_LEFT (ic)), offset, hc08_aop_pass[offset], 0);
-          offset++;
+          transferAopAop (AOP (left), offset, hc08_aop_pass[offset], 0);
         }
     }
   else
     {
       /* Take care when swapping a and x */
-      if (AOP_TYPE (IC_LEFT (ic)) == AOP_REG && size > 1 && AOP (IC_LEFT (ic))->aopu.aop_reg[0]->rIdx == X_IDX)
+      if (AOP_TYPE (left) == AOP_REG && size > 1 && AOP (left)->aopu.aop_reg[0]->rIdx == X_IDX)
         {
           delayed_x = true;
           pushReg (hc08_reg_x, true);
@@ -4503,7 +4508,7 @@ genRet (iCode * ic)
       while (size--)
         {
           if (!(delayed_x && !offset))
-            transferAopAop (AOP (IC_LEFT (ic)), offset, hc08_aop_pass[offset], 0);
+            transferAopAop (AOP (left), offset, hc08_aop_pass[offset], 0);
           offset--;
         }
 
@@ -4511,7 +4516,7 @@ genRet (iCode * ic)
         pullReg (hc08_reg_a);
     }
 
-  freeAsmop (IC_LEFT (ic), NULL, ic, true);
+  freeAsmop (left, NULL, ic, true);
 
 jumpret:
   /* generate a jump to the return label

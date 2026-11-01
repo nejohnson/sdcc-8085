@@ -80,7 +80,17 @@ create_cfg_genconstprop (cfg_t &cfg, iCode *start_ic, ebbIndex *ebbi)
   // Get control flow graph from sdcc.
   for (ic = start_ic; ic; ic = ic->next)
     {
-      if (ic->op != GOTO && ic->op != RETURN && ic->op != JUMPTABLE && ic->next)
+      // A _Noreturn call cannot fall through to the next instruction.
+      // Otherwise a rejected null path can rejoin the non-null path.
+      bool noreturn_call = false;
+      if (ic->op == CALL || ic->op == PCALL)
+        {
+          sym_link *type = operandType (IC_LEFT (ic));
+          if (IS_FUNCPTR (type))
+            type = type->next;
+          noreturn_call = type && FUNC_ISNORETURN (type);
+        }
+      if (!noreturn_call && ic->op != GOTO && ic->op != RETURN && ic->op != JUMPTABLE && ic->next)
         boost::add_edge(key_to_index[ic->key], key_to_index[ic->next->key], cfg);
 
       if (ic->op == GOTO)
@@ -432,6 +442,20 @@ valinfoUpdate (struct valinfo *v)
    }
 }
 
+// Adjust the remaining object size after adding a byte offset to a pointer.
+// Saturate rather than wrap: an unknown ds390 generic pointer can have a
+// ULONG_MAX bound on a 32-bit host, and a negative offset increases it.
+static unsigned long
+valinfoSizeOffset (unsigned long size, long long offset)
+{
+  if (offset >= 0)
+    return ((unsigned long long)offset >= size ? 0 : size - offset);
+
+  // Avoid negating LLONG_MIN, and compare before narrowing to unsigned long.
+  unsigned long long increase = (unsigned long long)(-(offset + 1)) + 1;
+  return (increase > ULONG_MAX - size ? ULONG_MAX : size + increase);
+}
+
 static void
 valinfoPlus (struct valinfo *result, sym_link *resulttype, const struct valinfo &left, const struct valinfo &right)
 {
@@ -465,22 +489,10 @@ valinfoPlus (struct valinfo *result, sym_link *resulttype, const struct valinfo 
           result->knownbits = result->knownbits & ~0x8000ull | left.knownbits & 0x8000ull;
         }
       result->nonnull |= left.nonnull;
-      if ((long long)(left.minsize) >= right.max)
-        result->minsize = (long long)(left.minsize) - right.max;
-      else
-        result->minsize = 0;
-      if ((long long)(left.maxsize) >= right.min)
-        result->maxsize = (long long)(left.maxsize) - right.min;
-      else
-        result->maxsize = 0;
-      if ((long long)(left.maybeminsize) >= right.max)
-        result->maybeminsize = (long long)(left.maybeminsize) - right.max;
-      else
-        result->maybeminsize = 0;
-      if ((long long)(left.maybemaxsize) >= right.min)
-        result->maybemaxsize = (long long)(left.maybemaxsize) - right.min;
-      else
-        result->maybemaxsize = 0;
+      result->minsize = valinfoSizeOffset (left.minsize, right.max);
+      result->maxsize = valinfoSizeOffset (left.maxsize, right.min);
+      result->maybeminsize = valinfoSizeOffset (left.maybeminsize, right.max);
+      result->maybemaxsize = valinfoSizeOffset (left.maybemaxsize, right.min);
     }
   if (!left.anything && !right.anything &&
     left.min >= 0 && right.min >= 0)
