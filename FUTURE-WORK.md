@@ -10,26 +10,27 @@ Ordered by size, not priority.
 ---
 
 
-## stm8 on vendor asst8 and aslink (2026-10-17)
+## stm8 on vendor asst8 and aslink (2026-10-17) - FIXED 2026-11-02
 
-stm8 and stm8-large run at 2 failures each (tst_bug-3803 and
-tst_p99-conformance), identical to the sdas baseline in bytes and
-ticks.  `--out-fmt-elf --debug` works with the vendor tools (LEB128,
-NOLOAD, ELF output from aslink), and the start-up code is in a crt0.
+stm8 and stm8-large ran at 2 failures each, tst_bug-3803 and
+tst_p99-conformance.  bug-3803 was a front-end fault on every port: a
+struct rvalue through a pointer was loaded as a whole object into an
+iTemp that the rest of the compiler takes to hold an address.
+geniCodeDerefPtr now yields the address, and a struct return goes via a
+variable.  p99-conformance runs with SKIP_UNIVERSAL on the ASxxxx ports.
+All five ports at 0 failures.  `--out-fmt-elf --debug` works with the
+vendor tools (LEB128, NOLOAD, ELF output from aslink), and the start-up
+code is in a crt0.
 
 ---
 
-## Calling a no-prototype function with an argument (2026-10-09)
+## Calling a no-prototype function with an argument (2026-10-09) - FIXED 2026-11-02
 
-`processParms` (`src/SDCCast.c`) used to `wassertl` whenever a function
-without a prototype was called with an argument, outside a variadic
-call: every port crashed there (on i8085, `exit(0)` without
-`<stdlib.h>`).  It is now error 369, `E_NOPROTO_PARM_UNSUPPORTED`, so
-the crash is a clean diagnostic.
-
-Still open: the feature itself, "build a temporary function type that
-can be used for processFunc", per the original TODO, so that such a
-call compiles.  That is shared front-end design work, not attempted.
+decorateType makes a function type from the promoted arguments and calls
+through it (`noPrototypeCallType` in `src/SDCCast.c`); test
+`noproto-call.c`.  Error 379, `E_NOPROTO_PARM_UNSUPPORTED`, remains only
+for a non-reentrant callee on a port without `--stack-auto`, where the
+arguments would need the callee's parameter variables.
 
 ---
 

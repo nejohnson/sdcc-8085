@@ -207,6 +207,7 @@ sym_link *typeofOp (ast *tree);
 ast *offsetofOp (sym_link * type, ast * snd);
 value *evalStmnt (ast *);
 ast *replaceAstWithTemporary (ast ** treeptr);
+ast *structReturnTemporary (ast **treeptr, sym_link *type);
 ast *createRMW (ast *, unsigned, ast *);
 symbol * createFunctionDecl (symbol *);
 ast *createFunction (symbol *, ast *);
