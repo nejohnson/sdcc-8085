@@ -1554,7 +1554,12 @@ function_declarator
        // Up to C17, this was a function declarator without a prototype.
        if (!options.std_c23)
          {
-           FUNC_NOPROTOTYPE($1->type) = true;
+           // The function link just added follows any pointer to it.
+           sym_link *funcType = $1->type;
+           for (sym_link *t = $1->type; t; t = t->next)
+             if (IS_FUNC (t))
+               funcType = t;
+           FUNC_NOPROTOTYPE(funcType) = true;
            if (!options.lessPedantic)
              werror (W_FUNCDECL_WITH_NO_PROTOTYPE);
          }

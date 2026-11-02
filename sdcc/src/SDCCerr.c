@@ -822,7 +822,7 @@ struct
   {E_SUBSCRIPT_INCOMPLETE_TYPE, ERROR_LEVEL_ERROR,
      "[] applied to a pointer to an incomplete type", 0},
   { E_NOPROTO_PARM_UNSUPPORTED, ERROR_LEVEL_ERROR,
-     "call to '%s', which has no prototype, with an argument: not yet supported by this front end", 0},
+     "call with an argument to '%s', which has no prototype and is not reentrant", 0},
 };
 
 /* -------------------------------------------------------------------------------

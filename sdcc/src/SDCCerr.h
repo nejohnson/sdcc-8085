@@ -407,7 +407,7 @@ enum {
   E_SFR_BANKED_UNSUPPORTED     = 376, // __banked __sfr (16-bit I/O) not supported on this target (8-bit I/O space only)
   E_SIZEOF_FUNCTION            = 377, // sizeof applied to a function type
   E_SUBSCRIPT_INCOMPLETE_TYPE  = 378, // [] applied to a pointer to an incomplete type
-  E_NOPROTO_PARM_UNSUPPORTED   = 379, // an argument to a function called without a prototype needs register/stack assignment this front end does not yet do
+  E_NOPROTO_PARM_UNSUPPORTED   = 379, // an argument to a non-reentrant function called without a prototype has no parameter variable to go to
 
   // If you get a merge conflict here, some #pragma disable_warning in support/valdiag and support/regression will likely need to be adapted to the resolution. Check there!
 

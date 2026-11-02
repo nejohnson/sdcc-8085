@@ -1123,19 +1123,17 @@ processParms (ast * func, value * defParm, ast ** actParm, int *parmNumber,     
 
   if (FUNC_NOPROTOTYPE (functype))
     {
-      /* Calling a function with no prototype, with at least one
-         argument, that isn't itself a varargs call (that case already
-         returned at line ~1210 above): deciding which of this
-         argument's bytes go through registers vs. the stack needs a
-         defined parameter to consult, same as a real prototype would
-         give us, and nothing synthesizes one for this case yet.
-         Every target hit this unconditionally - it was a crash with
-         better manners than a wrong answer, but still a crash. Say so
-         instead. Todo: implement this - build a temporary function
-         type that can be used for processFunc, which then can be used
-         here. */
-      werror (E_NOPROTO_PARM_UNSUPPORTED, IS_AST_SYM_VALUE (func) ? AST_SYMBOL (func)->name : "");
-      return 1;
+      /* The arguments of a call without a prototype are promoted above.
+         The CALL case then gives the call a function type with the
+         promoted types as parameters.  A non-reentrant function takes
+         its arguments in its own parameter variables, which such a type
+         does not have. */
+      if (!options.stackAuto && !IFFUNC_ISREENT (functype))
+        {
+          werror (E_NOPROTO_PARM_UNSUPPORTED, IS_AST_SYM_VALUE (func) ? AST_SYMBOL (func)->name : "");
+          return 1;
+        }
+      return 0;
     }
 
   /* if defined parameters ended but actual has not & */
@@ -1208,6 +1206,61 @@ processParms (ast * func, value * defParm, ast ** actParm, int *parmNumber,     
 
   (*parmNumber)++;
   return 0;
+}
+
+/*-----------------------------------------------------------------*/
+/* noPrototypeCallType - the function type for a call with         */
+/*   arguments to a function without a prototype: functype, with   */
+/*   the types of the (promoted) arguments as its parameters, and  */
+/*   the parameters assigned to registers or the stack as in a     */
+/*   call through a prototype.                                     */
+/*-----------------------------------------------------------------*/
+static sym_link *
+noPrototypeCallType (sym_link *functype, ast *parms)
+{
+  sym_link *type = copyLinkChain (functype);
+  value *args = NULL;
+  value **tail = &args;
+
+  while (parms)
+    {
+      ast *arg = parms;
+
+      if (IS_AST_PARAM (parms))
+        {
+          arg = parms->left;
+          parms = parms->right;
+        }
+      else
+        parms = NULL;
+      if (!arg)
+        continue;
+
+      value *val = newValue ();
+      val->type = copyLinkChain (arg->ftype);
+      val->etype = getSpec (val->type);
+      if (IS_SPEC (val->type))
+        {
+          SPEC_SCLS (val->type) = S_AUTO;
+          SPEC_OCLS (val->type) = NULL;
+          SPEC_CONST (val->type) = false;
+          SPEC_VOLATILE (val->type) = false;
+        }
+      else
+        {
+          DCL_PTR_CONST (val->type) = false;
+          DCL_PTR_VOLATILE (val->type) = false;
+        }
+      SPEC_REGPARM (val->etype) = 0;
+      SPEC_ARGREG (val->etype) = 0;
+      *tail = val;
+      tail = &val->next;
+    }
+
+  FUNC_ARGS (type) = args;
+  FUNC_NOPROTOTYPE (type) = false;
+  processFuncPtr (type);
+  return type;
 }
 
 /*-----------------------------------------------------------------*/
@@ -6538,6 +6591,41 @@ decorateType (ast *tree, RESULT_TYPE resultType, bool reduceTypeAllowed)
 
           if (processParms (tree->left, FUNC_ARGS (functype), &tree->right, &parmNumber, true))
             goto errorTreeReturn;
+
+          /* A call with arguments to a function without a prototype goes
+             through a function type made from the arguments: a copy of
+             the function's symbol, or a cast of the function pointer. */
+          if (IFFUNC_NOPROTOTYPE (functype) && tree->right)
+            {
+              functype = noPrototypeCallType (functype, tree->right);
+              if (IS_AST_SYM_VALUE (tree->left) && IS_FUNC (LTYPE (tree)))
+                {
+                  symbol *callee = copySymbol (AST_SYMBOL (tree->left));
+
+                  callee->type = functype;
+                  callee->etype = getSpec (functype);
+                  tree->left = newAst_VALUE (symbolVal (callee));
+                  tree->left->ftype = callee->type;
+                  tree->left->etype = callee->etype;
+                  tree->left->decorated = 1;
+                }
+              else if (IS_FUNCPTR (LTYPE (tree)))
+                {
+                  sym_link *ptr = copyLinkChain (LTYPE (tree));
+
+                  ptr->next = functype;
+                  tree->left = decorateType (newNode (CAST, newAst_LINK (ptr), tree->left), RESULT_TYPE_NONE, true);
+                }
+              else
+                {
+                  werrorfl (tree->filename, tree->lineno, E_NOPROTO_PARM_UNSUPPORTED, "");
+                  goto errorTreeReturn;
+                }
+              setAstFileLine (tree->left, tree->filename, tree->lineno);
+              parmNumber = 1;
+              if (processParms (tree->left, FUNC_ARGS (functype), &tree->right, &parmNumber, true))
+                goto errorTreeReturn;
+            }
 
           if (!optimize.noStdLibCall)
             optStdLibCall (tree, resultType);
