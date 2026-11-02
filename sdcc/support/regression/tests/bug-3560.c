@@ -5,7 +5,6 @@
 #include <testfwk.h>
 
 #pragma disable_warning 85
-#pragma disable_warning 196 /* next is deliberately volatile to defeat the over-eager loop optimization this test reproduces; passing &next to possible()'s non-volatile parameter is intentional */
 
 #include <stdint.h>
 
@@ -22,7 +21,7 @@ void depl(uint16_t touche, uint8_t* end_piece)
 	Control_1 = (key >> 1);
 }
 
-uint8_t possible (uint8_t * pce)
+uint8_t possible (volatile uint8_t * pce)
 {
 	return key;
 }

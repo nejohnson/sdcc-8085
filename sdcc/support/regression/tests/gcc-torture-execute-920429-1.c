@@ -3,8 +3,12 @@
  */
 
 #include <testfwk.h>
+
+#ifdef __SDCC
+/* The original GCC test initialises an unsigned-byte pointer from a literal. */
+#pragma disable_warning 244
+#endif
 #pragma disable_warning 196
-#pragma disable_warning 244 /* p0="ab" - const char* string literal vs const t* (unsigned char*) - upstream torture test code, preserved as-is */
 
 #ifdef __SDCC
 #pragma std_c99

@@ -2474,7 +2474,7 @@ skip_byte:
         }
 
       // No byte can be assigned safely (i.e. the assignment is a permutation).
-      int j;
+      int j = 0; // fix gcc warning about uninitialized variable
       // Try swapping with xl (4B for swap).
       for (i = 0; i < n; i++)
         {
@@ -3383,7 +3383,7 @@ genSub (const iCode *ic, asmop *result_aop, asmop *left_aop, asmop *right_aop)
         }
       else if (i + 1 < size && !maskedword && y_free2 && right_aop->regs[YL_IDX] < i && right_aop->regs[YH_IDX] < i && // Efficient ldw makes using y worth it for f8l, despite no 16-bit arithmetic instructions.
          (aopInReg (result_aop, i, Y_IDX) || result_aop->type == AOP_DIR || aopOnStack (result_aop, i, 2)) && (aopInReg (left_aop, i, Y_IDX) || left_aop->type == AOP_DIR || aopOnStack (left_aop, i, 2)) &&
-         aopAre8_2 (ASMOP_Y, 0, right_aop, i) && aopAre8_2 (ASMOP_Y, 1, right_aop, i + 1))
+         aopAre8_2 (ASMOP_Y, 0, right_aop, i) && aopAre8_2 (ASMOP_Y, 1, right_aop, i + 1) && !(IS_F8L && (aopInReg(right_aop, i, XL_IDX) || aopInReg(right_aop, i + 1, XL_IDX))))
          {
            genMove_o (ASMOP_Y, 0, left_aop, i, 2, xl_free2 && right_aop->regs[XL_IDX] < i, false, true, false, !started);
            emit3sub_o (started ? A_SBC : A_SUB, ASMOP_Y, 0, right_aop, i);
@@ -3395,7 +3395,7 @@ genSub (const iCode *ic, asmop *result_aop, asmop *left_aop, asmop *right_aop)
          }
        else if (i + 1 < size && !maskedword && x_free2 && right_aop->regs[XL_IDX] < i && right_aop->regs[XH_IDX] < i && // Efficient ldw makes using x worth it for f8l, despite no 16-bit arithmetic instructions.
          (aopInReg (result_aop, i, X_IDX) || result_aop->type == AOP_DIR || aopOnStack (result_aop, i, 2)) && (aopInReg (left_aop, i, X_IDX) || left_aop->type == AOP_DIR || aopOnStack (left_aop, i, 2)) &&
-         aopAre8_2 (ASMOP_X, 0, right_aop, i) && aopAre8_2 (ASMOP_X, 1, right_aop, i + 1))
+         aopAre8_2 (ASMOP_X, 0, right_aop, i) && aopAre8_2 (ASMOP_X, 1, right_aop, i + 1) && !(IS_F8L && (aopInReg(right_aop, i, XL_IDX) || aopInReg(right_aop, i + 1, XL_IDX))))
          {
            genMove_o (ASMOP_X, 0, left_aop, i, 2, true, true, false, false, !started);
            emit3sub_o (started ? A_SBC : A_SUB, ASMOP_X, 0, right_aop, i);
@@ -4014,25 +4014,70 @@ restore:
 static void
 genCritical (iCode *ic)
 {
-  push (ASMOP_X, 0, 2);
-  push (ASMOP_Y, 0, 2);
-  emit2 ("ldw", "y, #0x0010");
-  cost (3, 1);
-  emit3 (A_CLRW, ASMOP_X, 0);
-  emit2 ("xchw", "x, (y)");
-  cost (1, 1);
-  pop (ASMOP_Y, 0, 2);
-  emit2 ("xchw", "x, (0, sp)");
-  cost (1, 1);
+  D (emit2 ("; genCritical", ""));
+
+  if (ic && regDead (X_IDX, ic) && regDead (Y_IDX, ic))
+    {
+      emit2 ("ldw", "y, #0x0010");
+      cost (3, 1);
+      emit3 (A_CLRW, ASMOP_X, 0);
+      emit2 ("xchw", "x, (y)");
+      cost (1, 1);
+      push (ASMOP_X, 0, 2);
+    }
+  else
+    {
+      push (ASMOP_X, 0, 2);
+      push (ASMOP_Y, 0, 2);
+      emit2 ("ldw", "y, #0x0010");
+      cost (3, 1);
+      emit3 (A_CLRW, ASMOP_X, 0);
+      emit2 ("xchw", "x, (y)");
+      cost (1, 1);
+      if (!IS_F8L)
+        {
+          pop (ASMOP_Y, 0, 2);
+          emit2 ("xchw", "x, (0, sp)");
+          cost (1, 1);
+        }
+      else
+        {
+          emit2 ("ldw", "y, (2, sp)");
+          emit2 ("ldw", "(2, sp), x");
+          emit2 ("ldw", "x, y");
+          cost (6, 4);
+          pop (ASMOP_Y, 0, 2);
+        }
+    }
 }
 
 static void
 genEndCritical (iCode *ic)
 {
-  emit2 ("xchw", "y, (0, sp)");
-  emit2 ("ldw", "0x0010, y");
-  cost (5, 2);
-  pop (ASMOP_Y, 0, 2);
+  D (emit2 ("; genEndCritical", ""));
+
+  if (ic && regDead (Y_IDX, ic))
+    {
+      pop (ASMOP_Y, 0, 2);
+      emit2 ("ldw", "0x0010, y");
+      cost (3, 2);
+    }
+  else if (!IS_F8L)
+    {
+      emit2 ("xchw", "y, (0, sp)");
+      emit2 ("ldw", "0x0010, y");
+      cost (5, 4);
+      pop (ASMOP_Y, 0, 2);
+    }
+  else
+    {
+      push (ASMOP_Y, 0, 2);
+      emit2 ("ldw", "y, (2, sp)");
+      emit2 ("ldw", "0x0010, y");
+      cost (5, 2);
+      pop (ASMOP_Y, 0, 2);
+      adjustStack (2, false, false);
+    }
 }
 
 /*-----------------------------------------------------------------*/
@@ -4762,7 +4807,7 @@ genCmp (const iCode *ic, iCode *ifx)
 
   // To not swap operands if doing so complicates the code.
   if (ic->op == '>' && ifx && !sign &&
-    (size == 1 && aopAre8_2 (left->aop, 0, right->aop, 0) ||
+    (size == 1 && aopAre8_2 (left->aop, 0, right->aop, 0) && (!IS_F8L || !aopInReg (right->aop, 0, XL_IDX)) ||
      !IS_F8L && size == 2 && (right->aop->type == AOP_LIT || right->aop->type == AOP_IMMD) && aopIsAcc16 (left->aop, 0)))
     {
       if (size == 1)
@@ -4828,12 +4873,12 @@ genCmp (const iCode *ic, iCode *ifx)
         }
       goto return_c;
     }
-  else if (!sign && size == 1 && aopAre8_2 (left->aop, 0, right->aop, 0))
+  else if (!sign && size == 1 && aopAre8_2 (left->aop, 0, right->aop, 0) && (!IS_F8L || !aopInReg (right->aop, 0, XL_IDX)))
     emit3 (A_CP, left->aop, right->aop);
   else if (!IS_F8L && !sign && size == 2 && (right->aop->type == AOP_LIT || right->aop->type == AOP_IMMD) && aopIsAcc16 (left->aop, 0))
     emit3 (A_CPW, left->aop, right->aop);
   else if (ifx && // Use inverse jump condition.
-    (size == 1 && aopAre8_2 (right->aop, 0, left->aop, 0) || !IS_F8L && size == 2 && aopIsAcc16 (right->aop, 0) && (left->aop->type == AOP_LIT || left->aop->type == AOP_IMMD)))
+    (size == 1 && aopAre8_2 (right->aop, 0, left->aop, 0) && (!IS_F8L || !aopInReg (right->aop, 0, XL_IDX)) || !IS_F8L && size == 2 && aopIsAcc16 (right->aop, 0) && (left->aop->type == AOP_LIT || left->aop->type == AOP_IMMD)))
     {
       emit3 ((size == 1) ? A_CP : A_CPW, right->aop, left->aop);
       symbol *tlbl = 0;
@@ -4952,7 +4997,7 @@ genCmp (const iCode *ic, iCode *ifx)
               started = true;
               i += 2;
             }
-          else if ((!sign || ifx) && !started && aopAre8_2 (left->aop, i, right->aop, i))
+          else if ((!sign || ifx) && !started && aopAre8_2 (left->aop, i, right->aop, i) && (!IS_F8L || !aopInReg (right->aop, 0, XL_IDX)))
             {
               emit3_o (A_CP, left->aop, i, right->aop, i);
               started = true;
@@ -7010,6 +7055,7 @@ genPointerGet (const iCode *ic, iCode *ifx)
       goto extend_bitfield;
     }
   else if (!bit_field && size == 2 && !offset && aopIsAcc16 (result->aop, 0) && aopIsAcc16 (left->aop, 0) &&
+    (!IS_F8L || aopSame (result->aop, 0, left->aop, 0, 2)) &&
     !(aopInReg (result->aop, 0, Y_IDX) && aopInReg (left->aop, 0, X_IDX) || aopInReg (result->aop, 0, X_IDX) && aopInReg (left->aop, 0, Z_IDX)))
     {
       if (!regalloc_dry_run) // Save time of memory (de)allocation.
@@ -7096,7 +7142,8 @@ genPointerGet (const iCode *ic, iCode *ifx)
           i += 4;
           continue;
         }
-      if ((!bit_field && i + 2 <= size || blen >= 16) && (!IS_F8L || !(offset + i - last_oi) || use_z) &&
+      if ((!bit_field && i + 2 <= size || blen >= 16) &&
+        (!IS_F8L || !(offset + i - last_oi) || use_z) && (!IS_F8L || aopInReg (result->aop, i, Y_IDX) || use_z) &&
         (aopInReg (result->aop, i, Y_IDX) || aopInReg (result->aop, i, X_IDX) || aopInReg (result->aop, i, Z_IDX) ||
           (i + 2 == size && regDead (Y_IDX, ic) || x_dead) && (aopOnStack (result->aop, i, 2) || result->aop->type == AOP_DIR)))
         {
@@ -7398,7 +7445,7 @@ genPointerSet (const iCode *ic)
           continue;
         }
       else if ((!bit_field || blen >= 8) &&
-        (aopInReg (right->aop, i, XL_IDX) || aopInReg (right->aop, i, XH_IDX) || aopInReg (right->aop, i, ZL_IDX) || aopInReg (right->aop, i, ZH_IDX)))
+        (aopInReg (right->aop, i, XL_IDX) || aopInReg (right->aop, i, XH_IDX) || aopInReg (right->aop, i, ZH_IDX)))
         {
           if (!(i - last_i))
             {

@@ -5,7 +5,6 @@
 #include <testfwk.h>
 
 #pragma disable_warning 85
-#pragma disable_warning 196 /* passing the const source pointer to msx_vwrite_direct's void* parameter is the intended usage here, not a qualifier bug */
 
 const unsigned char *letras_tiles01;
 
@@ -13,7 +12,7 @@ extern void msx_vfill(unsigned int addr, unsigned int value, unsigned int count)
 {
 }
 
-extern void msx_vwrite_direct(void* source, unsigned int dest, unsigned int count) __smallc
+extern void msx_vwrite_direct(const void* source, unsigned int dest, unsigned int count) __smallc
 {
 }
 

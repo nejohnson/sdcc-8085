@@ -6,14 +6,13 @@
 
 #ifdef __SDCC
 #pragma std_c99
-#pragma disable_warning 196 /* the nested compound literals initializing struct C e are placed in read-only storage by this port, so taking their address for e.c/e.d's non-const pointer fields drops const - an implementation detail, not a bug in this upstream torture test */
 #endif
 
 /* PR middle-end/24109 */
 
 struct A { int i; int j; };
-struct B { struct A *a; struct A *b; };
-struct C { struct B *c; struct A *d; };
+struct B { struct A const *a; struct A const *b; };
+struct C { struct B const *c; struct A const *d; };
 struct C e = { &(struct B) { &(struct A) { 1, 2 }, &(struct A) { 3, 4 } }, &(struct A) { 5, 6 } };
 
 void

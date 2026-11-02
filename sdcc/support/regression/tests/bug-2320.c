@@ -6,7 +6,6 @@
 
 #pragma disable_warning 85
 #pragma disable_warning 283
-#pragma disable_warning 244 /* buffer is cast from an __xdata-qualified, unsigned char pointer to set up a fixed test address; the signedness/address-space mismatch is incidental to this z80 regalloc test */
 
 void as(char *c1, const char *c2, unsigned int i)
 {
@@ -21,10 +20,10 @@ extern void p(char *c,...)
 #define a(x) ((x) == 0 ? as(#x, __FILE__, __LINE__):(void)0)
 
 #define BACKING_STORAGE_SIZE 8192
-char *buffer;
+unsigned char *buffer;
 #define buffer_size (BACKING_STORAGE_SIZE-2)
 unsigned buffer_p, buffer_len;
-char *buffer_gap;
+unsigned char *buffer_gap;
 
 void buffer_invariants()
 {
@@ -48,3 +47,4 @@ void testBug(void)
 	buffer_gap = buffer + buffer_size - buffer_len + buffer_p;
 	buffer_invariants();
 }
+

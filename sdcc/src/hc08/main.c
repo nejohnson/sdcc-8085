@@ -211,7 +211,7 @@ _hc08_genAssemblerStart (FILE * of)
     fprintf (of, "\t.optsdcc -m%s\n", port->target);
 
   if (TARGET_IS_S08)
-    fprintf (of, "\t.cs08\n");
+    fprintf (of, "\t.hcs08\n");
 
   fprintf (of, "\n");
 
@@ -940,8 +940,8 @@ PORT hc08_port =
   0,                            /* leave == */
   false,                        /* No array initializer support. */
   cseCostEstimation,
-  "",                           // no builtin functions
-  GPOINTER,                     // treat unqualified pointers as "generic" pointers
+  "",                           /* no builtin functions */
+  GPOINTER,                     /* treat unqualified pointers as "generic" pointers */
   true,
   false,
   1,                            /* reset labelKey to 1 */
@@ -1090,8 +1090,8 @@ PORT s08_port =
   0,                            /* leave == */
   false,                        /* No array initializer support. */
   cseCostEstimation,
-  "",                           // no builtin functions
-  GPOINTER,                     // treat unqualified pointers as "generic" pointers
+  "",                           /* no builtin functions */
+  GPOINTER,                     /* treat unqualified pointers as "generic" pointers */
   true,
   false,
   1,                            /* reset labelKey to 1 */

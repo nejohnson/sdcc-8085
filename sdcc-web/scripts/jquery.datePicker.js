@@ -3,7 +3,7 @@
  * Dual licensed under the MIT (http://www.opensource.org/licenses/mit-license.php) 
  * and GPL (http://www.opensource.org/licenses/gpl-license.php) licenses.
  * .
- * $Id: jquery.datePicker.js 6562 2011-05-29 20:38:29Z borutr $
+ * $Id$
  **/
 
 (function($){
@@ -1171,7 +1171,7 @@
 		HEADER_FORMAT		:	'mmmm yyyy'
 	};
 	// version
-	$.dpVersion = '$Id: jquery.datePicker.js 6562 2011-05-29 20:38:29Z borutr $';
+	$.dpVersion = '$Id$';
 
 	$.fn.datePicker.defaults = {
 		month				: undefined,

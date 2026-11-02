@@ -2,8 +2,6 @@
 
 #include <testfwk.h>
 
-#pragma disable_warning 196 /* to_far/from_far deliberately use plain void* so both const and non-const objects (&ci, carray) exercise the same far-pointer round-trip - the qualifier drop is the point of this test, not a bug */
-
 #include <stdbool.h>
 
 #if !defined(__SDCC_r2k) && !defined(__SDCC_r2ka) && !defined(__SDCC_r3ka) && !defined(__SDCC_r4k) && !defined(__SDCC_r5k) && !defined(__SDCC_r6k) && !defined(__SDCC_tlcs90) /*&& !defined(__SDCC_ez80) TODO bug #3882*/
@@ -17,8 +15,8 @@ const int ci = 7;
 char array[4];
 const char carray[4];
 
-__far void *to_far(void *p);
-void *from_far(__far void *p);
+__far const void *to_far(const void *p);
+const void *from_far(__far const void *p);
 __far const char *objaddr_to_far(void);
 __far const char* cobjaddr_to_far(void);
 __far const char *aaddr_to_far(void);
@@ -39,16 +37,16 @@ void testPtr(void)
 	ASSERT(from_far(to_far(carray)) == carray);
 
 	// Commutativity of pointer arithmetic with casts.
-	ASSERT(from_far((__far char *)(to_far(array)) + 3) == array + 3);
-	ASSERT(from_far((__far char *)(to_far(carray)) + 3) == carray + 3);
+	ASSERT(from_far((__far const char *)(to_far(array)) + 3) == array + 3);
+	ASSERT(from_far((__far const char *)(to_far(carray)) + 3) == carray + 3);
 }
 
-__far void *to_far(void *p)
+__far const void *to_far(const void *p)
 {
 	return p;
 }
 
-void *from_far(__far void *p)
+const void *from_far(__far const void *p)
 {
 	return p;
 }

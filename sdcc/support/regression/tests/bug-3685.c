@@ -7,7 +7,6 @@
 #include <testfwk.h>
 
 #pragma disable_warning 85
-#pragma disable_warning 196 /* pixels/colours are const uint8_t *const [] decaying to const uint8_t *const * vs vdu_image_put's const uint8_t ** params - an incidental array-qualifier mismatch, unrelated to the iy-register addition bug under test */
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -40,7 +39,7 @@ void vdu_tiles_put( uint16_t offset, const uint8_t *pixels, const uint8_t *colou
 uint16_t decompress_vdu(const uint8_t *compressed_data, uint16_t dest ) {}
 
 ///< Render image to screen
-void vdu_image_put( const uint8_t **pixels, const uint8_t **colours, const uint8_t *index ) {
+void vdu_image_put( const uint8_t *const *pixels, const uint8_t *const *colours, const uint8_t *index ) {
 
     ///< Load data
     uint16_t segmentOffset = 0;
